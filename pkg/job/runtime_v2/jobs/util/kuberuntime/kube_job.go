@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -670,6 +671,74 @@ func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member
 	return nil
 }
 
+// GetKubeflowJobStatus covert job status of kubeflow application to paddleflow job status
+func GetKubeflowJobStatus(jobCond kubeflowv1.JobCondition) (schema.JobStatus, string, error) {
+	status := schema.JobStatus("")
+	msg := jobCond.Message
+	switch jobCond.Type {
+	case kubeflowv1.JobCreated:
+		status = schema.StatusJobPending
+	case kubeflowv1.JobRunning, kubeflowv1.JobRestarting:
+		status = schema.StatusJobRunning
+	case kubeflowv1.JobSucceeded:
+		status = schema.StatusJobSucceeded
+	case kubeflowv1.JobFailed:
+		status = schema.StatusJobFailed
+	default:
+		return status, msg, fmt.Errorf("unexpected job status: %s", jobCond.Type)
+	}
+	return status, msg, nil
+}
+
+// BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
+func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *schema.Member) error {
+	if podSpec == nil || task == nil {
+		return fmt.Errorf("podTemplateSpec or task is nil")
+	}
+
+	err := BuildPodSpec(&podSpec.Spec, *task)
+	if err != nil {
+		log.Errorf("build pod spec failed, err: %v", err)
+		return err
+	}
+	// TODO: remove hard coded schedulerName when upstream package is fixed
+	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
+	// see issue https://github.com/kubeflow/training-operator/issues/1630
+	podSpec.Spec.SchedulerName = "default-scheduler"
+	return nil
+}
+
+// KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
+func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Member) error {
+	if replicaSpec == nil || task == nil {
+		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
+	}
+	// set Replicas for job
+	replicas := int32(task.Replicas)
+	replicaSpec.Replicas = &replicas
+	// set RestartPolicy
+	// TODO: make RestartPolicy configurable
+	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
+	// set PodTemplate
+	return BuildPodTemplateSpec(&replicaSpec.Template, task)
+}
+
+// KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
+func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
+	if runPolicy == nil {
+		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
+	}
+	// TODO set cleanPolicy
+	// set SchedulingPolicy
+	if runPolicy.SchedulingPolicy == nil {
+		runPolicy.SchedulingPolicy = &kubeflowv1.SchedulingPolicy{}
+	}
+	runPolicy.SchedulingPolicy.Queue = queueName
+	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
+	runPolicy.SchedulingPolicy.MinResources = minResources
+	return nil
+}
+
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
 
 // getPodGroupName get the name of pod group
@@ -708,7 +777,7 @@ func getPodGroupName(jobID string) string {
 	return pgName
 }
 
-func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
+func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
 	// get pod group name for job
 	pgName := getPodGroupName(jobInfo.ID)
 	if len(pgName) == 0 {
@@ -751,7 +820,7 @@ func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 	return err
 }
 
-func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
+func kubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
 	if jobInfo == nil {
 		return nil, fmt.Errorf("job is nil")
 	}
@@ -775,4 +844,32 @@ func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
 		}
 	}
 	return updateData, err
+}
+
+func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.FrameworkVersion) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+
+	jobmsg := fmt.Sprintf("%s job %s on %s", fv.String(), job.NamespacedName(), runtimeClient.Cluster())
+	// update job priority
+	if len(job.PriorityClassName) != 0 {
+		err := updateKubeJobPriority(job, runtimeClient)
+		if err != nil {
+			log.Errorf("update %s failed, err: %v", jobmsg, err)
+			return err
+		}
+	}
+	// update job labels or annotations
+	data, err := kubeJobUpdatedData(job)
+	if err != nil {
+		log.Errorf("update %s failed, err: %v", jobmsg, err)
+		return err
+	}
+	log.Infof("begin to update %s, data: %s", jobmsg, string(data))
+	if err = runtimeClient.Patch(job.Namespace, job.ID, fv, data); err != nil {
+		log.Errorf("update %s failed, err: %v", jobmsg, err)
+		return err
+	}
+	return nil
 }

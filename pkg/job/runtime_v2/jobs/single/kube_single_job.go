@@ -142,22 +142,8 @@ func (sp *KubeSingleJob) Update(ctx context.Context, job *api.PFJob) error {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	// update job priority
-	if len(job.PriorityClassName) != 0 {
-		err := kuberuntime.UpdateKubeJobPriority(job, sp.runtimeClient)
-		if err != nil {
-			log.Errorf("update %s failed, err: %v", sp.String(jobName), err)
-			return err
-		}
-	}
-	// update job labels or annotations
-	data, err := kuberuntime.KubeJobUpdatedData(job)
-	if err != nil {
-		log.Errorf("update %s failed, err: %v", sp.String(jobName), err)
-		return err
-	}
-	log.Infof("begin to update %s, data: %s", sp.String(jobName), string(data))
-	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, sp.frameworkVersion, data); err != nil {
+	log.Infof("begin to update %s", sp.String(jobName))
+	if err := kuberuntime.UpdateKubeJob(job, sp.runtimeClient, sp.frameworkVersion); err != nil {
 		log.Errorf("update %s failed, err: %v", sp.String(jobName), err)
 		return err
 	}
