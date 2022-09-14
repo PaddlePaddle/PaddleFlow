@@ -225,13 +225,6 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 					if utils.IsError(err) {
 						return entry, err
 					}
-					if v.Store != nil {
-						delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(size))
-						if delCacheErr != nil {
-							// todo:: 先忽略删除缓存的错误，需要保证一致性
-							log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
-						}
-					}
 				}
 			}
 		}
@@ -246,9 +239,16 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 		Mtimensec: mtimensec,
 		Size:      size,
 	}
-	err = v.Meta.SetAttr(ctx, ino, set, attr)
+	path, err := v.Meta.SetAttr(ctx, ino, set, attr)
 	if utils.IsError(err) {
 		return entry, err
+	}
+	if v.Store != nil {
+		delCacheErr := v.Store.InvalidateCache(path, int(size))
+		if delCacheErr != nil {
+			// todo:: 先忽略删除缓存的错误，需要保证一致性
+			log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
+		}
 	}
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
@@ -317,17 +317,18 @@ func (v *VFS) Rmdir(ctx *meta.Context, parent Ino, name string) (err syscall.Err
 func (v *VFS) Rename(ctx *meta.Context, parent Ino, name string, newparent Ino, newname string, flags uint32) (err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Rename(ctx, parent, name, newparent, newname, flags, &ino, attr)
+	src, dst, err := v.Meta.Rename(ctx, parent, name, newparent, newname, flags, &ino, attr)
 	if utils.IsError(err) {
 		return err
 	}
 	if v.Store != nil {
-		delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(parent)+"/"+name, int(attr.Size))
+		delCacheErr := v.Store.InvalidateCache(src, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("rename delete cache error %v:", delCacheErr)
 		}
-		delCacheErr = v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
+		log.Debugf("rename inode %v", ino)
+		delCacheErr = v.Store.InvalidateCache(dst, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("rename delete cache error %v:", delCacheErr)
@@ -430,7 +431,7 @@ func (v *VFS) Create(ctx *meta.Context, parent Ino, name string, mode uint32, cu
 		return nil, 0, utils.ToSyscallErrno(errHandle)
 	}
 	if v.Store != nil {
-		delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
+		delCacheErr := v.Store.InvalidateCache(path, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("create delete cache error %v:", delCacheErr)
