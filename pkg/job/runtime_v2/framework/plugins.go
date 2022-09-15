@@ -65,3 +65,47 @@ func GetJobBuilder(runtimeType string, frameworkVersion schema.FrameworkVersion)
 	}
 	return jobBuilder, found
 }
+
+// Queue register
+
+// QueueBuilder defines queue interface
+type QueueBuilder = func(RuntimeClientInterface) QueueInterface
+
+var queueMutex sync.RWMutex
+var queueBuilders = map[string]QueueBuilder{}
+
+func RegisterQueueBuilder(runtimeType string, quotaType schema.FrameworkVersion, queue QueueBuilder) {
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.Lock()
+		defer queueMutex.Unlock()
+		queueBuilders[quotaType.String()] = queue
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+}
+
+func CleanupQueueBuilders(runtimeType string) {
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.Lock()
+		defer queueMutex.Unlock()
+		queueBuilders = map[string]QueueBuilder{}
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+}
+
+func GetQueueBuilder(runtimeType string, quotaType schema.FrameworkVersion) (QueueBuilder, bool) {
+	var queueBuilder QueueBuilder
+	var found bool
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.RLock()
+		defer queueMutex.RUnlock()
+		queueBuilder, found = queueBuilders[quotaType.String()]
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+	return queueBuilder, found
+}
