@@ -26,12 +26,20 @@ import (
 )
 
 func QueueDeleteFunc(obj interface{}, workQueue workqueue.RateLimitingInterface) {
-	queueObj := obj.(*unstructured.Unstructured)
+	if obj == nil || workQueue == nil {
+		log.Warnf("queue obj or workQueue is nil ")
+		return
+	}
+	unObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		log.Warnf("convert obj to unstructed failed")
+		return
+	}
 	qSyncInfo := &api.QueueSyncInfo{
-		Name:   queueObj.GetName(),
+		Name:   unObj.GetName(),
 		Action: pfschema.Delete,
 		Status: pfschema.StatusQueueUnavailable,
 	}
 	workQueue.Add(qSyncInfo)
-	log.Infof("watch queue %s is deleted, type is %s", queueObj.GetName(), queueObj.GroupVersionKind())
+	log.Infof("watch queue %s is deleted, type is %s", unObj.GetName(), unObj.GroupVersionKind())
 }

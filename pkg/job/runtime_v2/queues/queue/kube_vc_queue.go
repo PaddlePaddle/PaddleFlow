@@ -19,10 +19,10 @@ package queue
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,25 +43,27 @@ var (
 	KubeVCQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
 )
 
-// KubeElasticQuota is an executor struct that runs a single pod
-type KubeElasticQuota struct {
-	GVK           schema.GroupVersionKind
-	runtimeClient framework.RuntimeClientInterface
-	workQueue     workqueue.RateLimitingInterface
+// KubeVCQueue is an executor struct that runs a single pod
+type KubeVCQueue struct {
+	GVK             schema.GroupVersionKind
+	resourceVersion pfschema.FrameworkVersion
+	runtimeClient   framework.RuntimeClientInterface
+	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
-	return &KubeElasticQuota{
-		runtimeClient: client,
-		GVK:           QueueGVK,
+	return &KubeVCQueue{
+		resourceVersion: KubeVCQueueQuotaType,
+		runtimeClient:   client,
+		GVK:             QueueGVK,
 	}
 }
 
-func (eq *KubeElasticQuota) String(name string) string {
-	return fmt.Sprintf("%s queue %s on %s", eq.GVK.String(), name, eq.runtimeClient.Cluster())
+func (vcq *KubeVCQueue) String(name string) string {
+	return fmt.Sprintf("%s queue %s on %s", vcq.GVK.String(), name, vcq.runtimeClient.Cluster())
 }
 
-func (eq *KubeElasticQuota) Create(ctx context.Context, q *api.QueueInfo) error {
+func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
@@ -77,22 +79,22 @@ func (eq *KubeElasticQuota) Create(ctx context.Context, q *api.QueueInfo) error 
 			State: v1beta1.QueueStateOpen,
 		},
 	}
-	log.Debugf("Create %s, info: %#v", eq.String(q.Name), vcQueue)
-	err := eq.runtimeClient.Create(vcQueue, KubeVCQueueQuotaType)
+	log.Debugf("Create %s, info: %#v", vcq.String(q.Name), vcQueue)
+	err := vcq.runtimeClient.Create(vcQueue, vcq.resourceVersion)
 	if err != nil {
-		log.Errorf("Create %s falied, err: %s", eq.String(q.Name), err)
+		log.Errorf("Create %s falied, err: %s", vcq.String(q.Name), err)
 		return err
 	}
 	return nil
 }
 
-func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error {
+func (vcq *KubeVCQueue) Update(ctx context.Context, q *api.QueueInfo) error {
 	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 
-	obj, err := eq.runtimeClient.Get(q.Namespace, q.Name, KubeVCQueueQuotaType)
+	obj, err := vcq.runtimeClient.Get(q.Namespace, q.Name, vcq.resourceVersion)
 	if err != nil {
-		log.Errorf("get %s failed, err: %s", eq.String(q.Name), err)
+		log.Errorf("get %s failed, err: %s", vcq.String(q.Name), err)
 		return err
 	}
 	unObj := obj.(*unstructured.Unstructured)
@@ -100,46 +102,46 @@ func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error 
 	var vcQueue = &v1beta1.Queue{}
 	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, vcQueue)
 	if err != nil {
-		log.Errorf("convert unstructured object %v to %s failed, err: %s", unObj.Object, eq.String(q.Name), err)
+		log.Errorf("convert unstructured object %v to %s failed, err: %s", unObj.Object, vcq.String(q.Name), err)
 		return err
 	}
 	vcQueue.Spec.Capability = k8s.NewResourceList(q.MaxResources)
 	vcQueue.Status.State = v1beta1.QueueState(q.Status)
 
-	log.Infof("begin to update %s, info: %#v", eq.String(q.Name), vcQueue)
-	if err = eq.runtimeClient.Update(vcQueue, KubeVCQueueQuotaType); err != nil {
-		log.Errorf("update %s falied. err: %s", eq.String(q.Name), err)
+	log.Infof("begin to update %s, info: %#v", vcq.String(q.Name), vcQueue)
+	if err = vcq.runtimeClient.Update(vcQueue, vcq.resourceVersion); err != nil {
+		log.Errorf("update %s falied. err: %s", vcq.String(q.Name), err)
 		return err
 	}
 	return nil
 }
 
-func (eq *KubeElasticQuota) Delete(ctx context.Context, queue *api.QueueInfo) error {
-	if queue == nil {
+func (vcq *KubeVCQueue) Delete(ctx context.Context, q *api.QueueInfo) error {
+	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
-	log.Infof("begin to delete %s ", eq.String(queue.Name))
-	if err := eq.runtimeClient.Delete(queue.Namespace, queue.Name, KubeVCQueueQuotaType); err != nil {
-		log.Errorf("delete %s failed, err %v", eq.String(queue.Name), err)
+	log.Infof("begin to delete %s ", vcq.String(q.Name))
+	if err := vcq.runtimeClient.Delete(q.Namespace, q.Name, vcq.resourceVersion); err != nil {
+		log.Errorf("delete %s failed, err %v", vcq.String(q.Name), err)
 		return err
 	}
 	return nil
 }
 
-func (eq *KubeElasticQuota) AddEventListener(ctx context.Context, listenerType string,
+func (vcq *KubeVCQueue) AddEventListener(ctx context.Context, listenerType string,
 	eventQ workqueue.RateLimitingInterface, listener interface{}) error {
 	if eventQ == nil || listener == nil {
 		return fmt.Errorf("add event listener failed, err: listener is nil")
 	}
-	eq.workQueue = eventQ
+	vcq.workQueue = eventQ
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeQueue:
 		informer := listener.(cache.SharedIndexInformer)
 		informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    eq.add,
-			UpdateFunc: eq.update,
-			DeleteFunc: eq.delete,
+			AddFunc:    vcq.add,
+			UpdateFunc: vcq.update,
+			DeleteFunc: vcq.delete,
 		})
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
@@ -147,13 +149,13 @@ func (eq *KubeElasticQuota) AddEventListener(ctx context.Context, listenerType s
 	return err
 }
 
-func (eq *KubeElasticQuota) add(obj interface{}) {
+func (vcq *KubeVCQueue) add(obj interface{}) {
 	newObj := obj.(*unstructured.Unstructured)
 	name := newObj.GetName()
 	// convert to ElasticResourceQuota struct
 	vcQueue := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newObj.Object, vcQueue); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", obj, eq.String(name), err)
+		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", obj, vcq.String(name), err)
 		return
 	}
 	qSyncInfo := &api.QueueSyncInfo{
@@ -166,23 +168,23 @@ func (eq *KubeElasticQuota) add(obj interface{}) {
 		QuotaType: pfschema.TypeVolcanoCapabilityQuota,
 		Namespace: newObj.GetNamespace(),
 	}
-	eq.workQueue.Add(qSyncInfo)
-	log.Infof("watch %s is added", eq.String(name))
+	vcq.workQueue.Add(qSyncInfo)
+	log.Infof("watch %s is added", vcq.String(name))
 }
 
-func (eq *KubeElasticQuota) update(old, new interface{}) {
+func (vcq *KubeVCQueue) update(old, new interface{}) {
 	oldObj := old.(*unstructured.Unstructured)
 	newObj := new.(*unstructured.Unstructured)
 
 	name := newObj.GetName()
 	oldQ := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldObj.Object, oldQ); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", oldObj, eq.String(name), err)
+		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", oldObj, vcq.String(name), err)
 		return
 	}
 	newQ := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newObj.Object, newQ); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s failed. error: %s", newObj, eq.String(name), err)
+		log.Errorf("convert unstructured object [%+v] to %s failed. error: %s", newObj, vcq.String(name), err)
 		return
 	}
 	// Check whether vc queue is updated or not
@@ -196,8 +198,8 @@ func (eq *KubeElasticQuota) update(old, new interface{}) {
 		Status:      getVCQueueStatus(newQ.Status.State),
 	}
 	msg := fmt.Sprintf("old queue spec: %v, new queue spec: %v", oldQ.Spec, newQ.Spec)
-	eq.workQueue.Add(qSyncInfo)
-	log.Infof("watch %s is updated, message: %s", eq.String(name), msg)
+	vcq.workQueue.Add(qSyncInfo)
+	log.Infof("watch %s is updated, message: %s", vcq.String(name), msg)
 }
 
 func getVCQueueStatus(state v1beta1.QueueState) string {
@@ -215,6 +217,6 @@ func getVCQueueStatus(state v1beta1.QueueState) string {
 	return status
 }
 
-func (eq *KubeElasticQuota) delete(obj interface{}) {
-	kuberuntime.QueueDeleteFunc(obj, eq.workQueue)
+func (vcq *KubeVCQueue) delete(obj interface{}) {
+	kuberuntime.QueueDeleteFunc(obj, vcq.workQueue)
 }

@@ -19,10 +19,10 @@ package elasticquota
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,15 +45,17 @@ var (
 
 // KubeElasticQuota is an executor struct that runs a single pod
 type KubeElasticQuota struct {
-	GVK           schema.GroupVersionKind
-	runtimeClient framework.RuntimeClientInterface
-	workQueue     workqueue.RateLimitingInterface
+	GVK             schema.GroupVersionKind
+	resourceVersion pfschema.FrameworkVersion
+	runtimeClient   framework.RuntimeClientInterface
+	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeElasticQuota{
-		runtimeClient: client,
-		GVK:           QueueGVK,
+		resourceVersion: KubeElasticQuotaType,
+		runtimeClient:   client,
+		GVK:             QueueGVK,
 	}
 }
 
@@ -79,7 +81,7 @@ func (eq *KubeElasticQuota) Create(ctx context.Context, q *api.QueueInfo) error 
 		},
 	}
 	log.Debugf("Create %s, info: %#v", eq.String(q.Name), equota)
-	err := eq.runtimeClient.Create(equota, KubeElasticQuotaType)
+	err := eq.runtimeClient.Create(equota, eq.resourceVersion)
 	if err != nil {
 		log.Errorf("Create %s falied, err: %s", eq.String(q.Name), err)
 		return err
@@ -92,7 +94,7 @@ func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error 
 		return fmt.Errorf("queue is nil")
 	}
 	// get elastic quota from cluster
-	obj, err := eq.runtimeClient.Get(q.Namespace, q.Name, KubeElasticQuotaType)
+	obj, err := eq.runtimeClient.Get(q.Namespace, q.Name, eq.resourceVersion)
 	if err != nil {
 		log.Errorf("get %s failed, err: %s", eq.String(q.Name), err)
 		return err
@@ -120,7 +122,7 @@ func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error 
 	equota.Labels = newLabels
 
 	log.Infof("begin to update %s, info: %#v", eq.String(q.Name), equota)
-	if err = eq.runtimeClient.Update(equota, KubeElasticQuotaType); err != nil {
+	if err = eq.runtimeClient.Update(equota, eq.resourceVersion); err != nil {
 		log.Errorf("update %s falied. err: %s", eq.String(q.Name), err)
 		return err
 	}
@@ -132,7 +134,7 @@ func (eq *KubeElasticQuota) Delete(ctx context.Context, q *api.QueueInfo) error 
 		return fmt.Errorf("queue is nil")
 	}
 	log.Infof("begin to delete %s ", eq.String(q.Name))
-	if err := eq.runtimeClient.Delete(q.Namespace, q.Name, KubeElasticQuotaType); err != nil {
+	if err := eq.runtimeClient.Delete(q.Namespace, q.Name, eq.resourceVersion); err != nil {
 		log.Errorf("delete %s failed, err %v", eq.String(q.Name), err)
 		return err
 	}
