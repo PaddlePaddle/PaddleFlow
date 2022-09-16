@@ -19,12 +19,12 @@ package queue
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticquota"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticqueue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 )
 
 func init() {
-	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticquota.KubeElasticQuotaType, elasticquota.New)
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticqueue.KubeElasticQuotaType, elasticqueue.New)
 	framework.RegisterQueuePlugin(pfschema.KubernetesType, vcqueue.KubeVCQueueQuotaType, vcqueue.New)
 	// TODO: add more plugin
 }
