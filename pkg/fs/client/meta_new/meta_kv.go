@@ -655,15 +655,8 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			return syscall.ENOENT
 		}
 		m.parseInode(a, &cur)
-		*attr = cur.attr
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
-		cur.attr = *attr
-		cur.expire = now.Add(m.attrTimeOut).Unix()
-		err := tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
-		if err != nil {
-			return err
-		}
 		absolutePath = m.fullPath(inode)
 		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
 		ufsAttr, err := ufs_.GetAttr(path)
@@ -675,12 +668,15 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			ufsAttr.FixLinkPrefix(prefix)
 		}
 		if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
+			cur.attr.Uid = attr.Uid
+			cur.attr.Gid = attr.Gid
 			if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
 				return err
 			}
 		}
 
 		if set&FATTR_MODE != 0 {
+			cur.attr.Mode = attr.Mode
 			if err = ufs_.Chmod(path, attr.Mode); err != nil {
 				return err
 			}
@@ -689,9 +685,17 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
 			atime := time.Unix(attr.Atime, int64(attr.Atimensec))
 			ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
+			cur.attr.Atime = attr.Atime
+			cur.attr.Atimensec = attr.Atimensec
+			cur.attr.Ctime = attr.Ctime
+			cur.attr.Ctimensec = attr.Ctimensec
 			if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
 				return utils.ToSyscallErrno(err)
 			}
+		}
+		err = tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
+		if err != nil {
+			return err
 		}
 		return nil
 	})
