@@ -655,6 +655,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			return syscall.ENOENT
 		}
 		m.parseInode(a, &cur)
+		*attr = cur.attr
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
 		cur.attr = *attr
@@ -1240,16 +1241,8 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 	insertInodeItem_.name = []byte(name)
 	insertInodeItem_.expire = now.Add(m.attrTimeOut).Unix()
 
-	absolutePath := filepath.Join(m.fullPath(parent), name)
-	ufs, _, _, newPath := m.GetUFS(absolutePath)
-	fh, err := ufs.Create(newPath, flags, mode)
-	if err != nil {
-		log.Errorf("Create: name[%s], flags[%d], mode[%d], failed: [%v]",
-			name, flags, mode, err)
-		return nil, newPath, utils.ToSyscallErrno(err)
-	}
-	defer fh.Release()
-
+	var newPath string
+	var ufs ufslib.UnderFileStorage
 	err = m.txn(func(tx kv_new.KvTxn) error {
 		a := tx.Get(m.inodeKey(parent))
 		if a == nil {
@@ -1292,6 +1285,16 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 		if err != nil {
 			return err
 		}
+
+		absolutePath := filepath.Join(m.fullPath(parent), name)
+		ufs, _, _, newPath = m.GetUFS(absolutePath)
+		fh, err := ufs.Create(newPath, flags, mode)
+		if err != nil {
+			log.Errorf("Create: name[%s], flags[%d], mode[%d], failed: [%v]",
+				name, flags, mode, err)
+			return err
+		}
+		defer fh.Release()
 
 		return nil
 	})
