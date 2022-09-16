@@ -45,7 +45,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -119,7 +119,7 @@ func (kr *KubeRuntime) Init() error {
 }
 
 func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
-	jobBuilder, found := framework.GetJobBuilder(kr.cluster.Type, fwVersion)
+	jobBuilder, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
 	if !found {
 		log.Errorf("get %s job on %s failed, err: this job is not implemented", fwVersion, kr.String())
 		return &framework.JobSample{}
