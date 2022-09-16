@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticqueue.KubeElasticQuotaType, elasticqueue.New)
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticqueue.KubeElasticQueueQuotaType, elasticqueue.New)
 	framework.RegisterQueuePlugin(pfschema.KubernetesType, vcqueue.KubeVCQueueQuotaType, vcqueue.New)
 	// TODO: add more plugin
 }

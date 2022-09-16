@@ -39,12 +39,12 @@ import (
 )
 
 var (
-	QueueGVK             = k8s.EQuotaGVK
-	KubeElasticQuotaType = client.KubeFrameworkVersion(QueueGVK)
+	QueueGVK                  = k8s.EQuotaGVK
+	KubeElasticQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
 )
 
-// KubeElasticQuota is an executor struct that runs a single pod
-type KubeElasticQuota struct {
+// KubeElasticQueue is an executor struct that runs a single pod
+type KubeElasticQueue struct {
 	GVK             schema.GroupVersionKind
 	resourceVersion pfschema.FrameworkVersion
 	runtimeClient   framework.RuntimeClientInterface
@@ -52,18 +52,18 @@ type KubeElasticQuota struct {
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
-	return &KubeElasticQuota{
-		resourceVersion: KubeElasticQuotaType,
+	return &KubeElasticQueue{
+		resourceVersion: KubeElasticQueueQuotaType,
 		runtimeClient:   client,
 		GVK:             QueueGVK,
 	}
 }
 
-func (eq *KubeElasticQuota) String(name string) string {
+func (eq *KubeElasticQueue) String(name string) string {
 	return fmt.Sprintf("%s queue %s on %s", eq.GVK.String(), name, eq.runtimeClient.Cluster())
 }
 
-func (eq *KubeElasticQuota) Create(ctx context.Context, q *api.QueueInfo) error {
+func (eq *KubeElasticQueue) Create(ctx context.Context, q *api.QueueInfo) error {
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
@@ -89,7 +89,7 @@ func (eq *KubeElasticQuota) Create(ctx context.Context, q *api.QueueInfo) error 
 	return nil
 }
 
-func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error {
+func (eq *KubeElasticQueue) Update(ctx context.Context, q *api.QueueInfo) error {
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
@@ -129,7 +129,7 @@ func (eq *KubeElasticQuota) Update(ctx context.Context, q *api.QueueInfo) error 
 	return nil
 }
 
-func (eq *KubeElasticQuota) Delete(ctx context.Context, q *api.QueueInfo) error {
+func (eq *KubeElasticQueue) Delete(ctx context.Context, q *api.QueueInfo) error {
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
@@ -141,7 +141,7 @@ func (eq *KubeElasticQuota) Delete(ctx context.Context, q *api.QueueInfo) error 
 	return nil
 }
 
-func (eq *KubeElasticQuota) AddEventListener(ctx context.Context, listenerType string,
+func (eq *KubeElasticQueue) AddEventListener(ctx context.Context, listenerType string,
 	eventQ workqueue.RateLimitingInterface, listener interface{}) error {
 	if eventQ == nil || listener == nil {
 		return fmt.Errorf("add event listener failed, err: listener is nil")
@@ -162,7 +162,7 @@ func (eq *KubeElasticQuota) AddEventListener(ctx context.Context, listenerType s
 	return err
 }
 
-func (eq *KubeElasticQuota) add(obj interface{}) {
+func (eq *KubeElasticQueue) add(obj interface{}) {
 	newObj := obj.(*unstructured.Unstructured)
 	name := newObj.GetName()
 	// convert to ElasticResourceQuota struct
@@ -178,7 +178,7 @@ func (eq *KubeElasticQuota) add(obj interface{}) {
 		MaxResource: k8s.NewResource(eQuota.Spec.Max),
 		MinResource: k8s.NewResource(eQuota.Spec.Min),
 		// set elastic resource quota status
-		Status:    getEQuotaStatus(eQuota.Status),
+		Status:    getQueueStatus(eQuota.Status),
 		QuotaType: pfschema.TypeElasticQuota,
 		Namespace: eQuota.Spec.Namespace,
 	}
@@ -186,7 +186,7 @@ func (eq *KubeElasticQuota) add(obj interface{}) {
 	log.Infof("watch %s is added", eq.String(name))
 }
 
-func (eq *KubeElasticQuota) update(old, new interface{}) {
+func (eq *KubeElasticQueue) update(old, new interface{}) {
 	oldObj := old.(*unstructured.Unstructured)
 	newObj := new.(*unstructured.Unstructured)
 
@@ -210,14 +210,14 @@ func (eq *KubeElasticQuota) update(old, new interface{}) {
 		Action:      pfschema.Update,
 		MaxResource: k8s.NewResource(newEQuota.Spec.Max),
 		MinResource: k8s.NewResource(newEQuota.Spec.Min),
-		Status:      getEQuotaStatus(newEQuota.Status),
+		Status:      getQueueStatus(newEQuota.Status),
 	}
 	msg := fmt.Sprintf("old queue spec: %v, new queue spec: %v", oldEQuota.Spec, newEQuota.Spec)
 	eq.workQueue.Add(qSyncInfo)
 	log.Infof("watch %s is updated, message: %s", eq.String(name), msg)
 }
 
-func getEQuotaStatus(state v1beta1.ElasticResourceQuotaStatus) string {
+func getQueueStatus(state v1beta1.ElasticResourceQuotaStatus) string {
 	status := pfschema.StatusQueueOpen
 	if !state.IsLeaf {
 		status = pfschema.StatusQueueClosed
@@ -225,6 +225,6 @@ func getEQuotaStatus(state v1beta1.ElasticResourceQuotaStatus) string {
 	return status
 }
 
-func (eq *KubeElasticQuota) delete(obj interface{}) {
+func (eq *KubeElasticQueue) delete(obj interface{}) {
 	kuberuntime.QueueDeleteFunc(obj, eq.workQueue)
 }
