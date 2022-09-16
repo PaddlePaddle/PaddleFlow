@@ -35,7 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queues/util/kuberuntime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/util/kuberuntime"
 )
 
 var (

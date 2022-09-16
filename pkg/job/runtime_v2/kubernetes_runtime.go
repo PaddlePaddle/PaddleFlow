@@ -46,7 +46,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs"
-	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queues"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 

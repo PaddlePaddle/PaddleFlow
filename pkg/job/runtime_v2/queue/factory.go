@@ -14,17 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package queues
+package queue
 
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queues/elasticquota"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queues/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticquota"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 )
 
 func init() {
-	framework.RegisterQueue(pfschema.KubernetesType, elasticquota.KubeElasticQuotaType, elasticquota.New)
-	framework.RegisterQueue(pfschema.KubernetesType, queue.KubeVCQueueQuotaType, queue.New)
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticquota.KubeElasticQuotaType, elasticquota.New)
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, vcqueue.KubeVCQueueQuotaType, vcqueue.New)
 	// TODO: add more plugin
 }

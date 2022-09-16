@@ -74,7 +74,7 @@ type QueuePlugin = func(RuntimeClientInterface) QueueInterface
 var queueMutex sync.RWMutex
 var queueMaps = map[string]QueuePlugin{}
 
-func RegisterQueue(runtimeType string, quotaType schema.FrameworkVersion, queue QueuePlugin) {
+func RegisterQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion, queue QueuePlugin) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		queueMutex.Lock()
@@ -85,7 +85,7 @@ func RegisterQueue(runtimeType string, quotaType schema.FrameworkVersion, queue 
 	}
 }
 
-func CleanupQueue(runtimeType string) {
+func CleanupQueuePlugin(runtimeType string) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		queueMutex.Lock()
@@ -96,7 +96,7 @@ func CleanupQueue(runtimeType string) {
 	}
 }
 
-func GetQueue(runtimeType string, quotaType schema.FrameworkVersion) (QueuePlugin, bool) {
+func GetQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion) (QueuePlugin, bool) {
 	var queuePlugin QueuePlugin
 	var found bool
 	switch runtimeType {
