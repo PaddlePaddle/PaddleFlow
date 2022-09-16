@@ -14,20 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package jobs
+package job
 
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/paddle"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/pytorch"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/single"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/pytorch"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/single"
 )
 
 func init() {
 	// Plugins for Jobs
-	framework.RegisterJobBuilder(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
-	framework.RegisterJobBuilder(pfschema.KubernetesType, paddle.KubePaddleFwVersion, paddle.New)
-	framework.RegisterJobBuilder(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, paddle.KubePaddleFwVersion, paddle.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
 	// TODO: add more plugins
 }

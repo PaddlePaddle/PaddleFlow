@@ -39,7 +39,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
