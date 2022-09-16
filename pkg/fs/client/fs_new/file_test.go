@@ -19,6 +19,7 @@ package fs
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ import (
 	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
 	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv_new"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -161,6 +162,94 @@ func TestFsStat(t *testing.T) {
 	info2, err := client.Stat(path)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, info2.ModTime(), info.ModTime())
+}
+
+func TestFS_Readdir_Expire(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 10,
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	m := meta.Config{
+		AttrCacheExpire:  10 * time.Second,
+		EntryCacheExpire: 2 * time.Second,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+
+	SetMetaCache(m)
+	// new client
+	client, err := newPfsTest()
+	assert.Nil(t, err)
+	//mkdir
+	testdir1 := "dir1"
+	err = client.Mkdir(testdir1, 0755)
+	assert.Nil(t, err)
+	//new file
+	mode := 0644
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	testfile1 := "testfile1"
+	_, err = client.Create(filepath.Join(testdir1, testfile1), uint32(flags), uint32(mode))
+	assert.Nil(t, err)
+	testfile2 := "testfile2"
+	_, err = client.Create(filepath.Join(testdir1, testfile2), uint32(flags), uint32(mode))
+	assert.Nil(t, err)
+
+	dir, err := client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err := dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 2)
+	//另开一个客户端去写一个新文件
+	go func() {
+		d := cache.Config{
+			BlockSize:    4,
+			MaxReadAhead: 10,
+			Expire:       10 * time.Second,
+			Config: kv.Config{
+				Driver:    kv.MemType,
+				CachePath: "./mock-cache",
+			},
+		}
+		SetDataCache(d)
+		m := meta.Config{
+			AttrCacheExpire:  0 * time.Second,
+			EntryCacheExpire: 0 * time.Second,
+			Config: kv.Config{
+				Driver: kv.MemType,
+			},
+		}
+		SetMetaCache(m)
+		client1, err := newPfsTest()
+		assert.Nil(t, err)
+		testfile3 := "testfile3"
+		_, err = client1.Create(filepath.Join(testdir1, testfile3), uint32(flags), uint32(mode))
+		assert.Nil(t, err)
+	}()
+	time.Sleep(1 * time.Second) //还未过期
+	dir, err = client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err = dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 2)
+	time.Sleep(3 * time.Second) //已经过期
+	dir, err = client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err = dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 3)
 }
 
 func TestFS_read_readAt(t *testing.T) {
