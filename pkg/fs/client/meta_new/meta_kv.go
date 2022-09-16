@@ -415,6 +415,10 @@ func (m *kvMeta) inodeItemExpired(item inodeItem) bool {
 	return false
 }
 
+func (m *kvMeta) entryItemExpired(item *entryItem) bool {
+	return time.Now().Unix() > item.expire
+}
+
 func (m *kvMeta) modifyTime(oldAttr, newAttr *Attr) {
 	if oldAttr != nil {
 		if oldAttr.Mtime > newAttr.Mtime {
@@ -1078,7 +1082,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	if entry != nil {
 		dirEntryItem := &entryItem{}
 		m.parseEntry(entry, dirEntryItem)
-		if dirEntryItem.done == entryDone {
+		if dirEntryItem.done == entryDone && !m.entryItemExpired(dirEntryItem) {
 			ens, err := m.scanValues(m.entryKey(inode, ""))
 			if err != nil {
 				return utils.ToSyscallErrno(err)
