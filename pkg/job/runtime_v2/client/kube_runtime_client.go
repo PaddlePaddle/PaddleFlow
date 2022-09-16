@@ -138,7 +138,7 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
 		} else {
 			fwVersion := KubeFrameworkVersion(gvk)
-			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, fwVersion)
+			jobBuilder, find := framework.GetJobPlugin(pfschema.KubernetesType, fwVersion)
 			if !find {
 				log.Warnf("cann't find registered %s job event listener", gvk.String())
 				continue

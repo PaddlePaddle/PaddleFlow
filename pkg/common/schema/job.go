@@ -113,8 +113,9 @@ const (
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
 
-	ListenerTypeJob  = "job"
-	ListenerTypeTask = "task"
+	ListenerTypeJob   = "job"
+	ListenerTypeTask  = "task"
+	ListenerTypeQueue = "queue"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
