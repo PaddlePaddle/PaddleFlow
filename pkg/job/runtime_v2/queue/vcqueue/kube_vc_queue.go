@@ -43,7 +43,7 @@ var (
 	KubeVCQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
 )
 
-// KubeVCQueue is an executor struct that runs a single pod
+// KubeVCQueue is a struct that contains client to operate volcano queue on cluster
 type KubeVCQueue struct {
 	GVK             schema.GroupVersionKind
 	resourceVersion pfschema.FrameworkVersion

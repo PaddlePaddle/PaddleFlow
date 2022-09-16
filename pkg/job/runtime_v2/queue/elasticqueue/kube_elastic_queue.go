@@ -43,7 +43,8 @@ var (
 	KubeElasticQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
 )
 
-// KubeElasticQueue is an executor struct that runs a single pod
+// KubeElasticQueue is a struct that contains client to operate elastic queue on cluster
+// Note: the CRD of elastic queue is ElasticResourceQuota
 type KubeElasticQueue struct {
 	GVK             schema.GroupVersionKind
 	resourceVersion pfschema.FrameworkVersion
@@ -67,8 +68,8 @@ func (eq *KubeElasticQueue) Create(ctx context.Context, q *api.QueueInfo) error 
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
-	// construct elastic resource quota
-	equota := &v1beta1.ElasticResourceQuota{
+	// construct ElasticResourceQuota,
+	eQuota := &v1beta1.ElasticResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   q.Name,
 			Labels: q.Location,
@@ -80,8 +81,8 @@ func (eq *KubeElasticQueue) Create(ctx context.Context, q *api.QueueInfo) error 
 			Reclaimable: true,
 		},
 	}
-	log.Debugf("Create %s, info: %#v", eq.String(q.Name), equota)
-	err := eq.runtimeClient.Create(equota, eq.resourceVersion)
+	log.Debugf("Create %s, info: %#v", eq.String(q.Name), eQuota)
+	err := eq.runtimeClient.Create(eQuota, eq.resourceVersion)
 	if err != nil {
 		log.Errorf("Create %s falied, err: %s", eq.String(q.Name), err)
 		return err
@@ -93,7 +94,7 @@ func (eq *KubeElasticQueue) Update(ctx context.Context, q *api.QueueInfo) error 
 	if q == nil {
 		return fmt.Errorf("queue is nil")
 	}
-	// get elastic quota from cluster
+	// get elastic queue from cluster
 	obj, err := eq.runtimeClient.Get(q.Namespace, q.Name, eq.resourceVersion)
 	if err != nil {
 		log.Errorf("get %s failed, err: %s", eq.String(q.Name), err)
@@ -177,7 +178,7 @@ func (eq *KubeElasticQueue) add(obj interface{}) {
 		Labels:      newObj.GetLabels(),
 		MaxResource: k8s.NewResource(eQuota.Spec.Max),
 		MinResource: k8s.NewResource(eQuota.Spec.Min),
-		// set elastic resource quota status
+		// set status
 		Status:    getQueueStatus(eQuota.Status),
 		QuotaType: pfschema.TypeElasticQuota,
 		Namespace: eQuota.Spec.Namespace,
@@ -201,7 +202,7 @@ func (eq *KubeElasticQueue) update(old, new interface{}) {
 		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", newObj, eq.String(name), err)
 		return
 	}
-	// Check whether elastic quota is updated or not
+	// Check whether elastic queue is updated or not
 	if reflect.DeepEqual(oldEQuota.Spec, newEQuota.Spec) && oldEQuota.Status.IsLeaf == newEQuota.Status.IsLeaf {
 		return
 	}
