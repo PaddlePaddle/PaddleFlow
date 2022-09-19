@@ -634,7 +634,6 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 			}
 			return err
 		}
-		log.Debugf("before fix: the attr mode is [%d]", attr.Mode)
 		if isLink {
 			info.FixLinkPrefix(prefix)
 		}
