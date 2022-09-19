@@ -226,7 +226,7 @@ func (c *fileDataCache) exist(key string) bool {
 		return false
 	} else {
 		cache := value.(*cacheItem)
-		if time.Until(cache.expTime) >= 0 {
+		if time.Until(cache.expTime) <= 0 {
 			return false
 		}
 	}
