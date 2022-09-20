@@ -321,6 +321,7 @@ data:
       apiServer:
         host: "paddleflow-server"
         port: 8999
+        targetPort: 8999
         tokenExpirationHour: -1
 
       fs:
