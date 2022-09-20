@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	pathlib "path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -162,6 +163,7 @@ func TestFSClient_case1(t *testing.T) {
 	err = client.Rename(newDir1, newDir4)
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir4, 0755)
+	fmt.Println("err", err, newDir4)
 	assert.Equal(t, nil, err)
 	dirs, err := client.Readdirnames("/mock", -1)
 	assert.Equal(t, nil, err)
@@ -1324,6 +1326,89 @@ func TestParentTimeWithCacheExpired(t *testing.T) {
 	assert.Equal(t, syscall.ENOENT, err)
 }
 
+func TestRename(t *testing.T) {
+	clean()
+	defer clean()
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	newDir := "/dir/a/b/c/"
+	err := client.MkdirAll(newDir, 0755)
+	assert.Equal(t, nil, err)
+	stat1_c_1, err := client.Stat(newDir)
+	assert.Equal(t, nil, err)
+	file1 := "/dir/a/b/c/file1"
+	file, err := client.Create(file1)
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, file)
+	stat1_c_2, err := client.Stat(newDir)
+	assert.Equal(t, nil, err)
+	if !stat1_c_2.ModTime().After(stat1_c_1.ModTime()) {
+		t.Errorf("modify time not correct stat1_c_1[%v], stat1_c_2[%v]", stat1_c_1.ModTime(), stat1_c_2.ModTime())
+		return
+	}
+	err = client.Mkdir(pathlib.Join(newDir, "d"), 0777)
+	assert.Equal(t, nil, err)
+	stat1_c_3, err := client.Stat(newDir)
+	assert.Equal(t, nil, err)
+	if !stat1_c_3.ModTime().After(stat1_c_2.ModTime()) {
+		t.Errorf("modify time not correct stat1_c_2[%v], stat1_c_3[%v]", stat1_c_2.ModTime(), stat1_c_3.ModTime())
+		return
+	}
+
+	file2 := pathlib.Join(newDir, "d", "file2")
+	file, err = client.Create(file2)
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, file)
+
+	file3 := pathlib.Join(newDir, "d", "file3")
+	file, err = client.Create(file3)
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, file)
+
+	list, err := client.ListDir(newDir)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 2, len(list))
+
+	list2, err := client.ListDir(pathlib.Join(newDir, "d"))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 2, len(list2))
+
+	err = client.Rename("/dir/a/b/c/file1", "/dir/a/b/c/file2")
+	assert.Equal(t, nil, err)
+	stat1_c_4, err := client.Stat(newDir)
+	assert.Equal(t, nil, err)
+	if !stat1_c_4.ModTime().After(stat1_c_3.ModTime()) {
+		t.Errorf("modify time not correct stat1_c_3[%v], stat1_c_4[%v]", stat1_c_3.ModTime(), stat1_c_4.ModTime())
+		return
+	}
+
+	err = client.Rename("/dir/a/b/c", "/dir/a/b/f")
+	assert.Equal(t, nil, err)
+
+	list3, err := client.ListDir("/dir/a/b/f")
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 2, len(list3))
+
+	list4, err := client.ListDir("/dir/a/b/f/d")
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 2, len(list4))
+
+	_, err = client.ListDir("/dir/a/b/c")
+	assert.Equal(t, syscall.ENOENT, err)
+
+	_, err = client.ListDir("/dir/a/b/c/d")
+	assert.Equal(t, syscall.ENOENT, err)
+}
+
 func TestConcurrentCreateAndDelete(t *testing.T) {
 	clean()
 	defer clean()
@@ -1348,19 +1433,27 @@ func TestConcurrentCreateAndDelete(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			file, err := client.Create(newFile)
-			if err != nil && err != syscall.ENOENT {
+			// parent meta == nil:syscall.ENOENT, dir is deleted: syscall.ENOTDIR
+			if err != nil && err != syscall.ENOENT && err != syscall.ENOTDIR {
 				t.Errorf("client create err %v", err)
 				return
 			}
-			if err == syscall.ENOENT {
+			if err != nil {
 				return
 			}
 			_ = file.Close()
 		}()
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		errRemove := client.RemoveAll(newDir1)
+		// removeall == unlink + rmdir, if unlink all, but when create command occurs after unlink, rmdir has error `directory not empty`
+		if errRemove != nil && errRemove != syscall.ENOTEMPTY {
+			assert.Equal(t, nil, errRemove)
+		}
+	}()
 	wg.Wait()
-	err = client.RemoveAll(newDir1)
-	assert.Equal(t, nil, err)
 }
 
 func clean() {

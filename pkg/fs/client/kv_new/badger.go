@@ -148,10 +148,14 @@ func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 	var err error
 
 	if err = f(&KVTxn{tx}); err != nil {
+		log.Errorf("txn err is %v", err)
 		return err
 	}
 
 	err = tx.Commit()
+	if err != nil {
+		log.Errorf("tx commit err %v", err)
+	}
 	return err
 }
 
@@ -164,7 +168,6 @@ func parseCounter(buf []byte) int64 {
 	}
 	return int64(binary.LittleEndian.Uint64(buf))
 }
-
 
 func packCounter(value int64) []byte {
 	b := make([]byte, 8)

@@ -243,6 +243,7 @@ func (f *File) ReadAt(b []byte, off int64) (int, error) {
 
 func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 	ctx := meta.NewEmptyContext()
+	path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 	entries, err := f.fs.vfs.ReadDir(ctx, f.inode, f.fh, 0)
 	if utils.IsError(err) {
 		return []os.DirEntry{}, err
@@ -255,7 +256,6 @@ func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 			Name: info.Name,
 			Ino:  uint64(info.Ino),
 		}
-		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
 			path:      path_,
 			size:      int64(info.Attr.Size),

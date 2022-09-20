@@ -55,7 +55,6 @@ type fileReader struct {
 	inode  Ino
 	size   int64
 	flags  uint32
-	name   string
 	path   string
 	length uint64
 	ufs    ufslib.UnderFileStorage
@@ -81,7 +80,7 @@ type dataReader struct {
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	fh.Lock()
 	defer fh.Unlock()
-	log.Debugf("fileReader len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
+	log.Debugf("fileReader len[%d] off[%d] path[%s] length[%d]", len(buf), off, fh.path, fh.length)
 	if off >= fh.length || len(buf) == 0 {
 		return 0, syscall.F_OK
 	}
@@ -191,11 +190,9 @@ func (fh *fileReader) release() {
 }
 
 func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileReader, error) {
-	name := d.m.InoToPath(inode)
 	f := &fileReader{
 		reader:       d,
 		inode:        inode,
-		name:         name,
 		path:         path,
 		length:       length,
 		ufs:          ufs,
