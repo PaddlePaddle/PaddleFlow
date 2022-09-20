@@ -18,6 +18,7 @@ package single
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -135,7 +136,7 @@ func TestSingleJob_Create(t *testing.T) {
 	tests := []struct {
 		caseName string
 		jobObj   *api.PFJob
-		wantErr  bool
+		wantErr  error
 		wantMsg  string
 	}{
 		{
@@ -143,34 +144,32 @@ func TestSingleJob_Create(t *testing.T) {
 			jobObj: &api.PFJob{
 				JobType: schema.TypeSingle,
 			},
-			wantErr: true,
+			wantErr: fmt.Errorf("create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
 			wantMsg: "create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil",
 		},
 		{
 			caseName: "pod_test2",
 			jobObj:   &mockSinglePod,
-			wantErr:  false,
+			wantErr:  nil,
 			wantMsg:  "",
 		},
 	}
 
 	singleJob := New(kubeRuntimeClient)
-	frameworkVersion := schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String())
 	for _, test := range tests {
-		t.Logf("case[%s] to create job", test.caseName)
-
-		err := singleJob.Submit(context.TODO(), test.jobObj)
-		if test.wantErr && assert.Error(t, err) {
-			assert.Equal(t, test.wantMsg, err.Error())
-		} else if !test.wantErr {
-			t.Logf("case[%s] to CreateJob sucessfully", test.caseName)
-			_, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, frameworkVersion)
-			if !assert.NoError(t, err) {
-				t.Errorf(err.Error())
-				continue
+		t.Run(test.caseName, func(t *testing.T) {
+			err := singleJob.Submit(context.TODO(), test.jobObj)
+			if test.wantErr == nil {
+				assert.Equal(t, test.wantErr, err)
+				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
+				_, err = kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
+				if !assert.NoError(t, err) {
+					t.Errorf(err.Error())
+				}
+			} else {
+				assert.NotNil(t, err)
+				assert.Equal(t, test.wantErr.Error(), err.Error())
 			}
-		} else {
-			t.Errorf("error case, %v", err)
-		}
+		})
 	}
 }

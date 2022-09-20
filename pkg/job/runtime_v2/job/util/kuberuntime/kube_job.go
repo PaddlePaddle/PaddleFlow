@@ -221,7 +221,7 @@ func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
 	}
 	// fill volumes
 	fileSystems := task.Conf.GetAllFileSystem()
-	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(fileSystems))
+	podSpec.Volumes = BuildVolumes(podSpec.Volumes, fileSystems)
 	// fill affinity
 	if len(fileSystems) != 0 {
 		var fsIDs []string
@@ -266,7 +266,7 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 	}
 	// fill volumes
 	fileSystems := task.Conf.GetAllFileSystem()
-	pod.Spec.Volumes = appendVolumesIfAbsent(pod.Spec.Volumes, generateVolumes(fileSystems))
+	pod.Spec.Volumes = BuildVolumes(pod.Spec.Volumes, fileSystems)
 	// fill fs affinity
 	if len(fileSystems) != 0 {
 		var fsIDs []string
@@ -377,9 +377,9 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 		return err
 	}
 	// fill env
-	container.Env = appendEnvIfAbsent(container.Env, generateEnvVars(task.Env))
+	container.Env = BuildEnvVars(container.Env, task.Env)
 	// fill volumeMount
-	container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(filesystems))
+	container.VolumeMounts = BuildVolumeMounts(container.VolumeMounts, filesystems)
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
@@ -468,6 +468,21 @@ func generateEnvVars(EnvVars map[string]string) []corev1.EnvVar {
 		envs = append(envs, env)
 	}
 	return envs
+}
+
+// BuildEnvVars merge EnvVars
+func BuildEnvVars(baseEnvs []corev1.EnvVar, EnvVars map[string]string) []corev1.EnvVar {
+	return appendEnvIfAbsent(baseEnvs, generateEnvVars(EnvVars))
+}
+
+// BuildVolumes convert PaddleFlow FileSystem to kubernetes volumes
+func BuildVolumes(volumes []corev1.Volume, fileSystem []schema.FileSystem) []corev1.Volume {
+	return appendVolumesIfAbsent(volumes, generateVolumes(fileSystem))
+}
+
+// BuildVolumeMounts covert PaddleFlow FileSystem to kubernetes VolumeMount
+func BuildVolumeMounts(volumeMounts []corev1.VolumeMount, fileSystem []schema.FileSystem) []corev1.VolumeMount {
+	return appendMountsIfAbsent(volumeMounts, generateVolumeMounts(fileSystem))
 }
 
 // appendVolumesIfAbsent append newElements if not exist in volumes

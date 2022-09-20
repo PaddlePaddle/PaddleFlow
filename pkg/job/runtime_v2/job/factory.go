@@ -22,6 +22,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/pytorch"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/single"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/spark"
 )
 
 func init() {
@@ -29,5 +30,6 @@ func init() {
 	framework.RegisterJobPlugin(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, paddle.KubePaddleFwVersion, paddle.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, spark.KubeSparkFwVersion, spark.New)
 	// TODO: add more plugins
 }
