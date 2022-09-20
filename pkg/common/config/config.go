@@ -71,7 +71,7 @@ type ApiServerConfig struct {
 	// Host Port used for FS to create pv/pvc with volumeAttributes point pfs-server pod
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
-	TargetPort          int    `yaml:"TargetPort"`
+	TargetPort          int    `yaml:"targetPort"`
 	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
 }
 
