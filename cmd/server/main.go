@@ -87,9 +87,10 @@ func act(c *cli.Context) error {
 func start() error {
 	Router := chi.NewRouter()
 	router.RegisterRouters(Router, false)
-	log.Infof("server addr:%s", fmt.Sprintf(":%d", ServerConf.ApiServer.Port))
+	log.Infof("server addr: targetPort is %s and port is %s", fmt.Sprintf(":%d", ServerConf.ApiServer.TargetPort),
+		fmt.Sprintf(":%d", ServerConf.ApiServer.Port))
 	HttpSvr := &http.Server{
-		Addr:    fmt.Sprintf(":%d", ServerConf.ApiServer.Port),
+		Addr:    fmt.Sprintf(":%d", ServerConf.ApiServer.TargetPort),
 		Handler: Router,
 	}
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())

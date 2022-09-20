@@ -23,6 +23,12 @@ func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 			Destination: &apiConf.Port,
 		},
 		&cli.IntFlag{
+			Name:        "target-port",
+			Value:       apiConf.TargetPort,
+			Usage:       "api server target port",
+			Destination: &apiConf.TargetPort,
+		},
+		&cli.IntFlag{
 			Name:        "token-expire-hour",
 			Value:       apiConf.TokenExpirationHour,
 			Usage:       "token expire hour",
