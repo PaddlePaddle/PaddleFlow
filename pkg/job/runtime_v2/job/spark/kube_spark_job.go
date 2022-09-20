@@ -79,6 +79,8 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 	var err error
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&sparkJob.ObjectMeta, job)
+	// build scheduling policy
+	sj.buildSchedulingPolicy(sparkJob, job.Conf.GetQueueName(), job.PriorityClassName)
 	// set spec field
 	if job.IsCustomYaml {
 		// set custom SparkApplication Spec from user
@@ -100,19 +102,21 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-func (sj *KubeSparkJob) builtinSparkJob(jobApp *v1beta2.SparkApplication, job *api.PFJob) error {
+func (sj *KubeSparkJob) buildSchedulingPolicy(jobApp *v1beta2.SparkApplication, queueName, priority string) {
 	// BatchScheduler && BatchSchedulerOptions
 	schedulerName := config.GlobalServerConfig.Job.SchedulerName
 	jobApp.Spec.BatchScheduler = &schedulerName
 	if jobApp.Spec.BatchSchedulerOptions == nil {
 		jobApp.Spec.BatchSchedulerOptions = &v1beta2.BatchSchedulerConfiguration{}
 	}
-	queueName := job.Conf.GetQueueName()
 	if len(queueName) > 0 {
 		jobApp.Spec.BatchSchedulerOptions.Queue = &queueName
-		priorityClass := kuberuntime.KubePriorityClass(job.PriorityClassName)
+		priorityClass := kuberuntime.KubePriorityClass(priority)
 		jobApp.Spec.BatchSchedulerOptions.PriorityClassName = &priorityClass
 	}
+}
+
+func (sj *KubeSparkJob) builtinSparkJob(jobApp *v1beta2.SparkApplication, job *api.PFJob) error {
 	// image
 	jobApp.Spec.Image = &job.Conf.Image
 	if job.Conf.Env == nil {
