@@ -30,6 +30,7 @@ import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"

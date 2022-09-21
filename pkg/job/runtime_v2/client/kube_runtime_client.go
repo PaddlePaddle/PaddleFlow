@@ -54,6 +54,8 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// TaskGVK gvk for task
+	TaskGVK = k8s.PodGVK
 )
 
 // KubeRuntimeClient for kubernetes client
@@ -75,7 +77,6 @@ type KubeRuntimeClient struct {
 	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
 	taskClient  framework.JobInterface
-	taskGVK     schema.GroupVersionKind
 	// QueueInformerMap
 	QueueInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 }
@@ -109,7 +110,6 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		DiscoveryClient:  discoveryClient,
 		Config:           config,
 		ClusterInfo:      cluster,
-		taskGVK:          k8s.PodGVK,
 		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
@@ -171,7 +171,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 				continue
 			}
 			// Register task event listener
-			if gvk == krc.taskGVK {
+			if gvk == TaskGVK {
 				krc.taskClient = jobClient
 			}
 		}
@@ -180,13 +180,13 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
-	gvrMap, err := krc.GetGVR(krc.taskGVK)
+	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
-		log.Warnf("cann't find task GroupVersionKind %s, err: %v", krc.taskGVK.String(), err)
+		log.Warnf("cann't find task GroupVersionKind %s, err: %v", TaskGVK.String(), err)
 		return err
 	}
 	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-	taskInformer, find := krc.JobInformerMap[krc.taskGVK]
+	taskInformer, find := krc.JobInformerMap[TaskGVK]
 	if !find {
 		err = fmt.Errorf("register task listener failed, taskClient is nil")
 		log.Errorf("%s", err)
@@ -238,7 +238,7 @@ func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan s
 	case pfschema.ListenerTypeJob:
 		informerMap = krc.JobInformerMap
 	case pfschema.ListenerTypeTask:
-		informerMap[krc.taskGVK] = krc.podInformer
+		informerMap[TaskGVK] = krc.podInformer
 	case pfschema.ListenerTypeQueue:
 		informerMap = krc.QueueInformerMap
 	default:
