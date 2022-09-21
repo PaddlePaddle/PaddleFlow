@@ -1001,7 +1001,7 @@ func TestMeta(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 2, len(list))
 
-	n := 600
+	n := 200
 	err = client.MkdirAll("/twice", 0755)
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -1011,15 +1011,15 @@ func TestMeta(t *testing.T) {
 			defer wg.Done()
 			err = client.MkdirAll(dir, 0755)
 			if err != nil {
-				fmt.Println("mkdir err", err)
+				log.Errorf("mkdir err %v", err)
 			}
 			_, err = client.Create(file)
 			if err != nil {
-				fmt.Println("Create err", err)
+				log.Errorf("Create err %v", err)
 			}
 			err = client.Rename(file, file+"_")
 			if err != nil {
-				fmt.Println("Rename err", err)
+				log.Errorf("Rename err %v", err)
 			}
 		}()
 	}
