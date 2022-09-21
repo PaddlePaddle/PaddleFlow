@@ -983,7 +983,7 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	}
 	ufs_, _, _, path := m.GetUFS(absolutePath)
 	if err = ufs_.Rmdir(path); err != nil {
-		log.Errorf("kv meta rmdir parent name err %v", parent, name, err)
+		log.Errorf("kv meta rmdir parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
