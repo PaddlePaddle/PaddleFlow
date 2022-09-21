@@ -82,8 +82,8 @@ func newFakeJobSyncController() *JobSync {
 			ID:   "cluster-123",
 			Type: "Kubernetes",
 		},
-		InformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
-		Config:      &restclient.Config{Host: server.URL},
+		JobInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
+		Config:         &restclient.Config{Host: server.URL},
 	}
 	err := ctrl.Initialize(opt)
 	if err != nil {
