@@ -23,12 +23,6 @@ func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 			Destination: &apiConf.Port,
 		},
 		&cli.IntFlag{
-			Name:        "target-port",
-			Value:       apiConf.TargetPort,
-			Usage:       "api server target port",
-			Destination: &apiConf.TargetPort,
-		},
-		&cli.IntFlag{
 			Name:        "token-expire-hour",
 			Value:       apiConf.TokenExpirationHour,
 			Usage:       "token expire hour",
@@ -192,6 +186,12 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 			Value:       30 * time.Second,
 			Usage:       "the interval time for clean mount pod",
 			Destination: &fsConf.CleanMountPodIntervalTime,
+		},
+		&cli.IntFlag{
+			Name:        "service-port",
+			Value:       fsConf.ServicePort,
+			Usage:       "api server service port in k8s",
+			Destination: &fsConf.ServicePort,
 		},
 	}
 }
