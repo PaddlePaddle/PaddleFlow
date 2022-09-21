@@ -96,6 +96,7 @@ jobs:
       uses: happygears/gt2v@v2
       # 设置git_commits_since_tag到环境变量
     - name: print happygears Tag
+      if: env.build_image_enabled=='true'
       env:
         EVENT_CONTEXT: ${{ toJSON(steps.happygears.outputs) }}
       run: |
