@@ -125,7 +125,7 @@ func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion
 
 func (krc *KubeRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
 	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
-	log.Infof("FrameworkVesion for job type %s framework %s, is %s", jobType, fw, frameworkVersion)
+	log.Infof("on %s, FrameworkVesion for job type %s framework %s, is %s", krc.Cluster(), jobType, fw, frameworkVersion)
 	return frameworkVersion
 }
 
@@ -159,15 +159,15 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		gvk := frameworkVersionToGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
-			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
+			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 		} else {
 			// Register job event listener
-			log.Infof("register job event listener for %s", gvk.String())
+			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			jobClient := jobPlugin(krc)
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 			if err != nil {
-				log.Warnf("add event lister for job %s failed, err: %v", gvk.String(), err)
+				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
 				continue
 			}
 			// Register task event listener
@@ -182,25 +182,25 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
-		log.Warnf("cann't find task GroupVersionKind %s, err: %v", TaskGVK.String(), err)
+		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
 		return err
 	}
 	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 	taskInformer, find := krc.JobInformerMap[TaskGVK]
 	if !find {
 		err = fmt.Errorf("register task listener failed, taskClient is nil")
-		log.Errorf("%s", err)
+		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
 	if krc.taskClient == nil {
 		err = fmt.Errorf("register task listener failed, taskClient is nil")
-		log.Errorf("%s", err)
+		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
 	// Register task event listener
 	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
 	if err != nil {
-		log.Errorf("add event lister for task failed, err: %v", err)
+		log.Errorf("on %s, add event lister for task failed, err: %v", krc.Cluster(), err)
 		return err
 	}
 	return nil
@@ -209,21 +209,21 @@ func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimit
 func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimitingInterface) error {
 	queuePlugins := framework.ListQueuePlugins(pfschema.KubernetesType)
 	if len(queuePlugins) == 0 {
-		return fmt.Errorf("register queue listener failed, err: plugins is nil")
+		return fmt.Errorf("on %s, register queue listener failed, err: plugins is nil", krc.Cluster())
 	}
 	for fv, plugin := range queuePlugins {
 		gvk := frameworkVersionToGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
-			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
+			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 		} else {
 			// Register queue event listener
-			log.Infof("register queue event listener for %s", gvk.String())
+			log.Infof("on %s, register queue event listener for %s", krc.Cluster(), gvk.String())
 			krc.QueueInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			queueClient := plugin(krc)
 			err = queueClient.AddEventListener(context.TODO(), pfschema.ListenerTypeQueue, workQueue, krc.QueueInformerMap[gvk])
 			if err != nil {
-				log.Warnf("add event lister for queue %s failed, err: %v", gvk.String(), err)
+				log.Warnf("on %s, add event lister for queue %s failed, err: %v", krc.Cluster(), gvk.String(), err)
 				continue
 			}
 		}
@@ -245,7 +245,7 @@ func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan s
 		err = fmt.Errorf("listener type %s is not supported", listenerType)
 	}
 	if err != nil {
-		log.Errorf("start %s listener failed, err: %v", listenerType, err)
+		log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
 		return err
 	}
 	// start dynamic factory and wait for cache sync
@@ -253,7 +253,7 @@ func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan s
 	for _, informer := range informerMap {
 		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
 			err = fmt.Errorf("timed out waiting for caches to %s", krc.Cluster())
-			log.Errorf("start %s listener failed, err: %v", listenerType, err)
+			log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
 			break
 		}
 	}

@@ -138,14 +138,20 @@ func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.Queu
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	log.Infof("start job/queue controller on %s", kr.String())
-
-	syncController := controller.NewJobSync()
-	err := syncController.Initialize(kr.kubeClient)
+	jobController := controller.NewJobSync()
+	err := jobController.Initialize(kr.kubeClient)
 	if err != nil {
-		log.Errorf("init controller on %s failed, err: %v", kr.String(), err)
+		log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
-	go syncController.Run(stopCh)
+	queueController := controller.NewQueueSync()
+	err = queueController.Initialize(kr.kubeClient)
+	if err != nil {
+		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
+		return
+	}
+	go jobController.Run(stopCh)
+	go queueController.Run(stopCh)
 }
 
 func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
