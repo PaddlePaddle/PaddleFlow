@@ -876,6 +876,7 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 	}
 	ufs_, _, _, newPath := m.GetUFS(absolutePath)
 	if err = ufs_.Mkdir(newPath, mode); err != nil {
+		log.Errorf("kv meta mkdir err %v", err)
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
