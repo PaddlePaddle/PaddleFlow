@@ -71,7 +71,6 @@ type ApiServerConfig struct {
 	// Host Port used for FS to create pv/pvc with volumeAttributes point pfs-server pod
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
-	TargetPort          int    `yaml:"targetPort"`
 	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
 }
 
@@ -96,6 +95,8 @@ type FsServerConf struct {
 	LinkMetaDirPrefix         string        `yaml:"linkMetaDirPrefix"`
 	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
 	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
+	// ServicePort is used to call paddleflow api-server in k8s, the default is the same as ApiServerConfig.Port
+	ServicePort int `yaml:"servicePort"`
 }
 
 type ReclaimConfig struct {
