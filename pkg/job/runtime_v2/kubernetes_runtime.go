@@ -119,18 +119,21 @@ func (kr *KubeRuntime) Init() error {
 }
 
 func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
-	jobBuilder, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
+	jobPlugin, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
 	if !found {
-		log.Errorf("get %s job on %s failed, err: this job is not implemented", fwVersion, kr.String())
+		log.Errorf("get job plugin on %s failed, err: %s job is not implemented", kr.String(), fwVersion)
 		return &framework.JobSample{}
 	}
-	return jobBuilder(kr.kubeClient)
+	return jobPlugin(kr.kubeClient)
 }
 
-func (kr *KubeRuntime) Queue(quotaType string) framework.QueueInterface {
-	// TODO: add queue builder logic
-	log.Errorf("queue is not supported")
-	return &framework.QueueSample{}
+func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.QueueInterface {
+	queuePlugin, found := framework.GetQueuePlugin(kr.cluster.Type, fwVersion)
+	if !found {
+		log.Errorf("get queue plugin on %s failed, err: %s queue is not implemented", kr.String(), fwVersion)
+		return &framework.QueueSample{}
+	}
+	return queuePlugin(kr.kubeClient)
 }
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
