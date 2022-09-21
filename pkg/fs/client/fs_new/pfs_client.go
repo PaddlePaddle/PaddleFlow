@@ -40,7 +40,7 @@ import (
 )
 
 func init() {
-	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "debug"}}
+	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "info"}}
 	err := logger.InitStandardFileLogger(&log_.Log)
 	if err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)

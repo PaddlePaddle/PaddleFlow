@@ -339,35 +339,6 @@ func (m *kvMeta) marshalEntry(entry *entryItem) []byte {
 	return w.Bytes()
 }
 
-func (m *kvMeta) fullPath(inode Ino) string {
-	var builder strings.Builder
-	var segments []string
-	if inode == rootInodeID {
-		return "/"
-	}
-	for {
-		if inode == rootInodeID {
-			break
-		}
-		d, err := m.get(m.inodeKey(inode))
-		if err != nil {
-			panic(err)
-		}
-		if d == nil {
-			panic(fmt.Sprintf("full path parse fail with inode %v", inode))
-		}
-		attr := &inodeItem{}
-		m.parseInode(d, attr)
-		inode = attr.parentIno
-		segments = append(segments, string(attr.name))
-	}
-	for i := len(segments) - 1; i >= 0; i-- {
-		builder.WriteString("/")
-		builder.WriteString(segments[i])
-	}
-	return builder.String()
-}
-
 func (m *kvMeta) txn(f func(tx kv_new.KvTxn) error) error {
 	var err error
 	for i := 0; i < 50; i++ {
@@ -405,6 +376,7 @@ func (m *kvMeta) getAttrFromCache(ino Ino, inodeItem_ *inodeItem) bool {
 	if err != nil || a == nil {
 		return false
 	}
+	m.parseInode(a, inodeItem_)
 	return true
 }
 
@@ -434,6 +406,34 @@ func (m *kvMeta) modifyTime(oldAttr, newAttr *Attr) {
 			newAttr.Atimensec = oldAttr.Atimensec
 		}
 	}
+}
+
+// absolutePath by inode, and ensure that the absolute path is obtained in the same transaction
+func (m *kvMeta) absolutePath(inode Ino, tx kv_new.KvTxn) string {
+	var builder strings.Builder
+	var segments []string
+	if inode == rootInodeID {
+		return "/"
+	}
+	var attr *inodeItem
+	for {
+		if inode == rootInodeID {
+			break
+		}
+		d := tx.Get(m.inodeKey(inode))
+		if d == nil {
+			panic(fmt.Sprintf("full path parse fail with inode %v %+v", inode, attr))
+		}
+		attr = &inodeItem{}
+		m.parseInode(d, attr)
+		inode = attr.parentIno
+		segments = append(segments, string(attr.name))
+	}
+	for i := len(segments) - 1; i >= 0; i-- {
+		builder.WriteString("/")
+		builder.WriteString(segments[i])
+	}
+	return builder.String()
 }
 
 func (m *kvMeta) GetUFS(name string) (ufslib.UnderFileStorage, bool, string, string) {
@@ -505,8 +505,8 @@ func (m *kvMeta) SetOwner(uid, gid uint32) {
 
 func (m *kvMeta) StatFS(ctx *Context) (*base.StatfsOut, syscall.Errno) {
 	log.Debugf("defaultMeta, StatFs: name[%s]", DefaultRootPath)
-	ufs := m.defaultUfs
-	return ufs.StatFs(DefaultRootPath), syscall.F_OK
+	ufs_ := m.defaultUfs
+	return ufs_.StatFs(DefaultRootPath), syscall.F_OK
 }
 
 func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscall.Errno {
@@ -535,7 +535,7 @@ func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscal
 }
 
 func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
-	log.Debugf("kv meta  parent Ino[%v] name [%s]", parent, name)
+	log.Debugf("kv meta parent Ino[%v] name [%s]", parent, name)
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
@@ -556,11 +556,10 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		}
 	}
 
-	absolutePath := filepath.Join(m.fullPath(parent), name)
-	ufs, isLink, prefix, path := m.GetUFS(absolutePath)
-
 	err = m.txn(func(tx kv_new.KvTxn) error {
-		info, err := ufs.GetAttr(path)
+		absolutePath := filepath.Join(m.absolutePath(parent, tx), name)
+		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
+		info, err := ufs_.GetAttr(path)
 		now := time.Now()
 		if err != nil {
 			log.Debugf("[vfs-lookup] GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
@@ -590,8 +589,6 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		inodeItem_.name = []byte(name)
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
-		log.Debugf("lookup set inode[%v] item[%v]", inode, inodeItem_)
-
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		return err
 	})
@@ -622,11 +619,11 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		*attr = inodeItem_.attr
 		return syscall.F_OK
 	}
-	absolutePath := m.fullPath(inode)
-	ufs, isLink, prefix, path := m.GetUFS(absolutePath)
+
 	err := m.txn(func(tx kv_new.KvTxn) error {
-		now := time.Now()
-		info, err := ufs.GetAttr(path)
+		absolutePath := m.absolutePath(inode, tx)
+		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
+		info, err := ufs_.GetAttr(path)
 		if err != nil {
 			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, path, absolutePath)
 			if utils.IfNotExist(err) {
@@ -637,18 +634,19 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		if isLink {
 			info.FixLinkPrefix(prefix)
 		}
+		now := time.Now()
 		attr.FromFileInfo(info)
-		log.Debugf("set attr get is inode %v attr %+v", inode, attr)
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
-		_ = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
-		return nil
+		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+		return err
 	})
 	return utils.ToSyscallErrno(err)
 }
 
 func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno) {
+	log.Debugf("kv meta setattr inode[%v]", inode)
 	var absolutePath string
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		var cur inodeItem
@@ -660,7 +658,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		m.parseInode(a, &cur)
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
-		absolutePath = m.fullPath(inode)
+		absolutePath = m.absolutePath(inode, tx)
 		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
 		ufsAttr, err := ufs_.GetAttr(path)
 		if err != nil {
@@ -693,7 +691,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			cur.attr.Ctime = attr.Ctime
 			cur.attr.Ctimensec = attr.Ctimensec
 			if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
-				return utils.ToSyscallErrno(err)
+				return err
 			}
 		}
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
@@ -725,11 +723,6 @@ func (m *kvMeta) Symlink(ctx *Context, parent Ino, name string, path string, ino
 }
 
 func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode, cumask uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno {
-	ino, err := m.nextInode()
-	*inode = ino
-	if err != nil {
-		return utils.ToSyscallErrno(err)
-	}
 	insertInodeItem_ := &inodeItem{}
 	if attr == nil {
 		attr = &Attr{}
@@ -739,7 +732,7 @@ func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode,
 	attr.Uid = ctx.Uid
 	attr.Gid = ctx.Gid
 	// todo:: file mode including type and unix permission, add smode to transe
-	attr.Mode = mode & ^uint32(cumask)
+	attr.Mode = mode & ^cumask
 	attr.Nlink = 1
 	attr.Size = 4 << 10
 	insertInodeItem_.attr = *attr
@@ -748,12 +741,12 @@ func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode,
 	insertInodeItem_.name = []byte(name)
 	insertInodeItem_.expire = now.Add(m.attrTimeOut).Unix()
 
-	absolutePath := filepath.Join(m.fullPath(parent), name)
-	ufs, _, _, newPath := m.GetUFS(absolutePath)
-	if err := ufs.Mknod(newPath, mode, rdev); err != nil {
+	ino, err := m.nextInode()
+	*inode = ino
+	if err != nil {
 		return utils.ToSyscallErrno(err)
 	}
-	// todo:: adjust s3 mode
+	var absolutePath string
 	err = m.txn(func(tx kv_new.KvTxn) error {
 		a := tx.Get(m.inodeKey(parent))
 		if a == nil {
@@ -781,9 +774,11 @@ func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode,
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
 		insertEntryItem_ := &entryItem{
-			ino:  Ino(ino),
+			ino:  ino,
 			mode: mode,
 		}
+		absolutePath = filepath.Join(m.absolutePath(parent, tx), name)
+
 		err = tx.Set(m.entryKey(parent, name), m.marshalEntry(insertEntryItem_))
 		if err != nil {
 			return err
@@ -796,19 +791,16 @@ func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode,
 		if err != nil {
 			return err
 		}
-
 		return nil
 	})
-	return utils.ToSyscallErrno(err)
+	ufs_, _, _, newPath := m.GetUFS(absolutePath)
+	if err = ufs_.Mknod(newPath, mode, rdev); err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	return syscall.F_OK
 }
 
 func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, inode *Ino, attr *Attr) syscall.Errno {
-	ino, err := m.nextInode()
-	log.Debugf("kv meta mkdir parent_ino[%v] inode[%v] name[%s]", parent, ino, name)
-	*inode = Ino(ino)
-	if err != nil {
-		return utils.ToSyscallErrno(err)
-	}
 	insertInodeItem_ := &inodeItem{}
 	if attr == nil {
 		attr = &Attr{}
@@ -826,12 +818,12 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 	insertInodeItem_.name = []byte(name)
 	insertInodeItem_.expire = now.Add(m.attrTimeOut).Unix()
 
-	absolutePath := filepath.Join(m.fullPath(parent), name)
-	ufs, _, _, newPath := m.GetUFS(absolutePath)
-	if err := ufs.Mkdir(newPath, mode); err != nil {
+	ino, err := m.nextInode()
+	*inode = ino
+	if err != nil {
 		return utils.ToSyscallErrno(err)
 	}
-	// todo:: adjust s3 mode
+	var absolutePath string
 	err = m.txn(func(tx kv_new.KvTxn) error {
 		a := tx.Get(m.inodeKey(parent))
 		if a == nil {
@@ -860,9 +852,11 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 		attr.Ctimensec = uint32(now.Nanosecond())
 		insertInodeItem_.attr = *attr
 		insertEntryItem_ := &entryItem{
-			ino:  Ino(ino),
+			ino:  ino,
 			mode: mode,
 		}
+		absolutePath = filepath.Join(m.absolutePath(parent, tx), name)
+
 		err = tx.Set(m.entryKey(parent, name), m.marshalEntry(insertEntryItem_))
 		if err != nil {
 			return err
@@ -871,18 +865,25 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 		if err != nil {
 			return err
 		}
-		err = tx.Set(m.inodeKey(Ino(ino)), m.marshalInode(insertInodeItem_))
+		err = tx.Set(m.inodeKey(ino), m.marshalInode(insertInodeItem_))
 		if err != nil {
 			return err
 		}
-
 		return nil
 	})
-	return utils.ToSyscallErrno(err)
+	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	ufs_, _, _, newPath := m.GetUFS(absolutePath)
+	if err = ufs_.Mkdir(newPath, mode); err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	return syscall.F_OK
 }
 
 func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 	log.Debugf("kv meta Unlink parent[%v] name[%s]", parent, name)
+	var absolutePath string
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		entry, err := m.get(m.entryKey(parent, name))
 		if err != nil {
@@ -902,20 +903,21 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 		pinodeItem.attr.Mtimensec = uint32(now.Nanosecond())
 		pinodeItem.attr.Ctime = now.Unix()
 		pinodeItem.attr.Ctimensec = uint32(now.Nanosecond())
+		absolutePath = filepath.Join(m.absolutePath(parent, tx), name)
 		if err = tx.Set(m.inodeKey(parent), m.marshalInode(pinodeItem)); err != nil {
 			return err
 		}
 		if err = tx.Dels(m.entryKey(parent, name), m.inodeKey(entryItem_.ino)); err != nil {
 			return err
 		}
-		absolutePath := filepath.Join(m.fullPath(parent), name)
-		ufs, _, _, path := m.GetUFS(absolutePath)
-		if err = ufs.Unlink(path); err != nil {
-			return utils.ToSyscallErrno(err)
-		}
+
 		return nil
 	})
 	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	ufs_, _, _, path := m.GetUFS(absolutePath)
+	if err = ufs_.Unlink(path); err != nil {
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
@@ -924,6 +926,7 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 
 func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	log.Debugf("kv meta Rmdir parent[%v] name[%s]", parent, name)
+	var absolutePath string
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		buf := tx.Get(m.entryKey(parent, name))
 		if buf == nil {
@@ -956,8 +959,7 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 		if tx.Exist(m.entryKey(ino, "")) {
 			return syscall.ENOTEMPTY
 		}
-		absolutePath := m.fullPath(ino)
-		ufs, _, _, path := m.GetUFS(absolutePath)
+		absolutePath = m.absolutePath(ino, tx)
 		now := time.Now()
 		parentItem_.attr.Mtime = now.Unix()
 		parentItem_.attr.Mtimensec = uint32(now.Nanosecond())
@@ -971,12 +973,17 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 		if err != nil {
 			return err
 		}
-		if err = ufs.Rmdir(path); err != nil {
-			return err
-		}
+
 		return nil
 	})
-	return utils.ToSyscallErrno(err)
+	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	ufs_, _, _, path := m.GetUFS(absolutePath)
+	if err = ufs_.Rmdir(path); err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	return syscall.F_OK
 }
 
 func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno) {
@@ -1012,15 +1019,13 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 		pSrcAttr.attr.Ctime = now.Unix()
 		pSrcAttr.attr.Ctimensec = uint32(now.Nanosecond())
 
-		if parentSrc != parentDst {
+		pDstAttr.attr.Mtime = now.Unix()
+		pDstAttr.attr.Mtimensec = uint32(now.Nanosecond())
+		pDstAttr.attr.Ctime = now.Unix()
+		pDstAttr.attr.Ctimensec = uint32(now.Nanosecond())
 
-			pDstAttr.attr.Mtime = now.Unix()
-			pDstAttr.attr.Mtimensec = uint32(now.Nanosecond())
-			pDstAttr.attr.Ctime = now.Unix()
-			pDstAttr.attr.Ctimensec = uint32(now.Nanosecond())
-
-		}
 		srcAttr.parentIno = parentDst
+		srcAttr.name = []byte(nameDst)
 		// 更新srcPath
 		srcAttr.attr.Ctime = now.Unix()
 		srcAttr.attr.Ctimensec = uint32(now.Nanosecond())
@@ -1030,24 +1035,28 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 		if attr != nil {
 			*attr = srcAttr.attr
 		}
-		log.Debugf("rename set new inode %v parentDst %v nameDst %s", *inode, parentDst, nameDst)
+		if parentDst != parentSrc {
+			_ = tx.Set(m.inodeKey(parentSrc), m.marshalInode(pSrcAttr))
+		}
 		_ = tx.Set(m.entryKey(parentDst, nameDst), m.marshalEntry(srcEntryItem_))
 		_ = tx.Set(m.inodeKey(*inode), m.marshalInode(srcAttr))
 		_ = tx.Dels(m.entryKey(parentSrc, nameSrc))
+		_ = tx.Set(m.inodeKey(parentDst), m.marshalInode(pDstAttr))
 
 		// ufs rename
-		pathDst = filepath.Join(m.fullPath(parentDst), nameDst)
-		pathSrc = filepath.Join(m.fullPath(parentSrc), nameSrc)
-		ufsSrc, _, _, pathOld := m.GetUFS(pathSrc)
-		ufsDst, _, _, pathNew := m.GetUFS(pathDst)
-		if ufsDst != ufsSrc {
-			log.Errorf("Rename between two ufs is not supported")
-			return syscall.ENOSYS
-		}
-		err := ufsSrc.Rename(pathOld, pathNew)
-		return err
+		pathDst = filepath.Join(m.absolutePath(parentDst, tx), nameDst)
+		pathSrc = filepath.Join(m.absolutePath(parentSrc, tx), nameSrc)
+
+		return nil
 	})
 
+	ufsSrc, _, _, pathOld := m.GetUFS(pathSrc)
+	ufsDst, _, _, pathNew := m.GetUFS(pathDst)
+	if ufsDst != ufsSrc {
+		log.Errorf("Rename between two ufs is not supported")
+		return "", "", syscall.ENOSYS
+	}
+	err = ufsSrc.Rename(pathOld, pathNew)
 	if err != nil {
 		return "", "", utils.ToSyscallErrno(err)
 	}
@@ -1101,13 +1110,13 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 			return syscall.F_OK
 		}
 	}
-	absolutePath := m.fullPath(inode)
-	ufs, isLink, _, path := m.GetUFS(absolutePath)
 
 	err = m.txn(func(tx kv_new.KvTxn) error {
-		dirs, err := ufs.ReadDir(path)
+		absolutePath := m.absolutePath(inode, tx)
+		ufs_, isLink, _, path := m.GetUFS(absolutePath)
+		dirs, err := ufs_.ReadDir(path)
 		if err != nil {
-			return utils.ToSyscallErrno(err)
+			return err
 		}
 		now := time.Now()
 
@@ -1186,7 +1195,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				if err != nil {
 					return err
 				}
-				newInode = Ino(newInodeNumber)
+				newInode = newInodeNumber
 				insertChildEntry := &entryItem{
 					ino:  newInode,
 					mode: dir.Attr.Mode,
@@ -1226,6 +1235,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 }
 
 func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, flags uint32, inode *Ino, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
+	log.Debugf("kv meta create parent[%v] name[%s]", parent, name)
 	ino, err := m.nextInode()
 	*inode = ino
 	if err != nil {
@@ -1249,7 +1259,8 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 	insertInodeItem_.expire = now.Add(m.attrTimeOut).Unix()
 
 	var newPath string
-	var ufs ufslib.UnderFileStorage
+	var ufs_ ufslib.UnderFileStorage
+	var absolutePath string
 	err = m.txn(func(tx kv_new.KvTxn) error {
 		a := tx.Get(m.inodeKey(parent))
 		if a == nil {
@@ -1277,9 +1288,11 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 		attr.Ctimensec = uint32(now.Nanosecond())
 		insertInodeItem_.attr = *attr
 		insertEntryItem_ := &entryItem{
-			ino:  Ino(ino),
+			ino:  ino,
 			mode: mode,
 		}
+		absolutePath = filepath.Join(m.absolutePath(parent, tx), name)
+
 		err = tx.Set(m.entryKey(parent, name), m.marshalEntry(insertEntryItem_))
 		if err != nil {
 			return err
@@ -1288,34 +1301,83 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 		if err != nil {
 			return err
 		}
-		err = tx.Set(m.inodeKey(Ino(ino)), m.marshalInode(insertInodeItem_))
+		err = tx.Set(m.inodeKey(ino), m.marshalInode(insertInodeItem_))
 		if err != nil {
 			return err
 		}
-
-		absolutePath := filepath.Join(m.fullPath(parent), name)
-		ufs, _, _, newPath = m.GetUFS(absolutePath)
-		fh, err := ufs.Create(newPath, flags, mode)
-		if err != nil {
-			log.Errorf("Create: name[%s], flags[%d], mode[%d], failed: [%v]",
-				name, flags, mode, err)
-			return err
-		}
-		defer fh.Release()
-
 		return nil
 	})
-	return ufs, newPath, utils.ToSyscallErrno(err)
+	if err != nil {
+		return nil, "", utils.ToSyscallErrno(err)
+	}
+	ufs_, _, _, newPath = m.GetUFS(absolutePath)
+	fh, err := ufs_.Create(newPath, flags, mode)
+	if err != nil {
+		log.Errorf("Create: name[%s], flags[%d], mode[%d], failed: [%v]",
+			name, flags, mode, err)
+		return nil, "", utils.ToSyscallErrno(err)
+	}
+	defer fh.Release()
+	return ufs_, newPath, utils.ToSyscallErrno(err)
 }
 
 func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
-	err := m.GetAttr(ctx, inode, attr)
-	if err != 0 {
-		return nil, "", err
+	log.Debugf("kv meta Open inode[%v]", inode)
+	inodeItem_ := &inodeItem{}
+	if inode == rootInodeID {
+		now := time.Now()
+		attr.Type = TypeDirectory
+		attr.Mode = syscall.S_IFDIR | 0777
+		attr.Nlink = 2
+		attr.Size = 4 << 10
+		attr.Mtime = now.Unix()
+		attr.Mtimensec = uint32(now.Nanosecond())
+		attr.Ctime = now.Unix()
+		attr.Ctimensec = uint32(now.Nanosecond())
+		return nil, "", syscall.F_OK
 	}
-	absolutePath := m.fullPath(inode)
-	ufs, _, _, newPath := m.GetUFS(absolutePath)
-	return ufs, newPath, syscall.F_OK
+	var ufs_ ufslib.UnderFileStorage
+	var newPath string
+	var isLink bool
+	var prefix string
+	err := m.txn(func(tx kv_new.KvTxn) error {
+		absolutePath := m.absolutePath(inode, tx)
+		ufs_, isLink, prefix, newPath = m.GetUFS(absolutePath)
+
+		a := tx.Get(m.inodeKey(inode))
+		if a != nil {
+			m.parseInode(a, inodeItem_)
+			if !m.inodeItemExpired(*inodeItem_) {
+				*attr = inodeItem_.attr
+				return nil
+			}
+		} else {
+			return syscall.ENOENT
+		}
+		info, err := ufs_.GetAttr(newPath)
+		if err != nil {
+			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, newPath, absolutePath)
+			if utils.IfNotExist(err) {
+				_ = tx.Dels(m.inodeKey(inode), m.entryKey(inodeItem_.parentIno, string(inodeItem_.name)))
+			}
+			return err
+		}
+		if isLink {
+			info.FixLinkPrefix(prefix)
+		}
+		now := time.Now()
+		attr.FromFileInfo(info)
+		m.modifyTime(&(inodeItem_.attr), attr)
+		inodeItem_.attr = *attr
+		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
+		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+		return err
+	})
+	if err != nil {
+		return nil, "", utils.ToSyscallErrno(err)
+	}
+
+	return ufs_, newPath, syscall.F_OK
 }
 
 func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
@@ -1404,7 +1466,32 @@ func (m *kvMeta) LinksMetaUpdateHandler(stopChan chan struct{}, interval int, li
 }
 
 func (m *kvMeta) InoToPath(inode Ino) string {
-	return m.fullPath(inode)
+	var builder strings.Builder
+	var segments []string
+	if inode == rootInodeID {
+		return "/"
+	}
+	for {
+		if inode == rootInodeID {
+			break
+		}
+		d, err := m.get(m.inodeKey(inode))
+		if err != nil {
+			panic(err)
+		}
+		if d == nil {
+			panic(fmt.Sprintf("full path parse fail with inode %v", inode))
+		}
+		attr := &inodeItem{}
+		m.parseInode(d, attr)
+		inode = attr.parentIno
+		segments = append(segments, string(attr.name))
+	}
+	for i := len(segments) - 1; i >= 0; i-- {
+		builder.WriteString("/")
+		builder.WriteString(segments[i])
+	}
+	return builder.String()
 }
 
 func (m *kvMeta) getAttr(name string, attr *Attr) syscall.Errno {

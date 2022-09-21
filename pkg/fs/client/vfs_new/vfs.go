@@ -167,9 +167,9 @@ func (v *VFS) getUFS(name string) (ufslib.UnderFileStorage, bool, string, string
 // Lookup is called by the kernel when the VFS wants to know
 // about a file inside a directory. Many lookup calls can
 // occur in parallel, but only one call happens for each (dir,
-// name) pair.
+// path) pair.
 func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.Entry, err syscall.Errno) {
-	log.Tracef("vfs lookup: parent[%x], name[%s]", parent, name)
+	log.Tracef("vfs lookup: parent[%x], path[%s]", parent, name)
 	if parent == rootID {
 		n := getInternalNodeByName(name)
 		if n != nil {
