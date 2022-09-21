@@ -48,7 +48,7 @@ type JobInterface interface {
 
 // QueueGetter return RuntimeQueueInterface
 type QueueGetter interface {
-	Queue(quotaType string) QueueInterface
+	Queue(quotaType pfschema.FrameworkVersion) QueueInterface
 }
 
 // QueueInterface defines Queue operator methods
