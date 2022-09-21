@@ -144,7 +144,7 @@ func (j *RayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, member model.M
 		return err
 	}
 	if preStop, exist := member.Env[schema.EnvRayJobHeaderPreStop]; exist {
-		for _, container := range headGroupSpec.Template.Spec.Containers {
+		for index, container := range headGroupSpec.Template.Spec.Containers {
 			if container.Name != "autoscaler" {
 				if container.Lifecycle == nil {
 					container.Lifecycle = &v1.Lifecycle{}
@@ -154,6 +154,7 @@ func (j *RayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, member model.M
 						Command: []string{preStop},
 					},
 				}
+				headGroupSpec.Template.Spec.Containers[index] = container
 			}
 		}
 	}
