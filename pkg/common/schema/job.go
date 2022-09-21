@@ -245,9 +245,8 @@ type FileSystem struct {
 }
 
 type FrameworkVersion struct {
-	Framework  string            `json:"framework"`
-	APIVersion string            `json:"apiVersion"`
-	Extra      map[string]string `json:"extra,omitempty"`
+	Framework  string `json:"framework"`
+	APIVersion string `json:"apiVersion"`
 }
 
 func (f *FrameworkVersion) String() string {
@@ -258,7 +257,6 @@ func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
 	return FrameworkVersion{
 		APIVersion: apiVersion,
 		Framework:  framework,
-		Extra:      make(map[string]string),
 	}
 }
 
