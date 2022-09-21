@@ -79,10 +79,10 @@ type RuntimeClientInterface interface {
 
 	Update(resource interface{}, fv pfschema.FrameworkVersion) error
 
-	// RegisterListeners register job/task listeners
-	RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error
+	// RegisterListener register job/task/queue listener
+	RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error
 
-	StartLister(stopCh <-chan struct{})
+	StartListener(listenerType string, stopCh <-chan struct{}) error
 
 	// ListNodeQuota resource api for cluster nodes
 	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
