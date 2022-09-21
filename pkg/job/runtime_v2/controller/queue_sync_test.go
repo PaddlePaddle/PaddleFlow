@@ -17,8 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticqueue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -42,6 +40,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticqueue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
