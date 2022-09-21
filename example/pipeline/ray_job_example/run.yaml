@@ -3,16 +3,16 @@ name: ray_job_example
 docker_env: python:3.7
 
 entry_points:
-  sample_pi:
+  sample-pi:
     command: ""
     env:
       #PF_JOB 开头的 env为 paddleflow job 通用字段
       PF_JOB_TYPE: "distributed"
       PF_JOB_FRAMEWORK: "ray"
       PF_JOB_PRIORITY: NORMAL # LOW | NORMAL | HIGH
-      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_QUEUE_NAME: default-queue
       # RAY_JOB 开头的env为 ray framework 中定义的参数
-      RAY_JOB_ENTRY_POINT: "python /home/ray/samples/sample_code.py"
+      RAY_JOB_ENTRY_POINT: "python /home/ray/samples/sample_pi.py"
       RAY_JOB_RUNTIME_ENV: "" # ray job 中 working_dir 的base64编码
       RAY_JOB_ENABLE_AUTOSCALING: 'false' # 暂未支持 autoscaling，https://github.com/ray-project/kuberay/issues/532
       RAY_JOB_AUTOSCALING_MODE: Default
@@ -25,7 +25,7 @@ entry_points:
       RAY_JOB_WORKER_GROUP_NAME: test-group
       RAY_JOB_WORKER_FLAVOUR: flavour1 # 目前仅支持一个 worker group
       RAY_JOB_WORKER_IMAGE: rayproject/ray:2.0.0
-      RAY_JOB_WORKER_REPLICAS: 20
+      RAY_JOB_WORKER_REPLICAS: 1
       RAY_JOB_WORKER_MIN_REPLICAS: 1 # autoscaling参数，暂不生效
       RAY_JOB_WORKER_MAX_REPLICAS: 20 # autoscaling参数，暂不生效
       RAY_JOB_WORKER_START_PARAMS_BLOCK: 'true'
@@ -33,3 +33,5 @@ entry_points:
 
 parallelism: 1
 
+fs_options:
+  main_fs: {name: "ray", sub_path: "", mount_path: "/home/ray/samples"}
