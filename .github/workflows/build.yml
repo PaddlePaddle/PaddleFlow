@@ -27,3 +27,157 @@ jobs:
       with:
         name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
         path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+      # 获取当前分支tag信息
+    - name: Get branch name
+      id: branch-name
+      with:
+        strip_tag_prefix: true
+      env:
+        strip_tag_prefix: true
+      uses: tj-actions/branch-names@v6
+
+      # 打印当前分支tag信息, is_tag代表分支是否被设置tag, tag代表具体的tag值
+    - name: echo branch
+      run: |
+        echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
+        echo "tag=${{ steps.branch-name.outputs.tag }}"
+    - name: echo branch
+      run: |
+        echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
+        echo "tag=${{ steps.branch-name.outputs.tag }}"
+
+      # 获取当前分支名称
+    - uses: nelonoel/branch-name@v1.0.1
+    - run: |
+        echo ${BRANCH_NAME}
+        echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
+
+      # build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
+    - name: get build-image-enabled, version-fragment and current-version
+      run: |
+        current_branch=${{ env.BRANCH_NAME }}
+        event_name=${{ github.event_name }}
+        build_image_enabled=false
+        echo "current_branch is [$current_branch]"
+        if [[ $current_branch =~ ^(release|dev|master|main).* ]];then
+          echo "current_branch is [$current_branch]"
+          if [[ $event_name == 'push' ]]; then
+          echo "event_name is [$event_name]"
+          build_image_enabled=true
+          fi
+        fi
+
+        echo "build_image_enabled is [$build_image_enabled]"
+        echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+
+        echo "version_fragment=alpha" >> $GITHUB_ENV
+        if [[ $current_branch =~ ^release.* ]]; then
+          echo "version_fragment=rc" >> $GITHUB_ENV
+
+          cur_version=${current_branch#*release}
+          cur_version=${cur_version#*/}
+          cur_version=${cur_version#*-}
+          echo "cur_version is [$cur_version]"
+          echo "cur_version=$cur_version" >> $GITHUB_ENV
+        fi
+
+        if [ !${{ steps.branch-name.outputs.is_tag }} ]; then
+          echo "current branch without tag"
+        else
+          echo "cur_version is [$steps.branch-name.outputs.tag]"
+          echo "cur_version=$steps.branch-name.outputs.tag" >> $GITHUB_ENV
+        fi
+        echo "next_version=null" >> $GITHUB_ENV
+
+      # 计算git_commits_since_tag数值
+    - name: Git Tag Based Build Version
+      if: env.build_image_enabled=='true'
+      id: happygears
+      uses: happygears/gt2v@v2
+      # 设置git_commits_since_tag到环境变量
+    - name: print happygears Tag
+      env:
+        EVENT_CONTEXT: ${{ toJSON(steps.happygears.outputs) }}
+      run: |
+        echo $EVENT_CONTEXT
+        git_commits_since_tag=${{ steps.happygears.outputs.git_commits_since_tag }}
+        echo "git_commits_since_tag= [$git_commits_since_tag]"
+        echo "git_commits_since_tag=$git_commits_since_tag" >> $GITHUB_ENV
+
+
+      # 解析semantic版本号,{major}.{minor}.{patch}.{micro_patch}
+    - name: Process version of the tag
+      if: env.cur_version!='null' && env.build_image_enabled=='true'
+      id: version
+      uses: ncipollo/semantic-version-action@v1
+      with:
+        tag: ${{ env.cur_version }}.${{ env.git_commits_since_tag }}
+
+      # 打印下一个版本号
+    - if: env.cur_version!='null' && env.build_image_enabled=='true'
+      name: print next-version
+      env:
+        major: ${{ steps.version.outputs.major }}
+      run: |
+        nextversion=${{ env.major }}.${{ env.minor }}.${{ env.patch }}-${{ env.version_fragment }}${{ env.micro_patch }}
+        echo "nextversion is [$nextversion]"
+        echo "next_version=$nextversion" >> $GITHUB_ENV
+
+      # 设置最终tag={镜像仓库前缀}/{镜像名称}:{分支类型}-{版本号}-{patch版本},
+    - name: Set Image Tag Name, only dev and release
+      if: env.build_image_enabled=='true'
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        echo "tagname=null" >> $GITHUB_ENV
+        current_branch=${{ env.BRANCH_NAME }}
+        base_repo=zzc932/db-crud-api
+        arch=${{ matrix.goarch }}
+        if [[ !($arch =~ amd.*) ]]; then
+          base_repo=$base_repo-$arch
+        fi
+
+        nextversion=${{ env.next_version }}
+        echo "nextversion is [$nextversion]"
+        if [[ $nextversion == 'null' ]]; then
+          echo "current branch $current_branch without tag"
+          if [ ${{ env.version_fragment }} == 'alpha' ]; then
+            echo "tagname=$base_repo:latest"
+            echo "tagname=$base_repo:latest" >> $GITHUB_ENV
+          fi
+
+          if [[ $current_branch =~ ^release.* ]]; then
+            echo "tagname=$base_repo:$current_branch"
+            echo "tagname=$base_repo:$current_branch" >> $GITHUB_ENV
+          fi
+
+        else
+          echo "tagname=$base_repo:$current_branch,$base_repo:${{ env.next_version }}"
+          echo "tagname=$base_repo:$current_branch,$base_repo:${{ env.next_version }}" >> $GITHUB_ENV
+        fi
+
+      # 登录到docker hub
+    - name: Login to DockerHub
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/login-action@v2
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # build并推送镜像到hub
+    - name: Build and push
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/build-push-action@v3
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        context: .
+        file: ./installer/Dockerfile
+        platforms: ${{ matrix.goarch }}
+        push: true
+        tags: ${{ env.tagname }}
