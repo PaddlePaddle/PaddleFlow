@@ -70,9 +70,15 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 	j.waitedCleanQueue = workqueue.NewDelayingQueue()
 
 	// Register job listeners
-	err := j.runtimeClient.RegisterListeners(j.jobQueue, j.taskQueue)
+	err := j.runtimeClient.RegisterListener(pfschema.ListenerTypeJob, j.jobQueue)
 	if err != nil {
-		log.Errorf("register event listener for %s failed, err: %v", j.Name(), err)
+		log.Errorf("register job event listener for %s failed, err: %v", j.Name(), err)
+		return err
+	}
+	// Register task listeners
+	err = j.runtimeClient.RegisterListener(pfschema.ListenerTypeTask, j.taskQueue)
+	if err != nil {
+		log.Errorf("register task event listener for %s failed, err: %v", j.Name(), err)
 		return err
 	}
 	return nil
@@ -80,7 +86,16 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 
 func (j *JobSync) Run(stopCh <-chan struct{}) {
 	log.Infof("Start %s successfully!", j.Name())
-	j.runtimeClient.StartLister(stopCh)
+	err := j.runtimeClient.StartListener(pfschema.ListenerTypeJob, stopCh)
+	if err != nil {
+		log.Errorf("start job listener failed, err: %v", err)
+		return
+	}
+	err = j.runtimeClient.StartListener(pfschema.ListenerTypeTask, stopCh)
+	if err != nil {
+		log.Errorf("start task listener failed, err: %v", err)
+		return
+	}
 
 	j.preHandleTerminatingJob()
 	go wait.Until(j.runJobWorker, 0, stopCh)
