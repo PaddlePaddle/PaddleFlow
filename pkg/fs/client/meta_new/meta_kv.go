@@ -876,6 +876,7 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 	}
 	ufs_, _, _, newPath := m.GetUFS(absolutePath)
 	if err = ufs_.Mkdir(newPath, mode); err != nil {
+		log.Errorf("kv meta mkdir parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
@@ -918,6 +919,7 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 	}
 	ufs_, _, _, path := m.GetUFS(absolutePath)
 	if err = ufs_.Unlink(path); err != nil {
+		log.Errorf("kv meta unlink parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
@@ -981,6 +983,7 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	}
 	ufs_, _, _, path := m.GetUFS(absolutePath)
 	if err = ufs_.Rmdir(path); err != nil {
+		log.Errorf("kv meta rmdir parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
 	return syscall.F_OK
@@ -1058,6 +1061,8 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 	}
 	err = ufsSrc.Rename(pathOld, pathNew)
 	if err != nil {
+		log.Errorf("kv meta rename parentSrc %v nameSrc %v parentDst %v nameDst %v err %v",
+			parentSrc, nameSrc, parentDst, nameDst, err)
 		return "", "", utils.ToSyscallErrno(err)
 	}
 

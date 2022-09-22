@@ -21,9 +21,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 type KVTxn struct {
@@ -45,7 +48,12 @@ func NewBadgerClient(config Config) (KvClient, error) {
 			return nil, fmt.Errorf("meta cache config path is not allowed empty")
 		}
 		cachePath := filepath.Join(config.CachePath, config.FsID+".db")
+		log.Infof("meta disk cache path %v", cachePath)
 		os.RemoveAll(cachePath)
+		if config.FsID == "" {
+			cachePath = filepath.Join(config.CachePath, utils.GetRandID(5)+
+				"_"+time.Now().Format("2006-01-02 15:04:05")+".db")
+		}
 		db, err = badger.Open(badger.DefaultOptions(cachePath))
 	} else {
 		return nil, fmt.Errorf("not found meta driver name %s", config.Driver)
@@ -62,13 +70,13 @@ func (kv *KVTxn) Get(key []byte) []byte {
 		return nil
 	}
 	if err != nil {
-		log.Errorf("badger get key %s with err %v", string(key), err)
+		log.Debugf("badger get key %s with err %v", string(key), err)
 		return nil
 	}
 	var value []byte
 	value, err = item.ValueCopy(nil)
 	if err != nil {
-		log.Errorf("badger value copy key %s with err %v", string(key), err)
+		log.Debugf("badger value copy key %s with err %v", string(key), err)
 		return nil
 	}
 	return value
@@ -80,11 +88,10 @@ func (kv *KVTxn) Set(key, value []byte) error {
 }
 
 func (kv *KVTxn) Dels(keys ...[]byte) error {
-
 	for _, key := range keys {
 		err := kv.t.Delete(key)
 		if err != nil {
-			log.Printf("badger del key %s with err %v", string(key), err)
+			log.Debugf("badger del key %s with err %v", string(key), err)
 			return err
 		}
 	}
@@ -148,13 +155,13 @@ func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 	var err error
 
 	if err = f(&KVTxn{tx}); err != nil {
-		log.Errorf("txn err is %v", err)
+		log.Debugf("txn err is %v", err)
 		return err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		log.Errorf("tx commit err %v", err)
+		log.Debugf("tx commit err %v", err)
 	}
 	return err
 }

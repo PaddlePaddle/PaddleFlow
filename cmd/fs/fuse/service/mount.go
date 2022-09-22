@@ -362,6 +362,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
 		Config: kv.Config{
+			FsID:      fsMeta.ID,
 			Driver:    c.String("meta-cache-driver"),
 			CachePath: c.String("meta-cache-path"),
 		},
