@@ -19,6 +19,7 @@ package job
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/argoworkflow"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/pytorch"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/single"
@@ -33,5 +34,6 @@ func init() {
 	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, tensorflow.KubeTFFwVersion, tensorflow.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, spark.KubeSparkFwVersion, spark.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, argoworkflow.KubeArgoWorkflowFwVersion, argoworkflow.New)
 	// TODO: add more plugins
 }
