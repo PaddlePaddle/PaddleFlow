@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pytorch
+package tensorflow
 
 import (
 	"context"
 	"fmt"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
-	pytorchv1 "github.com/kubeflow/training-operator/pkg/apis/pytorch/v1"
+	tfv1 "github.com/kubeflow/training-operator/pkg/apis/tensorflow/v1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,12 +39,12 @@ import (
 )
 
 var (
-	JobGVK               = k8s.PyTorchJobGVK
-	KubePyTorchFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK          = k8s.TFJobGVK
+	KubeTFFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
-// KubePyTorchJob is a struct that runs a pytorch job
-type KubePyTorchJob struct {
+// KubeTFJob is a struct that runs a tensorflow job
+type KubeTFJob struct {
 	GVK              schema.GroupVersionKind
 	frameworkVersion pfschema.FrameworkVersion
 	runtimeClient    framework.RuntimeClientInterface
@@ -52,45 +52,45 @@ type KubePyTorchJob struct {
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
-	return &KubePyTorchJob{
+	return &KubeTFJob{
 		runtimeClient:    kubeClient,
 		GVK:              JobGVK,
-		frameworkVersion: KubePyTorchFwVersion,
+		frameworkVersion: KubeTFFwVersion,
 	}
 }
 
-func (pj *KubePyTorchJob) String(name string) string {
+func (pj *KubeTFJob) String(name string) string {
 	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.runtimeClient.Cluster())
 }
 
-func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
+func (pj *KubeTFJob) Submit(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	pdj := &pytorchv1.PyTorchJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.GVK, job); err != nil {
+	tfjob := &tfv1.TFJob{}
+	if err := kuberuntime.CreateKubeJobFromYaml(tfjob, pj.GVK, job); err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
 
 	var err error
 	// set metadata field
-	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
+	kuberuntime.BuildJobMetadata(&tfjob.ObjectMeta, job)
 	// set spec field
 	if job.IsCustomYaml {
-		// set custom PyTorchJob Spec from user
-		err = pj.customPyTorchJobSpec(&pdj.Spec, job)
+		// set custom TFJob Spec from user
+		err = pj.customTFJobSpec(&tfjob.Spec, job)
 	} else {
-		// set builtin PyTorchJob Spec
-		err = pj.builtinPyTorchJobSpec(&pdj.Spec, job)
+		// set builtin TFJob Spec
+		err = pj.builtinTFJobSpec(&tfjob.Spec, job)
 	}
 	if err != nil {
 		log.Errorf("build %s spec failed, err %v", pj.String(jobName), err)
 		return err
 	}
-	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), pdj)
-	err = pj.runtimeClient.Create(pdj, pj.frameworkVersion)
+	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), tfjob)
+	err = pj.runtimeClient.Create(tfjob, pj.frameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -98,23 +98,25 @@ func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-// builtinPyTorchJobSpec set build-in PyTorchJob spec
-func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec, job *api.PFJob) error {
+// builtinTFJobSpec set build-in TFJob spec
+func (pj *KubeTFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Debugf("patch %s spec:%#v", pj.String(jobName), torchJobSpec)
-	// TODO: set ElasticPolicy for PyTorchJob
-	// set PyTorchReplicaSpecs
+	log.Debugf("patch %s spec:%#v", pj.String(jobName), tfJobSpec)
+	// TODO: set ElasticPolicy for TFJob
+	// set TFReplicaSpecs
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
-		replicaType := pytorchv1.PyTorchReplicaTypeMaster
+		// tf parameter server for distributed training
+		replicaType := tfv1.TFReplicaTypePS
+		// if role is worker, set it to tf worker
 		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
-			// pytorch worker
-			replicaType = pytorchv1.PyTorchReplicaTypeWorker
+			// tf worker for distributed training
+			replicaType = tfv1.TFReplicaTypeWorker
 		}
-		replicaSpec, ok := torchJobSpec.PyTorchReplicaSpecs[replicaType]
+		replicaSpec, ok := tfJobSpec.TFReplicaSpecs[replicaType]
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
@@ -133,22 +135,22 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return kuberuntime.KubeflowRunPolicy(&torchJobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return kuberuntime.KubeflowRunPolicy(&tfJobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
-// customPyTorchJobSpec set custom PyTorchJob Spec
-func (pj *KubePyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec, job *api.PFJob) error {
+// customTFJobSpec set custom TFJob Spec
+func (pj *KubeTFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Debugf("patch %s spec:%#v", pj.String(jobName), torchJobSpec)
+	log.Debugf("patch %s spec:%#v", pj.String(jobName), tfJobSpec)
 	// TODO: patch pytorch job from user
 	// check RunPolicy
 	return nil
 }
 
-func (pj *KubePyTorchJob) Stop(ctx context.Context, job *api.PFJob) error {
+func (pj *KubeTFJob) Stop(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -161,7 +163,7 @@ func (pj *KubePyTorchJob) Stop(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-func (pj *KubePyTorchJob) Update(ctx context.Context, job *api.PFJob) error {
+func (pj *KubeTFJob) Update(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -174,7 +176,7 @@ func (pj *KubePyTorchJob) Update(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-func (pj *KubePyTorchJob) Delete(ctx context.Context, job *api.PFJob) error {
+func (pj *KubeTFJob) Delete(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -187,12 +189,12 @@ func (pj *KubePyTorchJob) Delete(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-func (pj *KubePyTorchJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
+func (pj *KubeTFJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
 	// TODO: add get log logic
 	return pfschema.JobLogInfo{}, nil
 }
 
-func (pj *KubePyTorchJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
+func (pj *KubeTFJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
@@ -203,7 +205,7 @@ func (pj *KubePyTorchJob) AddEventListener(ctx context.Context, listenerType str
 	return err
 }
 
-func (pj *KubePyTorchJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
+func (pj *KubeTFJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	if jobQueue == nil || listener == nil {
 		return fmt.Errorf("add job event listener failed, err: listener is nil")
 	}
@@ -220,7 +222,7 @@ func (pj *KubePyTorchJob) addJobEventListener(ctx context.Context, jobQueue work
 	return nil
 }
 
-func (pj *KubePyTorchJob) addJob(obj interface{}) {
+func (pj *KubeTFJob) addJob(obj interface{}) {
 	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, pj.JobStatus)
 	if err != nil {
 		return
@@ -228,7 +230,7 @@ func (pj *KubePyTorchJob) addJob(obj interface{}) {
 	pj.jobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubePyTorchJob) updateJob(old, new interface{}) {
+func (pj *KubeTFJob) updateJob(old, new interface{}) {
 	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, pj.JobStatus)
 	if err != nil {
 		return
@@ -236,7 +238,7 @@ func (pj *KubePyTorchJob) updateJob(old, new interface{}) {
 	pj.jobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubePyTorchJob) deleteJob(obj interface{}) {
+func (pj *KubeTFJob) deleteJob(obj interface{}) {
 	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, pj.JobStatus)
 	if err != nil {
 		return
@@ -244,11 +246,11 @@ func (pj *KubePyTorchJob) deleteJob(obj interface{}) {
 	pj.jobQueue.Add(jobSyncInfo)
 }
 
-// JobStatus get the statusInfo of PyTorch job, including origin status, pf status and message
-func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
+// JobStatus get the statusInfo of TF job, including origin status, pf status and message
+func (pj *KubeTFJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	unObj := obj.(*unstructured.Unstructured)
-	// convert to PyTorchJob struct
-	job := &pytorchv1.PyTorchJob{}
+	// convert to TFJob struct
+	job := &tfv1.TFJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
 		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
 		return api.StatusInfo{}, err
@@ -261,10 +263,10 @@ func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	}
 	state, msg, err := pj.getJobStatus(jobCond)
 	if err != nil {
-		log.Errorf("get pytorch status failed, err: %v", err)
+		log.Errorf("get tensorflow job status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
-	log.Infof("pytorch job status: %s", state)
+	log.Infof("tensorflow job status: %s", state)
 	return api.StatusInfo{
 		OriginStatus: string(jobCond.Type),
 		Status:       state,
@@ -272,6 +274,6 @@ func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	}, nil
 }
 
-func (pj *KubePyTorchJob) getJobStatus(jobCond kubeflowv1.JobCondition) (pfschema.JobStatus, string, error) {
+func (pj *KubeTFJob) getJobStatus(jobCond kubeflowv1.JobCondition) (pfschema.JobStatus, string, error) {
 	return kuberuntime.GetKubeflowJobStatus(jobCond)
 }
