@@ -17,25 +17,24 @@ limitations under the License.
 package metrics
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type JobMetricCollector struct {
-	jobCount *prometheus.CounterVec
-	jobTime  *prometheus.GaugeVec
-	manager  TimePointManager
+	jobTime    *prometheus.GaugeVec
+	jobGpuInfo *prometheus.GaugeVec
+	manager    TimePointManager
+	listJob    ListJobFunc
 }
 
-func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
-	return &JobMetricCollector{
-		jobCount: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: MetricJobCount,
-				Help: toHelp(MetricJobCount),
-			},
-			[]string{JobIDLabel},
-		),
+func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobMetricCollector {
+	c := &JobMetricCollector{
 		jobTime: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricJobTime,
@@ -43,21 +42,31 @@ func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
 			},
 			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),
+		jobGpuInfo: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: MetricJobGPUInfo,
+				Help: toHelp(MetricJobGPUInfo),
+			},
+			[]string{JobIDLabel, GpuIdxLabel},
+		),
 		manager: manager,
+		listJob: listJob,
 	}
+	return c
 }
 
 func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
-	j.jobCount.Describe(descs)
 	j.jobTime.Describe(descs)
+	j.jobGpuInfo.Describe(descs)
 }
 
 func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 	cache := j.manager.GetTimestampsCache()
 	printCache(cache)
 	j.updateJobPerf()
-	j.jobCount.Collect(metrics)
+	j.updateGpuInfo()
 	j.jobTime.Collect(metrics)
+	j.jobGpuInfo.Collect(metrics)
 }
 
 func printCache(cache map[string]Timestamps) {
@@ -86,4 +95,41 @@ func (j *JobMetricCollector) updateJobPerf() {
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
 	}
+}
+
+// query labels
+// TODO: add cache to change query from sync to async
+func (j *JobMetricCollector) updateGpuInfo() {
+	jobs := j.listJob()
+	for _, job := range jobs {
+		gpuIdxs := getGPUIdxFromJob(job)
+		log.Debugf("[gpu info] job %s gpu idxs: %+v", job.ID, gpuIdxs)
+		for _, idx := range gpuIdxs {
+			j.jobGpuInfo.With(prometheus.Labels{
+				JobIDLabel:  job.ID,
+				GpuIdxLabel: strconv.Itoa(idx),
+			}).Set(1.0)
+		}
+	}
+}
+
+func getGPUIdxFromJob(job model.Job) []int {
+	var idxs []int
+	annotations := GetAnnotationsFromRuntimeInfo(job.RuntimeInfo)
+	log.Debugf("[gpu info]job %s annotations: %+v", job.ID, annotations)
+	for annotation, value := range annotations {
+		if strings.ToLower(annotation) == BaiduGpuIndexLabel {
+			idxStrs := strings.Split(value, ",")
+			idxs = make([]int, 0, len(idxStrs))
+			for _, idxStr := range idxStrs {
+				idx, err := strconv.Atoi(idxStr)
+				if err != nil {
+					continue
+				}
+				idxs = append(idxs, idx)
+			}
+			return idxs
+		}
+	}
+	return idxs
 }
