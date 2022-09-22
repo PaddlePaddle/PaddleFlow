@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -109,13 +110,13 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	// start job manager
 	rVersion := os.Getenv(EnvRuntimeVersion)
 	if rVersion == "v2" {
-		m.startRuntimeV2(activeClusters, activeQueueJobs)
+		m.startRuntimeV2()
 	} else {
-		m.startRuntime(activeClusters, activeQueueJobs)
+		m.startRuntime()
 	}
 }
 
-func (m *JobManagerImpl) startRuntime(activeClusters ActiveClustersFunc, activeQueueJobs QueueJobsFunc) {
+func (m *JobManagerImpl) startRuntime() {
 	log.Infof("Start job manager on runtime!")
 	// submit job to cluster
 	go m.pJobProcessLoop()
@@ -302,6 +303,173 @@ func (m *JobManagerImpl) stopQueueSubmit(queueID api.QueueID) {
 		m.jobQueues.Delete(queueID)
 	}
 }
+
+// PaddleFlow runtime v2
+// startRuntimeV2 start job manager on runtime v2
+func (m *JobManagerImpl) startRuntimeV2() {
+	log.Infof("Start job manager on runtime v2!")
+	// submit job to cluster
+	go m.jobProcessLoop()
+
+	for {
+		// get active clusters
+		clusters := m.activeClusters()
+
+		for _, cluster := range clusters {
+			clusterID := api.ClusterID(cluster.ID)
+			// skip when cluster status is offline
+			if cluster.Status == model.ClusterStatusOffLine {
+				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, model.ClusterStatusOffLine)
+				m.stopClusterRuntimeV2(clusterID)
+				continue
+			}
+
+			_, find := m.clusterRuntimes.Get(clusterID)
+			if !find {
+				runtimeSvc, err := runtime_v2.GetOrCreateRuntime(cluster)
+				if err != nil {
+					log.Errorf("new runtime for cluster[%s] failed, err: %v. skip it", cluster.ID, err)
+					continue
+				}
+				log.Infof("Create new runtime with cluster <%s>", cluster.ID)
+
+				cr := NewClusterRuntimeV2Info(cluster.Name, runtimeSvc)
+				m.clusterRuntimes.Store(clusterID, cr)
+				// start runtime for new cluster
+				go runtimeSvc.SyncController(cr.StopCh)
+			}
+		}
+		time.Sleep(m.clusterSyncPeriod)
+	}
+}
+
+func (m *JobManagerImpl) stopClusterRuntimeV2(clusterID api.ClusterID) {
+	log.Infof("stop runtime for cluster: %s\n", clusterID)
+	// stop runtime for offline cluster
+	cr, ok := m.clusterRuntimes.Get(clusterID)
+	if ok && cr != nil {
+		close(cr.StopCh)
+	}
+	m.clusterRuntimes.Delete(clusterID)
+	runtime_v2.PFRuntimeMap.Delete(clusterID)
+	m.stopClusterQueueSubmit(clusterID)
+}
+
+func (m *JobManagerImpl) jobProcessLoop() {
+	log.Infof("start job process loop ...")
+	for {
+		jobs := storage.Job.ListJobByStatus(schema.StatusJobInit)
+		startTime := time.Now()
+		for idx, job := range jobs {
+			// TODO: batch insert group by queue
+			queueID := api.QueueID(job.QueueID)
+			cQueue, find := m.GetQueue(queueID)
+			if !find {
+				m.stopQueueSubmit(queueID)
+				log.Warnf("get queue from cache failed, stop queue submit")
+				continue
+			}
+			// add more metric
+			qInfo := cQueue.Queue
+			pfJob, err := api.NewJobInfo(&jobs[idx])
+			if err != nil {
+				continue
+			}
+
+			jobQueue, find := m.jobQueues.Get(queueID)
+			if !find {
+				jobQueue = api.NewJobQueue(qInfo)
+				m.jobQueues.Insert(queueID, jobQueue)
+				go m.submitQueueJob(jobQueue, cQueue.ClusterRuntime)
+			}
+
+			// enqueue job
+			jobQueue.Insert(pfJob)
+			// add job time point
+			metrics.Job.AddTimestamp(pfJob.ID, metrics.T3, time.Now())
+		}
+		elapsedTime := time.Since(startTime)
+		if elapsedTime < m.jobLoopPeriod {
+			time.Sleep(m.jobLoopPeriod - elapsedTime)
+		}
+		log.Debugf("total job %d, job loop elapsed time: %s", len(jobs), elapsedTime)
+	}
+}
+
+func (m *JobManagerImpl) submitQueueJob(jobQueue *api.JobQueue, clusterRuntime *ClusterRuntimeInfo) {
+	if jobQueue == nil || clusterRuntime == nil {
+		log.Infof("exit submit job loop, as jobQueue or clusterRuntime is nil")
+		return
+	}
+	name := jobQueue.GetName()
+	runtimeSvc := clusterRuntime.RuntimeV2Svc
+	log.Infof("start submit job loop for queue: %s", name)
+	for {
+		select {
+		case <-jobQueue.StopCh:
+			log.Infof("exit submit job loop for queue %s ...", name)
+			return
+		default:
+			startTime := time.Now()
+			// dequeue job
+			job, ok := jobQueue.GetJob()
+			if ok {
+				metrics.Job.AddTimestamp(job.ID, metrics.T4, time.Now())
+				log.Infof("Entering submit %s job in queue %s", job.ID, name)
+				// get enqueue job
+				fwVersion := runtimeSvc.Client().JobFrameworkVersion(job.JobType, job.Framework)
+				m.submitJobV2(runtimeSvc.Job(fwVersion).Submit, job)
+				metrics.Job.AddTimestamp(job.ID, metrics.T5, time.Now())
+				jobQueue.DeleteMark(job.ID)
+				log.Infof("Leaving submit %s job with frameworkVersion %s in queue %s, total elapsed time: %s",
+					job.ID, fwVersion, name, time.Since(startTime))
+			} else {
+				// TODO: add to config
+				// time.Sleep(m.jobLoopPeriod)
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+	}
+}
+
+// submitJob submit a job to cluster
+func (m *JobManagerImpl) submitJobV2(jobSubmit func(context.Context, *api.PFJob) error, jobInfo *api.PFJob) {
+	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
+	startTime := time.Now()
+	job, err := storage.Job.GetJobByID(jobInfo.ID)
+	if err != nil {
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
+		return
+	}
+	// check job status before create job on cluster
+	if job.Status == schema.StatusJobInit {
+		var jobStatus schema.JobStatus
+		var msg string
+		err = jobSubmit(context.TODO(), jobInfo)
+		if err != nil {
+			// new job failed, update db and skip this job
+			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
+			log.Errorln(msg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(msg)
+			jobStatus = schema.StatusJobFailed
+		} else {
+			msg = "submit job to cluster successfully."
+			trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
+			jobStatus = schema.StatusJobPending
+		}
+		// new job failed, update db and skip this job
+		if dbErr := storage.Job.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+			log.Errorf(errMsg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
+		}
+		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
+	} else {
+		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
+	}
+}
+
+// Queue and ClusterInfo store for job manager
 
 // clusterQueue contains queue info and cluster client
 type clusterQueue struct {
