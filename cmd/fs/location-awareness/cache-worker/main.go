@@ -18,6 +18,9 @@ package main
 
 import (
 	"errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,11 +31,8 @@ import (
 
 	expand "github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/location-awareness/cache-worker/flag"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -89,49 +89,48 @@ func act(c *cli.Context) error {
 		return err
 	}
 
-	// new fuse http client
-	httpClient, err := client.NewHttpClient(c.String("server"), client.DefaultTimeOut)
+	namespace := os.Getenv(schema.EnvKeyNamespace)
+	podName := os.Getenv(schema.EnvKeyMountPodName)
+
+	if podName == "" || namespace == "" {
+		log.Fatalf("mount pod name[%s] or namespace[%s] can't be null\n", podName, namespace)
+		os.Exit(0)
+	}
+
+	k8sClient, err := utils.GetK8sClient()
 	if err != nil {
-		return err
+		log.Errorf("get k8s client failed: %v", err)
+		os.Exit(0)
 	}
-	// token
-	login := api.LoginParams{
-		UserName: c.String("username"),
-		Password: c.String("password"),
-	}
-	loginResponse, err := api.LoginRequest(login, httpClient)
+	pod, err := k8sClient.GetPod(namespace, podName)
 	if err != nil {
-		log.Errorf("cache worker login failed: %v", err)
-		return err
+		log.Errorf("Can't get mount pod %s: %v", csiconfig.PodName, err)
+		os.Exit(0)
 	}
+
 	fsID := c.String("fsID")
 	cacheDir := c.String("cacheDir")
 	podCachePath := c.String("podCachePath")
 	nodName := c.String("nodename")
-	clusterID := c.String("clusterID")
 
-	userName, fsName, err := utils.GetFsNameAndUserNameByFsID(fsID)
-	if err != nil {
-		return err
+	cacheReportParams := location_awareness.CacheStats{
+		FsID:     fsID,
+		CacheDir: cacheDir,
+		NodeName: nodName,
 	}
-	cacheReportParams := api.CacheReportParams{
-		FsParams: api.FsParams{
-			FsName:   fsName,
-			UserName: userName,
-			Token:    loginResponse.Authorization,
-		},
-		ClusterID: clusterID,
-		CacheDir:  cacheDir,
-		NodeName:  nodName,
+	info := location_awareness.PatchInfo{
+		K8sClient:    k8sClient,
+		Pod:          pod,
+		PodCachePath: podCachePath,
 	}
 	go func() {
-		_ = location_awareness.ReportCacheLoop(cacheReportParams, podCachePath, httpClient)
+		location_awareness.PatchCacheStatsLoop(cacheReportParams, info)
 	}()
 
 	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-stopSig
-	log.Errorf("ReportCacheLoop stopped err: %s", sig.String())
+	log.Errorf("PatchCacheStatsLoop stopped err: %s", sig.String())
 
 	return errors.New(sig.String())
 }

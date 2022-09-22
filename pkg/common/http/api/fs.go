@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,15 +30,8 @@ const (
 	LoginApi          = Prefix + "/login"
 	GetFsApi          = Prefix + "/fs"
 	GetLinksApis      = Prefix + "/link"
-	FsCacheConfig     = Prefix + "/fsCache"
-	FsMount           = Prefix + "/fsMount"
 	CacheReportConfig = Prefix + "/fsCache/report"
-
-	KeyUsername   = "username"
-	KeyFsName     = "fsName"
-	KeyClusterID  = "clusterID"
-	KeyNodeName   = "nodename"
-	KeyMountPoint = "mountpoint"
+	KeyUsername       = "username"
 )
 
 type LoginParams struct {
@@ -54,14 +47,6 @@ type FsParams struct {
 	FsName   string `json:"fsName"`
 	UserName string `json:"username"`
 	Token    string
-}
-
-type CacheReportParams struct {
-	FsParams
-	ClusterID string `json:"clusterID"`
-	CacheDir  string `json:"cacheDir"`
-	NodeName  string `json:"nodename"`
-	UsedSize  int    `json:"usedsize"`
 }
 
 type LinksParams struct {
@@ -96,58 +81,6 @@ type LinksResponse struct {
 	Truncated  bool            `json:"truncated"`
 	NextMarker string          `json:"nextMarker"`
 	LinkList   []*LinkResponse `json:"linkList"`
-}
-
-type FsCacheResponse struct {
-	CacheDir            string                 `json:"cacheDir"`
-	Quota               int                    `json:"quota"`
-	MetaDriver          string                 `json:"metaDriver"`
-	BlockSize           int                    `json:"blockSize"`
-	Debug               bool                   `json:"debug"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
-	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
-	ExtraConfig         map[string]string      `json:"extraConfig"`
-	FsName              string                 `json:"fsName"`
-	Username            string                 `json:"username"`
-	CreateTime          string                 `json:"createTime"`
-	UpdateTime          string                 `json:"updateTime,omitempty"`
-}
-
-type CreateMountRequest struct {
-	ClusterID  string `json:"clusterID"`
-	MountPoint string `json:"mountPoint" validate:"required"`
-	NodeName   string `json:"nodename" validate:"required"`
-	FsParams
-}
-
-type ListMountRequest struct {
-	FsParams
-	ClusterID string `json:"clusterID"`
-	NodeName  string `json:"nodename" validate:"required"`
-	Marker    string `json:"marker"`
-	MaxKeys   int32  `json:"maxKeys"`
-}
-
-type DeleteMountRequest struct {
-	FsParams
-	ClusterID  string `json:"clusterID"`
-	MountPoint string `json:"mountPoint" validate:"required"`
-	NodeName   string `json:"nodename" validate:"required"`
-}
-
-type ListMountResponse struct {
-	Marker     string           `json:"marker"`
-	Truncated  bool             `json:"truncated"`
-	NextMarker string           `json:"nextMarker"`
-	MountList  []*MountResponse `json:"mountList"`
-}
-
-type MountResponse struct {
-	MountID    string `json:"mountID"`
-	FsID       string `json:"fsID"`
-	MountPoint string `json:"mountpoint"`
-	NodeName   string `json:"nodename"`
-	ClusterID  string `json:"clusterID"`
 }
 
 func LoginRequest(params LoginParams, c *core.PaddleFlowClient) (*LoginResponse, error) {
@@ -193,70 +126,4 @@ func LinksRequest(params LinksParams, c *core.PaddleFlowClient) (*LinksResponse,
 		return nil, err
 	}
 	return resp, nil
-}
-
-func FsCacheRequest(params FsParams, c *core.PaddleFlowClient) (*FsCacheResponse, error) {
-	resp := &FsCacheResponse{}
-	err := core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, params.Token).
-		WithURL(FsCacheConfig+"/"+params.FsName).
-		WithQueryParam(KeyUsername, params.UserName).WithMethod(http.GET).
-		WithResult(resp).
-		Do()
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func FsMountCreate(req CreateMountRequest, c *core.PaddleFlowClient) error {
-	err := core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, req.Token).
-		WithURL(FsMount).
-		WithMethod(http.POST).
-		WithBody(req).
-		Do()
-	return err
-}
-
-func FsMountList(req ListMountRequest, c *core.PaddleFlowClient) (*ListMountResponse, error) {
-	resp := &ListMountResponse{}
-	err := core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, req.Token).
-		WithURL(FsMount).
-		WithQueryParam(KeyClusterID, req.ClusterID).
-		WithQueryParam(KeyNodeName, req.NodeName).
-		WithQueryParam(KeyFsName, req.FsName).
-		WithQueryParam(KeyUsername, req.UserName).
-		WithMethod(http.GET).
-		WithResult(resp).
-		Do()
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
-func FsMountDelete(req DeleteMountRequest, c *core.PaddleFlowClient) error {
-	err := core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, req.Token).
-		WithURL(FsMount+"/"+req.FsName).
-		WithQueryParam(KeyClusterID, req.ClusterID).
-		WithQueryParam(KeyNodeName, req.NodeName).
-		WithQueryParam(KeyUsername, req.UserName).
-		WithQueryParam(KeyMountPoint, req.MountPoint).
-		WithMethod(http.DELETE).
-		Do()
-	return err
-}
-
-func CacheReportRequest(req CacheReportParams, c *core.PaddleFlowClient) error {
-	err := core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, req.Token).
-		WithURL(CacheReportConfig).
-		WithBody(req).WithMethod(http.POST).Do()
-	if err != nil {
-		return err
-	}
-	return nil
 }

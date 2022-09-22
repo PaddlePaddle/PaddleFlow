@@ -19,6 +19,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"time"
 
@@ -42,6 +43,7 @@ type Client interface {
 	UpdatePod(namespace string, pod *corev1.Pod) (*corev1.Pod, error)
 	DeletePod(pod *corev1.Pod) error
 	GetPodLog(namespace, podName, containerName string) (string, error)
+	PatchPodAnnotation(pod *corev1.Pod) error
 	// pv
 	CreatePersistentVolume(pv *corev1.PersistentVolume) (*corev1.PersistentVolume, error)
 	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
@@ -94,6 +96,24 @@ func New(k8sConfigPath string, k8sClientTimeout int) (*k8sClient, error) {
 		return nil, err
 	}
 	return &k8sClient{Interface: clientset}, nil
+}
+
+func (c *k8sClient) PatchPodAnnotation(pod *corev1.Pod) error {
+	payload := []PatchMapValue{{
+		Op:    "replace",
+		Path:  "/metadata/annotations",
+		Value: pod.Annotations,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse annotation json error: %v", err)
+		return err
+	}
+	if err := c.PatchPod(pod, payloadBytes); err != nil {
+		log.Errorf("patch pod %s error: %v", pod.Name, err)
+		return err
+	}
+	return nil
 }
 
 func (c *k8sClient) CreatePod(pod *corev1.Pod) (*corev1.Pod, error) {
