@@ -96,12 +96,11 @@ func (sp *SingleJob) CreateJob() (string, error) {
 	log.Debugf("begin create job jobID:[%s]", jobID)
 
 	singlePod := &v1.Pod{}
-	if sp.YamlTemplateContent != nil && len(sp.YamlTemplateContent) != 0 {
-		if err := sp.createJobFromYaml(singlePod); err != nil {
-			log.Errorf("create job failed, err %v", err)
-			return "", err
-		}
+	if err := sp.createJobFromYaml(singlePod); err != nil {
+		log.Errorf("create job failed, err %v", err)
+		return "", err
 	}
+
 	if err := sp.validateJob(singlePod); err != nil {
 		log.Errorf("validate job failed, err: %v", err)
 		return "", err
@@ -159,8 +158,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 	// fill image
 	container.Image = sp.Image
 	// fill command
-	workDir := sp.getWorkDir(nil)
-	container.Command = sp.generateContainerCommand(sp.Command, workDir)
+	sp.fillCMDInContainer(container, nil)
 
 	// container.Args would be passed
 	// fill resource

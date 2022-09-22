@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -575,7 +574,6 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 	assert.Equal(t, len(buf), n)
 	assert.Equal(t, string(buf), "34567")
 	p := setPoolNil()
-	fmt.Println("===============")
 	time.Sleep(1 * time.Second)
 
 	buf = make([]byte, 5)

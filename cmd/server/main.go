@@ -227,6 +227,10 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
+	if err := config.InitJobTemplate(ServerConf.Job.DefaultJobYamlPath); err != nil {
+		log.Errorf("InitDefaultJobTemplate err %v", err)
+		gracefullyExit(err)
+	}
 
 	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
 		log.Errorf("create prometheus client failed, err %v", err)

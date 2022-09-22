@@ -23,7 +23,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
@@ -62,8 +61,8 @@ type fileReader struct {
 	ufs    ufslib.UnderFileStorage
 	reader *dataReader
 	sync.Mutex
-	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
-	fd            base.FileHandle
+	// TODO: 先用FileHandle跑通流程，后续修改ufs接口
+	fd            ufslib.FileHandle
 	buffersCache  cache.ReadBufferMap
 	streamReader  io.ReadCloser
 	seqReadAmount uint64

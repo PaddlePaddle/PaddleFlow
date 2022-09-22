@@ -71,7 +71,9 @@ var URLPrefix = map[string]bool{
 	fsCommon.GlusterFSType: true,
 }
 
-const FsNameMaxLen = 100
+const FsNameMaxLen = 63
+
+var FsnamePlusUsernameMaxLen int = 63 - len("fs-") - len("-")
 
 // obsoleted funcs: create PVC code can be found in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
 
@@ -143,7 +145,12 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorMessage = common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen)).Error()
 		return common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen))
 	}
-
+	if len(req.Username)+len(req.Name) > FsnamePlusUsernameMaxLen {
+		ctx.Logging().Errorf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsnamePlusUsernameMaxLen)
+		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = common.InvalidField("username and name", fmt.Sprintf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsnamePlusUsernameMaxLen)).Error()
+		return common.InvalidField("name", fmt.Sprintf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsNameMaxLen))
+	}
 	urlArr := strings.Split(req.Url, ":")
 	if len(urlArr) < 2 {
 		ctx.Logging().Errorf("[%s] is not a correct file-system url", req.Url)

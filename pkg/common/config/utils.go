@@ -18,12 +18,15 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
-	yaml2 "gopkg.in/yaml.v2"
+	yaml3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -59,9 +62,46 @@ func InitConfigFromYaml(conf interface{}, configPath string) error {
 		fmt.Printf("read file yaml[%s] failed! err:[%v]\n", configPath, err)
 		return err
 	}
-	if err = yaml2.Unmarshal(yamlFile, conf); err != nil {
+	if err = yaml3.Unmarshal(yamlFile, conf); err != nil {
 		fmt.Printf("decodes yaml[%s] failed! err:[%v]", configPath, err)
 		return err
+	}
+	return nil
+}
+
+func InitJobTemplate(path string) error {
+	if path == "" {
+		path = defaultJobTemplatePath
+	}
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	DefaultJobTemplate = make(map[string][]byte)
+	dec := yaml3.NewDecoder(reader)
+	for {
+		var node yaml3.Node
+		err = dec.Decode(&node)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Printf("decode yaml node failed, err: %v", err)
+			return err
+		}
+
+		content, err := yaml3.Marshal(&node)
+		if err != nil {
+			fmt.Printf("marshal yaml failed, err: %v", err)
+			return err
+		}
+		if len(node.FootComment) != 0 {
+			TemplateName := strings.TrimSpace(strings.Replace(node.FootComment, "#", "", 1))
+			fmt.Printf("init job template with name: %s, content %s\n", TemplateName, content)
+			DefaultJobTemplate[TemplateName] = content
+		}
 	}
 	return nil
 }
