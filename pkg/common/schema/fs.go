@@ -42,9 +42,16 @@ const (
 
 	FuseKeyFsInfo = "fs-info"
 
-	LabelKeyFsID       = "fsID"
-	LabelCacheID       = "cacheID"
+	LabelKeyFsID      = "fsID"
+	LabelCacheID      = "cacheID"
+	LabelFunc         = "func"
+	LabelFuncMountPod = "mountPod"
+
 	AnnotationKeyMTime = "modifiedTime"
+	AnnotationKeyCache = "cacheStats"
+
+	EnvKeyMountPodName = "POD_NAME"
+	EnvKeyNamespace    = "NAMESPACE"
 
 	MountPodNamespace = "paddleflow"
 )
