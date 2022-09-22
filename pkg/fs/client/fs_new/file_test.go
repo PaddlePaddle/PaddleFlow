@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -182,8 +183,9 @@ func TestFS_Readdir_Expire(t *testing.T) {
 	}
 	SetDataCache(d)
 	m := meta.Config{
-		AttrCacheExpire:  10 * time.Second,
+		AttrCacheExpire:  2 * time.Second,
 		EntryCacheExpire: 2 * time.Second,
+		PathCacheExpire:  1 * time.Second,
 		Config: kv.Config{
 			Driver: kv.MemType,
 		},
@@ -679,4 +681,53 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 	assert.Equal(t, "67890abcde", string(buf[:n]))
 	reader.Close()
 
+}
+
+func TestPathCacheAndRename(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 10,
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	m := meta.Config{
+		AttrCacheExpire:  10 * time.Second,
+		EntryCacheExpire: 10 * time.Second,
+		PathCacheExpire:  2 * time.Second,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+
+	SetMetaCache(m)
+	// new client
+	client, err := newPfsTestWithOutVfsLevelCache()
+	assert.Nil(t, err)
+
+	dir := &strings.Builder{}
+	for i := 1; i <= 10; i++ {
+		dir.WriteString(fmt.Sprintf("dir%d", i))
+		err = client.Mkdir(dir.String(), 0755)
+		assert.Nil(t, err)
+		dir.WriteString("/")
+	}
+	err = client.Rename("dir1/dir2", "dir2-2")
+	assert.Nil(t, err)
+	_, err = client.Open(dir.String())
+	assert.NotNil(t, err)
+	root, err := client.Open("/")
+	assert.Nil(t, err)
+	dirs, err := root.ReadDir(int(root.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(dirs))
 }

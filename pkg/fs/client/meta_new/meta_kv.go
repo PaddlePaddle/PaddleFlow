@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dgraph-io/ristretto"
 	log "github.com/sirupsen/logrus"
 
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -77,6 +78,9 @@ type kvMeta struct {
 
 	freeMu     sync.Mutex
 	freeInodes freeID
+
+	pathCache   *ristretto.Cache
+	pathTimeOut time.Duration
 }
 
 type entryItem struct {
@@ -93,6 +97,11 @@ type inodeItem struct {
 	expire      int64
 	fileHandles int32
 	name        []byte
+}
+
+type pathItem struct {
+	name      []byte
+	parentIno Ino
 }
 
 func newKvMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config Config) (Meta, error) {
@@ -114,6 +123,19 @@ func newKvMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config Conf
 	if err != nil {
 		return nil, err
 	}
+	if config.PathCacheExpire > 0 {
+		pathCache, err := ristretto.NewCache(&ristretto.Config{
+			NumCounters: 1e7,
+			MaxCost:     1 << 30,
+			BufferItems: 64,
+		})
+		if err != nil {
+			return nil, err
+		}
+		m.pathCache = pathCache
+		m.pathTimeOut = config.PathCacheExpire
+	}
+
 	return m, nil
 }
 
@@ -217,6 +239,10 @@ func (m *kvMeta) counterKey(key string) []byte {
 
 func (m *kvMeta) inodeKey(ino Ino) []byte {
 	return m.fmtKey("I", ino)
+}
+
+func (m *kvMeta) pathKey(ino Ino) []byte {
+	return m.fmtKey("P", ino)
 }
 
 func (m *kvMeta) entryKey(parent Ino, name string) []byte {
@@ -408,6 +434,34 @@ func (m *kvMeta) modifyTime(oldAttr, newAttr *Attr) {
 	}
 }
 
+//pathCache为空的判断是为了测试方便，可以更方便的走之前的逻辑
+func (m *kvMeta) setPathCache(inode Ino, inodeItem *inodeItem) {
+	if m.pathCache == nil {
+		return
+	}
+	pathItem_ := &pathItem{
+		name:      inodeItem.name,
+		parentIno: inodeItem.parentIno,
+	}
+	m.pathCache.SetWithTTL(m.pathKey(inode), pathItem_, 1, m.pathTimeOut)
+}
+
+func (m *kvMeta) delsPathCache(inodes ...Ino) {
+	if m.pathCache == nil {
+		return
+	}
+	for _, inode := range inodes {
+		m.pathCache.Del(m.pathKey(inode))
+	}
+}
+
+func (m *kvMeta) getPathCache(inode Ino) (interface{}, bool) {
+	if m.pathCache == nil {
+		return nil, false
+	}
+	return m.pathCache.Get(m.pathKey(inode))
+}
+
 // absolutePath by inode, and ensure that the absolute path is obtained in the same transaction
 func (m *kvMeta) absolutePath(inode Ino, tx kv_new.KvTxn) string {
 	var builder strings.Builder
@@ -420,14 +474,23 @@ func (m *kvMeta) absolutePath(inode Ino, tx kv_new.KvTxn) string {
 		if inode == rootInodeID {
 			break
 		}
-		d := tx.Get(m.inodeKey(inode))
-		if d == nil {
-			panic(fmt.Sprintf("full path parse fail with inode %v %+v", inode, attr))
+		if buf, exist := m.getPathCache(inode); exist {
+			pathItem_ := buf.(*pathItem)
+			inode = pathItem_.parentIno
+			segments = append(segments, string(pathItem_.name))
+		} else {
+			d := tx.Get(m.inodeKey(inode))
+			if d == nil {
+				panic(fmt.Sprintf("full path parse fail with inode %v %+v", inode, attr))
+			}
+
+			attr = &inodeItem{}
+			m.parseInode(d, attr)
+			inode = attr.parentIno
+			segments = append(segments, string(attr.name))
+
 		}
-		attr = &inodeItem{}
-		m.parseInode(d, attr)
-		inode = attr.parentIno
-		segments = append(segments, string(attr.name))
+
 	}
 	for i := len(segments) - 1; i >= 0; i-- {
 		builder.WriteString("/")
@@ -592,6 +655,9 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		return err
 	})
+	if err == nil {
+		m.setPathCache(inode, inodeItem_)
+	}
 	return inode, attr, utils.ToSyscallErrno(err)
 }
 
@@ -642,14 +708,17 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		return err
 	})
+	if err == nil {
+		m.setPathCache(inode, inodeItem_)
+	}
 	return utils.ToSyscallErrno(err)
 }
 
 func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno) {
 	log.Debugf("kv meta setattr inode[%v]", inode)
 	var absolutePath string
+	var cur inodeItem
 	err := m.txn(func(tx kv_new.KvTxn) error {
-		var cur inodeItem
 		now := time.Now()
 		a := tx.Get(m.inodeKey(inode))
 		if a == nil {
@@ -703,6 +772,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 	if err != nil {
 		return "", utils.ToSyscallErrno(err)
 	}
+	m.setPathCache(inode, &cur)
 	return absolutePath, syscall.F_OK
 }
 
@@ -797,6 +867,7 @@ func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, _type uint8, mode,
 	if err = ufs_.Mknod(newPath, mode, rdev); err != nil {
 		return utils.ToSyscallErrno(err)
 	}
+	m.setPathCache(ino, insertInodeItem_)
 	return syscall.F_OK
 }
 
@@ -879,18 +950,19 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 		log.Errorf("kv meta mkdir parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
+	m.setPathCache(ino, insertInodeItem_)
 	return syscall.F_OK
 }
 
 func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 	log.Debugf("kv meta Unlink parent[%v] name[%s]", parent, name)
 	var absolutePath string
+	entryItem_ := &entryItem{}
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		entry, err := m.get(m.entryKey(parent, name))
 		if err != nil {
 			return syscall.ENOENT
 		}
-		entryItem_ := &entryItem{}
 		m.parseEntry(entry, entryItem_)
 		pinodebyte, err := m.get(m.inodeKey(parent))
 		if pinodebyte == nil || err != nil {
@@ -922,6 +994,7 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 		log.Errorf("kv meta unlink parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
+	m.delsPathCache(entryItem_.ino)
 	return syscall.F_OK
 
 }
@@ -929,12 +1002,12 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	log.Debugf("kv meta Rmdir parent[%v] name[%s]", parent, name)
 	var absolutePath string
+	inodeEntry := &entryItem{}
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		buf := tx.Get(m.entryKey(parent, name))
 		if buf == nil {
 			return syscall.ENOENT
 		}
-		inodeEntry := &entryItem{}
 		m.parseEntry(buf, inodeEntry)
 		inodeItem_ := &inodeItem{}
 		ino := inodeEntry.ino
@@ -986,24 +1059,26 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 		log.Errorf("kv meta rmdir parent %v name %s err %v", parent, name, err)
 		return utils.ToSyscallErrno(err)
 	}
+	m.delsPathCache(inodeEntry.ino)
 	return syscall.F_OK
 }
 
 func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno) {
 	var pathDst string
 	var pathSrc string
+	srcAttr := &inodeItem{}
+	srcEntryItem_ := &entryItem{}
 	err := m.txn(func(tx kv_new.KvTxn) error {
 		buf := tx.Get(m.entryKey(parentSrc, nameSrc))
 		if buf == nil {
 			return syscall.ENOENT
 		}
-		srcEntryItem_ := &entryItem{}
 		m.parseEntry(buf, srcEntryItem_)
 
 		now := time.Now()
 		pSrcAttr := &inodeItem{}
 		pDstAttr := &inodeItem{}
-		srcAttr := &inodeItem{}
+
 		has := m.getAttrFromCache(parentSrc, pSrcAttr) && m.getAttrFromCache(parentDst, pDstAttr) && m.getAttrFromCache(srcEntryItem_.ino, srcAttr)
 		if !has {
 			return syscall.ENOENT
@@ -1052,7 +1127,9 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 
 		return nil
 	})
-
+	if err != nil {
+		return "", "", utils.ToSyscallErrno(err)
+	}
 	ufsSrc, _, _, pathOld := m.GetUFS(pathSrc)
 	ufsDst, _, _, pathNew := m.GetUFS(pathDst)
 	if ufsDst != ufsSrc {
@@ -1065,7 +1142,7 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 			parentSrc, nameSrc, parentDst, nameDst, err)
 		return "", "", utils.ToSyscallErrno(err)
 	}
-
+	m.setPathCache(srcEntryItem_.ino, srcAttr)
 	return pathSrc, pathDst, syscall.F_OK
 }
 
@@ -1236,6 +1313,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	if err != nil {
 		return utils.ToSyscallErrno(err)
 	}
+	m.setPathCache(inode, dirInodeItem)
 	return syscall.F_OK
 }
 
@@ -1321,6 +1399,8 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 		log.Errorf("Create: name[%s], flags[%d], mode[%d], failed: [%v]",
 			name, flags, mode, err)
 		return nil, "", utils.ToSyscallErrno(err)
+	} else {
+		m.setPathCache(ino, insertInodeItem_)
 	}
 	defer fh.Release()
 	return ufs_, newPath, utils.ToSyscallErrno(err)
@@ -1381,7 +1461,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 	if err != nil {
 		return nil, "", utils.ToSyscallErrno(err)
 	}
-
+	m.setPathCache(inode, inodeItem_)
 	return ufs_, newPath, syscall.F_OK
 }
 

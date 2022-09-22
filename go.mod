@@ -13,6 +13,7 @@ require (
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/container-storage-interface/spec v1.5.0
 	github.com/dgraph-io/badger/v3 v3.2103.2
+	github.com/dgraph-io/ristretto v0.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v17.12.1-ce+incompatible

@@ -89,6 +89,7 @@ type Config struct {
 	EntryCacheExpire   time.Duration
 	AttrCacheSize      uint64
 	EntryAttrCacheSize uint64
+	PathCacheExpire    time.Duration
 }
 
 // Meta is a interface for a meta service for file system.
@@ -182,6 +183,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Confi
 		config = &Config{
 			AttrCacheExpire:  2,
 			EntryCacheExpire: 2,
+			PathCacheExpire:  2,
 			Config: kv_new.Config{
 				Driver: kv_new.MemType,
 				FsID:   fsMeta.ID,
