@@ -165,6 +165,7 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 	}
 	m.clusterRuntimes.Delete(clusterID)
 	runtime.PFRuntimeMap.Delete(clusterID)
+	runtime_v2.PFRuntimeMap.Delete(clusterID)
 	m.stopClusterQueueSubmit(clusterID)
 }
 
@@ -337,7 +338,7 @@ func (m *JobManagerImpl) startRuntimeV2() {
 			// skip when cluster status is offline
 			if cluster.Status == model.ClusterStatusOffLine {
 				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, model.ClusterStatusOffLine)
-				m.stopClusterRuntimeV2(clusterID)
+				m.stopClusterRuntime(clusterID)
 				continue
 			}
 
@@ -358,18 +359,6 @@ func (m *JobManagerImpl) startRuntimeV2() {
 		}
 		time.Sleep(m.clusterSyncPeriod)
 	}
-}
-
-func (m *JobManagerImpl) stopClusterRuntimeV2(clusterID api.ClusterID) {
-	log.Infof("stop runtime for cluster: %s\n", clusterID)
-	// stop runtime for offline cluster
-	cr, ok := m.clusterRuntimes.Get(clusterID)
-	if ok && cr != nil {
-		close(cr.StopCh)
-	}
-	m.clusterRuntimes.Delete(clusterID)
-	runtime_v2.PFRuntimeMap.Delete(clusterID)
-	m.stopClusterQueueSubmit(clusterID)
 }
 
 // submitJob submit a job to cluster
