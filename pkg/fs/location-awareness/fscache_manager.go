@@ -18,12 +18,12 @@ package location_awareness
 
 import (
 	"encoding/json"
-	corev1 "k8s.io/api/core/v1"
 	"math/rand"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"

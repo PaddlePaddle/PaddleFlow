@@ -18,9 +18,6 @@ package main
 
 import (
 	"errors"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,7 +29,10 @@ import (
 	expand "github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/location-awareness/cache-worker/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -113,7 +113,7 @@ func act(c *cli.Context) error {
 	podCachePath := c.String("podCachePath")
 	nodName := c.String("nodename")
 
-	cacheReportParams := location_awareness.CacheStats{
+	cacheStats := location_awareness.CacheStats{
 		FsID:     fsID,
 		CacheDir: cacheDir,
 		NodeName: nodName,
@@ -124,7 +124,7 @@ func act(c *cli.Context) error {
 		PodCachePath: podCachePath,
 	}
 	go func() {
-		location_awareness.PatchCacheStatsLoop(cacheReportParams, info)
+		location_awareness.PatchCacheStatsLoop(cacheStats, info)
 	}()
 
 	stopSig := make(chan os.Signal, 1)
