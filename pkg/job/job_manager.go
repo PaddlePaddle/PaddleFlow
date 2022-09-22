@@ -66,6 +66,8 @@ type JobManagerImpl struct {
 	// clusterRuntimes contains cluster status and runtime services
 	clusterRuntimes   ClusterRuntimes
 	clusterSyncPeriod time.Duration
+
+	isRuntimeV2 bool
 }
 
 func NewJobManagerImpl() (*JobManagerImpl, error) {
@@ -110,6 +112,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	// start job manager
 	rVersion := os.Getenv(EnvRuntimeVersion)
 	if rVersion == "v2" {
+		m.isRuntimeV2 = true
 		m.startRuntimeV2()
 	} else {
 		m.startRuntime()
@@ -236,7 +239,7 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, clusterRuntime 
 				metrics.Job.AddTimestamp(job.ID, metrics.T4, time.Now())
 				log.Infof("Entering submit %s job in queue %s", job.ID, name)
 				// get enqueue job
-				m.submitJob(clusterRuntime.RuntimeSvc.SubmitJob, job)
+				m.submitJob(clusterRuntime, job)
 				metrics.Job.AddTimestamp(job.ID, metrics.T5, time.Now())
 				jobQueue.DeleteMark(job.ID)
 				log.Infof("Leaving submit %s job in queue %s, total elapsed time: %s", job.ID, name, time.Since(startTime))
@@ -249,8 +252,22 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, clusterRuntime 
 	}
 }
 
+func (m *JobManagerImpl) submitJob(clusterRuntime *ClusterRuntimeInfo, job *api.PFJob) {
+	if clusterRuntime == nil || job == nil {
+		log.Errorf("submit job to cluster failed, err: clusterRuntime or job is nil")
+		return
+	}
+	if m.isRuntimeV2 {
+		runtimeSvc := clusterRuntime.RuntimeV2Svc
+		fwVersion := runtimeSvc.Client().JobFrameworkVersion(job.JobType, job.Framework)
+		m.submitJobV2(runtimeSvc.Job(fwVersion).Submit, job)
+	} else {
+		m.submitJobV1(clusterRuntime.RuntimeSvc.SubmitJob, job)
+	}
+}
+
 // submitJob submit a job to cluster
-func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
+func (m *JobManagerImpl) submitJobV1(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
 	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
 	startTime := time.Now()
 	job, err := storage.Job.GetJobByID(jobInfo.ID)
@@ -309,7 +326,7 @@ func (m *JobManagerImpl) stopQueueSubmit(queueID api.QueueID) {
 func (m *JobManagerImpl) startRuntimeV2() {
 	log.Infof("Start job manager on runtime v2!")
 	// submit job to cluster
-	go m.jobProcessLoop()
+	go m.pJobProcessLoop()
 
 	for {
 		// get active clusters
@@ -353,83 +370,6 @@ func (m *JobManagerImpl) stopClusterRuntimeV2(clusterID api.ClusterID) {
 	m.clusterRuntimes.Delete(clusterID)
 	runtime_v2.PFRuntimeMap.Delete(clusterID)
 	m.stopClusterQueueSubmit(clusterID)
-}
-
-func (m *JobManagerImpl) jobProcessLoop() {
-	log.Infof("start job process loop ...")
-	for {
-		jobs := storage.Job.ListJobByStatus(schema.StatusJobInit)
-		startTime := time.Now()
-		for idx, job := range jobs {
-			// TODO: batch insert group by queue
-			queueID := api.QueueID(job.QueueID)
-			cQueue, find := m.GetQueue(queueID)
-			if !find {
-				m.stopQueueSubmit(queueID)
-				log.Warnf("get queue from cache failed, stop queue submit")
-				continue
-			}
-			// add more metric
-			qInfo := cQueue.Queue
-			pfJob, err := api.NewJobInfo(&jobs[idx])
-			if err != nil {
-				continue
-			}
-
-			jobQueue, find := m.jobQueues.Get(queueID)
-			if !find {
-				jobQueue = api.NewJobQueue(qInfo)
-				m.jobQueues.Insert(queueID, jobQueue)
-				go m.submitQueueJob(jobQueue, cQueue.ClusterRuntime)
-			}
-
-			// enqueue job
-			jobQueue.Insert(pfJob)
-			// add job time point
-			metrics.Job.AddTimestamp(pfJob.ID, metrics.T3, time.Now())
-		}
-		elapsedTime := time.Since(startTime)
-		if elapsedTime < m.jobLoopPeriod {
-			time.Sleep(m.jobLoopPeriod - elapsedTime)
-		}
-		log.Debugf("total job %d, job loop elapsed time: %s", len(jobs), elapsedTime)
-	}
-}
-
-func (m *JobManagerImpl) submitQueueJob(jobQueue *api.JobQueue, clusterRuntime *ClusterRuntimeInfo) {
-	if jobQueue == nil || clusterRuntime == nil {
-		log.Infof("exit submit job loop, as jobQueue or clusterRuntime is nil")
-		return
-	}
-	name := jobQueue.GetName()
-	runtimeSvc := clusterRuntime.RuntimeV2Svc
-	log.Infof("start submit job loop for queue: %s", name)
-	for {
-		select {
-		case <-jobQueue.StopCh:
-			log.Infof("exit submit job loop for queue %s ...", name)
-			return
-		default:
-			startTime := time.Now()
-			// dequeue job
-			job, ok := jobQueue.GetJob()
-			if ok {
-				metrics.Job.AddTimestamp(job.ID, metrics.T4, time.Now())
-				log.Infof("Entering submit %s job in queue %s", job.ID, name)
-				// get enqueue job
-				fwVersion := runtimeSvc.Client().JobFrameworkVersion(job.JobType, job.Framework)
-				m.submitJobV2(runtimeSvc.Job(fwVersion).Submit, job)
-				metrics.Job.AddTimestamp(job.ID, metrics.T5, time.Now())
-				jobQueue.DeleteMark(job.ID)
-				log.Infof("Leaving submit %s job with frameworkVersion %s in queue %s, total elapsed time: %s",
-					job.ID, fwVersion, name, time.Since(startTime))
-			} else {
-				// TODO: add to config
-				// time.Sleep(m.jobLoopPeriod)
-				time.Sleep(200 * time.Millisecond)
-			}
-		}
-	}
 }
 
 // submitJob submit a job to cluster
