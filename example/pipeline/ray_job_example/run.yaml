@@ -13,7 +13,7 @@ entry_points:
       PF_JOB_QUEUE_NAME: default-queue
       # RAY_JOB 开头的env为 ray framework 中定义的参数
       RAY_JOB_ENTRY_POINT: "python /home/ray/samples/sample_pi.py"
-      RAY_JOB_RUNTIME_ENV: "" # ray job 中 working_dir 的base64编码
+      RAY_JOB_RUNTIME_ENV: eyJ3b3JraW5nX2RpciI6ICIvaG9tZS9yYXkvc2FtcGxlcyJ9 # ray job 中 working_dir 的base64编码
       RAY_JOB_ENABLE_AUTOSCALING: 'false' # 暂未支持 autoscaling，https://github.com/ray-project/kuberay/issues/532
       RAY_JOB_AUTOSCALING_MODE: Default
       RAY_JOB_AUTOSCALING_IDLE_TIMEOUT: 60
