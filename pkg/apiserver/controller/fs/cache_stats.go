@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -46,7 +47,11 @@ func scrapeCacheStats() error {
 		log.Errorf(fmt.Sprintf("scrapeCacheStats getClusterRuntimeMap err: %v", err))
 		return err
 	}
-	return updateMountPodsCacheStats(crm)
+
+	for clusterID, k8sRuntime := range crm {
+		go updateMountPodCacheStats(clusterID, k8sRuntime)
+	}
+	return err
 }
 
 func addOrUpdateFSCache(fsCache *model.FSCache) error {
@@ -65,43 +70,52 @@ func addOrUpdateFSCache(fsCache *model.FSCache) error {
 	return nil
 }
 
-func updateMountPodsCacheStats(crm map[string]*runtime.KubeRuntime) error {
-	for clusterID, k8sRuntime := range crm {
-		listOptions := k8sMeta.ListOptions{
-			LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
-		}
-		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
-		if err != nil {
-			log.Errorf("list mount pods failed in cluster[%s]: %v", clusterID, err)
-			continue
-		}
+func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
+	listOptions := k8sMeta.ListOptions{
+		LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
+	}
+	pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
+	if err != nil {
+		errRet := fmt.Errorf("list mount pods failed in cluster[%s]: %v", clusterID, err)
+		log.Errorf(errRet.Error())
+		return errRet
+	}
 
-		for _, pod := range pods.Items {
-			for k, v := range pod.Annotations {
-				if k == schema.AnnotationKeyCache {
-					log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
-					var stats model.CacheStats
-					if err = json.Unmarshal([]byte(v), &stats); err != nil {
-						log.Errorf("unmarshal cache stats %s from pod[%s] in cluster[%s] failed: %v", v, pod.Name, clusterID, err)
-						break
-					}
-
-					fsCache := &model.FSCache{
-						FsID:      stats.FsID,
-						CacheDir:  stats.CacheDir,
-						NodeName:  stats.NodeName,
-						UsedSize:  stats.UsedSize,
-						ClusterID: clusterID,
-					}
-					if err = addOrUpdateFSCache(fsCache); err != nil {
-						log.Errorf("addOrUpdateFSCache[%+v] for pod[%s] in cluster[%s] failed: %v", *fsCache, pod.Name, clusterID, err)
-						break
-					}
-					break
-				}
-			}
+	for _, pod := range pods.Items {
+		if err = syncCacheFromMountPod(&pod, clusterID); err != nil {
+			log.Errorf("syncCacheFromMountPod[%s] in cluster[%s] failed: %v", pod.Name, clusterID, err)
 		}
 	}
+	return nil
+}
+
+func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
+	for k, v := range pod.Annotations {
+		if k == schema.AnnotationKeyCache {
+			log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
+			var stats model.CacheStats
+			if err := json.Unmarshal([]byte(v), &stats); err != nil {
+				errRet := fmt.Errorf("unmarshal cache stats %s from pod[%s] in cluster[%s] failed: %v", v, pod.Name, clusterID, err)
+				log.Errorf(errRet.Error())
+				return errRet
+			}
+
+			fsCache := &model.FSCache{
+				FsID:      stats.FsID,
+				CacheDir:  stats.CacheDir,
+				NodeName:  stats.NodeName,
+				UsedSize:  stats.UsedSize,
+				ClusterID: clusterID,
+			}
+			if err := addOrUpdateFSCache(fsCache); err != nil {
+				errRet := fmt.Errorf("addOrUpdateFSCache[%+v] for pod[%s] in cluster[%s] failed: %v", *fsCache, pod.Name, clusterID, err)
+				log.Errorf(errRet.Error())
+				return errRet
+			}
+			return nil
+		}
+	}
+	log.Debugf("no cache info from mount pod[%s] in cluster[%s]", pod.Name, clusterID)
 	return nil
 }
 
