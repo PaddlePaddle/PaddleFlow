@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -235,15 +234,8 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 
 			pToMTime = append(pToMTime, mtime)
 		}
-
-		// DEBUG
-		cc.logger.Debugf("pToMTime: %v", pToMTime)
 		lastTime = common.LatestTime(pToMTime)
-		cc.logger.Debugf("lastTime: %v", lastTime)
-		cc.logger.Debugf("int: %d", lastTime.UnixNano())
-
-		// DEBUG
-		inArtMtimeMap[name] = strconv.FormatInt(lastTime.UnixNano(), 10)
+		inArtMtimeMap[name] = fmt.Sprintf("%d", lastTime.UnixNano())
 	}
 
 	return inArtMtimeMap, nil
