@@ -82,7 +82,7 @@ func updateMountPodsCacheStats(crm map[string]*runtime.KubeRuntime) error {
 					log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
 					var stats model.CacheStats
 					if err = json.Unmarshal([]byte(v), &stats); err != nil {
-						log.Errorf("unmarshal cache stats %s from pod[%s] failed: %v", v, pod.Name, err)
+						log.Errorf("unmarshal cache stats %s from pod[%s] in cluster[%s] failed: %v", v, pod.Name, clusterID, err)
 						break
 					}
 
