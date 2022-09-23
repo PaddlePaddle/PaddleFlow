@@ -79,6 +79,11 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
+	// set scheduling policy for paddle job
+	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
+		log.Errorf("build scheduling policy for job failed, err: %v", err)
+		return err
+	}
 	// build job spec field
 	if job.IsCustomYaml {
 		// set custom PaddleJob Spec from user
@@ -109,8 +114,7 @@ func (pj *KubePaddleJob) customPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PF
 		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(jobName), err)
 		return err
 	}
-	// set scheduling policy
-	return pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf)
+	return nil
 }
 
 func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, name string) error {
@@ -170,11 +174,6 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 		return fmt.Errorf("PaddleJob or PFJob is nil")
 	}
 	jobName := job.NamespacedName()
-	// set scheduling policy for builtin paddle job
-	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
-		log.Errorf("build scheduling policy for job failed, err: %v", err)
-		return err
-	}
 	// build job tasks
 	var minAvailable int32
 	minResources := resources.EmptyResource()

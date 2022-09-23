@@ -79,6 +79,12 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&singlePod.ObjectMeta, job)
+
+	// set scheduling policy for paddle job
+	if err = sp.buildSchedulingPolicy(singlePod, job); err != nil {
+		log.Errorf("build scheduling policy for %s failed, err: %v", sp.String(jobName), err)
+		return err
+	}
 	// build job spec field
 	if job.IsCustomYaml {
 		// set custom PyTorchJob Spec from user
@@ -100,13 +106,25 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
+func (sp *KubeSingleJob) buildSchedulingPolicy(jobPod *v1.Pod, job *api.PFJob) error {
+	if jobPod == nil || job == nil {
+		return fmt.Errorf("jobSpec or PFJob is nil")
+	}
+	// set queue
+	if len(job.QueueName) > 0 {
+		jobPod.Annotations[pfschema.QueueLabelKey] = job.QueueName
+	}
+	// set priority
+	jobPod.Spec.PriorityClassName = kuberuntime.KubePriorityClass(job.PriorityClassName)
+	return nil
+}
+
 func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	if jobPod == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
 	// TODO: add more patch
-	// set job priorityClass
-	return kuberuntime.BuildSchedulingPolicy(&jobPod.Spec, job.PriorityClassName)
+	return nil
 
 }
 
