@@ -100,6 +100,7 @@ type FsServerConf struct {
 	LinkMetaDirPrefix         string        `yaml:"linkMetaDirPrefix"`
 	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
 	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
+	SyncCacheStatsInterval    time.Duration `yaml:"syncCacheStatsInterval"`
 }
 
 type ReclaimConfig struct {

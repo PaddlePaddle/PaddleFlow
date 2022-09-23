@@ -88,7 +88,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			needToDelete = true
 			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
-				if key != schema.AnnotationKeyMTime {
+				if key != schema.AnnotationKeyMTime && key != schema.AnnotationKeyCache {
 					needToDelete = false
 					break
 				} else {

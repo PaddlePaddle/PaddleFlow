@@ -27,14 +27,8 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
-
-type CacheStats struct {
-	FsID     string
-	CacheDir string
-	NodeName string
-	UsedSize int
-}
 
 type PatchInfo struct {
 	K8sClient    utils.Client
@@ -42,7 +36,7 @@ type PatchInfo struct {
 	PodCachePath string
 }
 
-func PatchCacheStatsLoop(cacheReport CacheStats, patchInfo PatchInfo) {
+func PatchCacheStatsLoop(cacheReport model.CacheStats, patchInfo PatchInfo) {
 	var errStat error
 	var usageStat *disk.UsageStat
 	for {

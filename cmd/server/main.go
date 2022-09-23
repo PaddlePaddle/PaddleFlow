@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	_ "go.uber.org/automaxprocs"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
@@ -113,6 +112,8 @@ func start() error {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
+
+	go fs.ScrapeCacheStatsLoop(ServerConf.Fs.SyncCacheStatsInterval)
 
 	trace_logger.Start(ServerConf.TraceLog)
 

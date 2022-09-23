@@ -187,6 +187,12 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 			Usage:       "the interval time for clean mount pod",
 			Destination: &fsConf.CleanMountPodIntervalTime,
 		},
+		&cli.DurationFlag{
+			Name:        "sync-cache-stats-interval",
+			Value:       10 * time.Second,
+			Usage:       "the interval time for sync cache stats",
+			Destination: &fsConf.SyncCacheStatsInterval,
+		},
 	}
 }
 

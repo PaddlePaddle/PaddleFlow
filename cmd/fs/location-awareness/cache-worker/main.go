@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -113,7 +114,7 @@ func act(c *cli.Context) error {
 	podCachePath := c.String("podCachePath")
 	nodName := c.String("nodename")
 
-	cacheStats := location_awareness.CacheStats{
+	cacheStats := model.CacheStats{
 		FsID:     fsID,
 		CacheDir: cacheDir,
 		NodeName: nodName,
