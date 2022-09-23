@@ -122,7 +122,10 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
-	fsName, owner := utils.FsIDToFsNameUsername(fsID)
+	fsName, owner, err := utils.GetFsNameAndUserNameByFsID(fsID)
+	if err != nil {
+		return false, err
+	}
 	fs, err := s.GetFileSystem(owner, fsName)
 	if err != nil {
 		return false, err
