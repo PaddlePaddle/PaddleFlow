@@ -110,7 +110,7 @@ func act(c *cli.Context) error {
 	nodName := c.String("nodename")
 	clusterID := c.String("clusterID")
 
-	userName, fsName, err := utils.GetFsNameAndUserNameByFsID(fsID)
+	fsName, userName, err := utils.GetFsNameAndUserNameByFsID(fsID)
 	if err != nil {
 		return err
 	}
