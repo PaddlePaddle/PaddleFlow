@@ -63,7 +63,7 @@ func TestFile(t *testing.T) {
 	assert.Equal(t, int64(len(content)), finfo.Size)
 	assert.Equal(t, false, finfo.IsDir)
 
-	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
+	fh, err = fs.Open("hello", uint32(os.O_RDONLY), 11)
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
 	n, e := fh.Read(buf, 0)
@@ -71,7 +71,7 @@ func TestFile(t *testing.T) {
 	assert.Equal(t, len(content), n)
 	fh.Release()
 
-	fh2, err := fs.Open("hello", uint32(os.O_WRONLY))
+	fh2, err := fs.Open("hello", uint32(os.O_WRONLY), 11)
 	assert.NoError(t, err)
 	content = []byte("headfsallo world")
 	nWritten, eWritten := fh2.Write(content, 11)

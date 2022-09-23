@@ -753,7 +753,7 @@ func (fs *s3FileSystem) getOpenFlags(name string, flags uint32) int {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *s3FileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *s3FileSystem) Open(name string, flags uint32) (FileHandle, error) {
 	log.Tracef("s3 open: name[%s] flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 

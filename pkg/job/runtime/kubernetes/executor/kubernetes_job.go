@@ -190,6 +190,11 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		return &TFJob{
 			KubeJob: kubeJob,
 		}, nil
+	case schema.FrameworkRay:
+		kubeJob.GroupVersionKind = k8s.RayJobGVK
+		return &RayJob{
+			KubeJob: kubeJob,
+		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
 	}
@@ -255,6 +260,18 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
 	for key, value := range j.Env {
+		env := corev1.EnvVar{
+			Name:  key,
+			Value: value,
+		}
+		envs = append(envs, env)
+	}
+	return envs
+}
+
+func (j *KubeJob) generateTaskEnvVars(taskEnvs map[string]string) []corev1.EnvVar {
+	envs := make([]corev1.EnvVar, 0)
+	for key, value := range taskEnvs {
 		env := corev1.EnvVar{
 			Name:  key,
 			Value: value,
@@ -336,6 +353,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *schema.Member) error {
 	if task != nil {
 		j.Priority = task.Priority
+		podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(task.GetAllFileSystem()))
 	}
 	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
@@ -358,10 +376,12 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task schema.
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
-	if j.isNeedPatch(task.Command) {
-		workDir := j.getWorkDir(&task)
-		container.Command = j.generateContainerCommand(task.Command, workDir)
+	if task.Name != "" {
+		container.Name = task.Name
 	}
+
+	j.fillCMDInContainer(container, &task)
+
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
 	}
@@ -376,7 +396,7 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task schema.
 		container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
 	}
 
-	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
+	container.Env = j.appendEnvIfAbsent(container.Env, j.generateTaskEnvVars(task.Env))
 	return nil
 }
 
@@ -418,6 +438,21 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 		}
 	}
 	return baseEnvs
+}
+
+// fillCMDInContainer fill command in container by task.Command or job.Command
+func (j *KubeJob) fillCMDInContainer(container *corev1.Container, task *schema.Member) {
+	// get workdir
+	workDir := j.getWorkDir(task)
+	// get command
+	command := j.Command
+	if task != nil {
+		command = task.Command
+	}
+	// only command is set, should we add workdir to command
+	if j.isNeedPatch(command) && command != "" {
+		container.Command = j.generateContainerCommand(command, workDir)
+	}
 }
 
 // generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
@@ -480,12 +515,53 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) (corev1.R
 }
 
 func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta, name string) {
-	metadata.Name = name
+	if name != "" {
+		metadata.Name = name
+	}
 	metadata.Namespace = j.Namespace
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, j.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, j.Labels)
 	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = j.ID
+}
+
+func (j *KubeJob) patchTaskMetadata(metadata *metav1.ObjectMeta, member schema.Member) {
+	if member.Name != "" {
+		metadata.Name = member.Name
+	}
+	metadata.Namespace = j.Namespace
+	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, member.Annotations)
+	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, member.Labels)
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
+	metadata.Labels[schema.JobIDLabel] = j.ID
+}
+
+func (j *KubeJob) fillPodTemplateSpec(pod *corev1.PodTemplateSpec, member schema.Member) error {
+	// ObjectMeta
+	j.patchTaskMetadata(&pod.ObjectMeta, member)
+	pod.Labels[schema.QueueLabelKey] = member.QueueName
+	// fill volumes
+	if err := j.fillPodSpec(&pod.Spec, &member); err != nil {
+		err = fmt.Errorf("fill pod.Spec failed, err:%v", err)
+		log.Errorln(err)
+		return err
+	}
+	// Template.Containers
+	switch len(pod.Spec.Containers) {
+	case 0:
+		pod.Spec.Containers = []corev1.Container{{}}
+	case 1:
+		break
+	default:
+		log.Warningf("support filling only one container in rayJobSpec.RayClusterSpec.HeadGroupSpec now, "+
+			"current job got %d containers", len(pod.Spec.Containers))
+	}
+	if err := j.fillContainerInTasks(&pod.Spec.Containers[0], member); err != nil {
+		log.Errorf("fill container in task failed, err=[%v]", err)
+		return err
+	}
+
+	return nil
 }
 
 func (j *KubeJob) isNeedPatch(v string) bool {

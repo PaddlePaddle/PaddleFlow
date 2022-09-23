@@ -57,6 +57,13 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "workflows", Namespaced: true, Kind: "Workflow"},
 			},
 		}
+	case "/apis/ray.io/v1alpha1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "ray.io/v1alpha1",
+			APIResources: []metav1.APIResource{
+				{Name: "rayjobs", Namespaced: true, Kind: "RayJob"},
+			},
+		}
 	case "/api/v1":
 		obj = &metav1.APIResourceList{
 			GroupVersion: "v1",
@@ -109,6 +116,12 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 					Name: "argoproj.io",
 					Versions: []metav1.GroupVersionForDiscovery{
 						{GroupVersion: "argoproj.io/v1alpha1", Version: "v1alpha1"},
+					},
+				},
+				{
+					Name: "ray.io",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "ray.io/v1alpha1", Version: "v1alpha1"},
 					},
 				},
 			},

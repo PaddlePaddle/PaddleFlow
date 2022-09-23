@@ -347,7 +347,7 @@ func (fs *hdfsFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	log.Tracef("hdfs open: name[%s], flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 
@@ -472,14 +472,14 @@ type hdfsFileHandle struct {
 
 var _ FileHandle = &hdfsFileHandle{}
 
-func (fh *hdfsFileHandle) Read(buf []byte, off int64) (int, error) {
+func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
 	if fh.reader == nil {
 		err := fmt.Errorf("hdfs read: file[%s] bad file descriptor reader==nil", fh.name)
 		log.Errorf(err.Error())
 		return 0, err
 	}
-	n, err := fh.reader.ReadAt(buf, off)
+	n, err := fh.reader.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
 		log.Debugf("hdfsRead: the err is %+v", err)
 		if strings.Contains(err.Error(), "invalid checksum") ||
@@ -495,7 +495,7 @@ func (fh *hdfsFileHandle) Read(buf []byte, off int64) (int, error) {
 	return n, nil
 }
 
-func (fh *hdfsFileHandle) Write(data []byte, off int64) (uint32, error) {
+func (fh *hdfsFileHandle) Write(data []byte, off uint64) (uint32, error) {
 	log.Tracef("hdfs write: fh.name[%s], dataLength[%d], offset[%d], fh[%+v]", fh.name, len(data), off, fh)
 	if fh.writer == nil {
 		err := fmt.Errorf("hdfs write: file[%s] bad file descriptor writer==nil", fh.name)

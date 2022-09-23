@@ -31,7 +31,7 @@
 
 下面为示例pipeline定义，其中包含failure options，和postprocess相关字段。
 
-> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_options_and_post_process_example 示例。
+> 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/failure_options_and_post_process_example 示例。
 > 
 > 示例链接：[failure_options_and_post_process_example]
 

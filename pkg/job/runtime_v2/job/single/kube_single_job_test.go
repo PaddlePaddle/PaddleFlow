@@ -18,15 +18,11 @@ package single
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	restclient "k8s.io/client-go/rest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -127,37 +123,20 @@ status: {}
 	}
 )
 
-func newFakeKubeRuntimeClient(server *httptest.Server) *client.KubeRuntimeClient {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
-
-	return &client.KubeRuntimeClient{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-		},
-		Config: &restclient.Config{Host: server.URL},
-	}
-}
-
 func TestSingleJob_Create(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeRuntimeClient := newFakeKubeRuntimeClient(server)
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
 	// mock db
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string
 		jobObj   *api.PFJob
-		wantErr  bool
+		wantErr  error
 		wantMsg  string
 	}{
 		{
@@ -165,34 +144,32 @@ func TestSingleJob_Create(t *testing.T) {
 			jobObj: &api.PFJob{
 				JobType: schema.TypeSingle,
 			},
-			wantErr: true,
-			wantMsg: "create builtin /v1, Kind=Pod job / on cluster name default-cluster with cluster type  failed, job member is nil",
+			wantErr: fmt.Errorf("create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
+			wantMsg: "create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil",
 		},
 		{
 			caseName: "pod_test2",
 			jobObj:   &mockSinglePod,
-			wantErr:  false,
+			wantErr:  nil,
 			wantMsg:  "",
 		},
 	}
 
 	singleJob := New(kubeRuntimeClient)
-	frameworkVersion := schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String())
 	for _, test := range tests {
-		t.Logf("case[%s] to create job", test.caseName)
-
-		err := singleJob.Submit(context.TODO(), test.jobObj)
-		if test.wantErr && assert.Error(t, err) {
-			assert.Equal(t, test.wantMsg, err.Error())
-		} else if !test.wantErr {
-			t.Logf("case[%s] to CreateJob sucessfully", test.caseName)
-			_, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, frameworkVersion)
-			if !assert.NoError(t, err) {
-				t.Errorf(err.Error())
-				continue
+		t.Run(test.caseName, func(t *testing.T) {
+			err := singleJob.Submit(context.TODO(), test.jobObj)
+			if test.wantErr == nil {
+				assert.Equal(t, test.wantErr, err)
+				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
+				_, err = kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
+				if !assert.NoError(t, err) {
+					t.Errorf(err.Error())
+				}
+			} else {
+				assert.NotNil(t, err)
+				assert.Equal(t, test.wantErr.Error(), err.Error())
 			}
-		} else {
-			t.Errorf("error case, %v", err)
-		}
+		})
 	}
 }

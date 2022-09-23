@@ -154,6 +154,7 @@ class RunServiceApi(object):
             return new_comp_dict
 
         runtime = data['runtime']
+        runtime_info = {}
         if runtime:
             runtime_info = trans_dict_to_comp_info(runtime)
 

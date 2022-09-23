@@ -101,10 +101,10 @@ func (j *KubeJob) setPodContainer(container *corev1.Container, task *schema.Memb
 	}
 	container.Image = task.Image
 	// set container Env
-	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
+	container.Env = j.appendEnvIfAbsent(container.Env, j.generateTaskEnvVars(task.Env))
 	// set container Command and Args
-	workDir := j.getWorkDir(task)
-	container.Command = j.generateContainerCommand(task.Command, workDir)
+	j.fillCMDInContainer(container, task)
+
 	if len(task.Args) > 0 {
 		container.Args = task.Args
 	}
