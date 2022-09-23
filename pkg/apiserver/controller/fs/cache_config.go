@@ -87,7 +87,7 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
-	resp.FsName, resp.Username = utils.FsIDToFsNameUsername(config.FsID)
+	resp.FsName, resp.Username, _ = utils.GetFsNameAndUserNameByFsID(config.FsID)
 	// format time
 	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")

@@ -32,7 +32,7 @@ import (
 
 const (
 	RegPatternQueueName    = "^[a-z0-9][a-z0-9-]{0,8}[a-z0-9]$"
-	RegPatternUserName     = "^[A-Za-z0-9-]{4,16}$"
+	RegPatternUserName     = "^[A-Za-z0-9]{4,16}$"
 	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternScheduleName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
