@@ -81,7 +81,7 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
 	// set scheduling policy for paddle job
 	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
-		log.Errorf("build scheduling policy for job failed, err: %v", err)
+		log.Errorf("build scheduling policy for %s failed, err: %v", pj.String(jobName), err)
 		return err
 	}
 	// build job spec field
@@ -212,7 +212,7 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 	return nil
 }
 
-// xx patches info into task of paddleJob
+// patchPaddleTask patch info into task of paddle job
 func (pj *KubePaddleJob) patchPaddleTask(resourceSpec *paddlejobv1.ResourceSpec, task pfschema.Member, jobID string) error {
 	log.Infof("patch paddle task %s, task: %#v", pj.String(""), task)
 	if resourceSpec == nil {
@@ -338,7 +338,7 @@ func (pj *KubePaddleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
 		return api.StatusInfo{}, err
 	}
-	// convert single job status
+	// convert job status
 	state, msg, err := pj.getJobStatus(&job.Status)
 	if err != nil {
 		log.Errorf("get PaddleJob status failed, err: %v", err)
