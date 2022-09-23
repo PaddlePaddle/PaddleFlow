@@ -29,12 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-const (
-	envGroupName   = "GROUP_NAME"
-	envMinReplicas = "MIN_REPLICAS"
-	envMaxReplicas = "MAX_REPLICAS"
-)
-
 type RayJob struct {
 	KubeJob
 }
@@ -116,8 +110,8 @@ func fillRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, member model.Member) {
 	// 	Entrypoint string `json:"entrypoint"`
 	rayJobSpec.Entrypoint = member.Command
 	//	RuntimeEnv string `json:"runtimeEnv,omitempty"`
-	if runtimeEnv, exist := member.Env["runtimeEnv"]; exist {
-		rayJobSpec.Entrypoint = runtimeEnv
+	if runtimeEnv, exist := member.Env[schema.EnvRayJobRuntimeEnv]; exist {
+		rayJobSpec.RuntimeEnv = runtimeEnv
 	}
 	//	ShutdownAfterJobFinishes bool `json:"shutdownAfterJobFinishes,omitempty"`
 	rayJobSpec.ShutdownAfterJobFinishes = true
@@ -149,6 +143,21 @@ func (j *RayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, member model.M
 		log.Errorf("failed to fill containers, err=%v", err)
 		return err
 	}
+	if preStop, exist := member.Env[schema.EnvRayJobHeaderPreStop]; exist {
+		for index, container := range headGroupSpec.Template.Spec.Containers {
+			if container.Name != "autoscaler" {
+				if container.Lifecycle == nil {
+					container.Lifecycle = &v1.Lifecycle{}
+				}
+				container.Lifecycle.PreStop = &v1.Handler{
+					Exec: &v1.ExecAction{
+						Command: []string{preStop},
+					},
+				}
+				headGroupSpec.Template.Spec.Containers[index] = container
+			}
+		}
+	}
 
 	return nil
 }
@@ -172,14 +181,14 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member model
 	}
 	//	todo ScaleStrategy defines which pods to remove
 	// GroupName
-	if groupName, exist := member.Env[envGroupName]; exist {
+	if groupName, exist := member.Env[schema.EnvRayJobWorkerGroupName]; exist {
 		worker.GroupName = groupName
 	}
 	// Replicas
 	replicas := int32(member.Replicas)
 	worker.Replicas = &replicas
 	// minReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, envMinReplicas); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, schema.EnvRayJobWorkerMinReplicas); err != nil {
 		err := fmt.Errorf("get minReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
@@ -187,7 +196,7 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member model
 		worker.MinReplicas = &val
 	}
 	// maxReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, envMaxReplicas); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, schema.EnvRayJobWorkerMaxReplicas); err != nil {
 		err := fmt.Errorf("get maxReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
