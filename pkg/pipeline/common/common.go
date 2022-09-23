@@ -130,7 +130,7 @@ func LatestTime(times []time.Time) time.Time {
 	latestTime := time.Time{}
 
 	for _, t := range times {
-		if latestTime.After(t) {
+		if latestTime.Before(t) {
 			latestTime = t
 		}
 	}
