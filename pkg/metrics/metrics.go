@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
+	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -34,26 +35,30 @@ var (
 )
 
 var (
-	Job TimePointManager
+	Job           TimePointManager
+	PromAPIClient prom_v1.API
 )
 
 func InitMetrics() {
 	Job = NewJobMetricTimePointManager()
+	// Deprecated
+	// this for prometheus way to locate label only, now we change the way to db update
+	//PromAPIClient = apiClient
 }
 
-func initRegistry(queueFunc ListQueueFunc) {
+func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
 	if Job == nil {
 		panic("metrics not initialized")
 	}
 	registry = prometheus.NewRegistry()
-	jobCollector := NewJobMetricsCollector(Job)
+	jobCollector := NewJobMetricsCollector(Job, jobFunc)
 	queueCollector := NewQueueMetricsCollector(queueFunc)
 	registry.MustRegister(jobCollector)
 	registry.MustRegister(queueCollector)
 }
 
-func StartMetricsService(port int, queueFunc ListQueueFunc) string {
-	initRegistry(queueFunc)
+func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc) string {
+	initRegistry(queueFunc, jobFunc)
 	if port == 0 {
 		port = DefaultMetricPort
 	}

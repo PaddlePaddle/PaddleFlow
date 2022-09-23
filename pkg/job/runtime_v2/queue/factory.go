@@ -14,16 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package jobs
+package queue
 
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/single"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticqueue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 )
 
 func init() {
-	// Plugins for Jobs
-	framework.RegisterJobBuilder(pfschema.KubernetesType, single.FrameworkVersion, single.New)
-	// TODO: add more plugins
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, elasticqueue.KubeElasticQueueQuotaType, elasticqueue.New)
+	framework.RegisterQueuePlugin(pfschema.KubernetesType, vcqueue.KubeVCQueueQuotaType, vcqueue.New)
+	// TODO: add more plugin
 }

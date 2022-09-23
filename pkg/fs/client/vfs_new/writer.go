@@ -40,9 +40,9 @@ type FileWriter interface {
 
 type DataWriter interface {
 	Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error)
-	// Flush(name string) syscall.Errno
-	// GetLength(name string) uint64
-	// Truncate(name string, length uint64)
+	// Flush(path string) syscall.Errno
+	// GetLength(path string) uint64
+	// Truncate(path string, length uint64)
 }
 
 func NewDataWriter(m meta.Meta, blockSize int, store cache.Store) DataWriter {
@@ -59,7 +59,6 @@ type fileWriter struct {
 	sync.Mutex
 	writer *dataWriter
 	inode  Ino
-	name   string
 	path   string
 	length uint64
 	ufs    ufslib.UnderFileStorage
@@ -80,14 +79,14 @@ func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 	var err error
 	if f.writer.store != nil {
 		// todo:: length可能会有遗漏
-		log.Debugf("fileWriter write: InvalidateCache name[%s] cache lenght[%d]", f.name, f.length)
-		err = f.writer.store.InvalidateCache(f.name, int(f.length))
+		log.Debugf("fileWriter write: InvalidateCache path[%s] cache lenght[%d]", f.path, f.length)
+		err = f.writer.store.InvalidateCache(f.path, int(f.length))
 		if err != nil {
 			log.Errorf("ufs delete cache err: %v", err)
 			return syscall.EBADF
 		}
 	}
-	_, err = f.fd.Write(data, int64(offset))
+	_, err = f.fd.Write(data, offset)
 	if err != nil {
 		log.Errorf("ufs write err: %v", err)
 		return syscall.EBADF
@@ -99,8 +98,8 @@ func (f *fileWriter) Flush() syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
 	if f.writer.store != nil {
-		log.Debugf("flush: delete cache is %s", f.name)
-		delErr := f.writer.store.InvalidateCache(f.name, int(f.length))
+		log.Debugf("flush: delete cache is %s", f.path)
+		delErr := f.writer.store.InvalidateCache(f.path, int(f.length))
 		if delErr != nil {
 			log.Errorf("del cache error: %v", delErr)
 			return syscall.EBADF
@@ -140,15 +139,13 @@ type dataWriter struct {
 }
 
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {
-	name := w.m.InoToPath(inode)
-	fd, err := ufs.Open(path, syscall.O_WRONLY)
+	fd, err := ufs.Open(path, syscall.O_WRONLY, length)
 	if err != nil {
 		return nil, err
 	}
 	f := &fileWriter{
 		writer: w,
 		inode:  inode,
-		name:   name,
 		path:   path,
 		length: length,
 		ufs:    ufs,

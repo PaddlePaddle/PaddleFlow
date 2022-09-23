@@ -253,7 +253,7 @@ func (fs *sftpFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *sftpFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *sftpFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	f, err := fs.sc.sftpClient.OpenFile(fs.GetPath(name), int(flags))
 	if err != nil {
 		return nil, err
@@ -326,16 +326,16 @@ type sftpFileHandle struct {
 
 var _ FileHandle = &sftpFileHandle{}
 
-func (fh *sftpFileHandle) Read(buf []byte, off int64) (int, error) {
-	n, err := fh.f.ReadAt(buf, off)
+func (fh *sftpFileHandle) Read(buf []byte, off uint64) (int, error) {
+	n, err := fh.f.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 	return n, nil
 }
 
-func (fh *sftpFileHandle) Write(data []byte, off int64) (uint32, error) {
-	n, err := fh.f.WriteAt(data, off)
+func (fh *sftpFileHandle) Write(data []byte, off uint64) (uint32, error) {
+	n, err := fh.f.WriteAt(data, int64(off))
 	return uint32(n), err
 }
 

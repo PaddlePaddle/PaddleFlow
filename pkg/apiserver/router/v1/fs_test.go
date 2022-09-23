@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"math/rand"
 	"net/http"
 	"os"
 	"reflect"
@@ -273,6 +274,18 @@ func Test_validateCreateFileSystem(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "username and filename is wrong",
+			args: args{
+				ctx: ctx,
+				req: &fs.CreateFileSystemRequest{
+					Name:     RandomString(9),
+					Username: RandomString(51),
+					Url:      "test://1123",
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -487,4 +500,14 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusForbidden, result.Code)
+}
+
+func RandomString(n int) string {
+	var letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }

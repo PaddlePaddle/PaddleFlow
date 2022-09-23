@@ -22,7 +22,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -109,6 +108,10 @@ func NewJobInfo(job *model.Job) (*PFJob, error) {
 	return pfjob, nil
 }
 
+func (pfj *PFJob) NamespacedName() string {
+	return fmt.Sprintf("%s/%s", pfj.Namespace, pfj.ID)
+}
+
 func (pfj *PFJob) UpdateLabels(labels map[string]string) {
 	if labels == nil {
 		return
@@ -131,41 +134,15 @@ func (pfj *PFJob) GetID() string {
 	return pfj.ID
 }
 
-func (pfj *PFJob) FrameworkVersion() string {
-	// TODO: support multi cluster
-	if pfj.JobType == schema.TypeWorkflow {
-		return k8s.ArgoWorkflowGVK.String()
-	}
-	frameworkVersion := ""
-	switch pfj.Framework {
-	case schema.FrameworkStandalone:
-		frameworkVersion = k8s.PodGVK.String()
-	case schema.FrameworkTF:
-		frameworkVersion = k8s.TFJobGVK.String()
-	case schema.FrameworkPytorch:
-		frameworkVersion = k8s.PyTorchJobGVK.String()
-	case schema.FrameworkSpark:
-		frameworkVersion = k8s.SparkAppGVK.String()
-	case schema.FrameworkPaddle:
-		frameworkVersion = k8s.PaddleJobGVK.String()
-	case schema.FrameworkMXNet:
-		frameworkVersion = k8s.MXNetJobGVK.String()
-	case schema.FrameworkMPI:
-		frameworkVersion = k8s.MPIJobGVK.String()
-	}
-	return frameworkVersion
-}
-
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	// TODO: merge FrameworkVersion and Framework
+	ID               string
+	Namespace        string
+	ParentJobID      string
 	FrameworkVersion schema.FrameworkVersion
-	Framework        schema.Framework
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
+	Annotations      map[string]string
 	Message          string
 	Action           schema.ActionType
 	RetryTimes       int
@@ -173,7 +150,7 @@ type JobSyncInfo struct {
 
 func (js *JobSyncInfo) String() string {
 	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
-		js.ID, js.ParentJobID, js.Framework, js.Status, js.Message)
+		js.ID, js.ParentJobID, js.FrameworkVersion, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
@@ -188,6 +165,14 @@ type TaskSyncInfo struct {
 	PodStatus  interface{}
 	Action     schema.ActionType
 	RetryTimes int
+}
+
+// FinishedJobInfo contains gc job info
+type FinishedJobInfo struct {
+	Namespace        string
+	Name             string
+	Duration         time.Duration
+	FrameworkVersion schema.FrameworkVersion
 }
 
 type StatusInfo struct {

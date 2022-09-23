@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "fmt"
+
 type JobType string
 type ActionType string
 type JobStatus string
@@ -111,8 +113,9 @@ const (
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
 
-	ListenerTypeJob  = "job"
-	ListenerTypeTask = "task"
+	ListenerTypeJob   = "job"
+	ListenerTypeTask  = "task"
+	ListenerTypeQueue = "queue"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -222,6 +225,7 @@ type Conf struct {
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
+
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
@@ -238,6 +242,22 @@ type FileSystem struct {
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
+}
+
+type FrameworkVersion struct {
+	Framework  string `json:"framework"`
+	APIVersion string `json:"apiVersion"`
+}
+
+func (f *FrameworkVersion) String() string {
+	return fmt.Sprintf("%s-%s", f.Framework, f.APIVersion)
+}
+
+func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
+	return FrameworkVersion{
+		APIVersion: apiVersion,
+		Framework:  framework,
+	}
 }
 
 func (c *Conf) GetName() string {
@@ -424,9 +444,17 @@ func (c *Conf) SetLabels(k, v string) {
 	c.Labels[k] = v
 }
 
+func (c *Conf) GetLabels() map[string]string {
+	return c.Labels
+}
+
 func (c *Conf) SetAnnotations(k, v string) {
 	c.preCheck()
 	c.Annotations[k] = v
+}
+
+func (c *Conf) GetAnnotations() map[string]string {
+	return c.Annotations
 }
 
 func (c *Conf) preCheck() {

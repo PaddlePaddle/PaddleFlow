@@ -17,12 +17,16 @@ limitations under the License.
 package kv_new
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 type KVTxn struct {
@@ -40,8 +44,16 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	if config.Driver == MemType {
 		db, err = badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	} else if config.Driver == DiskType {
+		if config.CachePath == "" {
+			return nil, fmt.Errorf("meta cache config path is not allowed empty")
+		}
 		cachePath := filepath.Join(config.CachePath, config.FsID+".db")
+		log.Infof("meta disk cache path %v", cachePath)
 		os.RemoveAll(cachePath)
+		if config.FsID == "" {
+			cachePath = filepath.Join(config.CachePath, utils.GetRandID(5)+
+				"_"+time.Now().Format("2006-01-02 15:04:05")+".db")
+		}
 		db, err = badger.Open(badger.DefaultOptions(cachePath))
 	} else {
 		return nil, fmt.Errorf("not found meta driver name %s", config.Driver)
@@ -58,13 +70,13 @@ func (kv *KVTxn) Get(key []byte) []byte {
 		return nil
 	}
 	if err != nil {
-		log.Errorf("badger get key %s with err %v", string(key), err)
+		log.Debugf("badger get key %s with err %v", string(key), err)
 		return nil
 	}
 	var value []byte
 	value, err = item.ValueCopy(nil)
 	if err != nil {
-		log.Errorf("badger value copy key %s with err %v", string(key), err)
+		log.Debugf("badger value copy key %s with err %v", string(key), err)
 		return nil
 	}
 	return value
@@ -76,11 +88,10 @@ func (kv *KVTxn) Set(key, value []byte) error {
 }
 
 func (kv *KVTxn) Dels(keys ...[]byte) error {
-
 	for _, key := range keys {
 		err := kv.t.Delete(key)
 		if err != nil {
-			log.Printf("badger del key %s with err %v", string(key), err)
+			log.Debugf("badger del key %s with err %v", string(key), err)
 			return err
 		}
 	}
@@ -107,7 +118,10 @@ func (kv *KVTxn) ScanValues(prefix []byte) (map[string][]byte, error) {
 }
 
 func (kv *KVTxn) Exist(Prefix []byte) bool {
-	panic("implement me")
+	it := kv.t.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+	it.Seek(Prefix)
+	return it.ValidForPrefix(Prefix)
 }
 
 func (kv *KVTxn) Append(key []byte, value []byte) []byte {
@@ -115,7 +129,16 @@ func (kv *KVTxn) Append(key []byte, value []byte) []byte {
 }
 
 func (kv *KVTxn) IncrBy(key []byte, value int64) int64 {
-	panic("implement me")
+	var number int64
+	buf := kv.Get(key)
+	if len(buf) > 0 {
+		number = parseCounter(buf)
+	}
+	if value != 0 {
+		number += value
+		_ = kv.Set(key, packCounter(number))
+	}
+	return number
 }
 
 type kvClient struct {
@@ -132,20 +155,31 @@ func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 	var err error
 
 	if err = f(&KVTxn{tx}); err != nil {
+		log.Debugf("txn err is %v", err)
 		return err
 	}
 
 	err = tx.Commit()
+	if err != nil {
+		log.Debugf("tx commit err %v", err)
+	}
 	return err
 }
 
-func (c *kvClient) NextNumber(key []byte) (uint64, error) {
-	seq, err := c.db.GetSequence(key, 1)
-	if err != nil {
-		return 0, err
+func parseCounter(buf []byte) int64 {
+	if len(buf) == 0 {
+		return 0
 	}
-	num, err := seq.Next()
-	return num + 2, err
+	if len(buf) != 8 {
+		panic("invalid counter value")
+	}
+	return int64(binary.LittleEndian.Uint64(buf))
+}
+
+func packCounter(value int64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(value))
+	return b
 }
 
 var _ KvTxn = &KVTxn{}
