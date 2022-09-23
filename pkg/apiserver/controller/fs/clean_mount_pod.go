@@ -18,6 +18,7 @@ package fs
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -88,7 +89,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			needToDelete = true
 			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
-				if key != schema.AnnotationKeyMTime && key != schema.AnnotationKeyCache {
+				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					needToDelete = false
 					break
 				} else {
