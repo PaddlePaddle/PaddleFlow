@@ -31,7 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func ScrapeCacheStatsLoop(scrapeCacheInterval time.Duration) {
+func SummarizeCacheStatsLoop(scrapeCacheInterval time.Duration) {
 	for {
 		if err := scrapeCacheStats(); err != nil {
 			log.Errorf("scrapeCacheStats err: %v", err)
@@ -49,7 +49,7 @@ func scrapeCacheStats() error {
 	return updateMountPodsCacheStats(crm)
 }
 
-func addOrUpdateFsCache(fsCache *model.FSCache) error {
+func addOrUpdateFSCache(fsCache *model.FSCache) error {
 	n, err := storage.FsCache.Update(fsCache)
 	if err != nil {
 		log.Errorf("update fsCache[%+v] err:%v", *fsCache, err)
@@ -93,8 +93,8 @@ func updateMountPodsCacheStats(crm map[string]*runtime.KubeRuntime) error {
 						UsedSize:  stats.UsedSize,
 						ClusterID: clusterID,
 					}
-					if err = addOrUpdateFsCache(fsCache); err != nil {
-						log.Errorf("addOrUpdateFsCache[%+v] failed: %v", *fsCache, err)
+					if err = addOrUpdateFSCache(fsCache); err != nil {
+						log.Errorf("addOrUpdateFSCache[%+v] for pod[%s] in cluster[%s] failed: %v", *fsCache, pod.Name, clusterID, err)
 						break
 					}
 					break
@@ -109,8 +109,8 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 	crm := make(map[string]*runtime.KubeRuntime)
 	clusters, err := storage.Cluster.ListCluster(0, 0, nil, "")
 	if err != nil {
-		err := fmt.Errorf("list clusters err: %v", err)
-		log.Errorf("getClusterNamespaceMap failed: %v", err)
+		err := fmt.Errorf("getClusterRuntimeMap list clusters err: %v", err)
+		log.Errorf(err.Error())
 		return nil, err
 	}
 	for _, cluster := range clusters {
@@ -120,9 +120,8 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 		}
 		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
 		if err != nil {
-			err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
-			log.Errorf(err.Error())
-			return nil, err
+			log.Errorf("getClusterRuntimeMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
+			continue
 		}
 		crm[cluster.ID] = runtimeSvc.(*runtime.KubeRuntime)
 	}
