@@ -393,10 +393,10 @@ func (sj *KubeSparkJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert job status
 	state, msg, err := sj.getJobStatus(job.Status.AppState.State)
 	if err != nil {
-		log.Errorf("get PaddleJob status failed, err: %v", err)
+		log.Errorf("get spark job status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
-	log.Infof("Paddle job status: %s", state)
+	log.Infof("spark job status: %s", state)
 	return api.StatusInfo{
 		OriginStatus: string(job.Status.AppState.State),
 		Status:       state,
