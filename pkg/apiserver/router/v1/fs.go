@@ -58,7 +58,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Post("/fsCache", pr.createFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
-	r.Post("/fsCache/report", pr.fsCacheReport)
 }
 
 var URLPrefix = map[string]bool{
