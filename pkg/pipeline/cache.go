@@ -234,7 +234,16 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 
 			pToMTime = append(pToMTime, mtime)
 		}
+
+		// DEBUG
+		cc.logger.Debugf("pToMTime: %v", pToMTime)
 		lastTime = common.LatestTime(pToMTime)
+		cc.logger.Debugf("lastTime: %v", lastTime)
+
+		cc.logger.Debugf("int: %d", lastTime)
+		cc.logger.Debugf("float: %f", lastTime)
+
+		// DEBUG
 		inArtMtimeMap[name] = fmt.Sprintf("%d", lastTime.UnixNano())
 	}
 

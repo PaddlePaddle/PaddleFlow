@@ -131,7 +131,9 @@ func LatestTime(times []time.Time) time.Time {
 
 	for _, t := range times {
 		if latestTime.After(t) {
+			fmt.Println("++++++++++++ time:", t)
 			latestTime = t
+			fmt.Println("++++++++++++ latestTime:", latestTime)
 		}
 	}
 
