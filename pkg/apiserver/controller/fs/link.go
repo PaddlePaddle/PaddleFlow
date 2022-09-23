@@ -173,7 +173,10 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 
 	linksMeta := make(map[string]fsCommon.FSMeta)
 	for _, link := range links {
-		fsName, _ := utils.FsIDToFsNameUsername(link.FsID)
+		fsName, _, err := utils.GetFsNameAndUserNameByFsID(link.FsID)
+		if err != nil {
+			return err
+		}
 		linksMeta[link.FsPath] = fsCommon.FSMeta{
 			ID:            link.ID,
 			Name:          fsName,
