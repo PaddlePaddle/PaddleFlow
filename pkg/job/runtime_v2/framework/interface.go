@@ -27,7 +27,7 @@ import (
 
 // JobGetter return FrameworkJobInterface
 type JobGetter interface {
-	Job(framework string) JobInterface
+	Job(fwVersion pfschema.FrameworkVersion) JobInterface
 }
 
 type JobInterface interface {
@@ -48,7 +48,7 @@ type JobInterface interface {
 
 // QueueGetter return RuntimeQueueInterface
 type QueueGetter interface {
-	Queue(quotaType string) QueueInterface
+	Queue(quotaType pfschema.FrameworkVersion) QueueInterface
 }
 
 // QueueInterface defines Queue operator methods
@@ -79,13 +79,15 @@ type RuntimeClientInterface interface {
 
 	Update(resource interface{}, fv pfschema.FrameworkVersion) error
 
-	// RegisterListeners register job/task listeners
-	RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error
+	// RegisterListener register job/task/queue listener
+	RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error
 
-	StartLister(stopCh <-chan struct{})
+	StartListener(listenerType string, stopCh <-chan struct{}) error
 
 	// ListNodeQuota resource api for cluster nodes
 	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
 
 	GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework)
+
+	JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion
 }

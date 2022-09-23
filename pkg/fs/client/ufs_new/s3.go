@@ -803,12 +803,6 @@ func (fs *s3FileSystem) Create(name string, flags, mode uint32) (fd FileHandle, 
 	fs.Lock()
 	defer fs.Unlock()
 	if flags&syscall.O_CREAT != 0 || flags&syscall.O_EXCL != 0 {
-		// create empty file, make GetAttr work
-		if err := fs.createEmptyFile(name); err != nil {
-			log.Debugf("s3 create: name[%s] createEmptyFile err:%v", name, err)
-			return nil, err
-		}
-
 		// TODO if support "." and "..", need to check whether name contains "/", if contains, need to recursively created empty dir
 		fh := &s3FileHandle{
 			bucket: fs.bucket,

@@ -39,7 +39,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -82,8 +82,8 @@ func newFakeJobSyncController() *JobSync {
 			ID:   "cluster-123",
 			Type: "Kubernetes",
 		},
-		InformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
-		Config:      &restclient.Config{Host: server.URL},
+		JobInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
+		Config:         &restclient.Config{Host: server.URL},
 	}
 	err := ctrl.Initialize(opt)
 	if err != nil {

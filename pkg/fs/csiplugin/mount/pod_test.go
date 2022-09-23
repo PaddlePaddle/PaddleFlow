@@ -36,8 +36,9 @@ import (
 
 var testNew = &k8sCore.Pod{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "pfs-test-node-fs-root-testfs",
-		Namespace: "default",
+		Name:        "pfs-test-node-fs-root-testfs",
+		Namespace:   "default",
+		Annotations: map[string]string{},
 	},
 	Status: k8sCore.PodStatus{
 		Phase: k8sCore.PodRunning,
