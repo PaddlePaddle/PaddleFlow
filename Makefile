@@ -19,10 +19,12 @@ COVHTML := $(HOMEDIR)/covhtml.html # HTML representation of coverage profile
 GIT_COMMIT  = `git rev-parse HEAD`
 GIT_DATE    = `date "+%Y-%m-%d %H:%M:%S"`
 GIT_VERSION = `git --version`
+GIT_BRANCH  = `git rev-parse --abbrev-ref HEAD`
 
 LD_FLAGS    = " \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitVersion=${GIT_VERSION}' \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitCommit=${GIT_COMMIT}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitBranch=${GIT_BRANCH}' \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.BuildDate=${GIT_DATE}' \
     '-extldflags=-static' \
     -w -s"
