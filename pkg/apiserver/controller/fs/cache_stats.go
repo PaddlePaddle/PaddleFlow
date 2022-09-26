@@ -78,6 +78,11 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 }
 
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
+	if mountPodCleaning.Load() || fsDeleting.Load() {
+		log.Infof("mountPodCleaning or fsDeleting, pause syncing cache")
+		return nil
+	}
+
 	listOptions := k8sMeta.ListOptions{
 		LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
 		FieldSelector: fmt.Sprintf("status.phase=Running"),
@@ -98,10 +103,6 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 }
 
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
-	if mountPodCleaning.Load() || fsDeleting.Load() {
-		log.Infof("mountPodCleaning or fsDeleting, pause syncing cache")
-		return nil
-	}
 	for k, v := range pod.Annotations {
 		if k == schema.AnnotationKeyCache {
 			log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
