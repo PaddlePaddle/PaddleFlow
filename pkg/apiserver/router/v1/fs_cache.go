@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi"
-	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -202,62 +201,4 @@ func (pr *PFSRouter) deleteFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	common.RenderStatus(w, http.StatusOK)
-}
-
-// FSCacheReport
-// @Summary 上报FsID的缓存信息
-// @Description  上报FsID的缓存信息
-// @Id FSCacheReport
-// @tags FSCacheConfig
-// @Accept  json
-// @Produce json
-// @Param fsName path string true "存储名称"
-// @Param username query string false "用户名"
-// @Param request body fs.CacheReportRequest true "request body"
-// @Success 200 {object}
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fsCache/report [POST]
-func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-	var request api.CacheReportRequest
-	err := common.BindJSON(r, &request)
-	if err != nil {
-		ctx.Logging().Errorf("FSCachReport bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
-	}
-	if request.Username == "" {
-		request.Username = ctx.UserName
-	}
-
-	err = validateFsCacheReport(&ctx, &request)
-	if err != nil {
-		ctx.Logging().Errorf("validateFsCacheReport request[%v] failed: [%v]", request, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	ctx.Logging().Debugf("report cache with req[%v]", request)
-
-	err = api.ReportCache(&ctx, request)
-	if err != nil {
-		ctx.Logging().Errorf("report cache with service error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateFsCacheReport(ctx *logger.RequestContext, req *api.CacheReportRequest) error {
-	validate := validator.New()
-	err := validate.Struct(req)
-	if err != nil {
-		for _, err = range err.(validator.ValidationErrors) {
-			ctx.ErrorCode = common.InappropriateJSON
-			return err
-		}
-	}
-	return nil
 }

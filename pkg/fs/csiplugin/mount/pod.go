@@ -141,11 +141,12 @@ func removeRef(c utils.Client, pod *k8sCore.Pod, workPodUID string) error {
 		log.Warnf("mount_pod removeRef: pod[%s] has no annotation", pod.Name)
 		return nil
 	}
-	if _, ok := annotation[workPodUID]; !ok {
+	mountKey := schema.AnnotationKeyMountPrefix + workPodUID
+	if _, ok := annotation[mountKey]; !ok {
 		log.Infof("mount_pod removeRef: workPodUID [%s] in pod [%s] already not exists.", workPodUID, pod.Name)
 		return nil
 	}
-	delete(annotation, workPodUID)
+	delete(annotation, mountKey)
 	annotation[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
 	if err := c.PatchPodAnnotation(pod); err != nil {
 		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
@@ -202,7 +203,7 @@ func buildAnnotation(pod *k8sCore.Pod, targetPath string) error {
 		log.Errorf(err.Error())
 		return err
 	}
-	pod.ObjectMeta.Annotations[workPodUID] = targetPath
+	pod.ObjectMeta.Annotations[schema.AnnotationKeyMountPrefix+workPodUID] = targetPath
 	pod.ObjectMeta.Annotations[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
 	return nil
 }
