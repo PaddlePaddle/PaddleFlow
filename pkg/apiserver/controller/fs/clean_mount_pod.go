@@ -22,13 +22,17 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"go.uber.org/atomic"
 	k8sCore "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
+
+var mountPodCleaning, fsDeleting atomic.Bool
 
 func CleanMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Duration,
 	stopChan chan struct{}) {
@@ -59,6 +63,12 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 		return err
 	}
 	log.Debugf("delete Mount pods map %v", deleteMountPodsMap)
+	if len(deleteMountPodsMap) == 0 {
+		return nil
+	}
+	// in case updating cache when deleting pod
+	mountPodCleaning.Store(true)
+	defer mountPodCleaning.Store(false)
 	if err = deleteMountPods(deleteMountPodsMap); err != nil {
 		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
 		return err
@@ -112,4 +122,17 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 		}
 	}
 	return clusterPodMap, nil
+}
+
+func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	for k8sRuntime, pods := range podMap {
+		for _, po := range pods {
+			// delete pod
+			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
+				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				return err
+			}
+		}
+	}
+	return nil
 }

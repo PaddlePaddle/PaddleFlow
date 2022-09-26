@@ -243,6 +243,17 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		log.Infof("fs[%s] currently mounted. cannot be modified or deleted", fsID)
 		return true, nil
 	}
+	if len(mountPodMap) == 0 {
+		return false, nil
+	}
+	// in case updating cache when deleting pod
+	fsDeleting.Store(true)
+	defer fsDeleting.Store(false)
+	if err = deleteMountPods(mountPodMap); err != nil {
+		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
 
 	if err = storage.FsCache.Delete(fsID, ""); err != nil {
 		err := fmt.Errorf("removeFSCache[%s] failed: %v", fsID, err)
@@ -250,11 +261,6 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		return false, err
 	}
 
-	if err = deleteMountPods(mountPodMap); err != nil {
-		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
-		log.Errorf(err.Error())
-		return false, err
-	}
 	if err = deletePvPvc(cnm, fsID); err != nil {
 		err = fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
@@ -333,19 +339,6 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 	}
 	log.Debugf("fs[%s] is not mounted, clusterPodMap: %+v", fsID, clusterPodMap)
 	return false, clusterPodMap, nil
-}
-
-func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
-	for k8sRuntime, pods := range podMap {
-		for _, po := range pods {
-			// delete pod
-			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {

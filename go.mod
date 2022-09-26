@@ -21,7 +21,6 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v1.5.4
 	github.com/go-openapi/spec v0.20.4 // indirect
-	github.com/go-playground/validator/v10 v10.9.0
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/google/btree v1.0.0
 	github.com/google/go-cmp v0.5.6 // indirect
@@ -30,6 +29,7 @@ require (
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/jcmturner/gokrb5/v8 v8.4.2
 	github.com/jinzhu/copier v0.3.2
+	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kubeflow/common v0.4.1
 	github.com/kubeflow/training-operator v1.4.0
 	github.com/kubernetes-csi/csi-lib-utils v0.10.0 // indirect
@@ -49,6 +49,7 @@ require (
 	github.com/prometheus/common v0.26.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.20.10
 	github.com/sirupsen/logrus v1.8.1
 	github.com/smallnest/chanx v1.0.0
@@ -59,6 +60,7 @@ require (
 	github.com/vbauerster/mpb/v7 v7.4.1
 	github.com/viney-shih/go-lock v1.1.2
 	github.com/xujiajun/nutsdb v0.8.0
+	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
@@ -69,6 +71,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20211129164237-f09f9a12af12 // indirect
 	google.golang.org/grpc v1.42.0
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.1.1

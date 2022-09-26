@@ -97,6 +97,10 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 }
 
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
+	if mountPodCleaning.Load() || fsDeleting.Load() {
+		log.Infof("mountPodCleaning or fsDeleting, pause syncing cache")
+		return nil
+	}
 	for k, v := range pod.Annotations {
 		if k == schema.AnnotationKeyCache {
 			log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
