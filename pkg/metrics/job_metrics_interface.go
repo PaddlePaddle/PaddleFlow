@@ -50,3 +50,4 @@ type Timestamps interface {
 }
 
 type ListQueueFunc func() []model.Queue
+type ListJobFunc func() []model.Job

@@ -4,6 +4,10 @@ run:
 linters-settings:
   errcheck:
     check-type-assertions: true
+  staticcheck:
+    checks:
+      - all
+      - '-SA6002' # disable the rule SA6002
 linters:
   enable:
     - gofmt

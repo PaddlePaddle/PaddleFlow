@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "fmt"
+
 type JobType string
 type ActionType string
 type JobStatus string
@@ -41,6 +43,8 @@ const (
 	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
 	EnvJobWorkDir = "PF_WORK_DIR"
 	EnvMountPath  = "PF_MOUNT_PATH"
+
+	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -106,10 +110,12 @@ const (
 	FrameworkPytorch    Framework = "pytorch"
 	FrameworkPaddle     Framework = "paddle"
 	FrameworkMXNet      Framework = "mxnet"
+	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
 
-	ListenerTypeJob  = "job"
-	ListenerTypeTask = "task"
+	ListenerTypeJob   = "job"
+	ListenerTypeTask  = "task"
+	ListenerTypeQueue = "queue"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -219,6 +225,7 @@ type Conf struct {
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
+
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
@@ -235,6 +242,22 @@ type FileSystem struct {
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
+}
+
+type FrameworkVersion struct {
+	Framework  string `json:"framework"`
+	APIVersion string `json:"apiVersion"`
+}
+
+func (f *FrameworkVersion) String() string {
+	return fmt.Sprintf("%s-%s", f.Framework, f.APIVersion)
+}
+
+func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
+	return FrameworkVersion{
+		APIVersion: apiVersion,
+		Framework:  framework,
+	}
 }
 
 func (c *Conf) GetName() string {
@@ -259,6 +282,11 @@ func (c *Conf) GetExtraFS() []FileSystem {
 
 func (c *Conf) GetArgs() []string {
 	return c.Args
+}
+
+func (c *Conf) GetRestartPolicy() string {
+	c.preCheckEnv()
+	return c.Env[EnvJobRestartPolicy]
 }
 
 func (c *Conf) GetWorkerCommand() string {
@@ -416,9 +444,17 @@ func (c *Conf) SetLabels(k, v string) {
 	c.Labels[k] = v
 }
 
+func (c *Conf) GetLabels() map[string]string {
+	return c.Labels
+}
+
 func (c *Conf) SetAnnotations(k, v string) {
 	c.preCheck()
 	c.Annotations[k] = v
+}
+
+func (c *Conf) GetAnnotations() map[string]string {
+	return c.Annotations
 }
 
 func (c *Conf) preCheck() {
@@ -469,3 +505,10 @@ func (s Conf) Value() (driver.Value, error) {
 	}
 	return value, nil
 }*/
+
+type Member struct {
+	ID       string     `json:"id"`
+	Replicas int        `json:"replicas"`
+	Role     MemberRole `json:"role"`
+	Conf     `json:",inline"`
+}

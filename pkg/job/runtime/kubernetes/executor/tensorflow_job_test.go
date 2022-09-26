@@ -22,13 +22,12 @@ import (
 
 	tfv1 "github.com/kubeflow/training-operator/pkg/apis/tensorflow/v1"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -63,7 +62,7 @@ func TestTFJob_CreateJob(t *testing.T) {
 						"PF_JOB_MODE": "Collective",
 					},
 				},
-				Tasks: []model.Member{
+				Tasks: []schema.Member{
 					{
 						Replicas: 1,
 						Role:     schema.RoleMaster,

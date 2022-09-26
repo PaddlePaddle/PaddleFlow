@@ -28,7 +28,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const (
@@ -204,7 +203,7 @@ func (vj *VCJob) fillPSJobSpec(jobSpec *vcjob.Job) error {
 	return nil
 }
 
-func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task model.Member, jobName string) error {
+func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task schema.Member, jobName string) error {
 	log.Infof("fill Task[%s] in PS-Mode", vcTask.Name)
 	vcTask.Replicas = int32(task.Replicas)
 
@@ -350,8 +349,8 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 // fillContainerInVcJob fill container in job task, only called by vcjob
 func (j *VCJob) fillContainerInVcJob(container *v1.Container, flavour schema.Flavour, command string) error {
 	container.Image = j.Image
-	workDir := j.getWorkDir(nil)
-	container.Command = j.generateContainerCommand(j.Command, workDir)
+	// fill command
+	j.fillCMDInContainer(container, nil)
 	var err error
 	container.Resources, err = j.generateResourceRequirements(flavour)
 	if err != nil {

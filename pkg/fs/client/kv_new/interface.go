@@ -31,11 +31,9 @@ type KvTxn interface {
 	Exist(Prefix []byte) bool
 	Append(key []byte, value []byte) []byte
 	IncrBy(key []byte, value int64) int64
-	NextNumber() int64
 }
 
 type KvClient interface {
 	Name() string
 	Txn(f func(KvTxn) error) error
-	NextNumber(key []byte) (uint64, error)
 }

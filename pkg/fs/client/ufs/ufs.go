@@ -23,20 +23,19 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 // todo:: not use base.filehandle
-type FileHandle struct {
-	fd base.FileHandle
+type FileHandler struct {
+	fd FileHandle
 }
 
-func NewFileHandle(fd base.FileHandle) FileHandle {
-	return FileHandle{fd: fd}
+func NewFileHandle(fd FileHandle) FileHandler {
+	return FileHandler{fd: fd}
 }
 
-func (u *FileHandle) ReadAt(buf []byte, off int64) (int, error) {
+func (u *FileHandler) ReadAt(buf []byte, off int64) (int, error) {
 	// todo:: replace fd read
 	result, code := u.fd.Read(buf, off)
 	if utils.IsError(syscall.Errno(code)) {
@@ -61,7 +60,7 @@ func (u *FileHandle) ReadAt(buf []byte, off int64) (int, error) {
 	return len(buf), nil
 }
 
-func (u *FileHandle) WriteAt(buf []byte, off int64) (int, error) {
+func (u *FileHandler) WriteAt(buf []byte, off int64) (int, error) {
 	n, err := u.fd.Write(buf, off)
 	if utils.IsError(syscall.Errno(err)) {
 		return 0, syscall.Errno(err)

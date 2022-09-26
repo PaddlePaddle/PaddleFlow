@@ -23,8 +23,10 @@ import (
 	router "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -225,6 +227,10 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
+	if err := config.InitJobTemplate(ServerConf.Job.DefaultJobYamlPath); err != nil {
+		log.Errorf("InitDefaultJobTemplate err %v", err)
+		gracefullyExit(err)
+	}
 
 	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
 		log.Errorf("create prometheus client failed, err %v", err)
@@ -270,7 +276,13 @@ func startMetricsService(port int) (err error) {
 		return queues
 	}
 
-	metrics.StartMetricsService(port, listQueue)
+	listJobByStatus := func() []model.Job {
+		jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
+		return jobs
+	}
+
+	//  TODO: add job func
+	metrics.StartMetricsService(port, listQueue, listJobByStatus)
 	return
 }
 

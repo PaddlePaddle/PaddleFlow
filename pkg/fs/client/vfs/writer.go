@@ -22,7 +22,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
@@ -65,7 +64,7 @@ type fileWriter struct {
 	ufs    ufslib.UnderFileStorage
 
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
-	fd base.FileHandle
+	fd ufslib.FileHandle
 }
 
 func (f *fileWriter) Fallocate(size int64, off int64, mode uint32) syscall.Errno {

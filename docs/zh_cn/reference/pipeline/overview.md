@@ -15,6 +15,8 @@
 
 - python SDK使用规范：可以参考 [SDK使用规范]
 
+总体架构如下：
+![image](https://user-images.githubusercontent.com/98313109/188802245-14388118-853c-4159-80fa-255cad414c1c.png)
 
 ### 名词解释
 

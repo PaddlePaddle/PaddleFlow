@@ -53,17 +53,3 @@ type QuotaSummary struct {
 	TotalQuota resources.Resource `json:"total"`
 	IdleQuota  resources.Resource `json:"idle"`
 }
-
-type FrameworkVersion struct {
-	Framework  string
-	APIVersion string
-	Extra      map[string]string
-}
-
-func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
-	return FrameworkVersion{
-		APIVersion: apiVersion,
-		Framework:  framework,
-		Extra:      make(map[string]string),
-	}
-}
