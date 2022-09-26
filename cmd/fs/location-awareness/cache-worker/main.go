@@ -33,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -111,21 +110,11 @@ func act(c *cli.Context) error {
 
 	fsID := c.String("fsID")
 	cacheDir := c.String("cacheDir")
+	nodname := c.String("nodename")
 	podCachePath := c.String("podCachePath")
-	nodName := c.String("nodename")
 
-	cacheStats := model.CacheStats{
-		FsID:     fsID,
-		CacheDir: cacheDir,
-		NodeName: nodName,
-	}
-	info := location_awareness.PatchInfo{
-		K8sClient:    k8sClient,
-		Pod:          pod,
-		PodCachePath: podCachePath,
-	}
 	go func() {
-		location_awareness.PatchCacheStatsLoop(cacheStats, info)
+		location_awareness.PatchCacheStatsLoop(k8sClient, pod, fsID, cacheDir, nodname, podCachePath)
 	}()
 
 	stopSig := make(chan os.Signal, 1)

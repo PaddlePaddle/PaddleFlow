@@ -189,9 +189,6 @@ func (mountInfo *Info) commonOptions() []string {
 
 func (mountInfo *Info) CacheWorkerCmd() string {
 	options := []string{
-		"--server=" + csiconfig.PaddleFlowServer,
-		"--username=" + csiconfig.UserNameRoot,
-		"--password=" + csiconfig.PassWordRoot,
 		"--nodename=" + csiconfig.NodeName,
 		"--clusterID=" + csiconfig.ClusterID,
 		"--podCachePath=" + FusePodCachePath,

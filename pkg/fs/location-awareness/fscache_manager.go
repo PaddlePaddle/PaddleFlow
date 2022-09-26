@@ -23,41 +23,42 @@ import (
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
+	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-type PatchInfo struct {
-	K8sClient    utils.Client
-	Pod          *corev1.Pod
-	PodCachePath string
-}
-
-func PatchCacheStatsLoop(cacheReport model.CacheStats, patchInfo PatchInfo) {
+func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod,
+	fsID, cacheDir, nodname, podCachePath string) {
 	var errStat error
 	var usageStat *disk.UsageStat
 	for {
-		usageStat, errStat = disk.Usage(patchInfo.PodCachePath)
+		usageStat, errStat = disk.Usage(podCachePath)
 		if errStat != nil {
-			log.Errorf("disk stat path[%s] and err[%v]", patchInfo.PodCachePath, errStat)
+			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		cacheReport.UsedSize = int(usageStat.Used / 1024)
 
-		str, err := json.Marshal(cacheReport)
+		cacheStats := model.CacheStats{
+			FsID:     fsID,
+			CacheDir: cacheDir,
+			NodeName: nodname,
+			UsedSize: int(usageStat.Used / 1024),
+		}
+
+		str, err := json.Marshal(cacheStats)
 		if err != nil {
-			log.Errorf("failed marshal cache stats %+v, err: %v", cacheReport, err)
+			log.Errorf("failed marshal cache stats %+v, err: %v", cacheStats, err)
 			continue
 		}
 
-		patchInfo.Pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
-		err = patchInfo.K8sClient.PatchPodAnnotation(patchInfo.Pod)
+		pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
+		err = k8sClient.PatchPodAnnotation(pod)
 		if err != nil {
-			log.Errorf("PatchPodAnnotation %+v err[%v]", patchInfo.Pod.ObjectMeta.Annotations, err)
+			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Annotations, err)
 		}
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):

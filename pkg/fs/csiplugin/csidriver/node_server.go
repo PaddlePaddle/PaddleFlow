@@ -38,7 +38,6 @@ import (
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
-	credentialInfo credentials
 }
 
 func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
@@ -68,11 +67,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 	volumeID := req.VolumeId
 	volumeContext := req.GetVolumeContext()
-
-	csiconfig.UserNameRoot = ns.credentialInfo.usernameRoot
-	csiconfig.PassWordRoot = ns.credentialInfo.passwordRoot
-	// assume that the paddleflow server address will not be changed
-	csiconfig.PaddleFlowServer = volumeContext[schema.PFSServer]
 	csiconfig.ClusterID = volumeContext[schema.PFSClusterID]
 
 	k8sClient, err := utils.GetK8sClient()

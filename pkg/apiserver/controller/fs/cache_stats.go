@@ -54,20 +54,27 @@ func scrapeCacheStats() error {
 	return err
 }
 
-func addOrUpdateFSCache(fsCache *model.FSCache) error {
-	n, err := storage.FsCache.Update(fsCache)
+func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
+	crm := make(map[string]*runtime.KubeRuntime)
+	clusters, err := storage.Cluster.ListCluster(0, 0, nil, "")
 	if err != nil {
-		log.Errorf("update fsCache[%+v] err:%v", *fsCache, err)
-		return err
+		err := fmt.Errorf("getClusterRuntimeMap list clusters err: %v", err)
+		log.Errorf(err.Error())
+		return nil, err
 	}
-	if n == 0 {
-		err = storage.FsCache.Add(fsCache)
+	for _, cluster := range clusters {
+		if cluster.ClusterType != schema.KubernetesType {
+			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
+			continue
+		}
+		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
+		if err != nil {
+			log.Errorf("getClusterRuntimeMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
+			continue
+		}
+		crm[cluster.ID] = runtimeSvc.(*runtime.KubeRuntime)
 	}
-	if err != nil {
-		log.Errorf("add fsCache[%+v] err:%v", *fsCache, err)
-		return err
-	}
-	return nil
+	return crm, nil
 }
 
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
@@ -119,25 +126,18 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 	return nil
 }
 
-func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
-	crm := make(map[string]*runtime.KubeRuntime)
-	clusters, err := storage.Cluster.ListCluster(0, 0, nil, "")
+func addOrUpdateFSCache(fsCache *model.FSCache) error {
+	n, err := storage.FsCache.Update(fsCache)
 	if err != nil {
-		err := fmt.Errorf("getClusterRuntimeMap list clusters err: %v", err)
-		log.Errorf(err.Error())
-		return nil, err
+		log.Errorf("update fsCache[%+v] err:%v", *fsCache, err)
+		return err
 	}
-	for _, cluster := range clusters {
-		if cluster.ClusterType != schema.KubernetesType {
-			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
-			continue
-		}
-		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
-		if err != nil {
-			log.Errorf("getClusterRuntimeMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
-			continue
-		}
-		crm[cluster.ID] = runtimeSvc.(*runtime.KubeRuntime)
+	if n == 0 {
+		err = storage.FsCache.Add(fsCache)
 	}
-	return crm, nil
+	if err != nil {
+		log.Errorf("add fsCache[%+v] err:%v", *fsCache, err)
+		return err
+	}
+	return nil
 }

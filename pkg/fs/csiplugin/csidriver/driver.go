@@ -27,18 +27,12 @@ const (
 	version    = "1.4.3"
 )
 
-type credentials struct {
-	usernameRoot string
-	passwordRoot string
-}
-
 type driver struct {
 	csiDriver        *csicommon.CSIDriver
 	nodeId, endpoint string
-	credentialInfo   credentials
 }
 
-func NewDriver(nodeID, endpoint, username, password string) *driver {
+func NewDriver(nodeID, endpoint string) *driver {
 	log.Infof("Driver: %v version: %v", driverName, version)
 	csiDriver := csicommon.NewCSIDriver(driverName, version, nodeID)
 	csiDriver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
@@ -50,10 +44,6 @@ func NewDriver(nodeID, endpoint, username, password string) *driver {
 		nodeId:    nodeID,
 		endpoint:  endpoint,
 		csiDriver: csiDriver,
-		credentialInfo: credentials{
-			usernameRoot: username,
-			passwordRoot: password,
-		},
 	}
 }
 
@@ -67,7 +57,6 @@ func (d *driver) newNodeServer() *nodeServer {
 	return &nodeServer{
 		nodeId:            d.nodeId,
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d.csiDriver),
-		credentialInfo:    d.credentialInfo,
 	}
 }
 

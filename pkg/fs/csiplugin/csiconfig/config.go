@@ -23,15 +23,12 @@ import (
 )
 
 var (
-	NodeName         = ""
-	ClusterID        = ""
-	PaddleFlowServer = ""
-	UserNameRoot     = ""
-	PassWordRoot     = ""
-	Namespace        = ""
-	PodName          = ""
-	MountImage       = ""
-	HostMntDir       = ""
+	NodeName   = ""
+	ClusterID  = ""
+	Namespace  = ""
+	PodName    = ""
+	MountImage = ""
+	HostMntDir = ""
 
 	CSIPod = corev1.Pod{}
 )
