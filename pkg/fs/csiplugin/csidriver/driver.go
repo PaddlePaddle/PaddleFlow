@@ -34,8 +34,8 @@ type driver struct {
 }
 
 func NewDriver(nodeID, endpoint string) *driver {
-	log.Infof("Driver: %v version: %v", driverName, version.PaddleFlowVersion)
-	csiDriver := csicommon.NewCSIDriver(driverName, version.PaddleFlowVersion, nodeID)
+	log.Infof("Driver: %v version: %v", driverName, version.GitBranch)
+	csiDriver := csicommon.NewCSIDriver(driverName, version.GitBranch, nodeID)
 	csiDriver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
 	csiDriver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
