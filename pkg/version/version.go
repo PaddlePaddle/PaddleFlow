@@ -22,13 +22,15 @@ import (
 )
 
 var (
-	GitVersion = "v0.0.0"
-	GitCommit  = "unknown"
-	BuildDate  = "unknown"
+	GitVersion        = "v0.0.0"
+	GitCommit         = "unknown"
+	BuildDate         = "unknown"
+	PaddleFlowVersion = "v1.4.5"
 )
 
 func Info() []string {
 	return []string{
+		fmt.Sprintf("PaddleFlow: %v", PaddleFlowVersion),
 		fmt.Sprintf("GitVersion: %v", GitVersion),
 		fmt.Sprintf("GitCommit: %v", GitCommit),
 		fmt.Sprintf("BuildDate: %v", BuildDate),

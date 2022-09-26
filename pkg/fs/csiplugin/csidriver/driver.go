@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 const (
 	driverName = "paddleflowstorage"
-	version    = "1.4.3"
 )
 
 type driver struct {
@@ -33,8 +34,8 @@ type driver struct {
 }
 
 func NewDriver(nodeID, endpoint string) *driver {
-	log.Infof("Driver: %v version: %v", driverName, version)
-	csiDriver := csicommon.NewCSIDriver(driverName, version, nodeID)
+	log.Infof("Driver: %v version: %v", driverName, version.PaddleFlowVersion)
+	csiDriver := csicommon.NewCSIDriver(driverName, version.PaddleFlowVersion, nodeID)
 	csiDriver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
 	csiDriver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
