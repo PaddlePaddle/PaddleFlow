@@ -18,6 +18,9 @@ package fs
 
 import (
 	"encoding/json"
+	"github.com/agiledragon/gomonkey/v2"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +42,44 @@ const (
 	mockFSID       = "fs-root-mock"
 	mockNodename   = "nodename_mock"
 )
+
+func Test_getClusterRuntimeMap(t *testing.T) {
+	driver.InitMockDB()
+	mockList := []model.ClusterInfo{
+		{
+			Model:         model.Model{ID: "cluster-kube1"},
+			Name:          "kube1",
+			NamespaceList: []string{"default", "paddleflow", "kube-system"},
+			ClusterType:   schema.KubernetesType,
+		},
+		{
+			Model:         model.Model{ID: "cluster-kube2"},
+			Name:          "kube2",
+			NamespaceList: []string{"paddleflow"},
+			ClusterType:   schema.KubernetesType,
+		},
+		{
+			Model:       model.Model{ID: "cluster-local"},
+			Name:        "local",
+			ClusterType: schema.LocalType,
+		},
+	}
+	storageCluster := &storage.ClusterStore{}
+	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(storageCluster), "ListCluster",
+		func(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]model.ClusterInfo, error) {
+			return mockList, nil
+		})
+	defer patch.Reset()
+
+	crm, err := getClusterRuntimeMap()
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(crm))
+	for clusterID, rt := range crm {
+		rt.Name()
+		assert.Equal(t, true, strings.HasPrefix(clusterID, "cluster-kube"))
+		assert.Equal(t, true, strings.HasPrefix(rt.Name(), "kube"))
+	}
+}
 
 func buildCacheStats() model.CacheStats {
 	return model.CacheStats{
