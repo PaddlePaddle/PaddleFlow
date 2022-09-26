@@ -18,8 +18,8 @@ package fs
 
 import (
 	"encoding/json"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/agiledragon/gomonkey/v2"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -64,10 +64,25 @@ func Test_getClusterRuntimeMap(t *testing.T) {
 			ClusterType: schema.LocalType,
 		},
 	}
-	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(storage.Cluster), "ListCluster",
-		func(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]model.ClusterInfo, error) {
-			return mockList, nil
-		})
+	for _, cluster := range mockList {
+		err := storage.Cluster.CreateCluster(&cluster)
+		assert.Nil(t, err)
+	}
+
+	patch := gomonkey.ApplyFunc(runtime.CreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+		cluster := schema.Cluster{
+			Name: clusterInfo.Name,
+			ID:   clusterInfo.ID,
+			Type: clusterInfo.ClusterType,
+			ClientOpt: schema.ClientOptions{
+				Master: clusterInfo.Endpoint,
+				Config: clusterInfo.Credential,
+				QPS:    1000,
+				Burst:  1000,
+			},
+		}
+		return runtime.NewKubeRuntime(cluster), nil
+	})
 	defer patch.Reset()
 
 	crm, err := getClusterRuntimeMap()
