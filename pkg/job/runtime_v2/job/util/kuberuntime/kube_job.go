@@ -191,7 +191,6 @@ func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *sche
 	metadata.Namespace = taskConf.GetNamespace()
 	metadata.Annotations = appendMapsIfAbsent(metadata.Annotations, taskConf.GetAnnotations())
 	metadata.Labels = appendMapsIfAbsent(metadata.Labels, taskConf.GetLabels())
-	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = jobID
 	// TODO: add more metadata for task
 }
@@ -214,7 +213,7 @@ func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
 		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
 	}
 	// fill priorityClassName and schedulerName
-	err := BuildSchedulingPolicy(podSpec, task.Priority)
+	err := buildPriorityAndScheduler(podSpec, task.Priority)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -243,7 +242,7 @@ func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
 	return nil
 }
 
-func BuildSchedulingPolicy(podSpec *corev1.PodSpec, priorityName string) error {
+func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
 	}
@@ -259,7 +258,7 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 		return fmt.Errorf("build pod failed, err: podSpec is nil")
 	}
 	// fill priorityClassName and schedulerName
-	err := BuildSchedulingPolicy(&pod.Spec, task.Priority)
+	err := buildPriorityAndScheduler(&pod.Spec, task.Priority)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -750,7 +749,9 @@ func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.Res
 	}
 	runPolicy.SchedulingPolicy.Queue = queueName
 	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
-	runPolicy.SchedulingPolicy.MinResources = minResources
+	if minResources != nil {
+		runPolicy.SchedulingPolicy.MinResources = minResources
+	}
 	return nil
 }
 

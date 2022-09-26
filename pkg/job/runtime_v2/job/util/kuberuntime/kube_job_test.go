@@ -59,7 +59,7 @@ func TestBuildSchedulingPolicy(t *testing.T) {
 	// test BuildScheduling Policy
 	pod := &corev1.Pod{}
 	priorityClass := "NORMAL"
-	err := BuildSchedulingPolicy(&pod.Spec, priorityClass)
+	err := buildPriorityAndScheduler(&pod.Spec, priorityClass)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, schema.PriorityClassNormal, pod.Spec.PriorityClassName)
 	assert.Equal(t, schedulerName, pod.Spec.SchedulerName)

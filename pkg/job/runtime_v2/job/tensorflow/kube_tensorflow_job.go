@@ -147,7 +147,7 @@ func (pj *KubeTFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob) 
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), tfJobSpec)
 	// TODO: patch pytorch job from user
 	// check RunPolicy
-	return nil
+	return kuberuntime.KubeflowRunPolicy(&tfJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
 func (pj *KubeTFJob) Stop(ctx context.Context, job *api.PFJob) error {
