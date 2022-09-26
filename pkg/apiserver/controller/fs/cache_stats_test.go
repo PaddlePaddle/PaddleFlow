@@ -64,8 +64,7 @@ func Test_getClusterRuntimeMap(t *testing.T) {
 			ClusterType: schema.LocalType,
 		},
 	}
-	storageCluster := &storage.ClusterStore{}
-	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(storageCluster), "ListCluster",
+	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(storage.Cluster), "ListCluster",
 		func(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]model.ClusterInfo, error) {
 			return mockList, nil
 		})
