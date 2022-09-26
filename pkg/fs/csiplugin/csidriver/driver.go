@@ -17,10 +17,11 @@ limitations under the License.
 package csidriver
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 const (
