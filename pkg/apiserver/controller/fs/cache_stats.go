@@ -80,6 +80,7 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
 	listOptions := k8sMeta.ListOptions{
 		LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
+		FieldSelector: fmt.Sprintf("status.phase=Running"),
 	}
 	pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 	if err != nil {
