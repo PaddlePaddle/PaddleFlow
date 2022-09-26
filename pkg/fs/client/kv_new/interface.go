@@ -36,5 +36,4 @@ type KvTxn interface {
 type KvClient interface {
 	Name() string
 	Txn(f func(KvTxn) error) error
-	NextNumber(key []byte) (uint64, error)
 }

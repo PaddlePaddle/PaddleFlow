@@ -23,45 +23,122 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
-// JobBuilder defines job interface
-// kubeJobBuilders store JobBuilder
-type JobBuilder = func(RuntimeClientInterface) JobInterface
+// JobPlugin Register
+
+// JobPlugin defines job interface
+type JobPlugin = func(RuntimeClientInterface) JobInterface
 
 var kubeJobMutex sync.RWMutex
-var kubeJobBuilders = map[string]JobBuilder{}
 
-func RegisterJobBuilder(runtimeType, frameworkVersion string, job JobBuilder) {
+// kubeJobMaps store JobPlugin
+var kubeJobMaps = map[schema.FrameworkVersion]JobPlugin{}
+
+func RegisterJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion, job JobPlugin) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.Lock()
 		defer kubeJobMutex.Unlock()
-		kubeJobBuilders[frameworkVersion] = job
+		kubeJobMaps[frameworkVersion] = job
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
 }
 
-func CleanupJobBuilders(runtimeType string) {
+func CleanupJobPlugins(runtimeType string) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.Lock()
 		defer kubeJobMutex.Unlock()
-		kubeJobBuilders = map[string]JobBuilder{}
+		kubeJobMaps = map[schema.FrameworkVersion]JobPlugin{}
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
 }
 
-func GetJobBuilder(runtimeType, frameworkVersion string) (JobBuilder, bool) {
-	var jobBuilder JobBuilder
+func GetJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion) (JobPlugin, bool) {
+	var jobPlugin JobPlugin
 	var found bool
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.RLock()
 		defer kubeJobMutex.RUnlock()
-		jobBuilder, found = kubeJobBuilders[frameworkVersion]
+		jobPlugin, found = kubeJobMaps[frameworkVersion]
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
-	return jobBuilder, found
+	return jobPlugin, found
+}
+
+func ListJobPlugins(runtimeType string) map[schema.FrameworkVersion]JobPlugin {
+	jobPlugin := make(map[schema.FrameworkVersion]JobPlugin)
+	switch runtimeType {
+	case schema.KubernetesType:
+		kubeJobMutex.RLock()
+		defer kubeJobMutex.RUnlock()
+		for fv, jp := range kubeJobMaps {
+			jobPlugin[fv] = jp
+		}
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+	return jobPlugin
+}
+
+// QueuePlugin register
+
+// QueuePlugin defines queue interface
+type QueuePlugin = func(RuntimeClientInterface) QueueInterface
+
+var queueMutex sync.RWMutex
+var queueMaps = map[schema.FrameworkVersion]QueuePlugin{}
+
+func RegisterQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion, queue QueuePlugin) {
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.Lock()
+		defer queueMutex.Unlock()
+		queueMaps[quotaType] = queue
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+}
+
+func CleanupQueuePlugin(runtimeType string) {
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.Lock()
+		defer queueMutex.Unlock()
+		queueMaps = map[schema.FrameworkVersion]QueuePlugin{}
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+}
+
+func GetQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion) (QueuePlugin, bool) {
+	var queuePlugin QueuePlugin
+	var found bool
+	switch runtimeType {
+	case schema.KubernetesType:
+		queueMutex.RLock()
+		defer queueMutex.RUnlock()
+		queuePlugin, found = queueMaps[quotaType]
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+	return queuePlugin, found
+}
+
+func ListQueuePlugins(runtimeType string) map[schema.FrameworkVersion]QueuePlugin {
+	pluginMaps := make(map[schema.FrameworkVersion]QueuePlugin)
+	switch runtimeType {
+	case schema.KubernetesType:
+		kubeJobMutex.RLock()
+		defer kubeJobMutex.RUnlock()
+		for fv, plugin := range queueMaps {
+			pluginMaps[fv] = plugin
+		}
+	default:
+		fmt.Printf("runtime type %s is not supported\n", runtimeType)
+	}
+	return pluginMaps
 }

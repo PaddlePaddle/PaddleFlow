@@ -116,7 +116,7 @@ type Meta interface {
 	// GetAttr returns the attributes for given node.
 	GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno
 	// SetAttr updates the attributes for given node.
-	SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno
+	SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno)
 	// Truncate changes the length for given file.
 	Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno
 	// Fallocate preallocate given space for given file.
@@ -136,7 +136,7 @@ type Meta interface {
 	Rmdir(ctx *Context, parent Ino, name string) syscall.Errno
 	// Rename move an entry from a source directory to another with given name.
 	// The targeted entry will be overwrited if it's a file or empty directory.
-	Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) syscall.Errno
+	Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno)
 	// Link creates an entry for node.
 	Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Attr) syscall.Errno
 	// Readdir returns all entries for given directory, which include attributes if plus is true.

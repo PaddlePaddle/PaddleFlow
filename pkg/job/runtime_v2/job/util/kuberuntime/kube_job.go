@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+)
+
+const (
+	DefaultReplicas = 1
 )
 
 // ResponsibleForJob filter job belong to PaddleFlow
@@ -144,11 +149,25 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 	return nil
 }
 
+func ValidatePodResources(spec *corev1.PodSpec) error {
+	for index, container := range spec.Containers {
+		resourcesList := k8s.NewMinResourceList()
+
+		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
+			spec.Containers[index].Resources.Requests = resourcesList
+			spec.Containers[index].Resources.Limits = resourcesList
+			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
+		}
+
+	}
+	return nil
+}
+
 // In the bellow, build kubernetes job metadata, spec and so on.
 
-// BuildKubeMetadata build metadata for kubernetes job
-func BuildKubeMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
-	if job == nil {
+// BuildJobMetadata build metadata for kubernetes job
+func BuildJobMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
+	if metadata == nil || job == nil {
 		return
 	}
 	metadata.Name = job.ID
@@ -164,6 +183,18 @@ func BuildKubeMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 	}
 }
 
+func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *schema.Conf) {
+	if metadata == nil || taskConf == nil {
+		return
+	}
+	metadata.Name = taskConf.GetName()
+	metadata.Namespace = taskConf.GetNamespace()
+	metadata.Annotations = appendMapsIfAbsent(metadata.Annotations, taskConf.GetAnnotations())
+	metadata.Labels = appendMapsIfAbsent(metadata.Labels, taskConf.GetLabels())
+	metadata.Labels[schema.JobIDLabel] = jobID
+	// TODO: add more metadata for task
+}
+
 // appendMapsIfAbsent append Maps if absent, only support string type
 func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
 	if Maps == nil {
@@ -177,39 +208,65 @@ func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[s
 	return Maps
 }
 
-func BuildSchedulingPolicy(pod *corev1.Pod, priorityName string) error {
-	if pod == nil {
-		return fmt.Errorf("build pod failed, pod is nil")
+func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
+	if podSpec == nil {
+		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
+	}
+	// fill priorityClassName and schedulerName
+	err := buildPriorityAndScheduler(podSpec, task.Priority)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	// fill volumes
+	fileSystems := task.Conf.GetAllFileSystem()
+	podSpec.Volumes = BuildVolumes(podSpec.Volumes, fileSystems)
+	// fill affinity
+	if len(fileSystems) != 0 {
+		var fsIDs []string
+		for _, fs := range fileSystems {
+			fsIDs = append(fsIDs, fs.ID)
+		}
+		podSpec.Affinity, err = generateAffinity(podSpec.Affinity, fsIDs)
+		if err != nil {
+			return err
+		}
+	}
+	// fill restartPolicy
+	patchRestartPolicy(podSpec, task)
+	// build containers
+	if err = buildPodContainers(podSpec, task); err != nil {
+		log.Errorf("failed to fill containers, err=%v", err)
+		return err
+	}
+	return nil
+}
+
+func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
+	if podSpec == nil {
+		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
 	}
 	// fill priorityClassName
-	pod.Spec.PriorityClassName = kubePriorityClass(priorityName)
+	podSpec.PriorityClassName = KubePriorityClass(priorityName)
 	// fill SchedulerName
-	pod.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	return nil
 }
 
 func BuildPod(pod *corev1.Pod, task schema.Member) error {
 	if pod == nil {
-		return fmt.Errorf("build pod failed, podSpec is nil")
+		return fmt.Errorf("build pod failed, err: podSpec is nil")
 	}
 	// fill priorityClassName and schedulerName
-	err := BuildSchedulingPolicy(pod, task.Priority)
+	err := buildPriorityAndScheduler(&pod.Spec, task.Priority)
 	if err != nil {
+		log.Errorln(err)
 		return err
 	}
 	// fill volumes
 	fileSystems := task.Conf.GetAllFileSystem()
-	pod.Spec.Volumes = appendVolumesIfAbsent(pod.Spec.Volumes, generateVolumes(fileSystems))
-	// fill restartPolicy
-	restartPolicy := task.GetRestartPolicy()
-	if restartPolicy == string(corev1.RestartPolicyAlways) ||
-		restartPolicy == string(corev1.RestartPolicyOnFailure) {
-		pod.Spec.RestartPolicy = corev1.RestartPolicy(restartPolicy)
-	} else {
-		pod.Spec.RestartPolicy = corev1.RestartPolicyNever
-	}
-
-	// fill affinity
+	pod.Spec.Volumes = BuildVolumes(pod.Spec.Volumes, fileSystems)
+	// fill fs affinity
 	if len(fileSystems) != 0 {
 		var fsIDs []string
 		for _, fs := range fileSystems {
@@ -220,6 +277,8 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 			return err
 		}
 	}
+	// fill restartPolicy
+	patchRestartPolicy(&pod.Spec, task)
 
 	// patch config for Paddle Para
 	_, find := task.Env[schema.EnvPaddleParaJob]
@@ -236,6 +295,20 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 		return err
 	}
 	return nil
+}
+
+func patchRestartPolicy(podSpec *corev1.PodSpec, task schema.Member) {
+	if podSpec == nil {
+		return
+	}
+	// fill restartPolicy
+	restartPolicy := task.GetRestartPolicy()
+	if restartPolicy == string(corev1.RestartPolicyAlways) ||
+		restartPolicy == string(corev1.RestartPolicyOnFailure) {
+		podSpec.RestartPolicy = corev1.RestartPolicy(restartPolicy)
+	} else {
+		podSpec.RestartPolicy = corev1.RestartPolicyNever
+	}
 }
 
 func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affinity, error) {
@@ -303,9 +376,9 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 		return err
 	}
 	// fill env
-	container.Env = appendEnvIfAbsent(container.Env, generateEnvVars(task.Env))
+	container.Env = BuildEnvVars(container.Env, task.Env)
 	// fill volumeMount
-	container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(filesystems))
+	container.VolumeMounts = BuildVolumeMounts(container.VolumeMounts, filesystems)
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
@@ -394,6 +467,21 @@ func generateEnvVars(EnvVars map[string]string) []corev1.EnvVar {
 		envs = append(envs, env)
 	}
 	return envs
+}
+
+// BuildEnvVars merge EnvVars
+func BuildEnvVars(baseEnvs []corev1.EnvVar, EnvVars map[string]string) []corev1.EnvVar {
+	return appendEnvIfAbsent(baseEnvs, generateEnvVars(EnvVars))
+}
+
+// BuildVolumes convert PaddleFlow FileSystem to kubernetes volumes
+func BuildVolumes(volumes []corev1.Volume, fileSystem []schema.FileSystem) []corev1.Volume {
+	return appendVolumesIfAbsent(volumes, generateVolumes(fileSystem))
+}
+
+// BuildVolumeMounts covert PaddleFlow FileSystem to kubernetes VolumeMount
+func BuildVolumeMounts(volumeMounts []corev1.VolumeMount, fileSystem []schema.FileSystem) []corev1.VolumeMount {
+	return appendMountsIfAbsent(volumeMounts, generateVolumeMounts(fileSystem))
 }
 
 // appendVolumesIfAbsent append newElements if not exist in volumes
@@ -509,7 +597,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	return vms
 }
 
-func kubePriorityClass(priority string) string {
+func KubePriorityClass(priority string) string {
 	switch priority {
 	case schema.EnvJobVeryLowPriority:
 		return schema.PriorityClassVeryLow
@@ -597,6 +685,76 @@ func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member
 	return nil
 }
 
+// GetKubeflowJobStatus covert job status of kubeflow application to paddleflow job status
+func GetKubeflowJobStatus(jobCond kubeflowv1.JobCondition) (schema.JobStatus, string, error) {
+	status := schema.JobStatus("")
+	msg := jobCond.Message
+	switch jobCond.Type {
+	case kubeflowv1.JobCreated:
+		status = schema.StatusJobPending
+	case kubeflowv1.JobRunning, kubeflowv1.JobRestarting:
+		status = schema.StatusJobRunning
+	case kubeflowv1.JobSucceeded:
+		status = schema.StatusJobSucceeded
+	case kubeflowv1.JobFailed:
+		status = schema.StatusJobFailed
+	default:
+		return status, msg, fmt.Errorf("unexpected job status: %s", jobCond.Type)
+	}
+	return status, msg, nil
+}
+
+// BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
+func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *schema.Member) error {
+	if podSpec == nil || task == nil {
+		return fmt.Errorf("podTemplateSpec or task is nil")
+	}
+
+	err := BuildPodSpec(&podSpec.Spec, *task)
+	if err != nil {
+		log.Errorf("build pod spec failed, err: %v", err)
+		return err
+	}
+	// TODO: remove hard coded schedulerName when upstream package is fixed
+	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
+	// see issue https://github.com/kubeflow/training-operator/issues/1630
+	podSpec.Spec.SchedulerName = "default-scheduler"
+	return nil
+}
+
+// KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
+func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Member) error {
+	if replicaSpec == nil || task == nil {
+		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
+	}
+	// set Replicas for job
+	replicas := int32(task.Replicas)
+	replicaSpec.Replicas = &replicas
+	// set RestartPolicy
+	// TODO: make RestartPolicy configurable
+	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
+	// set PodTemplate
+	return BuildPodTemplateSpec(&replicaSpec.Template, task)
+}
+
+// KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
+func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
+	if runPolicy == nil {
+		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
+	}
+	// TODO set cleanPolicy
+	// set SchedulingPolicy
+	if runPolicy.SchedulingPolicy == nil {
+		runPolicy.SchedulingPolicy = &kubeflowv1.SchedulingPolicy{}
+	}
+	runPolicy.SchedulingPolicy.Queue = queueName
+	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
+	if minResources != nil {
+		runPolicy.SchedulingPolicy.MinResources = minResources
+	}
+	return nil
+}
+
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
 
 // getPodGroupName get the name of pod group
@@ -635,7 +793,7 @@ func getPodGroupName(jobID string) string {
 	return pgName
 }
 
-func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
+func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
 	// get pod group name for job
 	pgName := getPodGroupName(jobInfo.ID)
 	if len(pgName) == 0 {
@@ -662,7 +820,7 @@ func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 		return errmsg
 	}
 
-	priorityClassName := kubePriorityClass(jobInfo.PriorityClassName)
+	priorityClassName := KubePriorityClass(jobInfo.PriorityClassName)
 	if oldPG.Spec.PriorityClassName != priorityClassName {
 		oldPG.Spec.PriorityClassName = priorityClassName
 	} else {
@@ -678,7 +836,7 @@ func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 	return err
 }
 
-func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
+func kubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
 	if jobInfo == nil {
 		return nil, fmt.Errorf("job is nil")
 	}
@@ -702,4 +860,32 @@ func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
 		}
 	}
 	return updateData, err
+}
+
+func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.FrameworkVersion) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+
+	jobmsg := fmt.Sprintf("%s job %s on %s", fv.String(), job.NamespacedName(), runtimeClient.Cluster())
+	// update job priority
+	if len(job.PriorityClassName) != 0 {
+		err := updateKubeJobPriority(job, runtimeClient)
+		if err != nil {
+			log.Errorf("update %s failed, err: %v", jobmsg, err)
+			return err
+		}
+	}
+	// update job labels or annotations
+	data, err := kubeJobUpdatedData(job)
+	if err != nil {
+		log.Errorf("update %s failed, err: %v", jobmsg, err)
+		return err
+	}
+	log.Infof("begin to update %s, data: %s", jobmsg, string(data))
+	if err = runtimeClient.Patch(job.Namespace, job.ID, fv, data); err != nil {
+		log.Errorf("update %s failed, err: %v", jobmsg, err)
+		return err
+	}
+	return nil
 }

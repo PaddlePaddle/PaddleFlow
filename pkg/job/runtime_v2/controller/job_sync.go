@@ -30,6 +30,7 @@ import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -70,9 +71,15 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 	j.waitedCleanQueue = workqueue.NewDelayingQueue()
 
 	// Register job listeners
-	err := j.runtimeClient.RegisterListeners(j.jobQueue, j.taskQueue)
+	err := j.runtimeClient.RegisterListener(pfschema.ListenerTypeJob, j.jobQueue)
 	if err != nil {
-		log.Errorf("register event listener for %s failed, err: %v", j.Name(), err)
+		log.Errorf("register job event listener for %s failed, err: %v", j.Name(), err)
+		return err
+	}
+	// Register task listeners
+	err = j.runtimeClient.RegisterListener(pfschema.ListenerTypeTask, j.taskQueue)
+	if err != nil {
+		log.Errorf("register task event listener for %s failed, err: %v", j.Name(), err)
 		return err
 	}
 	return nil
@@ -80,7 +87,16 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 
 func (j *JobSync) Run(stopCh <-chan struct{}) {
 	log.Infof("Start %s successfully!", j.Name())
-	j.runtimeClient.StartLister(stopCh)
+	err := j.runtimeClient.StartListener(pfschema.ListenerTypeJob, stopCh)
+	if err != nil {
+		log.Errorf("start job listener failed, err: %v", err)
+		return
+	}
+	err = j.runtimeClient.StartListener(pfschema.ListenerTypeTask, stopCh)
+	if err != nil {
+		log.Errorf("start task listener failed, err: %v", err)
+		return
+	}
 
 	j.preHandleTerminatingJob()
 	go wait.Until(j.runJobWorker, 0, stopCh)
@@ -165,7 +181,6 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			RuntimeStatus: jobSyncInfo.RuntimeStatus,
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
-		job.Config.SetFrameworkVersion(jobSyncInfo.FrameworkVersion)
 		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err
@@ -297,7 +312,7 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
-		fwVersion := job.Config.GetFrameworkVersion()
+		fwVersion := j.runtimeClient.JobFrameworkVersion(pfschema.JobType(job.Type), job.Framework)
 
 		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
 		_, err := j.runtimeClient.Get(namespace, name, fwVersion)

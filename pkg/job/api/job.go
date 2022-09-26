@@ -22,7 +22,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -109,6 +108,10 @@ func NewJobInfo(job *model.Job) (*PFJob, error) {
 	return pfjob, nil
 }
 
+func (pfj *PFJob) NamespacedName() string {
+	return fmt.Sprintf("%s/%s", pfj.Namespace, pfj.ID)
+}
+
 func (pfj *PFJob) UpdateLabels(labels map[string]string) {
 	if labels == nil {
 		return
@@ -129,31 +132,6 @@ func (pfj *PFJob) UpdateJobPriority(priorityClassName string) {
 
 func (pfj *PFJob) GetID() string {
 	return pfj.ID
-}
-
-func (pfj *PFJob) FrameworkVersion() string {
-	// TODO: support multi cluster
-	if pfj.JobType == schema.TypeWorkflow {
-		return k8s.ArgoWorkflowGVK.String()
-	}
-	frameworkVersion := ""
-	switch pfj.Framework {
-	case schema.FrameworkStandalone:
-		frameworkVersion = k8s.PodGVK.String()
-	case schema.FrameworkTF:
-		frameworkVersion = k8s.TFJobGVK.String()
-	case schema.FrameworkPytorch:
-		frameworkVersion = k8s.PyTorchJobGVK.String()
-	case schema.FrameworkSpark:
-		frameworkVersion = k8s.SparkAppGVK.String()
-	case schema.FrameworkPaddle:
-		frameworkVersion = k8s.PaddleJobGVK.String()
-	case schema.FrameworkMXNet:
-		frameworkVersion = k8s.MXNetJobGVK.String()
-	case schema.FrameworkMPI:
-		frameworkVersion = k8s.MPIJobGVK.String()
-	}
-	return frameworkVersion
 }
 
 type JobSyncInfo struct {

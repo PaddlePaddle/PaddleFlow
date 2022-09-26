@@ -17,34 +17,56 @@ limitations under the License.
 package location_awareness
 
 import (
+	"encoding/json"
 	"math/rand"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
-func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PaddleFlowClient) error {
-	var err, errStat error
+type CacheStats struct {
+	FsID     string
+	CacheDir string
+	NodeName string
+	UsedSize int
+}
+
+type PatchInfo struct {
+	K8sClient    utils.Client
+	Pod          *corev1.Pod
+	PodCachePath string
+}
+
+func PatchCacheStatsLoop(cacheReport CacheStats, patchInfo PatchInfo) {
+	var errStat error
 	var usageStat *disk.UsageStat
 	for {
-		usageStat, errStat = disk.Usage(podCachePath)
+		usageStat, errStat = disk.Usage(patchInfo.PodCachePath)
 		if errStat != nil {
-			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
+			log.Errorf("disk stat path[%s] and err[%v]", patchInfo.PodCachePath, errStat)
 			time.Sleep(1 * time.Second)
 			continue
 		}
 		cacheReport.UsedSize = int(usageStat.Used / 1024)
-		err = api.CacheReportRequest(cacheReport, httpClient)
+
+		str, err := json.Marshal(cacheReport)
 		if err != nil {
-			log.Errorf("cache report failed with params[%+v] and err[%v]", cacheReport, err)
+			log.Errorf("failed marshal cache stats %+v, err: %v", cacheReport, err)
+			continue
+		}
+
+		patchInfo.Pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
+		err = patchInfo.K8sClient.PatchPodAnnotation(patchInfo.Pod)
+		if err != nil {
+			log.Errorf("PatchPodAnnotation %+v err[%v]", patchInfo.Pod.ObjectMeta.Annotations, err)
 		}
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
 		}
 	}
-	return nil
 }

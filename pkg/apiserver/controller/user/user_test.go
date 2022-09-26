@@ -27,7 +27,7 @@ import (
 
 const (
 	MockRootUser = "root"
-	MockUser1    = "u1-23"
+	MockUser1    = "u123"
 	MockWrongPW  = "u1"
 	MockPW       = "mock709394"
 )
