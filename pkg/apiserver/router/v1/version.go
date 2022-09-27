@@ -19,9 +19,10 @@ package v1
 import (
 	"net/http"
 
+	"github.com/go-chi/chi"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
-	"github.com/go-chi/chi"
 )
 
 type VersionRouter struct{}
