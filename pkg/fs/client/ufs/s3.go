@@ -1570,12 +1570,12 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 		Key:        aws.String(fh.path),
 		PartNumber: aws.Int64(partNum),
 		UploadId:   fh.mpuInfo.uploadID,
-		Body:       bytes.NewReader(data),
 	}
 	// retry up to 3 times if upload a mpu failed
 	var err error
 	var resp *s3.UploadPartOutput
 	for retryNum := 0; retryNum < MPURetryTimes; retryNum++ {
+		mpu.Body = bytes.NewReader(data)
 		resp, err = fh.fs.s3.UploadPart(&mpu)
 		if err != nil {
 			log.Errorf("s3 mpu upload: fh.name[%s], upload part[%v] failed. err: %v. retryNum[%d]", fh.name, mpu, err, retryNum)
