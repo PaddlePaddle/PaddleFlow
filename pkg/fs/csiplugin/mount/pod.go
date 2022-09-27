@@ -148,6 +148,7 @@ func removeRef(c utils.Client, pod *k8sCore.Pod, workPodUID string) error {
 	}
 	delete(annotation, mountKey)
 	annotation[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
+	pod.ObjectMeta.Annotations = annotation
 	if err := c.PatchPodAnnotation(pod); err != nil {
 		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
 		log.Errorf(retErr.Error())
