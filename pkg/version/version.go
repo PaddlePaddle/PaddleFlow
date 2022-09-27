@@ -24,6 +24,7 @@ import (
 var (
 	GitVersion        = "v0.0.0"
 	GitCommit         = "unknown"
+	GitBranch         = "unknown"
 	BuildDate         = "unknown"
 	PaddleFlowVersion = "v1.4.5"
 )
@@ -33,6 +34,7 @@ func Info() []string {
 		fmt.Sprintf("PaddleFlow: %v", PaddleFlowVersion),
 		fmt.Sprintf("GitVersion: %v", GitVersion),
 		fmt.Sprintf("GitCommit: %v", GitCommit),
+		fmt.Sprintf("GitBranch: %v", GitBranch),
 		fmt.Sprintf("BuildDate: %v", BuildDate),
 		fmt.Sprintf("GoVersion: %v", runtime.Version()),
 		fmt.Sprintf("Compiler: %v", runtime.Compiler),
