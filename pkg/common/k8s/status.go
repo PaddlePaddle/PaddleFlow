@@ -441,7 +441,7 @@ func getRayJobStatus(rayJobStatus *rayV1alpha1.RayJobStatus) (schema.JobStatus, 
 	case rayV1alpha1.JobStatusRunning:
 		status, msg = schema.StatusJobRunning, "job is running"
 	case rayV1alpha1.JobStatusStopped:
-		status, msg = schema.StatusJobCancelled, "job is cancelled"
+		status, msg = schema.StatusJobTerminated, "job is terminated"
 	case rayV1alpha1.JobStatusSucceeded:
 		status, msg = schema.StatusJobSucceeded, "job is succeeded"
 	case rayV1alpha1.JobStatusFailed:
