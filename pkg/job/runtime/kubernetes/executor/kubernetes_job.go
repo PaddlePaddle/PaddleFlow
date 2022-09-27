@@ -235,26 +235,38 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*
 		log.Errorf(err.Error())
 		return nil, err
 	}
-	if nodeAffinity == nil {
-		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
-		return affinity, nil
+	return mergeNodeAffinity(affinity, nodeAffinity), nil
+}
+
+func mergeNodeAffinity(former, new *corev1.Affinity) *corev1.Affinity {
+	if new == nil {
+		return former
 	}
-	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
-	// merge filesystem location awareness affinity to pod affinity
-	if affinity == nil {
-		return nodeAffinity, nil
+	if former == nil {
+		return new
 	}
-	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = nodeAffinity.NodeAffinity
-	} else {
-		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+
+	if former.NodeAffinity == nil {
+		former.NodeAffinity = new.NodeAffinity
+		return former
 	}
-	return affinity, nil
+
+	// merge required
+	newRequired := new.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if newRequired != nil && len(newRequired.NodeSelectorTerms) != 0 {
+		formerRequired := former.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		if formerRequired == nil || len(formerRequired.NodeSelectorTerms) == 0 {
+			formerRequired = newRequired
+		} else {
+			formerRequired.NodeSelectorTerms = append(formerRequired.NodeSelectorTerms, newRequired.NodeSelectorTerms...)
+		}
+	}
+
+	// merge preferred
+	former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		new.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	return former
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
