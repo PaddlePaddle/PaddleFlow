@@ -111,9 +111,7 @@ func start() error {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
-
-	go fs.SummarizeCacheStatsLoop(ServerConf.Fs.SyncCacheStatsInterval)
+	go fs.MountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.MountPodIntervalTime, stopChan)
 
 	trace_logger.Start(ServerConf.TraceLog)
 

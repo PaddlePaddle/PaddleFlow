@@ -49,6 +49,7 @@ type FileSystemService struct{}
 
 var fileSystemService *FileSystemService
 var once sync.Once
+var mountPodMutex sync.Mutex
 
 // GetFileSystemService returns the instance of file system service
 func GetFileSystemService() *FileSystemService {
@@ -119,6 +120,34 @@ type FileSystemResponse struct {
 
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
+}
+
+func MountPodController(mountPodExpire, interval time.Duration,
+	stopChan chan struct{}) {
+	times := 0
+	for {
+		if times%3 == 0 {
+			times = 0
+			if err := cleanMountPod(mountPodExpire); err != nil {
+				log.Errorf("clean mount pod err: %v", err)
+			}
+		}
+
+		mountPodMutex.Lock()
+		if err := scrapeCacheStats(); err != nil {
+			log.Errorf("scrapeCacheStats err: %v", err)
+		}
+		mountPodMutex.Unlock()
+
+		select {
+		case <-stopChan:
+			log.Info("mount pod controller stopped")
+			return
+		default:
+			time.Sleep(interval)
+			times++
+		}
+	}
 }
 
 func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
@@ -212,6 +241,8 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 }
 
 func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
+	mountPodMutex.Lock()
+	defer mountPodMutex.Unlock()
 	// check fs used for pipeline scheduled jobs
 	jobMap, err := models.ScheduleUsedFsIDs()
 	if err != nil {
