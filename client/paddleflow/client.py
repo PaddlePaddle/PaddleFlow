@@ -32,6 +32,7 @@ from paddleflow.schedule import ScheduleServiceApi
 from paddleflow.utils import api_client
 from paddleflow.cluster import ClusterServiceApi
 from paddleflow.flavour import FlavouriceApi
+from paddleflow.version import VersionServiceApi
 
 
 class Client(object):
@@ -91,6 +92,13 @@ class Client(object):
         """
         if not self.user_id or not self.header:
             raise PaddleFlowSDKException("InvalidOperator", "should login first")
+
+    def get_version(self):
+        """
+        show paddleflow server version
+        """
+        self.pre_check()
+        return VersionServiceApi.get_version(self.paddleflow_server, self.header)
 
     def add_user(self, user_name, password):
         """
