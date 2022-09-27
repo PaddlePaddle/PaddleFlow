@@ -240,9 +240,11 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*
 
 func mergeNodeAffinity(former, new *corev1.Affinity) *corev1.Affinity {
 	if new == nil {
+		log.Infof("mergeNodeAffinity new affinity is nil")
 		return former
 	}
 	if former == nil {
+		log.Infof("mergeNodeAffinity former affinity is nil")
 		return new
 	}
 
