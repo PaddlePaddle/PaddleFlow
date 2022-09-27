@@ -151,7 +151,7 @@ func (c *k8sClient) PatchPod(pod *corev1.Pod, data []byte) error {
 		log.Info("Patch pod: pod is nil")
 		return nil
 	}
-	log.Infof("Patch pod %v", pod.Name)
+	log.Infof("Patch pod %v with data %s", pod.Name, string(data))
 	_, err := c.CoreV1().Pods(pod.Namespace).Patch(context.TODO(),
 		pod.Name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
