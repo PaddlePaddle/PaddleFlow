@@ -30,22 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
-func CleanMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Duration,
-	stopChan chan struct{}) {
-	for {
-		if err := cleanMountPod(mountPodExpire); err != nil {
-			log.Errorf("clean mount pod err: %v", err)
-		}
-		select {
-		case <-stopChan:
-			log.Info("mount pod controller stopped")
-			return
-		default:
-			time.Sleep(cleanMountPodIntervalTime)
-		}
-	}
-}
-
 func cleanMountPod(mountPodExpire time.Duration) error {
 	// check k8s mount pods
 	clusters, err := getClusterNamespaceMap()

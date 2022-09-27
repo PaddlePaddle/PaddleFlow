@@ -95,12 +95,11 @@ type JobConfig struct {
 }
 
 type FsServerConf struct {
-	DefaultPVPath             string        `yaml:"defaultPVPath"`
-	DefaultPVCPath            string        `yaml:"defaultPVCPath"`
-	LinkMetaDirPrefix         string        `yaml:"linkMetaDirPrefix"`
-	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
-	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
-	SyncCacheStatsInterval    time.Duration `yaml:"syncCacheStatsInterval"`
+	DefaultPVPath        string        `yaml:"defaultPVPath"`
+	DefaultPVCPath       string        `yaml:"defaultPVCPath"`
+	LinkMetaDirPrefix    string        `yaml:"linkMetaDirPrefix"`
+	MountPodExpire       time.Duration `yaml:"mountPodExpire"`
+	MountPodIntervalTime time.Duration `yaml:"mountPodIntervalTime"`
 }
 
 type ReclaimConfig struct {
