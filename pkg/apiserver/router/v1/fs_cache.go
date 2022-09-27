@@ -145,11 +145,8 @@ func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileS
 	if req.MetaDriver == "" {
 		req.MetaDriver = schema.FsMetaDefault
 	}
-	if req.CacheDir == "" {
-		return nil
-	}
 	// validate: 1. cacheDir must be absolute path; 2. valid meta driver; 3. BlockSize >= 0
-	if filepath.IsAbs(req.CacheDir) &&
+	if (req.CacheDir == "" || filepath.IsAbs(req.CacheDir)) &&
 		schema.IsValidFsMetaDriver(req.MetaDriver) &&
 		req.BlockSize >= 0 {
 		return nil
