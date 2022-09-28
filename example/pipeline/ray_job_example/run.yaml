@@ -19,12 +19,14 @@ entry_points:
       RAY_JOB_AUTOSCALING_IDLE_TIMEOUT: 60
       RAY_JOB_HEADER_FLAVOUR: flavour1
       RAY_JOB_HEADER_IMAGE: rayproject/ray:2.0.0
+      RAY_JOB_HEADER_PRIORITY: HIGH # ray job 的 header pod 优先级可以单独指定，并覆盖 PF_JOB_PRIORITY
       RAY_JOB_HEADER_PRE_STOP: "mkdir test && cp -r /tmp/ray/session_latest/* test/" # 持久化 ray log
       RAY_JOB_HEADER_START_PARAMS_BLOCK: 'true'
       RAY_JOB_HEADER_START_PARAMS_NODE_IP_ADDRESS: $MY_POD_IP # RAY_JOB_HEADER_START_PARAMS_的后缀会被提取，执行 to_lowercase，_替换为-
       RAY_JOB_WORKER_GROUP_NAME: test-group
       RAY_JOB_WORKER_FLAVOUR: flavour1 # 目前仅支持一个 worker group
       RAY_JOB_WORKER_IMAGE: rayproject/ray:2.0.0
+      RAY_JOB_WORKER_PRIORITY: NORMAL # ray job 的 worker pod 优先级可以单独指定，并覆盖 PF_JOB_PRIORITY
       RAY_JOB_WORKER_REPLICAS: 1
       RAY_JOB_WORKER_MIN_REPLICAS: 1 # autoscaling参数，暂不生效
       RAY_JOB_WORKER_MAX_REPLICAS: 20 # autoscaling参数，暂不生效
