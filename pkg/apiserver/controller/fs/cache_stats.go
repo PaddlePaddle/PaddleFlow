@@ -19,8 +19,6 @@ package fs
 import (
 	"encoding/json"
 	"fmt"
-	"time"
-
 	log "github.com/sirupsen/logrus"
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,15 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
-
-func SummarizeCacheStatsLoop(scrapeCacheInterval time.Duration) {
-	for {
-		if err := scrapeCacheStats(); err != nil {
-			log.Errorf("scrapeCacheStats err: %v", err)
-		}
-		time.Sleep(scrapeCacheInterval)
-	}
-}
 
 func scrapeCacheStats() error {
 	crm, err := getClusterRuntimeMap()

@@ -44,6 +44,7 @@ type Client interface {
 	DeletePod(pod *corev1.Pod) error
 	GetPodLog(namespace, podName, containerName string) (string, error)
 	PatchPodAnnotation(pod *corev1.Pod) error
+	PatchPodLabel(pod *corev1.Pod) error
 	// pv
 	CreatePersistentVolume(pv *corev1.PersistentVolume) (*corev1.PersistentVolume, error)
 	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
@@ -106,11 +107,29 @@ func (c *k8sClient) PatchPodAnnotation(pod *corev1.Pod) error {
 	}}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Errorf("parse annotation json error: %v", err)
+		log.Errorf("parse pod[%s] annotation json error: %v", pod.Name, err)
 		return err
 	}
 	if err := c.PatchPod(pod, payloadBytes); err != nil {
-		log.Errorf("patch pod %s error: %v", pod.Name, err)
+		log.Errorf("patch pod[%s] annotation [%s] error: %v", pod.Name, string(payloadBytes), err)
+		return err
+	}
+	return nil
+}
+
+func (c *k8sClient) PatchPodLabel(pod *corev1.Pod) error {
+	payload := []PatchMapValue{{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: pod.Labels,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse pod[%s] label json error: %v", pod.Name, err)
+		return err
+	}
+	if err := c.PatchPod(pod, payloadBytes); err != nil {
+		log.Errorf("patch pod[%s] label [%s] error: %v", pod.Name, string(payloadBytes), err)
 		return err
 	}
 	return nil

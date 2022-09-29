@@ -21,17 +21,14 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/disk"
-	log "github.com/sirupsen/logrus"
-	k8sCore "k8s.io/api/core/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/shirou/gopsutil/v3/disk"
+	log "github.com/sirupsen/logrus"
 )
 
-func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod,
-	fsID, cacheDir, nodname, podCachePath string) {
+func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNamespace, podName, podCachePath string) {
 	var errStat error
 	var usageStat *disk.UsageStat
 	for {
@@ -52,6 +49,12 @@ func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod,
 		str, err := json.Marshal(cacheStats)
 		if err != nil {
 			log.Errorf("failed marshal cache stats %+v, err: %v", cacheStats, err)
+			continue
+		}
+
+		pod, err := k8sClient.GetPod(podNamespace, podName)
+		if err != nil {
+			log.Errorf("Can't get mount pod %s: %v", podName, err)
 			continue
 		}
 
