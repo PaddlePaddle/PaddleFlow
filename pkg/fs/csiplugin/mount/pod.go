@@ -380,7 +380,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 	pod.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.Handler{
 			Exec: &corev1.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
-				"umount %s && rmdir %s", MountPoint, MountPoint)}},
+				"umount -lf %s && rmdir %s", MountPoint, MountPoint)}},
 		},
 	}
 	pod.Annotations = make(map[string]string)
