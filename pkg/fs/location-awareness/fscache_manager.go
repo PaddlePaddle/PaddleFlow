@@ -21,11 +21,12 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/disk"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/shirou/gopsutil/v3/disk"
-	log "github.com/sirupsen/logrus"
 )
 
 func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNamespace, podName, podCachePath string) {
