@@ -19,6 +19,7 @@ package cache
 import (
 	"io"
 	"sync"
+	"syscall"
 
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
@@ -53,7 +54,7 @@ func (b ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 
 func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 	getFunc := func() (io.ReadCloser, error) {
-		resp, err := b.ufs.Get(b.path, b.flags, int64(offset), int64(size))
+		resp, err := b.ufs.Get(b.path, syscall.O_RDONLY, int64(offset), int64(size))
 		if err != nil {
 			return nil, err
 		}
