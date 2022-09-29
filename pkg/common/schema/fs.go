@@ -47,8 +47,8 @@ const (
 	LabelFunc         = "func"
 	LabelFuncMountPod = "mountPod"
 
-	AnnotationKeyMTime       = "modifiedTime"
 	AnnotationKeyCache       = "cacheStats"
+	AnnotationKeyMTime       = "modifiedTime"
 	AnnotationKeyMountPrefix = "mount-"
 
 	EnvKeyMountPodName = "POD_NAME"
