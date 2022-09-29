@@ -4,7 +4,7 @@ jobs:
   docker:
     strategy:
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.16.x]
         goos: [linux]
         goarch: [amd64]
     runs-on: ubuntu-latest
