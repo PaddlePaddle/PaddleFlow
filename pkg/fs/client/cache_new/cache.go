@@ -90,13 +90,6 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		bytesRead += nread
 		blockOff += nread
 
-		if readAheadBuf.size <= 0 && readAheadBuf.Buffer.page.ready {
-			readAheadBuf.Buffer.Close()
-			r.lock.Lock()
-			delete(r.buffers, indexOff)
-			r.lock.Unlock()
-			break
-		}
 		if nread == 0 {
 			break
 		}
