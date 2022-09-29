@@ -59,10 +59,10 @@ func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNam
 			continue
 		}
 
-		pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
-		err = k8sClient.PatchPodAnnotation(pod)
+		pod.ObjectMeta.Labels[schema.LabelKeyCache] = string(str)
+		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
-			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Annotations, err)
+			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
 		}
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):

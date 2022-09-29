@@ -46,9 +46,9 @@ const (
 	LabelCacheID      = "cacheID"
 	LabelFunc         = "func"
 	LabelFuncMountPod = "mountPod"
+	LabelKeyCache     = "cacheStats"
 
 	AnnotationKeyMTime       = "modifiedTime"
-	AnnotationKeyCache       = "cacheStats"
 	AnnotationKeyMountPrefix = "mount-"
 
 	EnvKeyMountPodName = "POD_NAME"
