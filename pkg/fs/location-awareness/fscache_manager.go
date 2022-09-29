@@ -59,7 +59,7 @@ func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNam
 			continue
 		}
 
-		pod.ObjectMeta.Labels[schema.AnnotationKeyCache] = string(str)
+		pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
 		err = k8sClient.PatchPodAnnotation(pod)
 		if err != nil {
 			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Labels, err)
