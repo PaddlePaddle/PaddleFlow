@@ -53,19 +53,33 @@ func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNam
 			continue
 		}
 
-		pod, err := k8sClient.GetPod(podNamespace, podName)
+		cacheAnnotation := map[string]string{schema.AnnotationKeyCache: string(str)}
+		err = patchAddAnnotation(k8sClient, podNamespace, podName, cacheAnnotation)
 		if err != nil {
-			log.Errorf("Can't get mount pod %s: %v", podName, err)
+			log.Errorf("mount pod %s patchAddAnnotation err: %v", podName, err)
 			continue
 		}
 
-		pod.ObjectMeta.Labels[schema.LabelKeyCache] = string(str)
-		err = k8sClient.PatchPodLabel(pod)
-		if err != nil {
-			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
-		}
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
 		}
 	}
+}
+
+func patchAddAnnotation(k8sClient utils.Client, podNamespace, podName string, anno map[string]string) error {
+	payload := []utils.PatchMapValue{{
+		Op:    "add",
+		Path:  "/metadata/annotations",
+		Value: anno,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("patchAddAnnotation: parse pod[%s] anno json error: %v", podName, err)
+		return err
+	}
+	if err := k8sClient.PatchPod(podNamespace, podName, payloadBytes); err != nil {
+		log.Errorf("patchAddAnnotation: patch pod[%s] anno [%s] error: %v", podName, string(payloadBytes), err)
+		return err
+	}
+	return nil
 }

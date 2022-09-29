@@ -68,7 +68,6 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
 	label := fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount)
-	label = label + "," + schema.LabelKeyCache
 	listOptions := k8sMeta.ListOptions{LabelSelector: label}
 	pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 	if err != nil {
@@ -86,8 +85,8 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 }
 
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
-	for k, v := range pod.Labels {
-		if k == schema.LabelKeyCache {
+	for k, v := range pod.Annotations {
+		if k == schema.AnnotationKeyCache {
 			log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
 			var stats model.CacheStats
 			if err := json.Unmarshal([]byte(v), &stats); err != nil {

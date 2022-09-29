@@ -156,7 +156,7 @@ func mountPodWithCacheStats() *k8sCore.Pod {
 	statsStr, _ := json.Marshal(stats)
 
 	pod := baseMountPod()
-	pod.Labels[schema.LabelKeyCache] = string(statsStr)
+	pod.Annotations[schema.AnnotationKeyCache] = string(statsStr)
 	return pod
 }
 
