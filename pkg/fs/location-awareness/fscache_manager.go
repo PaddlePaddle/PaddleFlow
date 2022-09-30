@@ -23,15 +23,13 @@ import (
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
-	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod,
-	fsID, cacheDir, nodname, podCachePath string) {
+func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNamespace, podName, podCachePath string) {
 	var errStat error
 	var usageStat *disk.UsageStat
 	for {
@@ -55,11 +53,18 @@ func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod,
 			continue
 		}
 
+		pod, err := k8sClient.GetPod(podNamespace, podName)
+		if err != nil {
+			log.Errorf("Can't get mount pod %s: %v", podName, err)
+			continue
+		}
+
 		pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
 		err = k8sClient.PatchPodAnnotation(pod)
 		if err != nil {
-			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Annotations, err)
+			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Labels, err)
 		}
+
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
 		}
