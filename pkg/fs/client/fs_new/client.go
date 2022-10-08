@@ -52,6 +52,7 @@ var (
 	Driver           = meta.MemDriver
 	MetaCacheExpire  = 0 * time.Second
 	EntryCacheExpire = 0 * time.Second
+	PathCacheExpire  = 0 * time.Second
 	MetaCachePath    = "/var/cache/pfs_meta_cache"
 )
 
@@ -60,6 +61,7 @@ func SetMetaCache(config meta.Config) {
 	MetaCacheExpire = config.AttrCacheExpire
 	EntryCacheExpire = config.EntryCacheExpire
 	MetaCachePath = config.CachePath
+	PathCacheExpire = config.PathCacheExpire
 }
 
 func SetDataCache(config cache.Config) {

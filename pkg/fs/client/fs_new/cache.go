@@ -22,7 +22,7 @@ import (
 	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
 )
 
 const (
