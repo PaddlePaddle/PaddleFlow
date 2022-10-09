@@ -30,7 +30,7 @@ import (
 
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
