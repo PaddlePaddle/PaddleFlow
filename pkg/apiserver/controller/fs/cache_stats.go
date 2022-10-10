@@ -17,8 +17,9 @@ limitations under the License.
 package fs
 
 import (
-	"encoding/json"
 	"fmt"
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,8 +68,12 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 }
 
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
+	// label indicating a mount pod
+	label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount
+	// label indicating using cache
+	label += "," + schema.LabelKeyCacheID
 	listOptions := k8sMeta.ListOptions{
-		LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
+		LabelSelector: label,
 		FieldSelector: "status.phase=Running",
 	}
 	pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
@@ -87,32 +92,47 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 }
 
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
-	for k, v := range pod.Annotations {
-		if k == schema.AnnotationKeyCache {
-			log.Debugf("mount pod %s in cluster[%s] has cache stats: %s", pod.Name, clusterID, v)
-			var stats model.CacheStats
-			if err := json.Unmarshal([]byte(v), &stats); err != nil {
-				errRet := fmt.Errorf("unmarshal cache stats %s from pod[%s] in cluster[%s] failed: %v", v, pod.Name, clusterID, err)
+	fsCache := &model.FSCache{ClusterID: clusterID}
+	for k, v := range pod.Labels {
+		switch k {
+		case schema.LabelKeyUsedSize:
+			usedSize, err := strconv.Atoi(v)
+			if err != nil {
+				errRet := fmt.Errorf("mount pod[%s] used size %s failed to convert to int err: %v", pod.Name, v, err)
 				log.Errorf(errRet.Error())
 				return errRet
 			}
-
-			fsCache := &model.FSCache{
-				FsID:      stats.FsID,
-				CacheDir:  stats.CacheDir,
-				NodeName:  stats.NodeName,
-				UsedSize:  stats.UsedSize,
-				ClusterID: clusterID,
-			}
-			if err := addOrUpdateFSCache(fsCache); err != nil {
-				errRet := fmt.Errorf("addOrUpdateFSCache[%+v] for pod[%s] in cluster[%s] failed: %v", *fsCache, pod.Name, clusterID, err)
-				log.Errorf(errRet.Error())
-				return errRet
-			}
-			return nil
+			fsCache.UsedSize = usedSize
+		case schema.LabelKeyFsID:
+			fsCache.FsID = v
+		case schema.LabelKeyNodeName:
+			fsCache.NodeName = v
+		case schema.LabelKeyCacheID:
+			fsCache.CacheID = v
 		}
 	}
-	log.Debugf("no cache info from mount pod[%s] in cluster[%s]", pod.Name, clusterID)
+
+	for k, v := range pod.Annotations {
+		if k == schema.AnnotationKeyCacheDir {
+			fsCache.CacheDir = v
+			break
+		}
+	}
+
+	if fsCache.FsID == "" ||
+		fsCache.CacheID == "" ||
+		fsCache.CacheDir == "" ||
+		fsCache.NodeName == "" {
+		errRet := fmt.Errorf("mount pod[%s] cache stats %+v is not valid", pod.Name, fsCache)
+		log.Errorf(errRet.Error())
+		return errRet
+	}
+
+	if err := addOrUpdateFSCache(fsCache); err != nil {
+		errRet := fmt.Errorf("addOrUpdateFSCache[%+v] for pod[%s] failed: %v", *fsCache, pod.Name, err)
+		log.Errorf(errRet.Error())
+		return errRet
+	}
 	return nil
 }
 

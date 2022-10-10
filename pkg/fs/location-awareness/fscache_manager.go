@@ -17,8 +17,8 @@ limitations under the License.
 package location_awareness
 
 import (
-	"encoding/json"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
@@ -26,7 +26,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNamespace, podName, podCachePath string) {
@@ -40,29 +39,16 @@ func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNam
 			continue
 		}
 
-		cacheStats := model.CacheStats{
-			FsID:     fsID,
-			CacheDir: cacheDir,
-			NodeName: nodname,
-			UsedSize: int(usageStat.Used / 1024),
-		}
-
-		str, err := json.Marshal(cacheStats)
-		if err != nil {
-			log.Errorf("failed marshal cache stats %+v, err: %v", cacheStats, err)
-			continue
-		}
-
 		pod, err := k8sClient.GetPod(podNamespace, podName)
 		if err != nil {
 			log.Errorf("Can't get mount pod %s: %v", podName, err)
 			continue
 		}
 
-		pod.ObjectMeta.Annotations[schema.AnnotationKeyCache] = string(str)
-		err = k8sClient.PatchPodAnnotation(pod)
+		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = strconv.Itoa(int(usageStat.Used / 1024))
+		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
-			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Labels, err)
+			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
 		}
 
 		select {

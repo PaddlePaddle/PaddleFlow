@@ -17,13 +17,11 @@ limitations under the License.
 package fs
 
 import (
-	"encoding/json"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/agiledragon/gomonkey/v2"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -41,6 +40,7 @@ const (
 	mockClusterID  = "cluster-mock"
 	mockFSID       = "fs-root-mock"
 	mockNodename   = "nodename_mock"
+	mockCacheDir   = "/var/cache"
 )
 
 func Test_getClusterRuntimeMap(t *testing.T) {
@@ -95,15 +95,6 @@ func Test_getClusterRuntimeMap(t *testing.T) {
 	}
 }
 
-func buildCacheStats() model.CacheStats {
-	return model.CacheStats{
-		FsID:     mockFSID,
-		CacheDir: "/var/cache",
-		NodeName: mockNodename,
-		UsedSize: 100,
-	}
-}
-
 func buildFSCache() model.FSCache {
 	return model.FSCache{
 		FsID:      mockFSID,
@@ -152,11 +143,12 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 }
 
 func mountPodWithCacheStats() *k8sCore.Pod {
-	stats := buildCacheStats()
-	statsStr, _ := json.Marshal(stats)
-
 	pod := baseMountPod()
-	pod.Annotations[schema.AnnotationKeyCache] = string(statsStr)
+	pod.Annotations[schema.AnnotationKeyCacheDir] = mockCacheDir
+	pod.Labels[schema.LabelKeyNodeName] = mockNodename
+	pod.Labels[schema.LabelKeyUsedSize] = "100"
+	pod.Labels[schema.LabelKeyFsID] = mockFSID
+	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
 	return pod
 }
 
@@ -195,7 +187,7 @@ func Test_syncCacheFromMountPod(t *testing.T) {
 		{
 			name:    "mount-pod",
 			pod:     baseMountPod(),
-			wantErr: false,
+			wantErr: true,
 			wantLen: 0,
 		},
 		{

@@ -40,12 +40,11 @@ const (
 
 	FuseKeyFsInfo = "fs-info"
 
-	LabelKeyFsID      = "fsID"
-	LabelCacheID      = "cacheID"
-	LabelFunc         = "func"
-	LabelFuncMountPod = "mountPod"
-
-	AnnotationKeyCache       = "cacheStats"
+	LabelKeyFsID             = "fsID"
+	LabelKeyCacheID          = "cacheID"
+	LabelKeyNodeName         = "nodename"
+	LabelKeyUsedSize         = "usedSize"
+	AnnotationKeyCacheDir    = "cacheDir"
 	AnnotationKeyMTime       = "modifiedTime"
 	AnnotationKeyMountPrefix = "mount-"
 
