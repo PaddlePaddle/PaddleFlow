@@ -40,13 +40,6 @@ type FSCache struct {
 	DeletedAt   gorm.DeletedAt `json:"-"`
 }
 
-type CacheStats struct {
-	FsID     string `json:"fsID"`
-	CacheDir string `json:"cacheDir"`
-	NodeName string `json:"nodename"`
-	UsedSize int    `json:"usedSize"`
-}
-
 func (c *FSCache) TableName() string {
 	return FsCacheTableName
 }

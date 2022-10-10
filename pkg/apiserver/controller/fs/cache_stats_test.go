@@ -17,12 +17,11 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/agiledragon/gomonkey/v2"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -40,6 +40,7 @@ const (
 	mockClusterID  = "cluster-mock"
 	mockFSID       = "fs-root-mock"
 	mockNodename   = "nodename_mock"
+	mockCacheDir   = "/var/cache"
 )
 
 func Test_getClusterRuntimeMap(t *testing.T) {
@@ -143,10 +144,11 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 
 func mountPodWithCacheStats() *k8sCore.Pod {
 	pod := baseMountPod()
-	pod.Annotations[schema.AnnotationKeyCacheDir] = "/var/cache"
+	pod.Annotations[schema.AnnotationKeyCacheDir] = mockCacheDir
 	pod.Annotations[schema.LabelKeyNodeName] = mockNodename
 	pod.Annotations[schema.LabelKeyUsedSize] = "100"
 	pod.Annotations[schema.LabelKeyFsID] = mockFSID
+	pod.Annotations[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
 	return pod
 }
 
