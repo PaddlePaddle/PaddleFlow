@@ -99,7 +99,7 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 			req.FsID, req.CacheDir))
 	}
 	// must assign cacheDir when cache in use
-	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaLevelDB {
+	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaDisk {
 		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cacheDir[%s] should be an absolute path when cache in use",
 			req.FsID, req.CacheDir))
 	}
