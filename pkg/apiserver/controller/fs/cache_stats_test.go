@@ -145,10 +145,10 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 func mountPodWithCacheStats() *k8sCore.Pod {
 	pod := baseMountPod()
 	pod.Annotations[schema.AnnotationKeyCacheDir] = mockCacheDir
-	pod.Annotations[schema.LabelKeyNodeName] = mockNodename
-	pod.Annotations[schema.LabelKeyUsedSize] = "100"
-	pod.Annotations[schema.LabelKeyFsID] = mockFSID
-	pod.Annotations[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
+	pod.Labels[schema.LabelKeyNodeName] = mockNodename
+	pod.Labels[schema.LabelKeyUsedSize] = "100"
+	pod.Labels[schema.LabelKeyFsID] = mockFSID
+	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
 	return pod
 }
 
