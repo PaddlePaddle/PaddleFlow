@@ -94,7 +94,8 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 	fsCache := &model.FSCache{ClusterID: clusterID}
 	for k, v := range pod.Labels {
-		if k == schema.LabelKeyUsedSize {
+		switch k {
+		case schema.LabelKeyUsedSize:
 			usedSize, err := strconv.Atoi(v)
 			if err != nil {
 				errRet := fmt.Errorf("mount pod[%s] used size %s failed to convert to int err: %v", pod.Name, v, err)
@@ -102,14 +103,11 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 				return errRet
 			}
 			fsCache.UsedSize = usedSize
-		}
-		if k == schema.LabelKeyFsID {
+		case schema.LabelKeyFsID:
 			fsCache.FsID = v
-		}
-		if k == schema.LabelKeyNodeName {
+		case schema.LabelKeyNodeName:
 			fsCache.NodeName = v
-		}
-		if k == schema.LabelKeyCacheID {
+		case schema.LabelKeyCacheID:
 			fsCache.CacheID = v
 		}
 	}
