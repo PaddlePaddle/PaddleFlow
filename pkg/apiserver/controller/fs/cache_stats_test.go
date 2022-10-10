@@ -187,7 +187,7 @@ func Test_syncCacheFromMountPod(t *testing.T) {
 		{
 			name:    "mount-pod",
 			pod:     baseMountPod(),
-			wantErr: false,
+			wantErr: true,
 			wantLen: 0,
 		},
 		{
