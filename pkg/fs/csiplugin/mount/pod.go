@@ -188,12 +188,12 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	// label for pod list
+	// label for pod listing & cache stats
 	pod.Labels[schema.LabelKeyFsID] = mountInfo.FS.ID
-	pod.Labels[schema.LabelCacheID] = model.CacheID(csiconfig.ClusterID,
+	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
 		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.CacheConfig.FsID)
-	// selector label for prometheus
-	pod.Labels[schema.LabelFunc] = schema.LabelFuncMountPod
+	pod.Labels[schema.LabelKeyNodeName] = csiconfig.NodeName
+	pod.Labels[schema.LabelKeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
 }
 
