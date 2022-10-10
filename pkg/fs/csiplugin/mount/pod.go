@@ -179,22 +179,23 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 		pod.Spec.Containers = make([]k8sCore.Container, 0)
 	}
 	buildMountContainer(pod, mountInfo)
-
-	if mountInfo.CacheConfig.CacheDir != "" {
-		buildCacheWorkerContainer(pod, mountInfo)
-	}
-
 	err := buildAnnotation(pod, mountInfo.TargetPath)
 	if err != nil {
 		return nil, err
 	}
-	// label for pod listing & cache stats
+
+	// label for pod listing
 	pod.Labels[schema.LabelKeyFsID] = mountInfo.FS.ID
-	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
-		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.CacheConfig.FsID)
 	pod.Labels[schema.LabelKeyNodeName] = csiconfig.NodeName
-	// cache dir has "/" and is not allowed in label
-	pod.Annotations[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
+
+	if mountInfo.CacheConfig.CacheDir != "" {
+		buildCacheWorkerContainer(pod, mountInfo)
+		// labels for cache stats
+		pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
+			csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.CacheConfig.FsID)
+		// cache dir has "/" and is not allowed in label
+		pod.Annotations[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
+	}
 	return pod, nil
 }
 
