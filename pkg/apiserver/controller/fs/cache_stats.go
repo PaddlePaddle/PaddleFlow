@@ -95,7 +95,7 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 	fsCache := &model.FSCache{ClusterID: clusterID}
 	for k, v := range pod.Labels {
 		if k == schema.LabelKeyUsedSize {
-			usedSize, err := strconv.Atoi(k)
+			usedSize, err := strconv.Atoi(v)
 			if err != nil {
 				errRet := fmt.Errorf("mount pod[%s] used size %s failed to convert to int err: %v", pod.Name, v, err)
 				log.Errorf(errRet.Error())
