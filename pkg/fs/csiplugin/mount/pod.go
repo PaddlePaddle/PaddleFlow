@@ -193,7 +193,8 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
 		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.CacheConfig.FsID)
 	pod.Labels[schema.LabelKeyNodeName] = csiconfig.NodeName
-	pod.Labels[schema.LabelKeyCacheDir] = mountInfo.CacheConfig.CacheDir
+	// cache dir has "/" and is not allowed in label
+	pod.Labels[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
 }
 

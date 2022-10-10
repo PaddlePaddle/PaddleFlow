@@ -109,11 +109,15 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 		if k == schema.LabelKeyNodeName {
 			fsCache.NodeName = v
 		}
-		if k == schema.LabelKeyCacheDir {
-			fsCache.CacheDir = v
-		}
 		if k == schema.LabelKeyCacheID {
 			fsCache.CacheID = v
+		}
+	}
+
+	for k, v := range pod.Annotations {
+		if k == schema.AnnotationKeyCacheDir {
+			fsCache.CacheDir = v
+			break
 		}
 	}
 

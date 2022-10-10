@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"encoding/json"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/agiledragon/gomonkey/v2"
 	"strings"
@@ -95,15 +94,6 @@ func Test_getClusterRuntimeMap(t *testing.T) {
 	}
 }
 
-func buildCacheStats() model.CacheStats {
-	return model.CacheStats{
-		FsID:     mockFSID,
-		CacheDir: "/var/cache",
-		NodeName: mockNodename,
-		UsedSize: 100,
-	}
-}
-
 func buildFSCache() model.FSCache {
 	return model.FSCache{
 		FsID:      mockFSID,
@@ -152,11 +142,11 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 }
 
 func mountPodWithCacheStats() *k8sCore.Pod {
-	stats := buildCacheStats()
-	statsStr, _ := json.Marshal(stats)
-
 	pod := baseMountPod()
-	pod.Annotations[schema.AnnotationKeyCache] = string(statsStr)
+	pod.Annotations[schema.AnnotationKeyCacheDir] = "/var/cache"
+	pod.Annotations[schema.LabelKeyNodeName] = mockNodename
+	pod.Annotations[schema.LabelKeyUsedSize] = "100"
+	pod.Annotations[schema.LabelKeyFsID] = mockFSID
 	return pod
 }
 
