@@ -109,7 +109,7 @@ func TestPFSMountWithCache(t *testing.T) {
 	fsCache := model.FSCacheConfig{
 		FsID:       fs.ID,
 		CacheDir:   "/data/paddleflow-FS/mnt",
-		MetaDriver: "leveldb",
+		MetaDriver: "disk",
 		BlockSize:  4096,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -156,7 +156,7 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
-				" --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755"+
+				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
 				" --data-cache-path="+FusePodCachePath+DataCacheDir+
 				" --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
 		})

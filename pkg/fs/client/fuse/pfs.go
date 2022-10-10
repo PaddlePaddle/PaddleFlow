@@ -23,8 +23,8 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
 )
 
 const fsName = "PaddleFlowFS"
@@ -131,7 +131,7 @@ func (fs *PFS) Mknod(cancel <-chan struct{}, input *fuse.MknodIn, name string, o
 func (fs *PFS) Mkdir(cancel <-chan struct{}, input *fuse.MkdirIn, name string, out *fuse.EntryOut) fuse.Status {
 	log.Debugf("pfs POSIX Mkdir: input[%+v] name[%s]", *input, name)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
-	entry, code := vfs.GetVFS().Mkdir(ctx, vfs.Ino(input.NodeId), name, input.Mode)
+	entry, code := vfs.GetVFS().Mkdir(ctx, vfs.Ino(input.NodeId), name, input.Mode, uint16(input.Umask))
 	if code != 0 {
 		return fuse.Status(code)
 	}

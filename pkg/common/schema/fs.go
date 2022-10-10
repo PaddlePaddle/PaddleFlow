@@ -35,10 +35,8 @@ const (
 
 	FusePodMntDir = "/home/paddleflow/mnt"
 
-	FsMetaDefault = "default"
-	FsMetaMemory  = "mem"
-	FsMetaLevelDB = "leveldb"
-	FsMetaNutsDB  = "nutsdb"
+	FsMetaMemory = "mem"
+	FsMetaDisk   = "disk"
 
 	FuseKeyFsInfo = "fs-info"
 
@@ -59,7 +57,7 @@ const (
 
 func IsValidFsMetaDriver(metaDriver string) bool {
 	switch metaDriver {
-	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB:
+	case FsMetaDisk, FsMetaMemory:
 		return true
 	default:
 		return false
