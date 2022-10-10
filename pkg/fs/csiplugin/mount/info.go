@@ -134,8 +134,7 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 		hasCache = true
 		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", cacheDir+DataCacheDir))
 	}
-	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
-		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
+	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
 		mountInfo.CacheConfig.CacheDir != "" {
 		hasCache = true
 		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", cacheDir+MetaCacheDir))
