@@ -77,7 +77,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: kv.LevelDB,
+			Value: kv.MemType,
 			Usage: "meta cache driver, e.g. mem, disk",
 		},
 		&cli.StringFlag{

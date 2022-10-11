@@ -85,7 +85,7 @@ func validationReturnError(ctx *logger.RequestContext, err error) error {
 
 func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: meta driver[%s] not valid",
+		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: meta driver[%s] not valid, must mem or disk",
 			req.FsID, req.MetaDriver))
 	}
 	// BlockSize

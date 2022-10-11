@@ -40,7 +40,7 @@ type ReadBuffer struct {
 
 type ReadBufferMap map[uint64]*ReadBuffer
 
-func (b ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
+func (b *ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	b.nRetries = 3
 	p := &Page{r: b.r, index: b.index}
 	b.page = p.Init(pool, uint64(b.size), false, blocksize)
@@ -49,7 +49,7 @@ func (b ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	}
 
 	b.initBuffer(b.offset, b.size)
-	return &b
+	return b
 }
 
 func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {

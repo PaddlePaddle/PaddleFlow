@@ -28,7 +28,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
