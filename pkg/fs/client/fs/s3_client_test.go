@@ -27,8 +27,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -182,7 +182,7 @@ func TestS3Client_read(t *testing.T) {
 		MaxReadAhead: 4,
 		Expire:       600 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -256,7 +256,7 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 		MaxReadAhead: 40,
 		Expire:       600 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -380,7 +380,7 @@ func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
 		MaxReadAhead: 40,
 		Expire:       600 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}

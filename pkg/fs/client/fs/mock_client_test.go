@@ -16,6 +16,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -51,6 +52,9 @@ func TestMockClient(t *testing.T) {
 	names, err := client.ListDir("/Dir1")
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 2, len(names))
+	fmt.Println(names[0])
+	fmt.Println(names[1])
+	return
 
 	filePath1 := newDir1 + "/file1.txt"
 	file, err := client.CreateFile(filePath1, []byte("test create file"))

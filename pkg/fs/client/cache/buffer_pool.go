@@ -41,7 +41,7 @@ func init() {
 			count += 1
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
-				if *page_.closed == true {
+				if *page_.closed {
 					page_.bufferPool.pool.Put(page_.buffer)
 				}
 				*page_.writeCacheReady = true
@@ -116,7 +116,7 @@ func (pool *BufferPool) recomputeBufferLimit() {
 	pool.computedMaxBuffers = maxBuffers(pool.bufSize)
 }
 
-func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf []byte) {
+func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) []byte {
 	pool.bufSize = size
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -133,13 +133,12 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 			pool.recomputeBufferLimit()
 			pool.cond.Wait()
 		} else {
-			return
+			return nil
 		}
 	}
 
 	pool.totalBuffers++
-	buf = pool.pool.Get().([]byte)
-	return
+	return pool.pool.Get().([]byte)
 }
 
 func (pool *BufferPool) MaybeGC() {
@@ -198,7 +197,7 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		if *p.writeCacheReady == true {
+		if *p.writeCacheReady {
 			p.bufferPool.pool.Put(p.buffer)
 		}
 		p.buffer = nil
@@ -311,8 +310,6 @@ func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 	} else {
 		return 0, errors.New("page is empty, maybe oom")
 	}
-
-	return
 }
 
 func (b *Buffer) ReInit(r ReaderProvider) *Buffer {

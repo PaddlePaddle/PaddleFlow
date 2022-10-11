@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package fuse
 import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 
-	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 )
 
 func attrToStat(inode vfs.Ino, attr *vfs.Attr, out *fuse.Attr) {

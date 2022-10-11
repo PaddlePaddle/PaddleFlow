@@ -17,7 +17,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,14 +39,12 @@ func TestLocalMount(t *testing.T) {
 	fh.Flush()
 	fh.Release()
 
-	fh, err = fs.Open("data1/hello", uint32(os.O_RDONLY))
+	fh, err = fs.Open("data1/hello", uint32(os.O_RDONLY), 11)
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
-	r, e := fh.Read(buf, 0)
-	assert.Equal(t, fuse.OK, e)
-	data, code := r.Bytes(buf)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, len(content), len(data))
+	n, e := fh.Read(buf, 0)
+	assert.Nil(t, e)
+	assert.Equal(t, len(content), n)
 	fh.Release()
 
 	entries, err := fs.ReadDir("data1")
