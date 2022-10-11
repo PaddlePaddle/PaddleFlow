@@ -1001,7 +1001,7 @@ func TestMeta(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 2, len(list))
 
-	n := 200
+	n := 50
 	err = client.MkdirAll("/twice", 0755)
 	for i := 0; i < n; i++ {
 		wg.Add(1)
