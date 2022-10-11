@@ -13,7 +13,6 @@ spec:
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
   priorityClassName: normal
-  restartPolicy: IfNotPresent
   schedulerName: volcano
   securityContext: {}
   serviceAccount: default
