@@ -26,14 +26,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
-	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv_new"
-	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-//FS一层的gcache有影响，关掉之后性能对比明显多了
+// FS一层的gcache有影响，关掉之后性能对比明显多了
 func newPfsTestWithOutVfsLevelCache() (*FileSystem, error) {
 	os.MkdirAll("./mock", 0755)
 	DataCachePath = "./mock-cache"

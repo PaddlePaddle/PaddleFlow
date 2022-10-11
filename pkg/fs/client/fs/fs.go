@@ -28,9 +28,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -77,7 +77,9 @@ func NewFileSystem(fsMeta common.FSMeta, links map[string]common.FSMeta, skipSub
 		close(fs.stop)
 	})
 	if !skipSub {
-		go vfs.Meta.LinksMetaUpdateHandler(fs.stop, meta.DefaultLinkUpdateInterval, linkMetaDirPrefix)
+		go func() {
+			_ = vfs.Meta.LinksMetaUpdateHandler(fs.stop, meta.DefaultLinkUpdateInterval, linkMetaDirPrefix)
+		}()
 	}
 
 	if hasCache {
@@ -191,7 +193,7 @@ func (fs *FileSystem) Mkdir(name string, mode os.FileMode) error {
 		return err
 	}
 
-	_, err = fs.vfs.Mkdir(ctx, ino, path.Base(name), uint32(mode))
+	_, err = fs.vfs.Mkdir(ctx, ino, path.Base(name), uint32(mode), 0)
 	if utils.IsError(err) {
 		log.Errorf("mkdir path[%s] with mode[%d] failed: %v", name, mode, err)
 		return err

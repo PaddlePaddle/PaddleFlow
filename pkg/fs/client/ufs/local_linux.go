@@ -120,3 +120,9 @@ func (fs *localFileSystem) Utimens(name string, Atime *time.Time, Mtime *time.Ti
 	})
 	return syscall.Utimes(fs.GetPath(name), tv)
 }
+
+func (f *localFileHandle) Allocate(off uint64, sz uint64, mode uint32) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return syscall.Fallocate(int(f.File.Fd()), mode, int64(off), int64(sz))
+}

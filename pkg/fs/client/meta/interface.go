@@ -17,8 +17,8 @@ limitations under the License.
 package meta
 
 import (
-	"io"
 	"syscall"
+	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
@@ -45,6 +45,10 @@ const (
 	TypeFile      = 1 // type for regular file
 	TypeDirectory = 2 // type for directory
 	TypeSymlink   = 3 // type for symlink
+	TypeFIFO      = 4 // type for FIFO node
+	TypeBlockDev  = 5 // type for block device
+	TypeCharDev   = 6 // type for character device
+	TypeSocket    = 7 // type for socket
 )
 
 type Ino uint64
@@ -77,6 +81,17 @@ type Entry struct {
 	Ino Ino
 }
 
+type Creator func(meta Meta, config Config) (Meta, error)
+
+type Config struct {
+	kv.Config
+	AttrCacheExpire    time.Duration
+	EntryCacheExpire   time.Duration
+	AttrCacheSize      uint64
+	EntryAttrCacheSize uint64
+	PathCacheExpire    time.Duration
+}
+
 // Meta is a interface for a meta service for file system.
 type Meta interface {
 	// GetUFS returns ufs of link and path
@@ -84,9 +99,9 @@ type Meta interface {
 
 	// Name of database
 	Name() string
-
+	InitRootInode() error
 	InoToPath(inode Ino) string
-	PathToIno(path string) Ino
+
 	SetOwner(uid, gid uint32)
 
 	// StatFS returns summary statistics of a volume.
@@ -102,7 +117,7 @@ type Meta interface {
 	// GetAttr returns the attributes for given node.
 	GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno
 	// SetAttr updates the attributes for given node.
-	SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno
+	SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno)
 	// Truncate changes the length for given file.
 	Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno
 	// Fallocate preallocate given space for given file.
@@ -112,9 +127,9 @@ type Meta interface {
 	// Symlink creates a symlink in a directory with given name.
 	Symlink(ctx *Context, parent Ino, name string, path string, inode *Ino, attr *Attr) syscall.Errno
 	// Mknod creates a node in a directory with given name, type and permissions.
-	Mknod(ctx *Context, parent Ino, name string, mode uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno
+	Mknod(ctx *Context, parent Ino, name string, _type uint8, mode, cumask uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno
 	// Mkdir creates a sub-directory with given name and mode.
-	Mkdir(ctx *Context, parent Ino, name string, mode uint32, inode *Ino, attr *Attr) syscall.Errno
+	Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, inode *Ino, attr *Attr) syscall.Errno
 	// Unlink removes a file entry from a directory.
 	// The file will be deleted if it's not linked by any entries and not open by any sessions.
 	Unlink(ctx *Context, parent Ino, name string) syscall.Errno
@@ -122,7 +137,7 @@ type Meta interface {
 	Rmdir(ctx *Context, parent Ino, name string) syscall.Errno
 	// Rename move an entry from a source directory to another with given name.
 	// The targeted entry will be overwrited if it's a file or empty directory.
-	Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) syscall.Errno
+	Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno)
 	// Link creates an entry for node.
 	Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Attr) syscall.Errno
 	// Readdir returns all entries for given directory, which include attributes if plus is true.
@@ -156,9 +171,6 @@ type Meta interface {
 	// Setlk sets a file range lock on given file.
 	Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno
 
-	DumpMeta(w io.Writer) error
-	LoadMeta(r io.Reader) error
-
 	LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error
 }
 
@@ -166,22 +178,17 @@ func (a *Attr) IsDir() bool {
 	return utils.StatModeToFileMode(int(a.Mode)).IsDir()
 }
 
-type Creator func(meta Meta, config Config) (Meta, error)
-
-func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *Config) (Meta, error) {
+func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Config) (Meta, error) {
 	if config == nil {
 		config = &Config{
-			AttrCacheExpire:  0,
-			EntryCacheExpire: 0,
+			AttrCacheExpire:  2,
+			EntryCacheExpire: 2,
+			PathCacheExpire:  2,
 			Config: kv.Config{
-				Driver: DefaultName,
+				Driver: kv.MemType,
 				FsID:   fsMeta.ID,
 			},
 		}
 	}
-	defaultMeta, err := InitDefaultMeta(fsMeta, links, inodeHandle)
-	if err != nil {
-		return nil, err
-	}
-	return newKvMeta(defaultMeta, *config)
+	return newKvMeta(fsMeta, links, *config)
 }
