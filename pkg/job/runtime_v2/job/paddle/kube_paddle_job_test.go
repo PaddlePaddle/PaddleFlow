@@ -176,9 +176,9 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			jobObj: &api.PFJob{
 				JobType:   schema.TypeDistributed,
 				Framework: schema.FrameworkPaddle,
-				JobMode:   schema.EnvJobModePS,
+				JobMode:   "xx",
 			},
-			wantErr: errors.New("get default template failed, err: get job file from path[../../../../../config/server/default/job/paddle_xx.yaml] failed"),
+			wantErr: errors.New("get default template failed, err: job template paddle-xx-job is not found"),
 			wantMsg: "namespace is empty",
 		},
 		{
