@@ -615,6 +615,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		log.Debugf("kv meta look up cache inode[%v] item[%+v]", inode, inodeItem_)
 		if ok {
 			*attr = inodeItem_.attr
+			m.setPathCache(inode, inodeItem_)
 			return inode, attr, syscall.F_OK
 		}
 	}
@@ -665,24 +666,26 @@ func (m *kvMeta) Resolve(ctx *Context, parent Ino, path string, inode *Ino, attr
 	return syscall.ENOSYS
 }
 
+var rootTime = time.Now()
+
 func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	log.Debugf("kv GetAttr inode[%v]", inode)
 	inodeItem_ := &inodeItem{}
 	if inode == rootInodeID {
-		now := time.Now()
 		attr.Type = TypeDirectory
 		attr.Mode = syscall.S_IFDIR | 0777
 		attr.Nlink = 2
 		attr.Size = 4 << 10
-		attr.Mtime = now.Unix()
-		attr.Mtimensec = uint32(now.Nanosecond())
-		attr.Ctime = now.Unix()
-		attr.Ctimensec = uint32(now.Nanosecond())
+		attr.Mtime = rootTime.Unix()
+		attr.Mtimensec = uint32(rootTime.Nanosecond())
+		attr.Ctime = rootTime.Unix()
+		attr.Ctimensec = uint32(rootTime.Nanosecond())
 		return syscall.F_OK
 	}
 	has := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 	if has {
 		*attr = inodeItem_.attr
+		m.setPathCache(inode, inodeItem_)
 		return syscall.F_OK
 	}
 
