@@ -1,0 +1,33 @@
+apiVersion: "kubeflow.org/v1"
+kind: "TFJob"
+metadata:
+  name: "tf-mnist-dist"
+spec:
+  tfReplicaSpecs:
+    PS:
+      replicas: 1
+      restartPolicy: Never
+      template:
+        spec:
+          containers:
+            - name: tensorflow
+              image: tf-mnist-dist:1.2
+              command:
+                - "python"
+                - "/var/tf_dist_mnist/dist_mnist.py"
+                - "--num_gpus=0"
+                # faster trainning
+                - "--train_steps=1"
+    Worker:
+      replicas: 1
+      restartPolicy: Never
+      template:
+        spec:
+          containers:
+            - name: tensorflow
+              image: tf-mnist-dist:1.2
+              command:
+                - "python"
+                - "/var/tf_dist_mnist/dist_mnist.py"
+                - "--num_gpus=0"
+                - "--train_steps=1"
