@@ -100,6 +100,11 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Value: 5 * time.Second,
 			Usage: "entry cache expire",
 		},
+		&cli.DurationFlag{
+			Name:  "path-cache-expire",
+			Value: 1 * time.Second,
+			Usage: "path cache expire",
+		},
 		&cli.IntFlag{
 			Name:  "block-size",
 			Value: 20971520,
