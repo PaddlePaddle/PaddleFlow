@@ -117,8 +117,6 @@ func (sj *KubeSparkJob) buildSchedulingPolicy(jobApp *v1beta2.SparkApplication, 
 }
 
 func (sj *KubeSparkJob) builtinSparkJob(jobApp *v1beta2.SparkApplication, job *api.PFJob) error {
-	// image
-	jobApp.Spec.Image = &job.Conf.Image
 	if job.Conf.Env == nil {
 		return fmt.Errorf("job env for mainAppFile, mainClass, or arguments is nil")
 	}
@@ -160,11 +158,13 @@ func (sj *KubeSparkJob) builtinSparkJob(jobApp *v1beta2.SparkApplication, job *a
 }
 
 func (sj *KubeSparkJob) buildSparkDriverSpec(jobApp *v1beta2.SparkApplication, task pfschema.Member) error {
-	err := sj.buildSparkPodSpec(&jobApp.Spec.Executor.SparkPodSpec, task)
+	err := sj.buildSparkPodSpec(&jobApp.Spec.Driver.SparkPodSpec, task)
 	if err != nil {
 		log.Errorf("patch SparkPodSpec for driver failed, err: %s", err)
 		return err
 	}
+	// image
+	jobApp.Spec.Image = &task.Conf.Image
 	if task.Name != "" {
 		jobApp.Spec.Driver.PodName = &task.Name
 	}

@@ -118,22 +118,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	}
 
 	switch job.JobType {
-	case schema.TypeVcJob:
-		// todo(zhongzichao): to be removed
-		kubeJob.GroupVersionKind = k8s.VCJobGVK
-		if len(job.Tasks) == 0 {
-			kubeJob.Tasks = []schema.Member{
-				{
-					Conf: schema.Conf{
-						Flavour: job.Conf.Flavour,
-					},
-				},
-			}
-		}
-		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
-		}, nil
 	case schema.TypeWorkflow:
 		kubeJob.GroupVersionKind = k8s.ArgoWorkflowGVK
 		return &WorkflowJob{
@@ -169,12 +153,6 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		}
 		log.Debugf("newFrameWorkJob: create spark job: %#v", sparkJob)
 		return sparkJob, nil
-	case schema.FrameworkMPI:
-		// TODO: use k8s.MPIJobGVK
-		kubeJob.GroupVersionKind = k8s.VCJobGVK
-		return &VCJob{
-			KubeJob: kubeJob,
-		}, nil
 	case schema.FrameworkPaddle:
 		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
 		return &PaddleJob{

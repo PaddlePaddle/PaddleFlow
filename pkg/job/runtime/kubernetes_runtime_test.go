@@ -48,27 +48,24 @@ import (
 )
 
 const (
-	testJobID     = "test_pf_id"
-	vcjobManifest = `
-apiVersion: batch.volcano.sh/v1alpha1
-kind: Job
+	testJobID   = "test_pf_id"
+	jobManifest = `
+apiVersion: v1
+kind: Pod
 metadata:
-  name: vcJobName
+  creationTimestamp: null
+  labels:
+    volcano.sh/queue-name: default
+  name: job-normal-00000001
+  namespace: default
 spec:
-  minAvailable: 1
-  schedulerName: volcano
+  containers:
+    - image: nginx
+      name: job-normal-00000001
   priorityClassName: normal
-  maxRetry: 5
-  queue: default
-  tasks:
-  - replicas: 1
-    name: "task"
-    template:
-      metadata:
-        name: pod
-      spec:
-        containers:
-        -  image: nginx
+  terminationGracePeriodSeconds: 30
+  schedulerName: volcano
+status: {}
 `
 )
 
@@ -122,9 +119,9 @@ func TestKubeRuntimeJob(t *testing.T) {
 	pfJob := &api.PFJob{
 		ID:                testJobID,
 		Namespace:         "default",
-		JobType:           schema.TypeVcJob,
+		JobType:           schema.TypeSingle,
 		JobMode:           schema.EnvJobModePod,
-		ExtensionTemplate: []byte(vcjobManifest),
+		ExtensionTemplate: []byte(jobManifest),
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",

@@ -152,7 +152,9 @@ spec:
 func TestSparkJob_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
+
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
