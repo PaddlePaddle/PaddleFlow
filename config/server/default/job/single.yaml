@@ -12,5 +12,6 @@ spec:
       name: job-normal-00000001
   priorityClassName: normal
   terminationGracePeriodSeconds: 30
+  restartPolicy: Never
   schedulerName: volcano
 status: {}
