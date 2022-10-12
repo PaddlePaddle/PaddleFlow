@@ -385,9 +385,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *schema.Member) erro
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
-	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
-		podSpec.RestartPolicy = corev1.RestartPolicyNever
-	}
 	// fill affinity
 	if err := j.setAffinity(podSpec); err != nil {
 		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
