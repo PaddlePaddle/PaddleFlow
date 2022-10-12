@@ -324,6 +324,7 @@ func (j *KubeJob) getDefaultTemplateNew(framework schema.Framework) ([]byte, err
 		return []byte{}, fmt.Errorf("job type %s is not supported", j.JobType)
 	}
 
+	log.Infof("get default template for %s, template name is %s", j.String(), jobTemplateName)
 	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
 	if !find {
 		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
