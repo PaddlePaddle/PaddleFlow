@@ -152,6 +152,8 @@ spec:
 func initGlobalServerConfig() {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
 	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
 }
 

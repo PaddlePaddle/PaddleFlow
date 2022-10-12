@@ -85,6 +85,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 		return []byte{}, fmt.Errorf("job type %s is not supported", jobType)
 	}
 
+	log.Infof("get default template for job, and template name is %s", jobTemplateName)
 	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
 	if !find {
 		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
