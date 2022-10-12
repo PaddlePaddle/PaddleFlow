@@ -359,9 +359,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
-	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
-		podSpec.RestartPolicy = corev1.RestartPolicyNever
-	}
 	// fill affinity
 	if len(j.FileSystems) != 0 {
 		var fsIDs []string
