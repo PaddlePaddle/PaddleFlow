@@ -830,6 +830,9 @@ func fillRayJobHeaderMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
 		Role:     string(schema.RoleMaster),
 		Replicas: 1,
 	}
+	if headerPriority := conf.GetEnvValue(schema.EnvRayJobHeaderPriority); headerPriority != "" {
+		headerMember.CommonJobInfo.SchedulingPolicy.Priority = headerPriority
+	}
 	// if set, the generateName in ray operator will be invalid and create pod failed because head and workers given the same name
 	headerMember.Name = ""
 	jobInfo.Members = append(jobInfo.Members, headerMember)
@@ -861,6 +864,9 @@ func fillRayJobWorkerMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error
 		},
 		Role:     string(schema.RoleWorker),
 		Replicas: workerReplicas,
+	}
+	if workerPriority := conf.GetEnvValue(schema.EnvRayJobWorkerPriority); workerPriority != "" {
+		workerMember.CommonJobInfo.SchedulingPolicy.Priority = workerPriority
 	}
 	workerMember.Name = ""
 	jobInfo.Members = append(jobInfo.Members, workerMember)
