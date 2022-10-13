@@ -28,15 +28,19 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
-func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNamespace, podName, podCachePath string) {
+func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCachePath string) {
 	var errStat error
 	var usageStat *disk.UsageStat
+	var sizeUsed string = "0"
 	for {
-		usageStat, errStat = disk.Usage(podCachePath)
-		if errStat != nil {
-			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
-			time.Sleep(1 * time.Second)
-			continue
+		if podCachePath != "" {
+			usageStat, errStat = disk.Usage(podCachePath)
+			if errStat != nil {
+				log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
 		}
 
 		pod, err := k8sClient.GetPod(podNamespace, podName)
@@ -45,7 +49,7 @@ func PatchCacheStatsLoop(k8sClient utils.Client, fsID, cacheDir, nodname, podNam
 			continue
 		}
 
-		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = strconv.Itoa(int(usageStat.Used / 1024))
+		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = sizeUsed
 		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
 			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
