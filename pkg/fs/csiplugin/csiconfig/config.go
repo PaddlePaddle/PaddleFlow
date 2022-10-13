@@ -54,7 +54,7 @@ func GeneratePodTemplate() *corev1.Pod {
 			Annotations: make(map[string]string),
 		},
 		Spec: corev1.PodSpec{
-			Containers:         []corev1.Container{},
+			Containers:         make([]corev1.Container, 2),
 			NodeName:           NodeName,
 			HostNetwork:        CSIPod.Spec.HostNetwork,
 			HostAliases:        CSIPod.Spec.HostAliases,
