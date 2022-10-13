@@ -150,7 +150,8 @@ func (j *RayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schema.
 				}
 				container.Lifecycle.PreStop = &v1.Handler{
 					Exec: &v1.ExecAction{
-						Command: []string{preStop},
+						// TODO : make it configurable
+						Command: []string{"sh", "-c", preStop},
 					},
 				}
 				headGroupSpec.Template.Spec.Containers[index] = container
