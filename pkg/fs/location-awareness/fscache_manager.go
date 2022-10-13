@@ -43,6 +43,8 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
 		}
 
+		// TODO memory, cpu stats
+
 		pod, err := k8sClient.GetPod(podNamespace, podName)
 		if err != nil {
 			log.Errorf("Can't get mount pod %s: %v", podName, err)
