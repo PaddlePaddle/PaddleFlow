@@ -103,6 +103,9 @@ func act(c *cli.Context) error {
 	}
 
 	podCachePath := c.String("podCachePath")
+	if podCachePath == "" {
+		return nil
+	}
 
 	go func() {
 		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, podCachePath)
