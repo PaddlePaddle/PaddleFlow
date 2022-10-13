@@ -299,6 +299,39 @@ func KubePriorityClass(priority string) string {
 	}
 }
 
+// getDefaultTemplateNew get default job template from file
+func (j *KubeJob) getDefaultTemplateNew(framework schema.Framework) ([]byte, error) {
+	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
+	jobTemplateName := ""
+
+	//the footer comment of all type job as the follow:
+	//  single -> single-job, workflow -> workflow-job,
+	//  spark -> spark-job, ray -> ray-job
+	//  paddle with ps mode -> paddle-ps-job
+	//  paddle with collective mode -> paddle-collective-job
+	//  tensorflow with ps mode -> tensorflow-ps-job
+	//  pytorch with ps mode -> pytorch-ps-job
+	switch j.JobType {
+	case schema.TypeSingle, schema.TypeWorkflow:
+		jobTemplateName = fmt.Sprintf("%s-job", j.JobType)
+	case schema.TypeDistributed:
+		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay {
+			jobTemplateName = fmt.Sprintf("%s-job", framework)
+		} else {
+			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(j.JobMode))
+		}
+	default:
+		return []byte{}, fmt.Errorf("job type %s is not supported", j.JobType)
+	}
+
+	log.Infof("get default template for %s, template name is %s", j.String(), jobTemplateName)
+	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
+	if !find {
+		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
+	}
+	return jobTemplate, nil
+}
+
 // createJobFromYaml parse the object of job from specified yaml file path
 func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	log.Debugf("createJobFromYaml jobEntity[%+v] %v", jobEntity, reflect.TypeOf(jobEntity))
@@ -306,7 +339,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	if len(j.YamlTemplateContent) == 0 {
 		var err error
 		j.IsCustomYaml = false
-		j.YamlTemplateContent, err = j.getDefaultTemplate(j.Framework)
+		j.YamlTemplateContent, err = j.getDefaultTemplateNew(j.Framework)
 		if err != nil {
 			return fmt.Errorf("get default template failed, err: %v", err)
 		}
@@ -700,7 +733,7 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 	return nil
 }
 
-// getDefaultPath get extra runtime conf default path
+// getDefaultPath get extra runtime conf default path; Deprecated
 func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
 	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
 	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
@@ -721,7 +754,7 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 	}
 }
 
-// getDefaultTemplate get default template from file
+// getDefaultTemplate get default template from file; Deprecated
 func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error) {
 	// get template from default path
 	filePath := getDefaultPath(j.JobType, framework, j.JobMode)
@@ -751,11 +784,21 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	for _, fs := range fileSystem {
 		volume := corev1.Volume{
 			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
+		}
+		if fs.Type == schema.PFSTypeLocal {
+			// use hostPath
+			volume.VolumeSource = corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: fs.HostPath,
+				},
+			}
+		} else {
+			// use pvc
+			volume.VolumeSource = corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: schema.ConcatenatePVCName(fs.ID),
 				},
-			},
+			}
 		}
 		vs = append(vs, volume)
 	}

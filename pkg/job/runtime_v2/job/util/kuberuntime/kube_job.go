@@ -85,6 +85,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 		return []byte{}, fmt.Errorf("job type %s is not supported", jobType)
 	}
 
+	log.Infof("get default template for job, and template name is %s", jobTemplateName)
 	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
 	if !find {
 		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
@@ -513,11 +514,21 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	for _, fs := range fileSystem {
 		volume := corev1.Volume{
 			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
+		}
+		if fs.Type == schema.PFSTypeLocal {
+			// use hostPath
+			volume.VolumeSource = corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: fs.HostPath,
+				},
+			}
+		} else {
+			// use pvc
+			volume.VolumeSource = corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: schema.ConcatenatePVCName(fs.ID),
 				},
-			},
+			}
 		}
 		vs = append(vs, volume)
 	}

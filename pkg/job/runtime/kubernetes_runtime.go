@@ -141,6 +141,10 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 	traceLogger.Infof("prepare kubernetes storage")
 	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
 	for _, fs := range jobFileSystems {
+		if fs.Type == schema.PFSTypeLocal {
+			log.Infof("skip create pv/pvc, fs type is local")
+			continue
+		}
 		fsID := common.ID(jobInfo.UserName, fs.Name)
 		pvName, err := kr.CreatePV(jobInfo.Namespace, fsID)
 		if err != nil {

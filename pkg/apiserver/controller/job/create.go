@@ -380,6 +380,10 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	// fill back
 	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
+	fs.Type = fileSystem.Type
+	if fileSystem.Type == schema.PFSTypeLocal {
+		fs.HostPath = fileSystem.SubPath
+	}
 
 	return nil
 }
