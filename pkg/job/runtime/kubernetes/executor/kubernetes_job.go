@@ -385,9 +385,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *schema.Member) erro
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
-	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
-		podSpec.RestartPolicy = corev1.RestartPolicyNever
-	}
 	// fill affinity
 	if err := j.setAffinity(podSpec); err != nil {
 		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
@@ -557,7 +554,6 @@ func (j *KubeJob) patchTaskMetadata(metadata *metav1.ObjectMeta, member schema.M
 	metadata.Namespace = j.Namespace
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, member.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, member.Labels)
-	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = j.ID
 }
 
@@ -565,6 +561,7 @@ func (j *KubeJob) fillPodTemplateSpec(pod *corev1.PodTemplateSpec, member schema
 	// ObjectMeta
 	j.patchTaskMetadata(&pod.ObjectMeta, member)
 	pod.Labels[schema.QueueLabelKey] = member.QueueName
+	pod.Annotations[schema.QueueLabelKey] = member.QueueName
 	// fill volumes
 	if err := j.fillPodSpec(&pod.Spec, &member); err != nil {
 		err = fmt.Errorf("fill pod.Spec failed, err:%v", err)
