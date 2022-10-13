@@ -121,7 +121,6 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 
 	if fsCache.FsID == "" ||
 		fsCache.CacheID == "" ||
-		fsCache.CacheDir == "" ||
 		fsCache.NodeName == "" {
 		errRet := fmt.Errorf("mount pod[%s] cache stats %+v is not valid", pod.Name, fsCache)
 		log.Errorf(errRet.Error())

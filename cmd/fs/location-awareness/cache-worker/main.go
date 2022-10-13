@@ -102,13 +102,10 @@ func act(c *cli.Context) error {
 		os.Exit(0)
 	}
 
-	fsID := c.String("fsID")
-	cacheDir := c.String("cacheDir")
-	nodname := c.String("nodename")
 	podCachePath := c.String("podCachePath")
 
 	go func() {
-		location_awareness.PatchCacheStatsLoop(k8sClient, fsID, cacheDir, nodname, podNamespace, podName, podCachePath)
+		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, podCachePath)
 	}()
 
 	stopSig := make(chan os.Signal, 1)
