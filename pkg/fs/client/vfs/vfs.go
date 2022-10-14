@@ -601,17 +601,7 @@ func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int6
 	if IsSpecialNode(ino) {
 		return syscall.EPERM
 	}
-	h := v.findHandle(ino, fh)
-	if h == nil {
-		return syscall.EBADF
-	}
-	if h.writer != nil {
-		err := h.writer.Fallocate(length, off, uint32(mode))
-		if utils.IsError(err) {
-			return err
-		}
-	}
-	return v.Meta.Write(ctx, ino, uint32(off), int(length))
+	return syscall.ENOSYS
 }
 
 // Directory handling
