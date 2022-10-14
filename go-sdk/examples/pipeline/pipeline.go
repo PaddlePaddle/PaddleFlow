@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,12 +17,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
 	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 func GetPipelineFromFile(filepath string) (p *pipeline.Pipeline) {
@@ -74,31 +74,34 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 	if err != nil {
 		panic(err)
 	}
+	res, _ := json.Marshal(p)
+	fmt.Println(string(res))
 
-	runYamlRaw, err := p.TransToRunYamlRaw()
-	if err != nil {
-		panic(err)
-	}
+	// runYamlRaw, err := p.TransToRunYamlRaw()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "",
-		Port:                       8999,
-		ConnectionTimeoutInSeconds: 1,
-	}
-	pfClient, err := service.NewForClient(config)
-	if err != nil {
-		panic(err)
-	}
+	// config := &core.PaddleFlowClientConfiguration{
+	// 	Host:                       "",
+	// 	Port:                       8999,
+	// 	ConnectionTimeoutInSeconds: 1,
+	// }
+	// pfClient, err := service.NewForClient(config)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	token := getToken(pfClient)
+	// token := getToken(pfClient)
 
-	result := create(pfClient, runYamlRaw, token)
+	// result := create(pfClient, runYamlRaw, token)
 
-	fmt.Println(result)
-	return result.RunID
+	// fmt.Println(result)
+	// return result.RunID
+	return ""
 }
 
 func main() {
-	GetPipelineFromFile("")
-	CreateRunByRunYamlRaw("")
+	// GetPipelineFromFile("")
+	CreateRunByRunYamlRaw("./test.yaml")
 }
