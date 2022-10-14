@@ -128,6 +128,10 @@ func (d *DirEntry) Info() (os.FileInfo, error) {
 }
 
 // 参考os.file对外的接口实现, 部分未实现
+// 参考os.file对外的接口实现, 部分未实现
+// 参考os.file对外的接口实现, 部分未实现
+// 参考os.file对外的接口实现, 部分未实现
+// 参考os.file对外的接口实现, 部分未实现
 type File struct {
 	inode       vfs.Ino
 	fh          uint64

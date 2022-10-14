@@ -44,6 +44,9 @@ func newFlavourStore(db *gorm.DB) *FlavourStore {
 }
 
 // CreateFlavour create flavour
+// CreateFlavour create flavour
+// CreateFlavour create flavour
+// CreateFlavour create flavour
 func (fs *FlavourStore) CreateFlavour(flavour *model.Flavour) error {
 	log.Infof("begin create flavour, flavour name:%v", flavour)
 	if flavour.ID == "" {

@@ -43,6 +43,10 @@ func newJobStore(db *gorm.DB) *JobStore {
 }
 
 // CreateJob creates a new job
+// CreateJob creates a new job
+// CreateJob creates a new job
+// CreateJob creates a new job
+// CreateJob creates a new job
 func (js *JobStore) CreateJob(job *model.Job) error {
 	if job.ID == "" {
 		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)

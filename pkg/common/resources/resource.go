@@ -30,6 +30,9 @@ const (
 
 // Resource is a struct that contains the information of a resource.
 // For cpu resource, the unit of cpu value is milli
+// For cpu resource, the unit of cpu value is milli
+// For cpu resource, the unit of cpu value is milli
+// For cpu resource, the unit of cpu value is milli
 type Resource struct {
 	Resources map[string]Quantity `json:"-"`
 }
