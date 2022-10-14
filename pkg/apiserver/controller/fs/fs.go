@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -344,6 +345,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 	for k8sRuntime, _ := range cnm {
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
+			FieldSelector: "status.phase=Running",
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
@@ -354,7 +356,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
-				if key != schema.AnnotationKeyMTime {
+				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
 					return true, nil, nil
