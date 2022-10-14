@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"strings"
 	"sync"
 	"time"
@@ -343,9 +344,10 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
+		// label indicating a mount pod
+		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
 		listOptions := k8sMeta.ListOptions{
-			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
-			FieldSelector: "status.phase=Running",
+			LabelSelector: label,
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
