@@ -29,6 +29,9 @@ type Parser struct {
 // 该函数未完成全局替换操作
 func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *WorkflowSource) error {
 	for key, value := range bodyMap {
+		if value == nil {
+			continue
+		}
 		switch key {
 		case "name":
 			value, ok := value.(string)
@@ -76,11 +79,17 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			}
 			wfs.Cache = cache
 		case "parallelism":
-			value, ok := value.(int64)
-			if !ok {
+
+			value1, ok1 := value.(int64)
+			value2, ok2 := value.(float64) // 这里是为了兼容一个由json.Unmarshal得到的parallelism值
+			if ok1 {
+				wfs.Parallelism = int(value1)
+			} else if ok2 {
+				wfs.Parallelism = int(value2)
+			} else {
 				return fmt.Errorf("[parallelism] of workflow should be int type")
 			}
-			wfs.Parallelism = int(value)
+
 		case "disabled":
 			value, ok := value.(string)
 			if !ok {
@@ -168,6 +177,9 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 
 func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceStep) error {
 	for key, value := range params {
+		if value == nil {
+			continue
+		}
 		switch key {
 		case "loop_argument":
 			step.LoopArgument = value
@@ -329,6 +341,13 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if valueLower != "step" {
 				return fmt.Errorf("set [type] as [%s] in step", value)
 			}
+		case "name":
+			// 该字段不暴露给用户
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[name] of step should be string type")
+			}
+			step.Name = value
 		default:
 			return fmt.Errorf("step has no attribute [%s]", key)
 		}
@@ -429,6 +448,9 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 
 func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error {
 	for cacheKey, cacheValue := range cacheMap {
+		if cacheValue == nil {
+			continue
+		}
 		switch cacheKey {
 		case "enable":
 			cacheValue, ok := cacheValue.(bool)
@@ -557,6 +579,12 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 				return fmt.Errorf("[read_only] should be bool type")
 			}
 			fs.ReadOnly = value
+		case "id":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[id] should be string type")
+			}
+			fs.ID = value
 		default:
 			return fmt.Errorf("[main_fs] or each mount info in [extra_fs] has no attribute [%s]", key)
 		}
@@ -640,6 +668,9 @@ func (p *Parser) transJsonCache2Yaml(value interface{}) error {
 }
 
 func (p *Parser) transJsonExtraFS2Yaml(value interface{}) error {
+	if value == nil {
+		return nil
+	}
 	mountList, ok := value.([]interface{})
 	if !ok {
 		return fmt.Errorf("[extraFS] should be list type")
@@ -675,11 +706,17 @@ func (p *Parser) transJsonFsMount2Yaml(value interface{}) error {
 }
 
 func (p *Parser) transJsonSubComp2Yaml(value interface{}, filedType string) error {
+	if value == nil {
+		return nil
+	}
 	compsMap, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("[%s] should be map type", filedType)
 	}
 	for _, comp := range compsMap {
+		if comp == nil {
+			continue
+		}
 		compMap, ok := comp.(map[string]interface{})
 		if !ok {
 			return fmt.Errorf("each components in [%s] should be map type", filedType)
