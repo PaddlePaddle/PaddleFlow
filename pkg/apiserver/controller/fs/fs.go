@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -342,8 +344,10 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
+		// label indicating a mount pod
+		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
 		listOptions := k8sMeta.ListOptions{
-			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
+			LabelSelector: label,
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
@@ -354,7 +358,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
-				if key != schema.AnnotationKeyMTime {
+				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
 					return true, nil, nil
