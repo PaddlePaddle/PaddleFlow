@@ -1,5 +1,8 @@
 # 数据缓存亲和性调度
 paddleflow CSI Driver 1.4.4 开始支持数据缓存结点亲和性调度
+## 注意
+结点亲和性有两个来源, 1. 用户设置, 即本文中阐述的方法, 可设置preferred和required两种; 2. 系统感知, 系统会自动感知有可复用数据缓存的结点, 并将这些结点推荐为preferred 结点
+系统感知这部分为自动功能, 不需要用户设置, 不在本文赘述
 ## 使用方法
 使用结点亲和性需要两个步骤: 1.为k8s环境下的结点打上自定义的标签; 2.发请求设置 fs_cache_config, 设置此fs缓存配置的结点亲和性策略
 ### 步骤一: 使用标签标识结点
@@ -69,5 +72,29 @@ paddleflow-qa-test4   Ready    master,node   106d   v1.16.15
 ```shell
 $ kubectl get po -owide
 NAME                         READY   STATUS      RESTARTS   AGE   IP              NODE               NOMINATED NODE   READINESS GATES
-job-test-fs-cache=affinity   1/1     Running     0         49s   xx.xx.xx.xx   paddleflow-qa-test2   <none>           <none>
+job-test-fs-cache-affinity   1/1     Running     0         49s   xx.xx.xx.xx   paddleflow-qa-test2   <none>           <none>
+
+$ kubectl get po job-test-fs-cache-affinity -o yaml
+apiVersion: v1
+kind: Pod
+spec:
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: cache
+            operator: In
+            values:
+            - woof
+            - meow
+        weight: 100
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: cache
+            operator: In
+            values:
+            - "true"
+...
 ````
