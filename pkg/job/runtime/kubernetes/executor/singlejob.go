@@ -80,7 +80,10 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
-	sp.fillPodSpec(&pod.Spec, nil)
+	if err := sp.fillPodSpec(&pod.Spec, nil); err != nil {
+		log.Errorf("paddle job fillPodSpec failed, err: %v", err)
+		return err
+	}
 
 	// file container
 	if err := sp.fillContainersInPod(pod); err != nil {
