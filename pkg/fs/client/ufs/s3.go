@@ -1491,7 +1491,7 @@ func (fh *s3FileHandle) multipartCreate() error {
 		Bucket: &fh.bucket,
 		Key:    aws.String(fh.path),
 	}
-	log.Debugf("s3 mpu create: fh.name[%s], create param: %v ", fh.name, mpu)
+	log.Infof("s3 mpu create: fh.name[%s], create param: %v ", fh.name, mpu)
 
 	respCreate, err := fh.fs.s3.CreateMultipartUpload(&mpu)
 	if err != nil {
@@ -1504,7 +1504,7 @@ func (fh *s3FileHandle) multipartCreate() error {
 		return err
 	}
 	fh.mpuInfo.uploadID = respCreate.UploadId
-	log.Debugf("s3 mpu create: fh.name[%s], create resp: %v ", fh.name, respCreate)
+	log.Infof("s3 mpu create: fh.name[%s], create resp: %v ", fh.name, respCreate)
 	return nil
 }
 
@@ -1534,8 +1534,8 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 
 func (fh *s3FileHandle) multipartCommit() error {
 	partCnt := fh.mpuInfo.lastPartNum
-	parts := make([]*s3.CompletedPart, partCnt)
-	for i := int64(0); i < partCnt; i++ {
+	parts := make([]*s3.CompletedPart, partCnt-1)
+	for i := int64(0); i < partCnt-1; i++ {
 		if fh.mpuInfo.partsETag[i] == nil {
 			err := fmt.Errorf("s3 mpu partNum: %d missing ETag", i+1)
 			log.Errorf("s3 mpu commit: failed: fh.name[%s], mpuID[%s]. err:%v", fh.name, *fh.mpuInfo.uploadID, err)
