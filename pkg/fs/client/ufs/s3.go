@@ -1491,7 +1491,7 @@ func (fh *s3FileHandle) multipartCreate() error {
 		Bucket: &fh.bucket,
 		Key:    aws.String(fh.path),
 	}
-	log.Infof("s3 mpu create: fh.name[%s], create param: %v ", fh.name, mpu)
+	log.Debugf("s3 mpu create: fh.name[%s], create param: %v ", fh.name, mpu)
 
 	respCreate, err := fh.fs.s3.CreateMultipartUpload(&mpu)
 	if err != nil {
@@ -1504,7 +1504,7 @@ func (fh *s3FileHandle) multipartCreate() error {
 		return err
 	}
 	fh.mpuInfo.uploadID = respCreate.UploadId
-	log.Infof("s3 mpu create: fh.name[%s], create resp: %v ", fh.name, respCreate)
+	log.Debugf("s3 mpu create: fh.name[%s], create resp: %v ", fh.name, respCreate)
 	return nil
 }
 
