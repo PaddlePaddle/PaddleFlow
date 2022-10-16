@@ -375,11 +375,18 @@ func (fs *s3FileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	gid := uint32(utils.LookupGroup(Group))
 	st := fillStat(1, uint32(mode), uid, gid, size, 4096, size/512, aTime, aTime, aTime)
 
+	var mtime uint64
+	if path == Delimiter {
+		mtime = uint64(time.Now().Unix())
+	} else {
+		mtime = uint64((*response.LastModified).Unix())
+	}
+
 	return &base.FileInfo{
 		Name:  name,
 		Path:  path,
 		Size:  size,
-		Mtime: uint64((*response.LastModified).Unix()),
+		Mtime: mtime,
 		IsDir: isDir,
 		Owner: Owner,
 		Group: Group,

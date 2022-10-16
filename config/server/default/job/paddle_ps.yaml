@@ -8,6 +8,7 @@ spec:
   cleanPodPolicy: OnCompletion
   worker:
     replicas: 2
+    restartPolicy: Never
     template:
       spec:
         containers:
@@ -16,6 +17,7 @@ spec:
         terminationGracePeriodSeconds: 30
   ps:
     replicas: 2
+    restartPolicy: Never
     template:
       spec:
         containers:
