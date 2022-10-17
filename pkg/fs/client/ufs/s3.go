@@ -460,13 +460,6 @@ func (fs *s3FileSystem) Mkdir(name string, mode uint32) error {
 	log.Tracef("s3 mkdir: name[%s]", name)
 	name = toS3Path(name)
 	name = toDirPath(name)
-	exist, err := fs.exists(name)
-	if err != nil {
-		return err
-	}
-	if exist {
-		return syscall.EEXIST
-	}
 	return fs.createEmptyDir(name)
 }
 
