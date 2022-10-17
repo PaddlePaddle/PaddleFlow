@@ -59,6 +59,14 @@ func TestGetWorkflowSource(t *testing.T) {
 	assert.Equal(t, err.Error(), "json of workflow illegal")
 }
 
+func TestGetComponentByFullName(t *testing.T) {
+	wfs, err := GetWorkflowSource(loadCase(runYamlPath))
+	assert.Nil(t, err)
+
+	_, err = wfs.GetComponentByFullName("square-loop.square")
+	assert.Nil(t, err)
+}
+
 func TestDagDeepCopy(t *testing.T) {
 	wfs, err := GetWorkflowSource(loadCase(runYamlPath))
 	assert.Nil(t, err)
