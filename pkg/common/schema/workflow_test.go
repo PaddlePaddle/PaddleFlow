@@ -43,8 +43,17 @@ func TestGetWorkflowSource(t *testing.T) {
 	// TODO: 增加测试用例
 
 	// 将wfs输出成json整体查看
-	text, _ := json.Marshal(wfs)
-	fmt.Println(string(text))
+	wfsJson, _ := json.Marshal(wfs)
+	fmt.Println(string(wfsJson))
+
+	// 测试UnmarshalJSON
+	newWfs := WorkflowSource{}
+	err = newWfs.UnmarshalJSON(wfsJson)
+	assert.Nil(t, err)
+}
+
+func TestWfsUnmarshalJson(t *testing.T) {
+
 }
 
 func TestDagDeepCopy(t *testing.T) {
