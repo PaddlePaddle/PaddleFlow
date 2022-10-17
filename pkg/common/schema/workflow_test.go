@@ -52,10 +52,6 @@ func TestGetWorkflowSource(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestWfsUnmarshalJson(t *testing.T) {
-
-}
-
 func TestDagDeepCopy(t *testing.T) {
 	wfs, err := GetWorkflowSource(loadCase(runYamlPath))
 	assert.Nil(t, err)
