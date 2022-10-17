@@ -343,11 +343,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			}
 		case "name":
 			// 该字段不暴露给用户
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[name] of step should be string type")
-			}
-			step.Name = value
+			continue
 		default:
 			return fmt.Errorf("step has no attribute [%s]", key)
 		}
@@ -441,11 +437,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			}
 		case "name":
 			// 该字段不暴露给用户
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[name] of step should be string type")
-			}
-			dagComp.Name = value
+			continue
 		default:
 			return fmt.Errorf("dag has no attribute [%s]", key)
 		}
@@ -516,6 +508,9 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 				return fmt.Errorf("[path] should be string type")
 			}
 			fs.Path = value
+		case "id":
+			// 该字段不暴露给用户
+			continue
 		default:
 			return fmt.Errorf("[fs_scope] has no attribute [%s]", key)
 		}
