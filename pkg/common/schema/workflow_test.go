@@ -50,6 +50,12 @@ func TestGetWorkflowSource(t *testing.T) {
 	newWfs := WorkflowSource{}
 	err = newWfs.UnmarshalJSON(wfsJson)
 	assert.Nil(t, err)
+
+	nilWfs := wfs
+	nilWfs.Components = nil
+	nilWfs.EntryPoints.EntryPoints["nil"] = nil
+	err = newWfs.UnmarshalJSON(wfsJson)
+	assert.Nil(t, err)
 }
 
 func TestDagDeepCopy(t *testing.T) {
