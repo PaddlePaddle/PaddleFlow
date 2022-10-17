@@ -25,7 +25,6 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	yaml3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -53,7 +52,7 @@ func InitDefaultPVC(path string) error {
 func InitConfigFromYaml(conf interface{}, configPath string) error {
 	// if not set by user, use default
 	if configPath == "" {
-		log.Infoln("config yaml path not specified. use default config")
+		fmt.Printf("Note: config yaml path not specified. use default config")
 		configPath = serverDefaultConfPath
 	}
 	// readConfig

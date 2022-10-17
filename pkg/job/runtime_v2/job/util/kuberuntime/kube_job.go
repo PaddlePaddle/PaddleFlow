@@ -19,7 +19,6 @@ package kuberuntime
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -35,7 +34,6 @@ import (
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -62,46 +60,37 @@ func ResponsibleForJob(obj interface{}) bool {
 	return false
 }
 
-// getDefaultPath get extra runtime conf default path
-func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
-	// TODO: refactor these code
-	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
-	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
-	suffix := ".yaml"
-	if len(jobMode) != 0 && framework != schema.FrameworkSpark {
-		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(jobMode))
-	}
-
-	switch jobType {
-	case schema.TypeSingle:
-		return fmt.Sprintf("%s/%s%s", baseDir, jobType, suffix)
-	case schema.TypeDistributed:
-		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml, basedir/tensorflow.yaml basedir/pytorch.yaml
-		return fmt.Sprintf("%s/%s%s", baseDir, framework, suffix)
-	default:
-		// todo(zhongzichao) remove vcjob type
-		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
-	}
-}
-
 // getDefaultTemplate get default template from file
 func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string) ([]byte, error) {
-	// TODO: optimize default template, merge all yaml files into one
-	// get template from default path
-	filePath := getDefaultPath(jobType, framework, jobMode)
-	// check file exist
-	if exist, err := config.PathExists(filePath); !exist || err != nil {
-		log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
-		return nil, errors.JobFileNotFound(filePath)
+	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
+	jobTemplateName := ""
+
+	//the footer comment of all type job as the follow:
+	//  single -> single-job, workflow -> workflow-job,
+	//  spark -> spark-job, ray -> ray-job
+	//  paddle with ps mode -> paddle-ps-job
+	//  paddle with collective mode -> paddle-collective-job
+	//  tensorflow with ps mode -> tensorflow-ps-job
+	//  pytorch with ps mode -> pytorch-ps-job
+	switch jobType {
+	case schema.TypeSingle, schema.TypeWorkflow:
+		jobTemplateName = fmt.Sprintf("%s-job", jobType)
+	case schema.TypeDistributed:
+		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay {
+			jobTemplateName = fmt.Sprintf("%s-job", framework)
+		} else {
+			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(jobMode))
+		}
+	default:
+		return []byte{}, fmt.Errorf("job type %s is not supported", jobType)
 	}
 
-	// read file as []byte
-	extConf, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
-		return nil, err
+	log.Infof("get default template for job, and template name is %s", jobTemplateName)
+	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
+	if !find {
+		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
 	}
-	return extConf, nil
+	return jobTemplate, nil
 }
 
 func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.GroupVersionKind, job *api.PFJob) error {
@@ -191,7 +180,6 @@ func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *sche
 	metadata.Namespace = taskConf.GetNamespace()
 	metadata.Annotations = appendMapsIfAbsent(metadata.Annotations, taskConf.GetAnnotations())
 	metadata.Labels = appendMapsIfAbsent(metadata.Labels, taskConf.GetLabels())
-	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = jobID
 	// TODO: add more metadata for task
 }
@@ -214,7 +202,7 @@ func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
 		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
 	}
 	// fill priorityClassName and schedulerName
-	err := BuildSchedulingPolicy(podSpec, task.Priority)
+	err := buildPriorityAndScheduler(podSpec, task.Priority)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -243,7 +231,7 @@ func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
 	return nil
 }
 
-func BuildSchedulingPolicy(podSpec *corev1.PodSpec, priorityName string) error {
+func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
 	}
@@ -259,7 +247,7 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 		return fmt.Errorf("build pod failed, err: podSpec is nil")
 	}
 	// fill priorityClassName and schedulerName
-	err := BuildSchedulingPolicy(&pod.Spec, task.Priority)
+	err := buildPriorityAndScheduler(&pod.Spec, task.Priority)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -526,11 +514,21 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	for _, fs := range fileSystem {
 		volume := corev1.Volume{
 			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
+		}
+		if fs.Type == schema.PFSTypeLocal {
+			// use hostPath
+			volume.VolumeSource = corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: fs.HostPath,
+				},
+			}
+		} else {
+			// use pvc
+			volume.VolumeSource = corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: schema.ConcatenatePVCName(fs.ID),
 				},
-			},
+			}
 		}
 		vs = append(vs, volume)
 	}
@@ -750,7 +748,9 @@ func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.Res
 	}
 	runPolicy.SchedulingPolicy.Queue = queueName
 	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
-	runPolicy.SchedulingPolicy.MinResources = minResources
+	if minResources != nil {
+		runPolicy.SchedulingPolicy.MinResources = minResources
+	}
 	return nil
 }
 

@@ -26,7 +26,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -112,7 +111,7 @@ func start() error {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
+	go fs.MountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.MountPodIntervalTime, stopChan)
 
 	trace_logger.Start(ServerConf.TraceLog)
 

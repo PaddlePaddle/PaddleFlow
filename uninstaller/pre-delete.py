@@ -82,7 +82,13 @@ def clean_pipelines(client):
 
 
 def clean_storage(client):
-    print("clean_storage todo")
+    print("clean_storage starting")
+    uninstallShll = "./uninstallpfs.sh"
+    return_code = os.system(uninstallShll)
+    if return_code != 0:
+        print("clean storage faile with code ", return_code)
+        return return_code
+    print("clean_storage end\n\n")
     return 0
 
 

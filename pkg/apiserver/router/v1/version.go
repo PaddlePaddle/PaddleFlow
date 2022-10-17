@@ -14,26 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kv_new
+package v1
 
-type Config struct {
-	FsID      string
-	Driver    string
-	CachePath string
-	Capacity  int64
+import (
+	"net/http"
+
+	"github.com/go-chi/chi"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
+)
+
+type VersionRouter struct{}
+
+func (ur *VersionRouter) Name() string {
+	return "Version"
 }
 
-type KvTxn interface {
-	Get(key []byte) []byte
-	Set(key, value []byte) error
-	Dels(keys ...[]byte) error
-	ScanValues(prefix []byte) (map[string][]byte, error)
-	Exist(Prefix []byte) bool
-	Append(key []byte, value []byte) []byte
-	IncrBy(key []byte, value int64) int64
+func (ur *VersionRouter) AddRouter(r chi.Router) {
+	r.Get("/version", ur.getVersion)
 }
 
-type KvClient interface {
-	Name() string
-	Txn(f func(KvTxn) error) error
+func (ur *VersionRouter) getVersion(w http.ResponseWriter, r *http.Request) {
+	common.Render(w, http.StatusOK, version.Info)
 }

@@ -39,11 +39,12 @@ type Client interface {
 	ProxyGetPods(nodeID string) (result *corev1.PodList, err error)
 	CreatePod(pod *corev1.Pod) (*corev1.Pod, error)
 	GetPod(namespace, name string) (*corev1.Pod, error)
-	PatchPod(pod *corev1.Pod, data []byte) error
+	PatchPod(namespace, name string, data []byte) error
 	UpdatePod(namespace string, pod *corev1.Pod) (*corev1.Pod, error)
 	DeletePod(pod *corev1.Pod) error
 	GetPodLog(namespace, podName, containerName string) (string, error)
 	PatchPodAnnotation(pod *corev1.Pod) error
+	PatchPodLabel(pod *corev1.Pod) error
 	// pv
 	CreatePersistentVolume(pv *corev1.PersistentVolume) (*corev1.PersistentVolume, error)
 	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
@@ -106,11 +107,29 @@ func (c *k8sClient) PatchPodAnnotation(pod *corev1.Pod) error {
 	}}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Errorf("parse annotation json error: %v", err)
+		log.Errorf("parse pod[%s] annotation json error: %v", pod.Name, err)
 		return err
 	}
-	if err := c.PatchPod(pod, payloadBytes); err != nil {
-		log.Errorf("patch pod %s error: %v", pod.Name, err)
+	if err := c.PatchPod(pod.Namespace, pod.Name, payloadBytes); err != nil {
+		log.Errorf("patch pod[%s] annotation [%s] error: %v", pod.Name, string(payloadBytes), err)
+		return err
+	}
+	return nil
+}
+
+func (c *k8sClient) PatchPodLabel(pod *corev1.Pod) error {
+	payload := []PatchMapValue{{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: pod.Labels,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse pod[%s] label json error: %v", pod.Name, err)
+		return err
+	}
+	if err := c.PatchPod(pod.Namespace, pod.Name, payloadBytes); err != nil {
+		log.Errorf("patch pod[%s] label [%s] error: %v", pod.Name, string(payloadBytes), err)
 		return err
 	}
 	return nil
@@ -146,14 +165,10 @@ type PatchMapValue struct {
 	Value map[string]string `json:"value"`
 }
 
-func (c *k8sClient) PatchPod(pod *corev1.Pod, data []byte) error {
-	if pod == nil {
-		log.Info("Patch pod: pod is nil")
-		return nil
-	}
-	log.Infof("Patch pod %v", pod.Name)
-	_, err := c.CoreV1().Pods(pod.Namespace).Patch(context.TODO(),
-		pod.Name, types.JSONPatchType, data, metav1.PatchOptions{})
+func (c *k8sClient) PatchPod(namespace, name string, data []byte) error {
+	log.Debugf("patch pod %s with data %s", name, string(data))
+	_, err := c.CoreV1().Pods(namespace).Patch(context.TODO(),
+		name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
 }
 

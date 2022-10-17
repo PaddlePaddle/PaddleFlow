@@ -379,7 +379,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `block_size` int(5) NOT NULL COMMENT 'cache block size',
-    `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. default/mem/leveldb/nutsdb',
+    `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. mem/disk',
     `debug` tinyint(1) NOT NULL COMMENT 'turn on debug log',
     `clean_cache` tinyint(1) NOT NULL default 0 COMMENT 'whether clean cache after mount pod vanishes',
     `resource` text COMMENT 'resource limit for mount pod',

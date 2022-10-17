@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package cache
 
 import (
@@ -7,17 +23,17 @@ import (
 )
 
 func registerMetrics() {
-	prometheus.Register(cacheHits)
-	prometheus.Register(cacheHitBytes)
-	prometheus.Register(cacheMiss)
-	prometheus.Register(cacheMissBytes)
-	prometheus.Register(cacheMissRate)
-	prometheus.Register(cacheWrites)
-	prometheus.Register(cacheWriteBytes)
-	prometheus.Register(cacheDrops)
-	prometheus.Register(cacheEvicts)
-	prometheus.Register(cacheReadHist)
-	prometheus.Register(cacheWriteHist)
+	_ = prometheus.Register(cacheHits)
+	_ = prometheus.Register(cacheHitBytes)
+	_ = prometheus.Register(cacheMiss)
+	_ = prometheus.Register(cacheMissBytes)
+	_ = prometheus.Register(cacheMissRate)
+	_ = prometheus.Register(cacheWrites)
+	_ = prometheus.Register(cacheWriteBytes)
+	_ = prometheus.Register(cacheDrops)
+	_ = prometheus.Register(cacheEvicts)
+	_ = prometheus.Register(cacheReadHist)
+	_ = prometheus.Register(cacheWriteHist)
 }
 
 var (
@@ -70,28 +86,5 @@ var (
 		Name:    "blockcache_write_hist_seconds",
 		Help:    "write cached block latency distribution",
 		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
-	})
-
-	objectReqsHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "object_request_durations_histogram_seconds",
-		Help:    "Object requests latency distributions.",
-		Buckets: prometheus.ExponentialBuckets(0.01, 1.5, 25),
-	}, []string{"method"})
-	objectReqErrors = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "object_request_errors",
-		Help: "failed requests to object store",
-	})
-	objectDataBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "object_request_data_bytes",
-		Help: "Object requests size in bytes.",
-	}, []string{"method"})
-
-	stageBlocks = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_blocks",
-		Help: "Number of blocks in the staging path.",
-	})
-	stageBlockBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_block_bytes",
-		Help: "Total bytes of blocks in the staging path.",
 	})
 )

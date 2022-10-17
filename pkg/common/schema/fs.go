@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	PFSTypeLocal = "local"
+
 	PVNameTemplate  = "pfs-$(pfs.fs.id)-$(namespace)-pv"
 	PVCNameTemplate = "pfs-$(pfs.fs.id)-pvc"
 	FSIDFormat      = "$(pfs.fs.id)"
@@ -35,20 +37,18 @@ const (
 
 	FusePodMntDir = "/home/paddleflow/mnt"
 
-	FsMetaDefault = "default"
-	FsMetaMemory  = "mem"
-	FsMetaLevelDB = "leveldb"
-	FsMetaNutsDB  = "nutsdb"
+	FsMetaMemory = "mem"
+	FsMetaDisk   = "disk"
 
 	FuseKeyFsInfo = "fs-info"
 
-	LabelKeyFsID      = "fsID"
-	LabelCacheID      = "cacheID"
-	LabelFunc         = "func"
-	LabelFuncMountPod = "mountPod"
-
-	AnnotationKeyMTime = "modifiedTime"
-	AnnotationKeyCache = "cacheStats"
+	LabelKeyFsID             = "fsID"
+	LabelKeyCacheID          = "cacheID"
+	LabelKeyNodeName         = "nodename"
+	LabelKeyUsedSize         = "usedSize"
+	AnnotationKeyCacheDir    = "cacheDir"
+	AnnotationKeyMTime       = "modifiedTime"
+	AnnotationKeyMountPrefix = "mount-"
 
 	EnvKeyMountPodName = "POD_NAME"
 	EnvKeyNamespace    = "NAMESPACE"
@@ -58,7 +58,7 @@ const (
 
 func IsValidFsMetaDriver(metaDriver string) bool {
 	switch metaDriver {
-	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB:
+	case FsMetaDisk, FsMetaMemory:
 		return true
 	default:
 		return false

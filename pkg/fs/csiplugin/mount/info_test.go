@@ -112,7 +112,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 	fsCache := model.FSCacheConfig{
 		FsID:       fs.ID,
 		CacheDir:   "/data/paddleflow-FS/mnt",
-		MetaDriver: "leveldb",
+		MetaDriver: "disk",
 		BlockSize:  4096,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -178,7 +178,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				TargetPath:  targetPath,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " + "--fs-id=fs-root-testfs --fs-info=" +
-				fsBase64 + " --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+				fsBase64 + " --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755 " +
 				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},
@@ -191,7 +191,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			},
 			want: "/home/paddleflow/mount.sh --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
 				" --block-size=4096 " +
-				"--meta-cache-driver=leveldb " +
+				"--meta-cache-driver=disk " +
 				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache --mount-point=" + sourcePath,
 		},
 		{
@@ -222,7 +222,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				ReadOnly:    true,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
-				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --mount-options=ro --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --mount-options=ro --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755 " +
 				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},

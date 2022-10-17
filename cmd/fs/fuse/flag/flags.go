@@ -77,8 +77,8 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: kv.LevelDB,
-			Usage: "meta cache driver, e.g. mem, leveldb",
+			Value: kv.MemType,
+			Usage: "meta cache driver, e.g. mem, disk",
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-path",
@@ -99,6 +99,11 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Name:  "entry-cache-expire",
 			Value: 5 * time.Second,
 			Usage: "entry cache expire",
+		},
+		&cli.DurationFlag{
+			Name:  "path-cache-expire",
+			Value: 1 * time.Second,
+			Usage: "path cache expire",
 		},
 		&cli.IntFlag{
 			Name:  "block-size",

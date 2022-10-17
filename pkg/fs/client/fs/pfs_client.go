@@ -30,9 +30,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -40,7 +40,7 @@ import (
 )
 
 func init() {
-	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "debug"}}
+	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "info"}}
 	err := logger.InitStandardFileLogger(&log_.Log)
 	if err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
@@ -67,7 +67,7 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 			MaxReadAhead: MaxReadAheadNum,
 			Expire:       DataCacheExpire,
 			Config: kv.Config{
-				Driver:    kv.NutsDB,
+				Driver:    kv.MemType,
 				CachePath: DataCachePath,
 			},
 		}),
@@ -131,7 +131,7 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 			MaxReadAhead: MaxReadAheadNum,
 			Expire:       DataCacheExpire,
 			Config: kv.Config{
-				Driver:    kv.NutsDB,
+				Driver:    kv.MemType,
 				CachePath: DataCachePath,
 			},
 		}),
@@ -256,10 +256,7 @@ func (c *PFSClient) removeAll(path string) error {
 
 	// 子目录删除完成后，要删除父目录
 	err = c.Remove(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-	return nil
+	return err
 }
 
 func (c *PFSClient) IsDir(path string) (bool, error) {
