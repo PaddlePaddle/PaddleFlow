@@ -229,11 +229,13 @@ func mount(c *cli.Context) error {
 		log.Fatalf("mount fail: %v", err)
 		os.Exit(-1)
 	}
+	patchStats()
+
 	server.Wait()
 	return cleanCache()
 }
 
-func patchStats(c *cli.Context) {
+func patchStats() {
 	podNamespace := os.Getenv(schema.EnvKeyNamespace)
 	podName := os.Getenv(schema.EnvKeyMountPodName)
 
