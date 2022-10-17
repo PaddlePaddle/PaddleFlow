@@ -222,15 +222,16 @@ func mount(c *cli.Context) error {
 			go f()
 		}
 	}
-
-	log.Debugf("start mount service")
+	log.Infof("elsie start patchStats")
+	patchStats()
+	log.Infof("start mount service")
 	server, err := fuse.Server(c.String("mount-point"), *opts)
 	if err != nil {
 		log.Fatalf("mount fail: %v", err)
 		os.Exit(-1)
 	}
-	patchStats()
 
+	log.Infof("elsie meow")
 	server.Wait()
 	return cleanCache()
 }
@@ -253,6 +254,7 @@ func patchStats() {
 	//podCachePath := c.String("podCachePath")
 
 	go func() {
+		log.Infof("elsie start patch loop")
 		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, "")
 	}()
 
