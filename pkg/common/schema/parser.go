@@ -582,11 +582,8 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 			}
 			fs.ReadOnly = value
 		case "id":
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[id] should be string type")
-			}
-			fs.ID = value
+			// 该字段不暴露给用户
+			continue
 		default:
 			return fmt.Errorf("[main_fs] or each mount info in [extra_fs] has no attribute [%s]", key)
 		}
