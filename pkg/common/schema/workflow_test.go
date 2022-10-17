@@ -51,11 +51,11 @@ func TestGetWorkflowSource(t *testing.T) {
 	err = newWfs.UnmarshalJSON(wfsJson)
 	assert.Nil(t, err)
 
-	nilWfs := wfs
-	nilWfs.Components = nil
-	nilWfs.EntryPoints.EntryPoints["nil"] = nil
-	err = newWfs.UnmarshalJSON(wfsJson)
-	assert.Nil(t, err)
+	err = newWfs.UnmarshalJSON([]byte("wrongJson"))
+	assert.NotNil(t, err)
+
+	err = newWfs.UnmarshalJSON([]byte(`"wrongkey":"wrongValue"`))
+	assert.NotNil(t, err)
 }
 
 func TestDagDeepCopy(t *testing.T) {
