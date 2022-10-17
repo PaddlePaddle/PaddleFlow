@@ -257,11 +257,6 @@ func patchStats() {
 		log.Infof("elsie start patch loop")
 		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, "")
 	}()
-
-	stopSig := make(chan os.Signal, 1)
-	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
-	sig := <-stopSig
-	log.Errorf("PatchCacheStatsLoop stopped err: %s", sig.String())
 }
 
 func cleanCache() (errRet error) {
