@@ -187,12 +187,9 @@ func (mountInfo *Info) commonOptions() []string {
 }
 
 func (mountInfo *Info) CacheWorkerCmd() string {
-	options := []string{
-		"--nodename=" + csiconfig.NodeName,
-		"--clusterID=" + csiconfig.ClusterID,
-		"--podCachePath=" + FusePodCachePath,
-		"--cacheDir=" + mountInfo.CacheConfig.CacheDir,
-		"--fsID=" + mountInfo.FS.ID,
+	cmd := CacheWorkerBin + " --podCachePath="
+	if mountInfo.CacheConfig.CacheDir != "" {
+		cmd += FusePodCachePath
 	}
-	return CacheWorkerBin + " " + strings.Join(options, " ")
+	return cmd
 }

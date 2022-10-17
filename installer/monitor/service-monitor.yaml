@@ -1,0 +1,20 @@
+# ServiceMonitor for paddleflow-server
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: paddleflow-server
+  name: paddleflow-server-exporter
+  namespace: paddleflow
+spec:
+  endpoints:
+    - interval: 10s
+      path: /metrics
+      port: port-1
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app: paddleflow-server
+
+---

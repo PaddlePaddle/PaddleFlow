@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	PFSTypeLocal = "local"
+
 	PVNameTemplate  = "pfs-$(pfs.fs.id)-$(namespace)-pv"
 	PVCNameTemplate = "pfs-$(pfs.fs.id)-pvc"
 	FSIDFormat      = "$(pfs.fs.id)"

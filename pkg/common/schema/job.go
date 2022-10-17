@@ -239,6 +239,8 @@ type Conf struct {
 type FileSystem struct {
 	ID        string `json:"id,omitempty"`
 	Name      string `json:"name"`
+	Type      string `json:"type"`
+	HostPath  string `json:"hostPath,omitempty"`
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
