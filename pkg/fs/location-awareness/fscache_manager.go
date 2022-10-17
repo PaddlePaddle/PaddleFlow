@@ -62,7 +62,7 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 		}
 
 		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = sizeUsed
-		pod.ObjectMeta.Labels["metrics"] = metrics
+		pod.ObjectMeta.Annotations["metrics"] = metrics
 		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
 			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
