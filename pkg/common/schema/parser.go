@@ -338,7 +338,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				return fmt.Errorf("[type] of step should be string type")
 			}
 			valueLower := strings.ToLower(value)
-			if valueLower != "step" {
+			if valueLower != "" && valueLower != "step" {
 				return fmt.Errorf("set [type] as [%s] in step", value)
 			}
 		case "name":
@@ -436,7 +436,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 				return fmt.Errorf("[type] of dag should be string type")
 			}
 			valueLower := strings.ToLower(value)
-			if valueLower != "dag" {
+			if valueLower != "" && valueLower != "dag" {
 				return fmt.Errorf("set [type] as [%s] in dag", value)
 			}
 		default:
