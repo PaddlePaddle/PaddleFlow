@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -730,36 +731,26 @@ func ValidatePPLJob(conf schema.PFJobConf) error {
 }
 
 func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
-	commonJobInfo := CommonJobInfo{
-		ID:   generateJobID(conf.GetName()),
-		Name: conf.GetName(),
-		SchedulingPolicy: SchedulingPolicy{
-			Queue:    conf.GetQueueName(),
-			Priority: conf.GetPriority(),
-		},
-		UserName: conf.GetUserName(),
-	}
-	jobSpec := JobSpec{
-		Flavour: schema.Flavour{
-			Name: conf.GetFlavour(),
-		},
-		FileSystem:       conf.GetFileSystem(),
-		ExtraFileSystems: conf.GetExtraFS(),
-		Image:            conf.GetImage(),
-		Env:              conf.GetEnv(),
-		Command:          conf.GetCommand(),
-		Args:             conf.GetArgs(),
+	jobType := conf.Type()
+	framework := conf.Framework()
+
+	jobInfo := &CreateJobInfo{
+		Type:      jobType,
+		Framework: framework,
 	}
 
-	jobType := conf.Type()
+	fillCommonJobInfo(jobInfo, conf)
+
 	var err error
-	var framework schema.Framework
 	switch jobType {
 	case "", schema.TypeSingle, schema.TypeVcJob:
-		jobType = schema.TypeSingle
-		framework = schema.FrameworkStandalone
+		fillStandaloneJobInfo(jobInfo, conf)
 	case schema.TypeDistributed:
-		err = fmt.Errorf("distributed job is not implemented")
+		if framework == schema.FrameworkRay {
+			err = fillRayJobInfo(jobInfo, conf)
+		} else {
+			err = fmt.Errorf("distributed job is not implemented")
+		}
 	default:
 		err = fmt.Errorf("job type %s is not support", jobType)
 	}
@@ -768,21 +759,116 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 		return nil, err
 	}
 
-	return &CreateJobInfo{
-		CommonJobInfo: commonJobInfo,
-		Type:          jobType,
-		Framework:     framework,
-		Members: []MemberSpec{
-			{
-				CommonJobInfo: commonJobInfo,
-				JobSpec:       jobSpec,
-				Role:          string(schema.RoleWorker),
-				Replicas:      1,
-			},
-		},
-	}, nil
+	return jobInfo, nil
 }
 
 func generateJobID(param string) string {
 	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
+}
+
+func fillCommonJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
+	jobInfo.CommonJobInfo = CommonJobInfo{
+		ID:   generateJobID(conf.GetName()),
+		Name: conf.GetName(),
+		SchedulingPolicy: SchedulingPolicy{
+			Queue:    conf.GetQueueName(),
+			Priority: conf.GetPriority(),
+		},
+		UserName: conf.GetUserName(),
+	}
+}
+
+func fillStandaloneJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
+	jobInfo.Type = schema.TypeSingle
+	jobInfo.Framework = schema.FrameworkStandalone
+	jobInfo.Members = []MemberSpec{
+		{
+			CommonJobInfo: jobInfo.CommonJobInfo,
+			JobSpec: JobSpec{
+				Flavour: schema.Flavour{
+					Name: conf.GetFlavour(),
+				},
+				FileSystem:       conf.GetFileSystem(),
+				ExtraFileSystems: conf.GetExtraFS(),
+				Image:            conf.GetImage(),
+				Env:              conf.GetEnv(),
+				Command:          conf.GetCommand(),
+				Args:             conf.GetArgs(),
+			},
+			Role:     string(schema.RoleWorker),
+			Replicas: 1,
+		},
+	}
+}
+
+func fillRayJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+	jobInfo.Members = make([]MemberSpec, 0)
+	fillRayJobHeaderMember(jobInfo, conf)
+	return fillRayJobWorkerMember(jobInfo, conf)
+}
+
+func fillRayJobHeaderMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
+	startParams := conf.GetEnvSubset(schema.EnvRayJobHeaderStartParamsPrefix)
+	args := make([]string, 0)
+	for rawKey, value := range startParams {
+		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(rawKey, schema.EnvRayJobHeaderStartParamsPrefix)), "_", "-")
+		args = append(args, key+":"+value)
+	}
+	headerMember := MemberSpec{
+		CommonJobInfo: jobInfo.CommonJobInfo,
+		JobSpec: JobSpec{
+			Flavour: schema.Flavour{
+				Name: conf.GetEnvValue(schema.EnvRayJobHeaderFlavour),
+			},
+			FileSystem:       conf.GetFileSystem(),
+			ExtraFileSystems: conf.GetExtraFS(),
+			Image:            conf.GetEnvValue(schema.EnvRayJobHeaderImage),
+			Command:          conf.GetEnvValue(schema.EnvRayJobEntryPoint),
+			Env:              conf.GetEnv(),
+			Args:             args,
+		},
+		Role:     string(schema.RoleMaster),
+		Replicas: 1,
+	}
+	if headerPriority := conf.GetEnvValue(schema.EnvRayJobHeaderPriority); headerPriority != "" {
+		headerMember.CommonJobInfo.SchedulingPolicy.Priority = headerPriority
+	}
+	// if set, the generateName in ray operator will be invalid and create pod failed because head and workers given the same name
+	headerMember.Name = ""
+	jobInfo.Members = append(jobInfo.Members, headerMember)
+}
+
+func fillRayJobWorkerMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+	startParams := conf.GetEnvSubset(schema.EnvRayJobWorkerStartParamsPrefix)
+	args := make([]string, 0)
+	for rawKey, value := range startParams {
+		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(rawKey, schema.EnvRayJobWorkerStartParamsPrefix)), "_", "-")
+		args = append(args, key+":"+value)
+	}
+	workerReplicasStr := conf.GetEnvValue(schema.EnvRayJobWorkerReplicas)
+	workerReplicas, err := strconv.Atoi(workerReplicasStr)
+	if err != nil {
+		return err
+	}
+	workerMember := MemberSpec{
+		CommonJobInfo: jobInfo.CommonJobInfo,
+		JobSpec: JobSpec{
+			Flavour: schema.Flavour{
+				Name: conf.GetEnvValue(schema.EnvRayJobWorkerFlavour),
+			},
+			FileSystem:       conf.GetFileSystem(),
+			ExtraFileSystems: conf.GetExtraFS(),
+			Image:            conf.GetEnvValue(schema.EnvRayJobWorkerImage),
+			Env:              conf.GetEnv(),
+			Args:             args,
+		},
+		Role:     string(schema.RoleWorker),
+		Replicas: workerReplicas,
+	}
+	if workerPriority := conf.GetEnvValue(schema.EnvRayJobWorkerPriority); workerPriority != "" {
+		workerMember.CommonJobInfo.SchedulingPolicy.Priority = workerPriority
+	}
+	workerMember.Name = ""
+	jobInfo.Members = append(jobInfo.Members, workerMember)
+	return nil
 }
