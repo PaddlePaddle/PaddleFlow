@@ -54,8 +54,9 @@ func TestGetWorkflowSource(t *testing.T) {
 	err = newWfs.UnmarshalJSON([]byte("wrongJson"))
 	assert.NotNil(t, err)
 
-	err = newWfs.UnmarshalJSON([]byte(`"wrongkey":"wrongValue"`))
+	err = newWfs.UnmarshalJSON([]byte(`{"wrongkey": "wrongValue"}`))
 	assert.NotNil(t, err)
+	assert.Equal(t, err.Error(), "json of workflow illegal")
 }
 
 func TestDagDeepCopy(t *testing.T) {
