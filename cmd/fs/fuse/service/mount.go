@@ -19,6 +19,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -230,6 +231,33 @@ func mount(c *cli.Context) error {
 	}
 	server.Wait()
 	return cleanCache()
+}
+
+func patchStats(c *cli.Context) {
+	podNamespace := os.Getenv(schema.EnvKeyNamespace)
+	podName := os.Getenv(schema.EnvKeyMountPodName)
+
+	if podName == "" || podNamespace == "" {
+		log.Fatalf("mount pod name[%s] or podNamespace[%s] can't be null\n", podName, podNamespace)
+		os.Exit(0)
+	}
+
+	k8sClient, err := utils.GetK8sClient()
+	if err != nil {
+		log.Errorf("get k8s client failed: %v", err)
+		os.Exit(0)
+	}
+
+	//podCachePath := c.String("podCachePath")
+
+	go func() {
+		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, "")
+	}()
+
+	stopSig := make(chan os.Signal, 1)
+	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-stopSig
+	log.Errorf("PatchCacheStatsLoop stopped err: %s", sig.String())
 }
 
 func cleanCache() (errRet error) {

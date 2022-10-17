@@ -17,6 +17,7 @@ limitations under the License.
 package location_awareness
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"math/rand"
 	"os"
 	"strconv"
@@ -35,18 +36,18 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 	var usageStat *disk.UsageStat
 	var sizeUsed string = "0"
 	for {
-		if podCachePath != "" {
-			usageStat, errStat = disk.Usage(podCachePath)
-			if errStat != nil {
-				log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
+		//if podCachePath != "" {
+		usageStat, errStat = disk.Usage(mount.FusePodCachePath)
+		if errStat != nil {
+			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
+			time.Sleep(1 * time.Second)
+			continue
 		}
+		sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
+		//}
 
 		// TODO memory, cpu stats
-		d, err := os.ReadFile("./.stats")
+		d, err := os.ReadFile(mount.FusePodMountPoint + "/.stats")
 		if err != nil {
 			log.Errorf("read metrics failed: %s", err)
 			metrics = ""
