@@ -141,6 +141,6 @@ func collectMetrics(registry *prometheus.Registry) []byte {
 			}
 		}
 	}
-	// log.Tracef("metrics collectMetrics: %s", w.String())
+	log.Infof("metrics collectMetrics: %s", w.String())
 	return w.Bytes()
 }

@@ -18,6 +18,7 @@ package location_awareness
 
 import (
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 
 func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCachePath string) {
 	var errStat error
+	var metrics string
 	var usageStat *disk.UsageStat
 	var sizeUsed string = "0"
 	for {
@@ -44,6 +46,13 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 		}
 
 		// TODO memory, cpu stats
+		d, err := os.ReadFile("./.stats")
+		if err != nil {
+			log.Errorf("read metrics failed: %s", err)
+			metrics = ""
+		} else {
+			metrics = string(d)
+		}
 
 		pod, err := k8sClient.GetPod(podNamespace, podName)
 		if err != nil {
@@ -52,6 +61,7 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 		}
 
 		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = sizeUsed
+		pod.ObjectMeta.Labels["metrics"] = metrics
 		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
 			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
