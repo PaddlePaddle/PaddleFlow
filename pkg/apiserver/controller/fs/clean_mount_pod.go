@@ -73,21 +73,28 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			needToDelete = true
 			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
+				switch key {
+				case schema.AnnotationKeyCacheDir:
+					continue
+				case schema.AnnotationKeyMTime:
+					{
+						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
+						if errParseTime != nil {
+							log.Errorf("parse time err: %v", err)
+							return nil, errParseTime
+						}
+						expireTime := modifyTime.Add(mountPodExpire)
+						log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
+						if expireTime.After(now) {
+							needToDelete = false
+						}
+						log.Debugf("needToDelete %v", needToDelete)
+						continue
+					}
+				}
 				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					needToDelete = false
 					break
-				} else {
-					modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
-					if errParseTime != nil {
-						log.Errorf("parse time err: %v", err)
-						return nil, errParseTime
-					}
-					expireTime := modifyTime.Add(mountPodExpire)
-					log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
-					if expireTime.After(now) {
-						needToDelete = false
-					}
-					log.Debugf("needToDelete %v", needToDelete)
 				}
 			}
 			if needToDelete {
