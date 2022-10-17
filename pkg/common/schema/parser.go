@@ -439,6 +439,13 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			if valueLower != "" && valueLower != "dag" {
 				return fmt.Errorf("set [type] as [%s] in dag", value)
 			}
+		case "name":
+			// 该字段不暴露给用户
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[name] of step should be string type")
+			}
+			dagComp.Name = value
 		default:
 			return fmt.Errorf("dag has no attribute [%s]", key)
 		}
