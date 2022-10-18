@@ -354,11 +354,7 @@ func (j *KubeJob) getJobSchedulerName(task *model.Member) string {
 	if j.Env != nil {
 		schedulerName = j.Env[schema.EnvJobSchedulerName]
 	}
-	// 2. if job not set scheduler, use scheduler from task
-	if schedulerName == "" && task != nil {
-		schedulerName = task.GetJobSchedulerName()
-	}
-	// 3. use default scheduler
+	// 2. if scheduler is not set, use default scheduler
 	if schedulerName == "" {
 		schedulerName = config.GlobalServerConfig.Job.SchedulerName
 	}

@@ -376,11 +376,6 @@ func (c *Conf) GetJobReplicas() string {
 	return c.Env[EnvJobReplicas]
 }
 
-func (c *Conf) GetJobSchedulerName() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobSchedulerName]
-}
-
 func (c *Conf) GetWorkerReplicas() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobWorkerReplicas]
