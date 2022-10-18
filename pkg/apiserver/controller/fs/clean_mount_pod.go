@@ -18,6 +18,7 @@ package fs
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,8 +57,6 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 
 func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string, mountPodExpire time.Duration) (map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
-	now_ := time.Now().Format(TimeFormat)
-	now, _ := time.Parse(TimeFormat, now_)
 	for k8sRuntime, _ := range clusterMaps {
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
@@ -68,37 +67,38 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			return nil, err
 		}
 
-		var needToDelete bool
 		for _, pod := range pods.Items {
-			needToDelete = true
 			log.Debugf("list pod %+v", pod)
-			for key, _ := range pod.Labels {
-				switch key {
-				case schema.KeyModifiedTime:
-					{
-						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
-						if errParseTime != nil {
-							log.Errorf("parse time err: %v", err)
-							return nil, errParseTime
-						}
-						expireTime := modifyTime.Add(mountPodExpire)
-						log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
-						if expireTime.After(now) {
-							needToDelete = false
-						}
-						log.Debugf("needToDelete %v", needToDelete)
-						continue
-					}
-				}
-				if strings.HasPrefix(key, schema.KeyMountPrefix) {
-					needToDelete = false
-					break
-				}
-			}
-			if needToDelete {
+			if mountPodExpired(pod.Name, pod.Labels, mountPodExpire) {
 				clusterPodMap[k8sRuntime] = append(clusterPodMap[k8sRuntime], pod)
 			}
 		}
 	}
 	return clusterPodMap, nil
+}
+
+func mountPodExpired(podName string, labels map[string]string, mountPodExpire time.Duration) bool {
+	log.Debugf("check whether expired - pod: %+v", pod)
+	for key, _ := range labels {
+		if strings.HasPrefix(key, schema.KeyMountPrefix) {
+			// is mounted by job pod
+			return false
+		}
+	}
+
+	i, errParseTime := strconv.ParseInt(labels[schema.KeyModifiedTime], 10, 64)
+	if errParseTime != nil {
+		log.Errorf("mount pod[%s] parse time from label %s err: %v", podName, labels[schema.KeyModifiedTime], errParseTime)
+		return false
+	}
+	modifyTime := time.Unix(i, 0)
+
+	expireTime := modifyTime.Add(mountPodExpire)
+	log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, time.Now())
+	if expireTime.After(time.Now()) {
+		return false
+	} else {
+		log.Debugf("needToDelete mount pod %v", podName)
+		return true
+	}
 }

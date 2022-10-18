@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -160,7 +161,7 @@ func baseMountPod() *k8sCore.Pod {
 			Annotations: map[string]string{},
 			Labels: map[string]string{
 				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
+				schema.KeyModifiedTime: strconv.FormatInt(time.Now().Unix(), 10),
 				csiconfig.PodTypeKey:   csiconfig.PodMount,
 			},
 		},
