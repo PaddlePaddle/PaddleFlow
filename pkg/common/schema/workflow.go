@@ -134,18 +134,18 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name         string                 `yaml:"-" json:"name"`
-	LoopArgument interface{}            `yaml:"loop_argument" json:"loopArgument"`
-	Condition    string                 `yaml:"condition" json:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters" json:"parameters"`
-	Command      string                 `yaml:"command" json:"command"`
-	Deps         string                 `yaml:"deps" json:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts" json:"artifacts"`
-	Env          map[string]string      `yaml:"env" json:"env"`
-	DockerEnv    string                 `yaml:"docker_env" json:"dockerEnv"`
-	Cache        Cache                  `yaml:"cache" json:"cache"`
-	Reference    Reference              `yaml:"reference" json:"reference"`
-	ExtraFS      []FsMount              `yaml:"extra_fs" json:"extraFS"`
+	Name         string                 `yaml:"-"                 json:"name"`
+	LoopArgument interface{}            `yaml:"loop_argument"     json:"loopArgument"`
+	Condition    string                 `yaml:"condition"         json:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"        json:"parameters"`
+	Command      string                 `yaml:"command"           json:"command"`
+	Deps         string                 `yaml:"deps"              json:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"         json:"artifacts"`
+	Env          map[string]string      `yaml:"env"               json:"env"`
+	DockerEnv    string                 `yaml:"docker_env"        json:"dockerEnv"`
+	Cache        Cache                  `yaml:"cache"             json:"cache"`
+	Reference    Reference              `yaml:"reference"         json:"reference"`
+	ExtraFS      []FsMount              `yaml:"extra_fs"          json:"extraFS"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -298,14 +298,14 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 }
 
 type WorkflowSourceDag struct {
-	Name         string                 `yaml:"-" json:"name"`
-	Type         string                 `yaml:"-" json:"type"`
-	LoopArgument interface{}            `yaml:"loop_argument" json:"loopArgument"`
-	Condition    string                 `yaml:"condition" json:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters" json:"parameters"`
-	Deps         string                 `yaml:"deps" json:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts" json:"artifacts"`
-	EntryPoints  map[string]Component   `yaml:"entry_points" json:"entryPoints"`
+	Name         string                 `yaml:"-"              json:"name"`
+	Type         string                 `yaml:"-"              json:"type"`
+	LoopArgument interface{}            `yaml:"loop_argument"  json:"loopArgument"`
+	Condition    string                 `yaml:"condition"      json:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"     json:"parameters"`
+	Deps         string                 `yaml:"deps"           json:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"      json:"artifacts"`
+	EntryPoints  map[string]Component   `yaml:"entry_points"   json:"entryPoints"`
 }
 
 func (d *WorkflowSourceDag) GetName() string {
