@@ -348,6 +348,19 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	return nil
 }
 
+func (j *KubeJob) getJobSchedulerName() string {
+	schedulerName := ""
+	// 1. use scheduler from job
+	if j.Env != nil {
+		schedulerName = j.Env[schema.EnvJobSchedulerName]
+	}
+	// 2. if scheduler is not set, use default scheduler
+	if schedulerName == "" {
+		schedulerName = config.GlobalServerConfig.Job.SchedulerName
+	}
+	return schedulerName
+}
+
 // fill PodSpec
 func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error {
 	if task != nil {
@@ -356,7 +369,7 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error
 	}
 	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
-	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+	podSpec.SchedulerName = j.getJobSchedulerName()
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
 	// fill affinity
