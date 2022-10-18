@@ -357,7 +357,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 		clusterPodMap[k8sRuntime] = pods.Items
 
 		for _, po := range pods.Items {
-			for key, targetPath := range po.Annotations {
+			for key, targetPath := range po.Labels {
 				if strings.HasPrefix(key, schema.KeyMountPrefix) {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)

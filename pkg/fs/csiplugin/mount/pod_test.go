@@ -38,6 +38,7 @@ var testNew = &k8sCore.Pod{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:        "pfs-test-node-fs-root-testfs",
 		Namespace:   "default",
+		Labels:      map[string]string{},
 		Annotations: map[string]string{},
 	},
 	Status: k8sCore.PodStatus{
@@ -59,10 +60,11 @@ var testExist = &k8sCore.Pod{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "pfs-test-node-fs-root-testfs",
 		Namespace: "default",
-		Annotations: map[string]string{
+		Labels: map[string]string{
 			schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
 			schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 		},
+		Annotations: map[string]string{},
 	},
 	Status: k8sCore.PodStatus{
 		Phase: k8sCore.PodRunning,
