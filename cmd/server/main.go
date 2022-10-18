@@ -147,15 +147,6 @@ func initConfig() error {
 	}
 
 	config.GlobalServerConfig = ServerConf
-
-	// make sure template job yaml file exist
-	if filesNum, err := config.FileNumsInDir(ServerConf.Job.DefaultJobYamlDir); err != nil {
-		log.Errorf("validate default job yaml dir[%s] failed. error: %s\n", ServerConf.Job.DefaultJobYamlDir, err)
-		return err
-	} else if filesNum == 0 {
-		log.Errorf("validate default job yaml dir[%s] failed. error: yaml files not found", ServerConf.Job.DefaultJobYamlDir)
-		return errors.New("yaml files not found")
-	}
 	return nil
 }
 
