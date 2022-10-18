@@ -13,6 +13,7 @@ spec:
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
   priorityClassName: normal
+  restartPolicy: Never
   schedulerName: volcano
   securityContext: {}
   serviceAccount: default
@@ -59,6 +60,7 @@ spec:
   cleanPodPolicy: OnCompletion
   worker:
     replicas: 2
+    restartPolicy: Never
     template:
       spec:
         containers:
@@ -67,6 +69,7 @@ spec:
         terminationGracePeriodSeconds: 30
   ps:
     replicas: 2
+    restartPolicy: Never
     template:
       spec:
         containers:
