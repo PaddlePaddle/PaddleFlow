@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -205,7 +206,7 @@ func buildMountPatch(pod *k8sCore.Pod, targetPath string) error {
 		return err
 	}
 	pod.ObjectMeta.Labels[schema.KeyMountPrefix+workPodUID] = "mounted"
-	pod.ObjectMeta.Labels[schema.KeyModifiedTime] = time.Now().Format(model.TimeFormat)
+	pod.ObjectMeta.Labels[schema.KeyModifiedTime] = strconv.FormatInt(time.Now().Unix(), 10)
 	return nil
 }
 

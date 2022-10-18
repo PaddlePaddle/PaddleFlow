@@ -72,10 +72,8 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 		for _, pod := range pods.Items {
 			needToDelete = true
 			log.Debugf("list pod %+v", pod)
-			for key, _ := range pod.Annotations {
+			for key, _ := range pod.Labels {
 				switch key {
-				case schema.KeyCacheDir:
-					continue
 				case schema.KeyModifiedTime:
 					{
 						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
