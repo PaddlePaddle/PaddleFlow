@@ -78,7 +78,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 }
 
 func mountPodExpired(podName string, labels map[string]string, mountPodExpire time.Duration) bool {
-	log.Debugf("check whether expired - pod: %+v", pod)
+	log.Debugf("check whether expired pod: %s", podName)
 	for key, _ := range labels {
 		if strings.HasPrefix(key, schema.KeyMountPrefix) {
 			// is mounted by job pod
