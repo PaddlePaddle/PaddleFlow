@@ -348,7 +348,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	return nil
 }
 
-func (j *KubeJob) getJobSchedulerName(task *model.Member) string {
+func (j *KubeJob) getJobSchedulerName() string {
 	schedulerName := ""
 	// 1. use scheduler from job
 	if j.Env != nil {
@@ -369,7 +369,7 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error
 	}
 	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
-	podSpec.SchedulerName = j.getJobSchedulerName(task)
+	podSpec.SchedulerName = j.getJobSchedulerName()
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
 	// fill affinity
