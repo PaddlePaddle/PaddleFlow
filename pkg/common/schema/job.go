@@ -44,6 +44,8 @@ const (
 	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
 	EnvJobWorkDir = "PF_WORK_DIR"
 	EnvMountPath  = "PF_MOUNT_PATH"
+	// EnvJobSchedulerName define the scheduler of job
+	EnvJobSchedulerName = "PF_JOB_SCHEDULER_NAME"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -372,6 +374,11 @@ func (c *Conf) GetJobMode() string {
 func (c *Conf) GetJobReplicas() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobReplicas]
+}
+
+func (c *Conf) GetJobSchedulerName() string {
+	c.preCheckEnv()
+	return c.Env[EnvJobSchedulerName]
 }
 
 func (c *Conf) GetWorkerReplicas() string {

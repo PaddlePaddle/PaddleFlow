@@ -23,7 +23,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -159,10 +158,10 @@ func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 	if pdjSpec.PS == nil || pdjSpec.Worker == nil {
 		return fmt.Errorf("paddlejob[%s] must be contain ps and worker, actually exist null", pj.Name)
 	}
-	for _, task := range pj.Tasks {
+	for i, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
 			// ps master
-			pdjSpec.PS.Template.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+			pdjSpec.PS.Template.Spec.SchedulerName = pj.getJobSchedulerName(&pj.Tasks[i])
 			if err := pj.patchPdjTask(pdjSpec.PS, task); err != nil {
 				log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
 				return err
