@@ -158,7 +158,7 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
 			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
-			assert.Equal(t, "true", newPod.Labels[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
+			assert.Equal(t, Mounted, newPod.Labels[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
 				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
