@@ -161,7 +161,7 @@ func baseMountPod() *k8sCore.Pod {
 			Labels: map[string]string{
 				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
 				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
-				csiconfig.PodTypeKey:   csiconfig.PodMount,,
+				csiconfig.PodTypeKey:   csiconfig.PodMount,
 			},
 		},
 		Status: k8sCore.PodStatus{
