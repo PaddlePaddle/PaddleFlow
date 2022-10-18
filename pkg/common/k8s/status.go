@@ -436,12 +436,11 @@ func getRayJobStatus(rayJobStatus *rayV1alpha1.RayJobStatus) (schema.JobStatus, 
 	msg := ""
 	jobStatus := rayJobStatus.JobStatus
 	switch jobStatus {
-	case rayV1alpha1.JobStatusPending:
+	// TODO JobStatusStopped should be processed in another way when the feature "unused status Stopped" is fixed by ray-operator
+	case rayV1alpha1.JobStatusPending, rayV1alpha1.JobStatusStopped:
 		status, msg = schema.StatusJobPending, "job is pending"
 	case rayV1alpha1.JobStatusRunning:
 		status, msg = schema.StatusJobRunning, "job is running"
-	case rayV1alpha1.JobStatusStopped:
-		status, msg = schema.StatusJobTerminated, "job is terminated"
 	case rayV1alpha1.JobStatusSucceeded:
 		status, msg = schema.StatusJobSucceeded, "job is succeeded"
 	case rayV1alpha1.JobStatusFailed:

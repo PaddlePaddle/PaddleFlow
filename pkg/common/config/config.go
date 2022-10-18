@@ -87,8 +87,6 @@ type JobConfig struct {
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
 	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
 	SyncClusterQueue bool `yaml:"syncClusterQueue"`
-	// DefaultJobYamlDir is directory that stores default template yaml files for job; Deprecated
-	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
 	// DefaultJobYamlPath defines file path that stores all default templates in one yaml
 	DefaultJobYamlPath string `yaml:"defaultJobYamlPath"`
 	IsSingleCluster    bool   `yaml:"isSingleCluster"`

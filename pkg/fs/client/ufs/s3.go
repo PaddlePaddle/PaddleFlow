@@ -460,13 +460,6 @@ func (fs *s3FileSystem) Mkdir(name string, mode uint32) error {
 	log.Tracef("s3 mkdir: name[%s]", name)
 	name = toS3Path(name)
 	name = toDirPath(name)
-	exist, err := fs.exists(name)
-	if err != nil {
-		return err
-	}
-	if exist {
-		return syscall.EEXIST
-	}
 	return fs.createEmptyDir(name)
 }
 
@@ -1534,8 +1527,8 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 
 func (fh *s3FileHandle) multipartCommit() error {
 	partCnt := fh.mpuInfo.lastPartNum
-	parts := make([]*s3.CompletedPart, partCnt)
-	for i := int64(0); i < partCnt; i++ {
+	parts := make([]*s3.CompletedPart, partCnt-1)
+	for i := int64(0); i < partCnt-1; i++ {
 		if fh.mpuInfo.partsETag[i] == nil {
 			err := fmt.Errorf("s3 mpu partNum: %d missing ETag", i+1)
 			log.Errorf("s3 mpu commit: failed: fh.name[%s], mpuID[%s]. err:%v", fh.name, *fh.mpuInfo.uploadID, err)
