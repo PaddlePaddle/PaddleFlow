@@ -216,8 +216,8 @@ func Test_addRef(t *testing.T) {
 			}
 			newPod, _ := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
 			if newPod == nil ||
-				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] ||
-				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] {
+				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != "true" ||
+				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != "true" {
 				t.Errorf("waitUntilMount() got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
 			}
 			if len(newPod.Annotations) != len(tt.wantAnno) {
