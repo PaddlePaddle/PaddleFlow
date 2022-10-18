@@ -19,6 +19,7 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -33,6 +34,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
+
+const Mounted = "mounted"
 
 var testNew = &k8sCore.Pod{
 	ObjectMeta: metav1.ObjectMeta{
@@ -61,8 +64,8 @@ var testExist = &k8sCore.Pod{
 		Name:      "pfs-test-node-fs-root-testfs",
 		Namespace: "default",
 		Labels: map[string]string{
-			schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-			schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
+			schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): Mounted,
+			schema.KeyModifiedTime: strconv.FormatInt(time.Now().Unix(), 10),
 		},
 		Annotations: map[string]string{},
 	},
@@ -155,7 +158,7 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
 			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
-			assert.Equal(t, testTargetPath, newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
+			assert.Equal(t, "true", newPod.Labels[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
 				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
@@ -173,10 +176,10 @@ func Test_addRef(t *testing.T) {
 		targetPath string
 	}
 	tests := []struct {
-		name     string
-		args     args
-		wantErr  bool
-		wantAnno map[string]string
+		name       string
+		args       args
+		wantErr    bool
+		wantLabels map[string]string
 	}{
 		{
 			name: "new pod add annotation",
@@ -186,9 +189,9 @@ func Test_addRef(t *testing.T) {
 				targetPath: testTargetPath,
 			},
 			wantErr: false,
-			wantAnno: map[string]string{
-				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
+			wantLabels: map[string]string{
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): Mounted,
+				schema.KeyModifiedTime: strconv.FormatInt(time.Now().Unix(), 10),
 			},
 		},
 		{
@@ -199,10 +202,10 @@ func Test_addRef(t *testing.T) {
 				targetPath: testTargetPath2,
 			},
 			wantErr: false,
-			wantAnno: map[string]string{
-				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
-				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
-				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
+			wantLabels: map[string]string{
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  Mounted,
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): Mounted,
+				schema.KeyModifiedTime: strconv.FormatInt(time.Now().Unix(), 10),
 			},
 		},
 	}
@@ -214,16 +217,18 @@ func Test_addRef(t *testing.T) {
 			if err := addRef(tt.args.c, tt.args.pod, tt.args.targetPath); (err != nil) != tt.wantErr {
 				t.Errorf("addRef() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			newPod, _ := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
-			if newPod == nil ||
-				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != "true" ||
-				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != "true" {
-				t.Errorf("waitUntilMount() got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
+			newPod, getPodErr := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
+			if newPod == nil || getPodErr != nil {
+				t.Errorf("waitUntilMount() GetPod %v, err = %v", newPod.Name, getPodErr)
 			}
-			if len(newPod.Annotations) != len(tt.wantAnno) {
-				t.Errorf("pod annotions nums not correct () got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
+			if len(newPod.Labels) != len(tt.wantLabels) {
+				t.Errorf("pod Labels nums not correct () got labels = %v, wantLabels = %v", newPod.Labels, tt.wantLabels)
 			}
-
+			for k, v := range newPod.Labels {
+				if tt.wantLabels[k] != v {
+					t.Errorf("waitUntilMount() want labels{%s, %v}, got = %v", k, v, tt.wantLabels[k])
+				}
+			}
 		})
 	}
 }
