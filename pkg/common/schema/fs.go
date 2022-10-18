@@ -42,13 +42,17 @@ const (
 
 	FuseKeyFsInfo = "fs-info"
 
-	LabelKeyFsID             = "fsID"
-	LabelKeyCacheID          = "cacheID"
-	LabelKeyNodeName         = "nodename"
-	LabelKeyUsedSize         = "usedSize"
-	AnnotationKeyCacheDir    = "cacheDir"
-	AnnotationKeyMTime       = "modifiedTime"
-	AnnotationKeyMountPrefix = "mount-"
+	// mount pod label key
+	KeyFsID         = "fsID"
+	KeyCacheID      = "cacheID"
+	KeyNodeName     = "nodename"
+	KeyModifiedTime = "modifiedTime"
+	KeyMountPrefix  = "mount-"
+
+	// mount pod annotation key
+	KeyUsedSize = "usedSize"
+	KeyCacheDir = "cacheDir"
+	KeyMetrics  = "metrics"
 
 	EnvKeyMountPodName = "POD_NAME"
 	EnvKeyNamespace    = "NAMESPACE"

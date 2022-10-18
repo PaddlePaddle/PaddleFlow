@@ -74,9 +74,9 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
 				switch key {
-				case schema.AnnotationKeyCacheDir:
+				case schema.KeyCacheDir:
 					continue
-				case schema.AnnotationKeyMTime:
+				case schema.KeyModifiedTime:
 					{
 						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
 						if errParseTime != nil {
@@ -92,7 +92,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 						continue
 					}
 				}
-				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
+				if strings.HasPrefix(key, schema.KeyMountPrefix) {
 					needToDelete = false
 					break
 				}

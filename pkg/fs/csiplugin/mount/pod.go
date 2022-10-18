@@ -122,13 +122,13 @@ func createOrUpdatePod(volumeID string, mountInfo Info) error {
 }
 
 func addRef(c utils.Client, pod *k8sCore.Pod, targetPath string) error {
-	err := buildAnnotation(pod, targetPath)
+	err := buildMountPatch(pod, targetPath)
 	if err != nil {
-		log.Errorf("mount_pod[%s] addRef: buildAnnotation err: %v", pod.Name, err)
+		log.Errorf("mount_pod[%s] addRef: buildMountPatch err: %v", pod.Name, err)
 		return err
 	}
-	if err = c.PatchPodAnnotation(pod); err != nil {
-		retErr := fmt.Errorf("mount_pod addRef: patch pod[%s] annotation:%+v err:%v", pod.Name, pod.Annotations, err)
+	if err = c.PatchPodLabel(pod); err != nil {
+		retErr := fmt.Errorf("mount_pod addRef: patch pod[%s] PatchPodLabel:%+v err:%v", pod.Name, pod.Labels, err)
 		log.Errorf(retErr.Error())
 		return retErr
 	}
@@ -141,13 +141,13 @@ func removeRef(c utils.Client, pod *k8sCore.Pod, workPodUID string) error {
 		log.Warnf("mount_pod removeRef: pod[%s] has no annotation", pod.Name)
 		return nil
 	}
-	mountKey := schema.AnnotationKeyMountPrefix + workPodUID
+	mountKey := schema.KeyMountPrefix + workPodUID
 	if _, ok := annotation[mountKey]; !ok {
 		log.Infof("mount_pod removeRef: workPodUID [%s] in pod [%s] already not exists.", workPodUID, pod.Name)
 		return nil
 	}
 	delete(annotation, mountKey)
-	annotation[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
+	annotation[schema.KeyModifiedTime] = time.Now().Format(model.TimeFormat)
 	pod.ObjectMeta.Annotations = annotation
 	if err := c.PatchPodAnnotation(pod); err != nil {
 		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
@@ -176,35 +176,36 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByVolumeID(volumeID)
 	// annotate mount point & modified time
-	err := buildAnnotation(pod, mountInfo.TargetPath)
+	err := buildMountPatch(pod, mountInfo.TargetPath)
 	if err != nil {
-		return nil, err
+		errRet := fmt.Errorf("buildMountPod[%s] buildMountPatch failed: %v", pod.Name, err)
+		log.Errorf(errRet.Error())
+		return nil, errRet
 	}
 	// build volumes & containers
 	pod.Spec.Volumes = generatePodVolumes(mountInfo.CacheConfig.CacheDir)
-	pod.Spec.Containers[0] = buildMountContainer(baseContainer(pod.Name, mountInfo.PodResource), mountInfo)
-	pod.Spec.Containers[1] = buildCacheWorkerContainer(baseContainer(pod.Name, mountInfo.PodResource), mountInfo)
+	pod.Spec.Containers = buildContainers(pod.Name, mountInfo)
 
 	// label for pod listing
-	pod.Labels[schema.LabelKeyFsID] = mountInfo.FS.ID
-	pod.Labels[schema.LabelKeyNodeName] = csiconfig.NodeName
+	pod.Labels[schema.KeyFsID] = mountInfo.FS.ID
+	pod.Labels[schema.KeyNodeName] = csiconfig.NodeName
 	// labels for cache stats
-	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
+	pod.Labels[schema.KeyCacheID] = model.CacheID(csiconfig.ClusterID,
 		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.FS.ID)
 	// cache dir has "/" and is not allowed in label
-	pod.Annotations[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
+	pod.Annotations[schema.KeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
 }
 
-func buildAnnotation(pod *k8sCore.Pod, targetPath string) error {
+func buildMountPatch(pod *k8sCore.Pod, targetPath string) error {
 	workPodUID := utils.GetPodUIDFromTargetPath(targetPath)
 	if workPodUID == "" {
-		err := fmt.Errorf("mount_pod[%s] buildAnnotation: failed obtain workPodUID from target path: %s", pod.Name, targetPath)
+		err := fmt.Errorf("mount_pod[%s] buildMountPatch: failed obtain workPodUID from target path: %s", pod.Name, targetPath)
 		log.Errorf(err.Error())
 		return err
 	}
-	pod.ObjectMeta.Annotations[schema.AnnotationKeyMountPrefix+workPodUID] = targetPath
-	pod.ObjectMeta.Annotations[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
+	pod.ObjectMeta.Labels[schema.KeyMountPrefix+workPodUID] = "mounted"
+	pod.ObjectMeta.Labels[schema.KeyModifiedTime] = time.Now().Format(model.TimeFormat)
 	return nil
 }
 
@@ -262,76 +263,6 @@ func getErrContainerLog(K8sClient utils.Client, podName string) (log string, err
 	return
 }
 
-func baseContainer(podName string, podResource k8sCore.ResourceRequirements) k8sCore.Container {
-	isPrivileged := true
-	return k8sCore.Container{
-		//Name:  containerName, to be set at invoker side
-		Image: csiconfig.MountImage,
-		SecurityContext: &k8sCore.SecurityContext{
-			Privileged: &isPrivileged,
-		},
-		Env: []k8sCore.EnvVar{
-			{
-				Name:  schema.EnvKeyMountPodName,
-				Value: podName,
-			},
-			{
-				Name:  schema.EnvKeyNamespace,
-				Value: csiconfig.Namespace,
-			},
-		},
-		Resources: podResource,
-	}
-}
-
-func buildMountContainer(mountContainer k8sCore.Container, mountInfo Info) k8sCore.Container {
-	mountContainer.Name = ContainerNamePfsMount
-	mkdir := "mkdir -p " + FusePodMountPoint + ";"
-
-	cmd := mkdir + mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
-	mountContainer.Command = []string{"sh", "-c", cmd}
-	statCmd := "stat -c %i " + FusePodMountPoint
-	mountContainer.ReadinessProbe = &k8sCore.Probe{
-		Handler: k8sCore.Handler{
-			Exec: &k8sCore.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
-				"if [ x$(%v) = x1 ]; then exit 0; else exit 1; fi ", statCmd)},
-			}},
-		InitialDelaySeconds: 1,
-		PeriodSeconds:       1,
-	}
-	mountContainer.Lifecycle = &k8sCore.Lifecycle{
-		PreStop: &k8sCore.Handler{
-			Exec: &k8sCore.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
-				"umount %s && rmdir %s", FusePodMountPoint, FusePodMountPoint)}},
-		},
-	}
-
-	mp := k8sCore.MountPropagationBidirectional
-	volumeMounts := []k8sCore.VolumeMount{
-		{
-			Name:             VolumesKeyMount,
-			MountPath:        schema.FusePodMntDir,
-			SubPath:          mountInfo.FS.ID,
-			MountPropagation: &mp,
-		},
-	}
-	if mountInfo.CacheConfig.CacheDir != "" {
-		dataCacheVM := k8sCore.VolumeMount{
-			Name:             VolumesKeyDataCache,
-			MountPath:        FusePodCachePath + DataCacheDir,
-			MountPropagation: &mp,
-		}
-		metaCacheVM := k8sCore.VolumeMount{
-			Name:             VolumesKeyMetaCache,
-			MountPath:        FusePodCachePath + MetaCacheDir,
-			MountPropagation: &mp,
-		}
-		volumeMounts = append(volumeMounts, dataCacheVM, metaCacheVM)
-	}
-	mountContainer.VolumeMounts = volumeMounts
-	return mountContainer
-}
-
 func generatePodVolumes(cacheDir string) []k8sCore.Volume {
 	typeDir := k8sCore.HostPathDirectoryOrCreate
 	volumes := []k8sCore.Volume{
@@ -371,24 +302,88 @@ func generatePodVolumes(cacheDir string) []k8sCore.Volume {
 	return volumes
 }
 
-func buildCacheWorkerContainer(cacheContainer k8sCore.Container, mountInfo Info) k8sCore.Container {
-	cacheContainer.Name = ContainerNameCacheWorker
-	cacheContainer.Command = []string{"sh", "-c", mountInfo.CacheWorkerCmd()}
-	if mountInfo.CacheConfig.CacheDir != "" {
-		mp := k8sCore.MountPropagationBidirectional
-		volumeMounts := []k8sCore.VolumeMount{
-			{
-				Name:             VolumesKeyDataCache,
-				MountPath:        FusePodCachePath + DataCacheDir,
-				MountPropagation: &mp,
-			},
-			{
-				Name:             VolumesKeyMetaCache,
-				MountPath:        FusePodCachePath + MetaCacheDir,
-				MountPropagation: &mp,
-			},
-		}
-		cacheContainer.VolumeMounts = volumeMounts
+func buildContainers(podName string, mountInfo Info) []k8sCore.Container {
+	containers := make([]k8sCore.Container, 2)
+	containers[0] = buildMountContainer(podName, mountInfo)
+	containers[1] = buildCacheWorkerContainer(podName, mountInfo)
+	return containers
+}
+
+func buildMountContainer(podName string, mountInfo Info) k8sCore.Container {
+	mountContainer := baseContainer(podName, ContainerNamePfsMount, mountInfo)
+	mkdir := "mkdir -p " + FusePodMountPoint + ";"
+
+	cmd := mkdir + mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
+	mountContainer.Command = []string{"sh", "-c", cmd}
+	statCmd := "stat -c %i " + FusePodMountPoint
+	mountContainer.ReadinessProbe = &k8sCore.Probe{
+		Handler: k8sCore.Handler{
+			Exec: &k8sCore.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
+				"if [ x$(%v) = x1 ]; then exit 0; else exit 1; fi ", statCmd)},
+			}},
+		InitialDelaySeconds: 1,
+		PeriodSeconds:       1,
 	}
+	mountContainer.Lifecycle = &k8sCore.Lifecycle{
+		PreStop: &k8sCore.Handler{
+			Exec: &k8sCore.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
+				"umount %s && rmdir %s", FusePodMountPoint, FusePodMountPoint)}},
+		},
+	}
+	return mountContainer
+}
+
+func buildCacheWorkerContainer(podName string, mountInfo Info) k8sCore.Container {
+	cacheContainer := baseContainer(podName, ContainerNameCacheWorker, mountInfo)
+	cacheContainer.Command = []string{"sh", "-c", mountInfo.CacheWorkerCmd()}
 	return cacheContainer
+}
+
+func baseContainer(podName, containerName string, mountInfo Info) k8sCore.Container {
+	isPrivileged := true
+	return k8sCore.Container{
+		Name:  containerName,
+		Image: csiconfig.MountImage,
+		SecurityContext: &k8sCore.SecurityContext{
+			Privileged: &isPrivileged,
+		},
+		Env: []k8sCore.EnvVar{
+			{
+				Name:  schema.EnvKeyMountPodName,
+				Value: podName,
+			},
+			{
+				Name:  schema.EnvKeyNamespace,
+				Value: csiconfig.Namespace,
+			},
+		},
+		VolumeMounts: volumesMounts(mountInfo.FS.ID, mountInfo.CacheConfig.CacheDir),
+		Resources:    mountInfo.PodResource,
+	}
+}
+
+func volumesMounts(fsID, cacheDir string) []k8sCore.VolumeMount {
+	mp := k8sCore.MountPropagationBidirectional
+	volumeMounts := []k8sCore.VolumeMount{
+		{
+			Name:             VolumesKeyMount,
+			MountPath:        schema.FusePodMntDir,
+			SubPath:          fsID,
+			MountPropagation: &mp,
+		},
+	}
+	if cacheDir != "" {
+		dataCacheVM := k8sCore.VolumeMount{
+			Name:             VolumesKeyDataCache,
+			MountPath:        FusePodCachePath + DataCacheDir,
+			MountPropagation: &mp,
+		}
+		metaCacheVM := k8sCore.VolumeMount{
+			Name:             VolumesKeyMetaCache,
+			MountPath:        FusePodCachePath + MetaCacheDir,
+			MountPropagation: &mp,
+		}
+		volumeMounts = append(volumeMounts, dataCacheVM, metaCacheVM)
+	}
+	return volumeMounts
 }

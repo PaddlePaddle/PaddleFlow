@@ -102,10 +102,14 @@ func act(c *cli.Context) error {
 		os.Exit(0)
 	}
 
-	podCachePath := c.String("podCachePath")
+	pod, err := k8sClient.GetPod(podNamespace, podName)
+	if err != nil {
+		log.Errorf("Can't get mount pod %s: %v", podName, err)
+		os.Exit(0)
+	}
 
 	go func() {
-		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, podCachePath)
+		location_awareness.PatchCacheStatsLoop(k8sClient, pod, c.Bool("hasCachePath"))
 	}()
 
 	stopSig := make(chan os.Signal, 1)

@@ -17,7 +17,10 @@ limitations under the License.
 package location_awareness
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
+	k8sCore "k8s.io/api/core/v1"
 	"math/rand"
+	"os"
 	"strconv"
 	"time"
 
@@ -28,15 +31,16 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
-func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCachePath string) {
+func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod, hasCachePath bool) {
 	var errStat error
 	var usageStat *disk.UsageStat
 	var sizeUsed string = "0"
+	var metrics string = ""
 	for {
-		if podCachePath != "" {
-			usageStat, errStat = disk.Usage(podCachePath)
+		if hasCachePath {
+			usageStat, errStat = disk.Usage(mount.FusePodCachePath)
 			if errStat != nil {
-				log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
+				log.Errorf("disk stat path[%s] and err[%v]", mount.FusePodCachePath, errStat)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -44,17 +48,18 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 		}
 
 		// TODO memory, cpu stats
-
-		pod, err := k8sClient.GetPod(podNamespace, podName)
+		data, err := os.ReadFile(mount.FusePodMountPoint + "/.stats")
 		if err != nil {
-			log.Errorf("Can't get mount pod %s: %v", podName, err)
-			continue
+			log.Errorf("read metrics failed: %s", err)
+			metrics = ""
+		} else {
+			metrics = string(data)
 		}
-
-		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = sizeUsed
-		err = k8sClient.PatchPodLabel(pod)
+		pod.ObjectMeta.Annotations[schema.KeyMetrics] = metrics
+		pod.ObjectMeta.Annotations[schema.KeyUsedSize] = sizeUsed
+		err = k8sClient.PatchPodAnnotation(pod)
 		if err != nil {
-			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
+			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Annotations, err)
 		}
 
 		select {

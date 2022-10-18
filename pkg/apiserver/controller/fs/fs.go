@@ -345,7 +345,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
 		// label indicating a mount pod
-		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
+		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.KeyFsID + "=" + fsID
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: label,
 		}
@@ -358,7 +358,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
-				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
+				if strings.HasPrefix(key, schema.KeyMountPrefix) {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
 					return true, nil, nil
@@ -387,7 +387,7 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	var err error
 	for _, pods := range podMap {
 		for _, pod := range pods {
-			cacheID := pod.Labels[schema.LabelKeyCacheID]
+			cacheID := pod.Labels[schema.KeyCacheID]
 			log.Debugf("cacheID is %v", cacheID)
 			if cacheID == "" {
 				log.Debugf("cacheId is empty with pod: %+v", pod)

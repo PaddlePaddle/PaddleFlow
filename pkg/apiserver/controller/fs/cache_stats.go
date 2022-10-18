@@ -71,7 +71,7 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 	// label indicating a mount pod
 	label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount
 	// label indicating using cache
-	label += "," + schema.LabelKeyCacheID
+	label += "," + schema.KeyCacheID
 	listOptions := k8sMeta.ListOptions{
 		LabelSelector: label,
 		FieldSelector: "status.phase=Running",
@@ -95,7 +95,7 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 	fsCache := &model.FSCache{ClusterID: clusterID}
 	for k, v := range pod.Labels {
 		switch k {
-		case schema.LabelKeyUsedSize:
+		case schema.KeyUsedSize:
 			usedSize, err := strconv.Atoi(v)
 			if err != nil {
 				errRet := fmt.Errorf("mount pod[%s] used size %s failed to convert to int err: %v", pod.Name, v, err)
@@ -103,17 +103,17 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 				return errRet
 			}
 			fsCache.UsedSize = usedSize
-		case schema.LabelKeyFsID:
+		case schema.KeyFsID:
 			fsCache.FsID = v
-		case schema.LabelKeyNodeName:
+		case schema.KeyNodeName:
 			fsCache.NodeName = v
-		case schema.LabelKeyCacheID:
+		case schema.KeyCacheID:
 			fsCache.CacheID = v
 		}
 	}
 
 	for k, v := range pod.Annotations {
-		if k == schema.AnnotationKeyCacheDir {
+		if k == schema.KeyCacheDir {
 			fsCache.CacheDir = v
 			break
 		}

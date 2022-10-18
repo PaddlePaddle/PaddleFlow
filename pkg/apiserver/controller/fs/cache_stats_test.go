@@ -144,11 +144,11 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 
 func mountPodWithCacheStats() *k8sCore.Pod {
 	pod := baseMountPod()
-	pod.Annotations[schema.AnnotationKeyCacheDir] = mockCacheDir
-	pod.Labels[schema.LabelKeyNodeName] = mockNodename
-	pod.Labels[schema.LabelKeyUsedSize] = "100"
-	pod.Labels[schema.LabelKeyFsID] = mockFSID
-	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
+	pod.Annotations[schema.KeyCacheDir] = mockCacheDir
+	pod.Labels[schema.KeyNodeName] = mockNodename
+	pod.Labels[schema.KeyUsedSize] = "100"
+	pod.Labels[schema.KeyFsID] = mockFSID
+	pod.Labels[schema.KeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
 	return pod
 }
 
@@ -159,8 +159,8 @@ func baseMountPod() *k8sCore.Pod {
 			Namespace: schema.MountPodNamespace,
 			Labels:    map[string]string{csiconfig.PodTypeKey: csiconfig.PodMount},
 			Annotations: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
+				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 			},
 		},
 		Status: k8sCore.PodStatus{

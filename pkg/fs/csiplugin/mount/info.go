@@ -187,9 +187,9 @@ func (mountInfo *Info) commonOptions() []string {
 }
 
 func (mountInfo *Info) CacheWorkerCmd() string {
-	cmd := CacheWorkerBin + " --podCachePath="
+	cmd := CacheWorkerBin
 	if mountInfo.CacheConfig.CacheDir != "" {
-		cmd += FusePodCachePath
+		cmd += " --podCachePath=true"
 	}
 	return cmd
 }
