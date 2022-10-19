@@ -137,6 +137,7 @@ func FileNumsInDir(path string) (int, error) {
 	return len(files), nil
 }
 
+// GetServiceAddress get address of paddleflow's api-server
 func GetServiceAddress() string {
-	return fmt.Sprintf("%s:%d", GlobalServerConfig.ApiServer.Host, GlobalServerConfig.ApiServer.Port)
+	return fmt.Sprintf("%s:%d", GlobalServerConfig.ApiServer.Host, GlobalServerConfig.Fs.ServicePort)
 }

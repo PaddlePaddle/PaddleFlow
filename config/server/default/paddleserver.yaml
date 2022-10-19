@@ -30,6 +30,7 @@ apiServer:
 fs:
   defaultPVPath: "./config/fs/default_pv.yaml"
   defaultPVCPath: "./config/fs/default_pvc.yaml"
+  servicePort: 8999
 
 job:
   reclaim:
