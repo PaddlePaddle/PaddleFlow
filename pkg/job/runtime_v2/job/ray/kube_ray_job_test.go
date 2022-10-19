@@ -18,6 +18,7 @@ package ray
 
 import (
 	"context"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"net/http/httptest"
 	"testing"
 
@@ -31,11 +32,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-func TestRayJob_CreateJob(t *testing.T) {
+func TestRayJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
-	config.InitJobTemplate(defaultJobYamlPath)
+	err := config.InitJobTemplate(defaultJobYamlPath)
+	assert.Equal(t, nil, err)
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -63,7 +65,10 @@ func TestRayJob_CreateJob(t *testing.T) {
 						"PF_JOB_MODE": "PS",
 					},
 				},
-
+				Labels: map[string]string{
+					"job1-id": "xxx",
+					"owner":   "paddleflow",
+				},
 				Tasks: []schema.Member{
 					{
 						Replicas: 1,
@@ -109,7 +114,7 @@ func TestRayJob_CreateJob(t *testing.T) {
 	rayJob := New(kubeRuntimeClient)
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
-			err := rayJob.Submit(context.TODO(), test.jobObj)
+			err = rayJob.Submit(context.TODO(), test.jobObj)
 			assert.Equal(t, test.expectErr, err)
 			if err != nil {
 				t.Logf("create job failed, err: %v", err)
@@ -121,6 +126,14 @@ func TestRayJob_CreateJob(t *testing.T) {
 					t.Logf("obj=%#v", jobObj)
 				}
 			}
+
+			t.Logf("stop ray job")
+			err = rayJob.Stop(context.TODO(), test.jobObj)
+			assert.Equal(t, nil, err)
+
+			t.Logf("delete ray job")
+			err = rayJob.Delete(context.TODO(), test.jobObj)
+			assert.Equal(t, true, k8serrors.IsNotFound(err))
 		})
 	}
 }
