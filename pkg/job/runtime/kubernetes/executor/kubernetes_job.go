@@ -18,7 +18,6 @@ package executor
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -33,7 +32,6 @@ import (
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -728,46 +726,6 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 		},
 	}, volumeMounts...)
 	return nil
-}
-
-// getDefaultPath get extra runtime conf default path; Deprecated
-func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
-	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
-	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
-	suffix := ".yaml"
-	if len(jobMode) != 0 && framework != schema.FrameworkSpark {
-		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(jobMode))
-	}
-
-	switch jobType {
-	case schema.TypeSingle:
-		return fmt.Sprintf("%s/%s%s", baseDir, jobType, suffix)
-	case schema.TypeDistributed:
-		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml, basedir/tensorflow.yaml basedir/pytorch.yaml
-		return fmt.Sprintf("%s/%s%s", baseDir, framework, suffix)
-	default:
-		// todo(zhongzichao) remove vcjob type
-		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
-	}
-}
-
-// getDefaultTemplate get default template from file; Deprecated
-func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error) {
-	// get template from default path
-	filePath := getDefaultPath(j.JobType, framework, j.JobMode)
-	// check file exist
-	if exist, err := config.PathExists(filePath); !exist || err != nil {
-		log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
-		return nil, errors.JobFileNotFound(filePath)
-	}
-
-	// read file as []byte
-	extConf, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
-		return nil, err
-	}
-	return extConf, nil
 }
 
 func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
