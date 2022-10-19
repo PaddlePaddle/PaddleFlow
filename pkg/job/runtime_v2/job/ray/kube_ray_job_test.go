@@ -153,13 +153,11 @@ func TestRayJobListener(t *testing.T) {
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName  string
-		informer  cache.SharedIndexInformer
 		job       *rayV1alpha1.RayJob
 		expectErr error
 	}{
 		{
 			caseName: "register ray job listener",
-			informer: kubeRuntimeClient.DynamicFactory.ForResource(gvrMap.Resource).Informer(),
 			job: &rayV1alpha1.RayJob{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "ray-job-1",
@@ -172,9 +170,16 @@ func TestRayJobListener(t *testing.T) {
 
 	rayJob := New(kubeRuntimeClient)
 	workQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	informer := kubeRuntimeClient.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go kubeRuntimeClient.DynamicFactory.Start(stopCh)
+	ok := cache.WaitForCacheSync(stopCh, informer.HasSynced)
+	assert.Equal(t, true, ok)
+
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
-			err := rayJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, test.informer)
+			err := rayJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, informer)
 			assert.Equal(t, test.expectErr, err)
 
 			err = kubeRuntimeClient.Create(test.job, KubeRayFwVersion)
