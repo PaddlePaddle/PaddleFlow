@@ -187,6 +187,12 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 			Usage:       "the interval time for mount pod update cache, and clean pod check interval is 3 times this interval",
 			Destination: &fsConf.MountPodIntervalTime,
 		},
+		&cli.IntFlag{
+			Name:        "service-port",
+			Value:       fsConf.ServicePort,
+			Usage:       "api server service port in k8s",
+			Destination: &fsConf.ServicePort,
+		},
 	}
 }
 
