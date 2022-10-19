@@ -18,11 +18,15 @@ package ray
 
 import (
 	"context"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"net/http/httptest"
 	"testing"
 
+	rayV1alpha1 "github.com/PaddlePaddle/PaddleFlow/pkg/apis/ray-operator/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -134,6 +138,50 @@ func TestRayJob(t *testing.T) {
 			t.Logf("delete ray job")
 			err = rayJob.Delete(context.TODO(), test.jobObj)
 			assert.Equal(t, true, k8serrors.IsNotFound(err))
+		})
+	}
+}
+
+func TestRayJobListener(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(JobGVK)
+	assert.Equal(t, nil, gvrErr)
+	// mock db
+	driver.InitMockDB()
+	// create kubernetes resource with dynamic client
+	tests := []struct {
+		caseName  string
+		informer  cache.SharedIndexInformer
+		job       *rayV1alpha1.RayJob
+		expectErr error
+	}{
+		{
+			caseName: "register ray job listener",
+			informer: kubeRuntimeClient.DynamicFactory.ForResource(gvrMap.Resource).Informer(),
+			job: &rayV1alpha1.RayJob{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "ray-job-1",
+					Namespace: "default",
+				},
+			},
+			expectErr: nil,
+		},
+	}
+
+	rayJob := New(kubeRuntimeClient)
+	workQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			err := rayJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, test.informer)
+			assert.Equal(t, test.expectErr, err)
+
+			err = kubeRuntimeClient.Create(test.job, KubeRayFwVersion)
+			assert.Equal(t, nil, err)
+
+			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, KubeRayFwVersion)
+			assert.Equal(t, nil, err)
 		})
 	}
 }
