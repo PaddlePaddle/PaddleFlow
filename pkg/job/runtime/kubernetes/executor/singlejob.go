@@ -80,6 +80,8 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
+	// set single job mark
+	pod.Labels[schema.JobLabelFramework] = string(schema.FrameworkStandalone)
 	if err := sp.fillPodSpec(&pod.Spec, nil); err != nil {
 		log.Errorf("single job fillPodSpec failed, err: %v", err)
 		return err

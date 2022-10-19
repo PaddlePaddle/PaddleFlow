@@ -128,10 +128,11 @@ const (
 	PriorityClassHigh     = "high"
 	PriorityClassVeryHigh = "very-high"
 
-	JobOwnerLabel = "owner"
-	JobOwnerValue = "paddleflow"
-	JobIDLabel    = "paddleflow-job-id"
-	JobTTLSeconds = "padleflow/job-ttl-seconds"
+	JobOwnerLabel     = "owner"
+	JobOwnerValue     = "paddleflow"
+	JobIDLabel        = "paddleflow-job-id"
+	JobTTLSeconds     = "padleflow/job-ttl-seconds"
+	JobLabelFramework = "paddleflow-job-framework"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
 	QueueLabelKey        = "volcano.sh/queue-name"

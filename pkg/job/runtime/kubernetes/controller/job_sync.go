@@ -359,12 +359,18 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 
 func responsibleForJob(obj interface{}) bool {
 	job := obj.(*unstructured.Unstructured)
+	jobName := job.GetName()
 	labels := job.GetLabels()
+	gvk := job.GroupVersionKind()
 	if labels != nil && labels[commonschema.JobOwnerLabel] == commonschema.JobOwnerValue {
-		log.Debugf("responsible for handle job. jobName:[%s]", job.GetName())
+		if gvk == k8s.PodGVK && labels[commonschema.JobLabelFramework] != string(commonschema.FrameworkStandalone) {
+			log.Debugf("job %s is not single job", jobName)
+			return false
+		}
+		log.Debugf("responsible for handle job. jobName:[%s]", jobName)
 		return true
 	}
-	log.Debugf("responsible for skip job. jobName:[%s]", job.GetName())
+	log.Debugf("responsible for skip job. jobName:[%s]", jobName)
 	return false
 }
 
