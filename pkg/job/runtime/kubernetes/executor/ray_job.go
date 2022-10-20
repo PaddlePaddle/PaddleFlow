@@ -251,9 +251,9 @@ func (j *RayJob) customRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec) error {
 		return err
 	}
 	// patch metadata
-	j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template.ObjectMeta, model.Member{})
+	j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template.ObjectMeta, schema.Member{})
 	for i := range rayJobSpec.RayClusterSpec.WorkerGroupSpecs {
-		j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template.ObjectMeta, model.Member{})
+		j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template.ObjectMeta, schema.Member{})
 	}
 	// TODO: patch ray job from user
 	// check RunPolicy

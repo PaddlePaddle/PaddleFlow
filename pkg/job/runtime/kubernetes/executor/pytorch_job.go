@@ -25,7 +25,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type PyTorchJob struct {
@@ -122,11 +121,11 @@ func (pj *PyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpe
 	// patch metadata
 	ps, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
 	if find && ps != nil {
-		pj.patchTaskMetadata(&ps.Template.ObjectMeta, model.Member{})
+		pj.patchTaskMetadata(&ps.Template.ObjectMeta, schema.Member{})
 	}
 	worker, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeWorker]
 	if find && worker != nil {
-		pj.patchTaskMetadata(&worker.Template.ObjectMeta, model.Member{})
+		pj.patchTaskMetadata(&worker.Template.ObjectMeta, schema.Member{})
 	}
 	// check RunPolicy
 	return nil

@@ -25,7 +25,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type TFJob struct {
@@ -127,11 +126,11 @@ func (j *TFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
 	// patch metadata
 	ps, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypePS]
 	if find && ps != nil {
-		j.patchTaskMetadata(&ps.Template.ObjectMeta, model.Member{})
+		j.patchTaskMetadata(&ps.Template.ObjectMeta, schema.Member{})
 	}
 	worker, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypeWorker]
 	if find && worker != nil {
-		j.patchTaskMetadata(&worker.Template.ObjectMeta, model.Member{})
+		j.patchTaskMetadata(&worker.Template.ObjectMeta, schema.Member{})
 	}
 	// check RunPolicy
 	return nil
