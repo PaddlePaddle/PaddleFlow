@@ -639,6 +639,9 @@ func GetPodGroupName(jobID string) string {
 		if anno != nil {
 			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
 		}
+		if pgName == "" {
+			pgName = fmt.Sprintf("podgroup-%s", jobObj.GetUID())
+		}
 	default:
 		log.Warningf("the framework[%s] of job is not supported", job.Framework)
 		pgName = jobID
