@@ -545,6 +545,7 @@ func (j *KubeJob) patchTaskMetadata(metadata *metav1.ObjectMeta, member model.Me
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, member.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, member.Labels)
 	metadata.Labels[schema.JobIDLabel] = j.ID
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 }
 
 func (j *KubeJob) fillPodTemplateSpec(pod *corev1.PodTemplateSpec, member model.Member) error {
@@ -638,6 +639,9 @@ func GetPodGroupName(jobID string) string {
 		anno := jobObj.GetAnnotations()
 		if anno != nil {
 			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
+		}
+		if pgName == "" {
+			pgName = fmt.Sprintf("podgroup-%s", jobObj.GetUID())
 		}
 	default:
 		log.Warningf("the framework[%s] of job is not supported", job.Framework)
