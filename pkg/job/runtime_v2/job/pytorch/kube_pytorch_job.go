@@ -118,7 +118,7 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, &task); err != nil {
+		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
 			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
 			return err
 		}
@@ -138,11 +138,20 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
 func (pj *KubePyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
+	if job == nil || torchJobSpec == nil {
+		return fmt.Errorf("job or torchJobSpec is nil")
 	}
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), torchJobSpec)
+	// patch metadata
+	ps, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
+	if find && ps != nil {
+		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	}
+	worker, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeWorker]
+	if find && worker != nil {
+		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	}
 	// TODO: patch pytorch job from user
 	// check RunPolicy
 	return kuberuntime.KubeflowRunPolicy(&torchJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
