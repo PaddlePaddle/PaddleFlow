@@ -240,10 +240,20 @@ func (j *RayJob) validateCustomYaml(rayJobSpec *rayV1alpha1.RayJobSpec) error {
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
 func (j *RayJob) customRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec) error {
+	if rayJobSpec == nil {
+		err := fmt.Errorf("build custom %s failed, RayJobSpec is nil", j.String())
+		log.Errorf("%v", err)
+		return err
+	}
 	log.Debugf("patch %s spec:%#v", j.String(), rayJobSpec)
 	err := j.validateCustomYaml(rayJobSpec)
 	if err != nil {
 		return err
+	}
+	// patch metadata
+	j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template.ObjectMeta, model.Member{})
+	for i := range rayJobSpec.RayClusterSpec.WorkerGroupSpecs {
+		j.patchTaskMetadata(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template.ObjectMeta, model.Member{})
 	}
 	// TODO: patch ray job from user
 	// check RunPolicy
