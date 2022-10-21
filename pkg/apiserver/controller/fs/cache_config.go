@@ -19,15 +19,12 @@ package fs
 import (
 	"errors"
 	"fmt"
-
-	"gorm.io/gorm"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"gorm.io/gorm"
 )
 
 func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
@@ -40,9 +37,9 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		Debug:                  req.Debug,
 		CleanCache:             req.CleanCache,
 		Resource:               req.Resource,
-		NodeAffinity:           req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
+		// NodeAffinity:           req.NodeAffinity,
 	}
 }
 
@@ -57,9 +54,9 @@ type CreateFileSystemCacheRequest struct {
 	Debug               bool                   `json:"debug"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
+	//NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 }
 
 type FileSystemCacheResponse struct {
@@ -69,13 +66,13 @@ type FileSystemCacheResponse struct {
 	BlockSize           int                    `json:"blockSize"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 	FsName              string                 `json:"fsName"`
 	Username            string                 `json:"username"`
 	CreateTime          string                 `json:"createTime"`
 	UpdateTime          string                 `json:"updateTime,omitempty"`
+	// NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 }
 
 func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
@@ -85,13 +82,12 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.BlockSize = config.BlockSize
 	resp.CleanCache = config.CleanCache
 	resp.Resource = config.Resource
-	resp.NodeAffinity = config.NodeAffinity
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
 	resp.FsName, resp.Username, _ = utils.GetFsNameAndUserNameByFsID(config.FsID)
-	// format time
-	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
-	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
+	resp.CreateTime = config.CreateTime
+	resp.UpdateTime = config.UpdateTime
+	//resp.NodeAffinity = config.NodeAffinity
 }
 
 func checkFsMountedAndCleanResource(ctx *logger.RequestContext, fsID string) error {

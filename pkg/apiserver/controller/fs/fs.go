@@ -33,15 +33,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-)
-
-const (
-	TimeFormat = "2006-01-02 15:04:05"
 )
 
 // obsoleted funcs: create/delete PVC/PVC code can be found in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
@@ -345,16 +340,14 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
 		// label indicating a mount pod
-		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
 		listOptions := k8sMeta.ListOptions{
-			LabelSelector: label,
+			LabelSelector: schema.LabelMountPod + "," + schema.LabelKeyFsID + "=" + fsID,
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
 			log.Errorf("list mount pods failed: %v", err)
 			return false, nil, err
 		}
-		clusterPodMap[k8sRuntime] = pods.Items
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
@@ -365,6 +358,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 				}
 			}
 		}
+		clusterPodMap[k8sRuntime] = pods.Items
 	}
 	log.Debugf("fs[%s] is not mounted, clusterPodMap: %+v", fsID, clusterPodMap)
 	return false, clusterPodMap, nil
@@ -429,7 +423,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
-		marker = time.Now().Format(TimeFormat)
+		marker = time.Now().Format(model.TimeFormat)
 	}
 	listUserName := req.Username
 	if req.Username == common.UserRoot {
@@ -448,7 +442,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 		return []model.FileSystem{}, "", err
 	}
 	if itemsLen > int(req.MaxKeys) {
-		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(TimeFormat), err
+		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(model.TimeFormat), err
 	}
 
 	return items, "", err

@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,6 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -49,6 +49,16 @@ const (
 	ContainerNamePfsMount    = "pfs-mount"
 )
 
+var (
+	NodeName       = ""
+	Namespace      = ""
+	PodName        = ""
+	ContainerImage = ""
+	HostMntDir     = ""
+	ClusterID      = ""
+	CSIPod         k8sCore.Pod
+)
+
 var umountLock sync.RWMutex
 
 func PodUnmount(volumeID string, mountInfo Info) error {
@@ -62,7 +72,7 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 		log.Errorf("PodUnmount: Get k8s client failed: %v", err)
 		return err
 	}
-	pod, err := k8sClient.GetPod(csiconfig.Namespace, podName)
+	pod, err := k8sClient.GetPod(Namespace, podName)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		log.Errorf("PodUnmount: Get pod %s err: %v", podName, err)
 		return err
@@ -94,7 +104,7 @@ func createOrUpdatePod(volumeID string, mountInfo Info) error {
 	log.Infof("pod name is %s", podName)
 	for i := 0; i < 120; i++ {
 		// wait for old pod deleted
-		oldPod, errGetPod := mountInfo.K8sClient.GetPod(csiconfig.Namespace, podName)
+		oldPod, errGetPod := mountInfo.K8sClient.GetPod(Namespace, podName)
 		if errGetPod != nil {
 			if k8sErrors.IsNotFound(errGetPod) {
 				// mount pod not exist, create
@@ -173,7 +183,7 @@ func createMountPod(k8sClient utils.Client, volumeID string, mountInfo Info) err
 }
 
 func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
-	pod := csiconfig.GeneratePodTemplate()
+	pod := generatePodTemplate()
 	pod.Name = GeneratePodNameByVolumeID(volumeID)
 	// annotate mount point & modified time
 	err := buildAnnotation(pod, mountInfo.TargetPath)
@@ -187,10 +197,9 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 
 	// label for pod listing
 	pod.Labels[schema.LabelKeyFsID] = mountInfo.FS.ID
-	pod.Labels[schema.LabelKeyNodeName] = csiconfig.NodeName
+	pod.Labels[schema.LabelKeyNodeName] = NodeName
 	// labels for cache stats
-	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(csiconfig.ClusterID,
-		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.FS.ID)
+	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(ClusterID, NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.FS.ID)
 	// cache dir has "/" and is not allowed in label
 	pod.Annotations[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
@@ -209,13 +218,13 @@ func buildAnnotation(pod *k8sCore.Pod, targetPath string) error {
 }
 
 func GeneratePodNameByVolumeID(volumeID string) string {
-	return fmt.Sprintf("pfs-%s-%s", csiconfig.NodeName, volumeID)
+	return fmt.Sprintf("pfs-%s-%s", NodeName, volumeID)
 }
 
 func waitUtilPodReady(k8sClient utils.Client, podName string) error {
 	// Wait until the mount pod is ready
 	for i := 0; i < 60; i++ {
-		pod, err := k8sClient.GetPod(csiconfig.Namespace, podName)
+		pod, err := k8sClient.GetPod(Namespace, podName)
 		if err != nil {
 			return status.Errorf(codes.Internal, "waitUtilPodReady: Get pod %v failed: %v", podName, err)
 		}
@@ -243,7 +252,7 @@ func isPodReady(pod *k8sCore.Pod) bool {
 }
 
 func getErrContainerLog(K8sClient utils.Client, podName string) (log string, err error) {
-	pod, err := K8sClient.GetPod(csiconfig.Namespace, podName)
+	pod, err := K8sClient.GetPod(Namespace, podName)
 	if err != nil {
 		return
 	}
@@ -266,7 +275,7 @@ func baseContainer(podName string, podResource k8sCore.ResourceRequirements) k8s
 	isPrivileged := true
 	return k8sCore.Container{
 		//Name:  containerName, to be set at invoker side
-		Image: csiconfig.MountImage,
+		Image: ContainerImage,
 		SecurityContext: &k8sCore.SecurityContext{
 			Privileged: &isPrivileged,
 		},
@@ -277,7 +286,7 @@ func baseContainer(podName string, podResource k8sCore.ResourceRequirements) k8s
 			},
 			{
 				Name:  schema.EnvKeyNamespace,
-				Value: csiconfig.Namespace,
+				Value: Namespace,
 			},
 		},
 		Resources: podResource,
@@ -339,7 +348,7 @@ func generatePodVolumes(cacheDir string) []k8sCore.Volume {
 			Name: VolumesKeyMount,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
-					Path: csiconfig.HostMntDir,
+					Path: HostMntDir,
 					Type: &typeDir,
 				},
 			},
@@ -391,4 +400,31 @@ func buildCacheWorkerContainer(cacheContainer k8sCore.Container, mountInfo Info)
 		cacheContainer.VolumeMounts = volumeMounts
 	}
 	return cacheContainer
+}
+
+// utils
+func generatePodTemplate() *k8sCore.Pod {
+	return &k8sCore.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: Namespace,
+			Labels: map[string]string{
+				schema.PodTypeKey: schema.PodNameMount,
+			},
+			Annotations: make(map[string]string),
+		},
+		Spec: k8sCore.PodSpec{
+			Containers:         make([]k8sCore.Container, 2),
+			NodeName:           NodeName,
+			HostNetwork:        CSIPod.Spec.HostNetwork,
+			HostAliases:        CSIPod.Spec.HostAliases,
+			HostPID:            CSIPod.Spec.HostPID,
+			HostIPC:            CSIPod.Spec.HostIPC,
+			DNSConfig:          CSIPod.Spec.DNSConfig,
+			DNSPolicy:          CSIPod.Spec.DNSPolicy,
+			ServiceAccountName: CSIPod.Spec.ServiceAccountName,
+			ImagePullSecrets:   CSIPod.Spec.ImagePullSecrets,
+			PreemptionPolicy:   CSIPod.Spec.PreemptionPolicy,
+			Tolerations:        CSIPod.Spec.Tolerations,
+		},
+	}
 }

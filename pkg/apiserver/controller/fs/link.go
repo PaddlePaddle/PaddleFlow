@@ -130,7 +130,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]model.Link, string, error)
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
-		marker = time.Now().Format(TimeFormat)
+		marker = time.Now().Format(model.TimeFormat)
 	}
 	var items []model.Link
 	var err error
@@ -155,7 +155,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]model.Link, string, error)
 	}
 
 	if itemsLen > int(req.MaxKeys) {
-		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(TimeFormat), err
+		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(model.TimeFormat), err
 	}
 
 	return items, "", err

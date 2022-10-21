@@ -54,6 +54,17 @@ const (
 	EnvKeyNamespace    = "NAMESPACE"
 
 	MountPodNamespace = "paddleflow"
+	PodTypeKey        = "app.kubernetes.io/name"
+	PodNameMount      = "pfs-mount"
+	LabelMountPod     = PodTypeKey + "=" + PodNameMount
+
+	// mount pod resource
+	MountPodCpuRequest      = "0"
+	MountPodMemRequest      = "0"
+	DefaultMountPodCpuLimit = "2"
+	DefaultMountPodMemLimit = "1Gi"
+	MaxMountPodCpuLimit     = "2"
+	MaxMountPodMemLimit     = "8Gi"
 )
 
 func IsValidFsMetaDriver(metaDriver string) bool {

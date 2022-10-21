@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +27,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -79,7 +79,7 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 
 	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
-		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
+		info.PodResource, err = parsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
 		if err != nil {
 			err := fmt.Errorf("ParsePodResources: %+v err: %v", cacheConfig.Resource, err)
 			log.Errorf(err.Error())
@@ -192,4 +192,31 @@ func (mountInfo *Info) CacheWorkerCmd() string {
 		cmd += FusePodCachePath
 	}
 	return cmd
+}
+
+func parsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
+	podResource := corev1.ResourceRequirements{
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(schema.DefaultMountPodCpuLimit),
+			corev1.ResourceMemory: resource.MustParse(schema.DefaultMountPodMemLimit),
+		},
+		// Requests must be 0 so that scheduler can correctly calculate resource usage
+		Requests: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(schema.MountPodCpuRequest),
+			corev1.ResourceMemory: resource.MustParse(schema.MountPodMemRequest),
+		},
+	}
+
+	var err error
+	if cpuLimit != "" {
+		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	if memoryLimit != "" {
+		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	return podResource, nil
 }

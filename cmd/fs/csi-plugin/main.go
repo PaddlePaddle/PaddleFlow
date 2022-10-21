@@ -26,8 +26,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
@@ -48,13 +48,13 @@ var logConf = logger.LogConfig{
 	IsCompress:      true,
 }
 
-// init() obtain csi-plugin pod, to assign same parameters to mount pods in csiconfig
+// init() obtain csi-plugin pod, to assign same parameters to mount pods in mount
 func init() {
-	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
-	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
+	mount.Namespace = os.Getenv("CSI_NAMESPACE")
+	mount.PodName = os.Getenv("CSI_POD_NAME")
 
-	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
-		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
+	if mount.PodName == "" || mount.Namespace == "" {
+		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", mount.PodName, mount.Namespace)
 		os.Exit(0)
 	}
 
@@ -63,25 +63,25 @@ func init() {
 		log.Errorf("get k8s client failed: %v", err)
 		os.Exit(0)
 	}
-	pod, err := k8sClient.GetPod(csiconfig.Namespace, csiconfig.PodName)
+	pod, err := k8sClient.GetPod(mount.Namespace, mount.PodName)
 	if err != nil {
-		log.Errorf("Can't get pod %s: %v", csiconfig.PodName, err)
+		log.Errorf("Can't get pod %s: %v", mount.PodName, err)
 		os.Exit(0)
 	}
-	csiconfig.CSIPod = *pod
-	csiconfig.NodeName = pod.Spec.NodeName
+	mount.CSIPod = *pod
+	mount.NodeName = pod.Spec.NodeName
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
-			csiconfig.MountImage = pod.Spec.Containers[i].Image
+			mount.ContainerImage = pod.Spec.Containers[i].Image
 		}
 	}
 	for _, v := range pod.Spec.Volumes {
 		if v.Name == VolumeNameMnt {
-			csiconfig.HostMntDir = v.HostPath.Path
+			mount.HostMntDir = v.HostPath.Path
 		}
 	}
-	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
-		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
+	if mount.HostMntDir == "" || mount.ContainerImage == "" {
+		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", mount.PodName)
 		os.Exit(0)
 	}
 }

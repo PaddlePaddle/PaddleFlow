@@ -18,6 +18,7 @@ package fs
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"strings"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
@@ -56,11 +56,11 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 
 func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string, mountPodExpire time.Duration) (map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
-	now_ := time.Now().Format(TimeFormat)
-	now, _ := time.Parse(TimeFormat, now_)
+	now_ := time.Now().Format(model.TimeFormat)
+	now, _ := time.Parse(model.TimeFormat, now_)
 	for k8sRuntime, _ := range clusterMaps {
 		listOptions := k8sMeta.ListOptions{
-			LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
+			LabelSelector: schema.LabelMountPod,
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
@@ -78,7 +78,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 					continue
 				case schema.AnnotationKeyMTime:
 					{
-						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
+						modifyTime, errParseTime := time.Parse(model.TimeFormat, pod.Annotations[key])
 						if errParseTime != nil {
 							log.Errorf("parse time err: %v", err)
 							return nil, errParseTime
