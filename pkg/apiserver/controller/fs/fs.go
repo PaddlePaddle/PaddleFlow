@@ -357,17 +357,23 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 		clusterPodMap[k8sRuntime] = pods.Items
 
 		for _, po := range pods.Items {
-			for key, targetPath := range po.Labels {
-				if strings.HasPrefix(key, schema.KeyMountPrefix) {
-					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
-						fsID, po.Name, targetPath)
-					return true, nil, nil
-				}
+			if checkMountPodMounted(po) {
+				return true, nil, nil
 			}
 		}
 	}
 	log.Debugf("fs[%s] is not mounted, clusterPodMap: %+v", fsID, clusterPodMap)
 	return false, clusterPodMap, nil
+}
+
+func checkMountPodMounted(po k8sCore.Pod) bool {
+	for key, targetPath := range po.Annotations {
+		if strings.HasPrefix(key, schema.KeyMountPrefix) {
+			log.Debugf("pod[%s] is mounted with target path[%s]", po.Name, targetPath)
+			return true
+		}
+	}
+	return false
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {

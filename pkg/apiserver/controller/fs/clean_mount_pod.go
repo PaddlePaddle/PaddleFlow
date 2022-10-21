@@ -18,7 +18,6 @@ package fs
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -67,8 +66,15 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 		}
 
 		for _, pod := range pods.Items {
-			log.Debugf("list pod %+v", pod)
-			if mountPodExpired(pod.Name, pod.Annotations, mountPodExpire) {
+			log.Debugf("check expire mount pod %+v", pod)
+			if checkMountPodMounted(pod) {
+				continue
+			}
+			expired, err := checkMountPodExpired(pod, mountPodExpire)
+			if err != nil {
+				log.Errorf("checkMountPodExpired[%s] failed: %v", pod.Name, err)
+			}
+			if expired {
 				clusterPodMap[k8sRuntime] = append(clusterPodMap[k8sRuntime], pod)
 			}
 		}
@@ -76,25 +82,19 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 	return clusterPodMap, nil
 }
 
-func mountPodExpired(podName string, annotations map[string]string, mountPodExpire time.Duration) bool {
-	log.Debugf("check whether expired pod: %s", podName)
-	for key, _ := range annotations {
-		if strings.HasPrefix(key, schema.KeyMountPrefix) {
-			// is mounted by job pod
-			return false
-		}
-	}
-
-	modifyTime, errParseTime := time.Parse(TimeFormat, annotations[schema.KeyModifiedTime])
+func checkMountPodExpired(po k8sCore.Pod, mountPodExpire time.Duration) (bool, error) {
+	modifiedTimeStr := po.Annotations[schema.KeyModifiedTime]
+	modifyTime, errParseTime := time.Parse(TimeFormat, modifiedTimeStr)
 	if errParseTime != nil {
-		log.Errorf("parse time err: %v", errParseTime)
-		return false
+		errRet := fmt.Errorf("mountPodExpired: parse time str [%s] err: %v", modifiedTimeStr, errParseTime)
+		log.Errorf(errRet.Error())
+		return false, errRet
 	}
 	expireTime := modifyTime.Add(mountPodExpire)
 	log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, time.Now())
 	if expireTime.Before(time.Now()) {
-		return true
+		return true, nil
 	} else {
-		return false
+		return false, nil
 	}
 }
