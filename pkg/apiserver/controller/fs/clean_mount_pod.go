@@ -73,6 +73,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			expired, err := checkMountPodExpired(pod, mountPodExpire)
 			if err != nil {
 				log.Errorf("checkMountPodExpired[%s] failed: %v", pod.Name, err)
+				return nil, err
 			}
 			if expired {
 				clusterPodMap[k8sRuntime] = append(clusterPodMap[k8sRuntime], pod)
@@ -86,7 +87,7 @@ func checkMountPodExpired(po k8sCore.Pod, mountPodExpire time.Duration) (bool, e
 	modifiedTimeStr := po.Annotations[schema.KeyModifiedTime]
 	modifyTime, errParseTime := time.Parse(TimeFormat, modifiedTimeStr)
 	if errParseTime != nil {
-		errRet := fmt.Errorf("mountPodExpired: parse time str [%s] err: %v", modifiedTimeStr, errParseTime)
+		errRet := fmt.Errorf("mountPodExpired: pod [%s] parse time str [%s] err: %v", po.Name, modifiedTimeStr, errParseTime)
 		log.Errorf(errRet.Error())
 		return false, errRet
 	}
