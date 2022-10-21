@@ -106,5 +106,5 @@ func TestTransToRunYamlRaw(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Contains(t, newWfs.PostProcess, "post")
-	assert.Equal(t, len(wfs.EntryPoints.EntryPoints), len(newWfs.EntryPoints.EntryPoints))
+	assert.Equal(t, wfs.EntryPoints.EntryPoints, newWfs.EntryPoints.EntryPoints)
 }
