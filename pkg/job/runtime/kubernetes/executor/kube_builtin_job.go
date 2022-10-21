@@ -63,7 +63,7 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *sche
 	if podSpec == nil || task == nil {
 		return fmt.Errorf("podTemplateSpec or task is nil")
 	}
-	// TODO: set pod metadata
+	j.patchTaskMetadata(&podSpec.ObjectMeta, *task)
 	// set SchedulerName
 	podSpec.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// TODO: remove hard coded schedulerName when upstream package is fixed

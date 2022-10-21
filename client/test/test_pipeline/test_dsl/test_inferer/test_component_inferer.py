@@ -19,6 +19,7 @@ limitations under the License.
 
 import pytest 
 from pathlib import Path
+from hashlib import md5
 
 from paddleflow.pipeline.dsl.inferer.component_inferer import ComponentInferer
 from paddleflow.pipeline.dsl.component import ContainerStep
@@ -115,7 +116,10 @@ class TestComponentInferer(object):
                 continue
 
             new_art = k
-            assert new_art.startswith("loop_art") and len(new_art) == len("loop_art_") + 6
+            m = md5()
+            m.update("pf-entry-point.step1.art2".encode())
+            assert int(new_art[len("loop_art_") : ], 36) == int(m.hexdigest(), 16)
+            assert new_art.startswith("loop_art")
             assert v.ref.name == "art2"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.loop_argument.argument == v and v.name == new_art
@@ -133,7 +137,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
+            assert new_param.startswith("loop_param")
+            m = md5()
+            m.update("pf-entry-point.step1.num3".encode())
+            assert int(new_param[len("loop_param_"):], 36) == int(m.hexdigest(), 16)
             assert v.ref.name == "num3"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.loop_argument.argument == v and v.name == new_param
@@ -152,7 +159,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
+            assert new_param.startswith("loop_param")
+            m = md5()
+            m.update((dag1.full_name + ".PF_LOOP_ARGUMENT").encode())
+            assert int(new_param[len("loop_param_"):], 36) == int(m.hexdigest(), 16) 
             assert step2.loop_argument.argument == v and v.name == new_param and \
                 v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
@@ -217,7 +227,10 @@ class TestComponentInferer(object):
                 continue
 
             new_art = k
-            assert new_art.startswith("loop_art") and len(new_art) == len("loop_art_") + 6
+            m = md5()
+            m.update("pf-entry-point.step1.art2".encode())
+            assert int(new_art[len("loop_art_") : ], 36) == int(m.hexdigest(), 16)
+            assert new_art.startswith("loop_art")
             assert v.ref.name == "art2"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.loop_argument.argument == v and v.name == new_art
@@ -235,7 +248,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
+            m = md5()
+            m.update("pf-entry-point.step1.num3".encode())
+            assert int(new_param[len("loop_param_"):], 36) == int(m.hexdigest(), 16)
+            assert new_param.startswith("loop_param")
             assert v.ref.name == "num3"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.loop_argument.argument == v and v.name == new_param
@@ -254,7 +270,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
+            m = md5()
+            m.update((dag1.full_name + ".PF_LOOP_ARGUMENT").encode())
+            assert int(new_param[len("loop_param_"):], 36) == int(m.hexdigest(), 16)
+            assert new_param.startswith("loop_param")
             assert step2.loop_argument.argument == v and v.name == new_param and \
                 v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
@@ -326,7 +345,10 @@ class TestComponentInferer(object):
                 continue
 
             new_art = k
-            assert new_art.startswith("condition_art") and len(new_art) == len("condition_art_") + 6
+            m = md5()
+            m.update("pf-entry-point.step1.art2".encode())
+            assert int(new_art[len("condition_art_") : ], 36) == int(m.hexdigest(), 16)
+            assert new_art.startswith("condition_art")
             assert v.ref.name == "art2"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.condition == "{{" + f"{new_art}" + "}} > 10" and v.name == new_art
@@ -344,7 +366,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("condition_param") and len(new_param) == len("condition_param_") + 6
+            m = md5()
+            m.update("pf-entry-point.step1.num3".encode())
+            assert int(new_param[len("condition_param_") : ], 36) == int(m.hexdigest(), 16)
+            assert new_param.startswith("condition_param")
             assert v.ref.name == "num3"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.condition == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param
@@ -363,7 +388,10 @@ class TestComponentInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("condition_param") and len(new_param) == len("condition_param_") + 6
+            m = md5()
+            m.update((dag1.full_name + ".PF_LOOP_ARGUMENT").encode())
+            assert int(new_param[len("condition_param_") : ], 36) == int(m.hexdigest(), 16)
+            assert new_param.startswith("condition_param")
             assert step2.condition == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param and \
                 v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         

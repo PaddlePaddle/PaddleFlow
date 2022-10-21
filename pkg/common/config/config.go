@@ -98,6 +98,8 @@ type FsServerConf struct {
 	LinkMetaDirPrefix    string        `yaml:"linkMetaDirPrefix"`
 	MountPodExpire       time.Duration `yaml:"mountPodExpire"`
 	MountPodIntervalTime time.Duration `yaml:"mountPodIntervalTime"`
+	// ServicePort is used to call paddleflow api-server in k8s, the default is the same as ApiServerConfig.Port
+	ServicePort int `yaml:"servicePort"`
 }
 
 type ReclaimConfig struct {
