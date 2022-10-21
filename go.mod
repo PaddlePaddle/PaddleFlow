@@ -17,7 +17,6 @@ require (
 	github.com/emirpasic/gods v1.18.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v1.5.4
-	github.com/google/btree v1.0.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hanwen/go-fuse/v2 v2.1.0
@@ -43,17 +42,16 @@ require (
 	github.com/smallnest/chanx v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
-	github.com/syndtr/goleveldb v1.0.0
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
 	github.com/viney-shih/go-lock v1.1.2
-	github.com/xujiajun/nutsdb v0.8.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/grpc v1.42.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.1.1
 	gorm.io/driver/sqlite v1.1.4
@@ -77,7 +75,6 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.0+incompatible // indirect
-	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
@@ -134,8 +131,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/xujiajun/mmap-go v1.0.1 // indirect
-	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b // indirect
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
@@ -150,7 +145,6 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apiserver v0.19.6 // indirect
 	k8s.io/component-base v0.19.9 // indirect
 	k8s.io/gengo v0.0.0-20200428234225-8167cfdcfc14 // indirect

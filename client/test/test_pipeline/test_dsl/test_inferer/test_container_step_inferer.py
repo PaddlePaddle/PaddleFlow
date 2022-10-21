@@ -19,6 +19,7 @@ limitations under the License.
 
 import pytest 
 from pathlib import Path
+from hashlib import md5
 
 from .test_component_inferer import base_demo
 
@@ -81,9 +82,14 @@ class TestStepInferer(object):
                 continue
 
             new_art = k
-            assert new_art.startswith("command_art") and len(new_art) == len("command_art_") + 6
+            assert new_art.startswith("command_art")
+            
+            m = md5()
+            m.update("pf-entry-point.step1.art2".encode())
+            assert int(new_art[len("command_art_"):], 36) == int(m.hexdigest(), 16)
             assert v.ref.name == "art2"
             assert v.ref.component_full_name == "pf-entry-point.step1"
+            
             assert step2.command == "{{"  + new_art + "}}" and v.name == new_art
         
         step2.inputs.pop(new_art)
@@ -99,7 +105,10 @@ class TestStepInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("command_param") and len(new_param) == len("command_param_") + 6
+            assert new_param.startswith("command_param") 
+            m = md5()
+            m.update("pf-entry-point.step1.num3".encode())
+            assert int(new_param[len("command_param_"):], 36) == int(m.hexdigest(), 16)
             assert v.ref.name == "num3"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.command == "{{"  + new_param + "}}" and v.name == new_param
@@ -116,9 +125,12 @@ class TestStepInferer(object):
         for k, v in step2.parameters.items():
             if k.startswith("p"):
                 continue
-
+            
             new_param = k
-            assert new_param.startswith("command_param") and len(new_param) == len("command_param_") + 6
+            assert new_param.startswith("command_param")
+            m = md5()
+            m.update((dag1.full_name + ".PF_LOOP_ARGUMENT").encode())
+            assert int(new_param[len("command_param_"):], 36) == int(m.hexdigest(), 16)  
             assert step2.command == "{{"  + new_param + "}}" and v.name == new_param and \
                 v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
@@ -192,7 +204,11 @@ class TestStepInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("env_param") and len(new_param) == len("env_param_") + 6
+            assert new_param.startswith("env_param")
+            
+            m = md5()
+            m.update(b"pf-entry-point.step1.num3")
+            assert int(new_param[len("env_param_"):], 36) == int(m.hexdigest(), 16) 
             assert v.ref.name == "num3"
             assert v.ref.component_full_name == "pf-entry-point.step1"
             assert step2.env[env1] == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param
@@ -211,7 +227,10 @@ class TestStepInferer(object):
                 continue
 
             new_param = k
-            assert new_param.startswith("env_param") and len(new_param) == len("env_param_") + 6
+            m = md5()
+            m.update((dag1.full_name + ".PF_LOOP_ARGUMENT").encode())
+            assert int(new_param[len("env_param_"):], 36) == int(m.hexdigest(), 16) 
+            assert new_param.startswith("env_param")
             assert step2.env[env1] == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param and \
                 v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
