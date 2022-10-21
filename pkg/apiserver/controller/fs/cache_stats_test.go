@@ -155,13 +155,14 @@ func mountPodWithCacheStats() *k8sCore.Pod {
 func baseMountPod() *k8sCore.Pod {
 	return &k8sCore.Pod{
 		ObjectMeta: k8sMeta.ObjectMeta{
-			Name:        "pfs-nodename_mock-pfs-fs-root-mock-default-pv",
-			Namespace:   schema.MountPodNamespace,
-			Annotations: map[string]string{},
-			Labels: map[string]string{
+			Name:      "pfs-nodename_mock-pfs-fs-root-mock-default-pv",
+			Namespace: schema.MountPodNamespace,
+			Annotations: map[string]string{
 				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
 				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
-				csiconfig.PodTypeKey:   csiconfig.PodMount,
+			},
+			Labels: map[string]string{
+				csiconfig.PodTypeKey: csiconfig.PodMount,
 			},
 		},
 		Status: k8sCore.PodStatus{
