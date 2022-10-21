@@ -17,25 +17,23 @@ limitations under the License.
 package location_awareness
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
-	k8sCore "k8s.io/api/core/v1"
 	"math/rand"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
+	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod, hasCachePath bool) {
-	var errStat error
+	var errStat, err error
 	var usageStat *disk.UsageStat
 	var sizeUsed string = "0"
-	var metrics string = ""
 	for {
 		if hasCachePath {
 			usageStat, errStat = disk.Usage(mount.FusePodCachePath)
@@ -45,21 +43,12 @@ func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod, hasCachePath 
 				continue
 			}
 			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
-		}
 
-		// TODO memory, cpu stats
-		data, err := os.ReadFile(mount.FusePodMountPoint + "/.stats")
-		if err != nil {
-			log.Errorf("read metrics failed: %s", err)
-			metrics = ""
-		} else {
-			metrics = string(data)
-		}
-		pod.ObjectMeta.Annotations[schema.KeyMetrics] = metrics
-		pod.ObjectMeta.Annotations[schema.KeyUsedSize] = sizeUsed
-		err = k8sClient.PatchPodAnnotation(pod)
-		if err != nil {
-			log.Errorf("PatchPodAnnotation %+v err[%v]", pod.ObjectMeta.Annotations, err)
+			pod.ObjectMeta.Labels[schema.KeyUsedSize] = sizeUsed
+			err = k8sClient.PatchPodLabel(pod)
+			if err != nil {
+				log.Errorf("PatchPodLabel %+v err[%v]", pod.Labels, err)
+			}
 		}
 
 		select {
