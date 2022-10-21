@@ -79,6 +79,8 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&singlePod.ObjectMeta, job)
+	// set framework for single job
+	singlePod.Labels[pfschema.JobLabelFramework] = string(pfschema.FrameworkStandalone)
 
 	// set scheduling policy for single job
 	if err = sp.buildSchedulingPolicy(singlePod, job); err != nil {
@@ -206,7 +208,20 @@ func (sp *KubeSingleJob) addJobEventListener(ctx context.Context, jobQueue workq
 	sp.jobQueue = jobQueue
 	informer := listener.(cache.SharedIndexInformer)
 	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
+		FilterFunc: func(obj interface{}) bool {
+			job := obj.(*unstructured.Unstructured)
+			labels := job.GetLabels()
+			jobName := job.GetLabels()
+			if labels != nil && labels[pfschema.JobOwnerLabel] == pfschema.JobOwnerValue {
+				if labels[pfschema.JobLabelFramework] != string(pfschema.FrameworkStandalone) {
+					log.Debugf("job %s is not single job", jobName)
+					return false
+				}
+				log.Debugf("responsible for handle job. jobName:[%s]", jobName)
+				return true
+			}
+			return false
+		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    sp.addJob,
 			UpdateFunc: sp.updateJob,

@@ -115,10 +115,10 @@ func (rj *KubeRayJob) builtinRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, job 
 			// keep the same style with other Framework Job, the command store in master task
 			fillRayJobSpec(rayJobSpec, member)
 			// head
-			err = rj.buildHeadPod(rayJobSpec, member)
+			err = rj.buildHeadPod(rayJobSpec, job.ID, member)
 		} else {
 			//worker
-			err = rj.buildWorkerPod(rayJobSpec, member, workerIndex, rayWorkersLength)
+			err = rj.buildWorkerPod(rayJobSpec, job.ID, member, workerIndex, rayWorkersLength)
 			workerIndex++
 		}
 		if err != nil {
@@ -143,7 +143,7 @@ func fillRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, task pfschema.Member) {
 	//	Todo: ClusterSelector map[string]string `json:"clusterSelector,omitempty"`
 }
 
-func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, task pfschema.Member) error {
+func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID string, task pfschema.Member) error {
 	// Todo: ServiceType is Kubernetes service type. it will be used by the workers to connect to the head pod
 	// Todo: it also need to be validate in validateJob
 	// Todo: EnableIngress indicates whether operator should create ingress object for head service or not.
@@ -161,7 +161,7 @@ func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, task pfsc
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodSpec(&headGroupSpec.Template.Spec, task); err != nil {
+	if err := kuberuntime.BuildPodTemplateSpec(&headGroupSpec.Template, jobID, &task); err != nil {
 		log.Errorf("build head pod spec failed, err:%v", err)
 		return err
 	}
@@ -185,7 +185,7 @@ func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, task pfsc
 	return nil
 }
 
-func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, task pfschema.Member,
+func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID string, task pfschema.Member,
 	workerIndex int, rayWorkersLength int) error {
 	if task.Env == nil {
 		task.Env = make(map[string]string)
@@ -232,7 +232,7 @@ func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, task pf
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodSpec(&worker.Template.Spec, task); err != nil {
+	if err := kuberuntime.BuildPodTemplateSpec(&worker.Template, jobID, &task); err != nil {
 		log.Errorf("build head pod spec failed, err: %v", err)
 		return err
 	}
@@ -272,11 +272,16 @@ func parseRayArgs(argv string) (string, string) {
 
 // customRayJobSpec set custom RayJob Spec
 func (rj *KubeRayJob) customRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
+	if job == nil || rayJobSpec == nil {
+		return fmt.Errorf("job or rayJobSpec is nil")
 	}
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", rj.String(jobName), rayJobSpec)
+	// patch metadata
+	kuberuntime.BuildTaskMetadata(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	for i := range rayJobSpec.RayClusterSpec.WorkerGroupSpecs {
+		kuberuntime.BuildTaskMetadata(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	}
 	// TODO: patch ray job from user
 	return nil
 }

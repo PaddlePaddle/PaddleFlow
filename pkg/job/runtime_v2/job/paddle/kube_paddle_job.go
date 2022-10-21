@@ -109,21 +109,21 @@ func (pj *KubePaddleJob) customPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PF
 	if pdj == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
-	jobName := job.NamespacedName()
-	if err := pj.validateCustomYaml(pdj, jobName); err != nil {
-		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(jobName), err)
+	if err := pj.validateCustomYaml(pdj, job.ID); err != nil {
+		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(job.ID), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, name string) error {
-	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(name), pdj)
+func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, jobID string) error {
+	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(jobID), pdj)
 	resourceSpecs := []*paddlejobv1.ResourceSpec{pdj.Spec.PS, pdj.Spec.Worker}
 	for _, resourceSpec := range resourceSpecs {
 		if resourceSpec == nil {
 			continue
 		}
+		kuberuntime.BuildTaskMetadata(&resourceSpec.Template.ObjectMeta, jobID, &pfschema.Conf{})
 		if err := kuberuntime.ValidatePodResources(&resourceSpec.Template.Spec); err != nil {
 			err = fmt.Errorf("validate resource in extensionTemplate.Worker failed, err %v", err)
 			log.Errorf("%v", err)

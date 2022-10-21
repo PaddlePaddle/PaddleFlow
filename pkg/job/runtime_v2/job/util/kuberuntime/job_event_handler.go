@@ -331,26 +331,26 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 		log.Errorf("get job by task failed, obj is nil")
 		return ""
 	}
-	name := obj.GetName()
-	namespace := obj.GetNamespace()
 	labels := obj.GetLabels()
 	ownerReferences := obj.GetOwnerReferences()
 
-	if len(ownerReferences) == 0 {
-		// get job name for single job
-		if labels != nil && labels[schema.JobOwnerLabel] == schema.JobOwnerValue {
-			return name
-		} else {
-			log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
-			return ""
-		}
-	}
-	// get job name for distributed job
-	ownerReference := ownerReferences[0]
-	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
-	_, find := k8s.GVKJobStatusMap[gvk]
-	if !find {
+	if labels == nil || labels[schema.JobOwnerLabel] != schema.JobOwnerValue {
 		return ""
 	}
-	return ownerReference.Name
+	// 1. get job name from ownerReferences, including workflow, PaddleJob
+	if len(ownerReferences) > 0 {
+		// get job name for distributed job
+		ownerReference := ownerReferences[0]
+		gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
+		_, find := k8s.GVKJobStatusMap[gvk]
+		if find {
+			return ownerReference.Name
+		}
+	}
+	// 2. get job name from pod labels
+	jobName, find := labels[schema.JobIDLabel]
+	if find {
+		return jobName
+	}
+	return ""
 }
