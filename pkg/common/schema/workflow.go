@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -846,7 +846,31 @@ func getComponentRecursively(components map[string]Component, names []string) (C
 }
 
 func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
-	runYaml, err := yaml.Marshal(wfs)
+	type workflow struct {
+		Name           string                         `yaml:"name"`
+		DockerEnv      string                         `yaml:"docker_env"`
+		EntryPoints    map[string]Component           `yaml:"entry_points"`
+		Cache          Cache                          `yaml:"cache"`
+		Parallelism    int                            `yaml:"parallelism"`
+		Disabled       string                         `yaml:"disabled"`
+		FailureOptions FailureOptions                 `yaml:"failure_options"`
+		PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
+		FsOptions      FsOptions                      `yaml:"fs_options"`
+	}
+
+	wf := workflow{
+		Name:           wfs.Name,
+		DockerEnv:      wfs.DockerEnv,
+		EntryPoints:    wfs.EntryPoints.EntryPoints,
+		Cache:          wfs.Cache,
+		Parallelism:    wfs.Parallelism,
+		Disabled:       wfs.Disabled,
+		FailureOptions: wfs.FailureOptions,
+		PostProcess:    wfs.PostProcess,
+		FsOptions:      wfs.FsOptions,
+	}
+
+	runYaml, err := yaml.Marshal(wf)
 	if err != nil {
 		return "", err
 	}
