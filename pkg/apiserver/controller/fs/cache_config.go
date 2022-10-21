@@ -19,12 +19,14 @@ package fs
 import (
 	"errors"
 	"fmt"
+
+	"gorm.io/gorm"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"gorm.io/gorm"
 )
 
 func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {

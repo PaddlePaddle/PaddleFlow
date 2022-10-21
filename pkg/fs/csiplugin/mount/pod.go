@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 	k8sCore "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
@@ -203,6 +203,32 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	// cache dir has "/" and is not allowed in label
 	pod.Annotations[schema.AnnotationKeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
+}
+
+func generatePodTemplate() *k8sCore.Pod {
+	return &k8sCore.Pod{
+		ObjectMeta: k8sMeta.ObjectMeta{
+			Namespace: Namespace,
+			Labels: map[string]string{
+				schema.PodTypeKey: schema.PodNameMount,
+			},
+			Annotations: make(map[string]string),
+		},
+		Spec: k8sCore.PodSpec{
+			Containers:         make([]k8sCore.Container, 2),
+			NodeName:           NodeName,
+			HostNetwork:        CSIPod.Spec.HostNetwork,
+			HostAliases:        CSIPod.Spec.HostAliases,
+			HostPID:            CSIPod.Spec.HostPID,
+			HostIPC:            CSIPod.Spec.HostIPC,
+			DNSConfig:          CSIPod.Spec.DNSConfig,
+			DNSPolicy:          CSIPod.Spec.DNSPolicy,
+			ServiceAccountName: CSIPod.Spec.ServiceAccountName,
+			ImagePullSecrets:   CSIPod.Spec.ImagePullSecrets,
+			PreemptionPolicy:   CSIPod.Spec.PreemptionPolicy,
+			Tolerations:        CSIPod.Spec.Tolerations,
+		},
+	}
 }
 
 func buildAnnotation(pod *k8sCore.Pod, targetPath string) error {
@@ -400,31 +426,4 @@ func buildCacheWorkerContainer(cacheContainer k8sCore.Container, mountInfo Info)
 		cacheContainer.VolumeMounts = volumeMounts
 	}
 	return cacheContainer
-}
-
-// utils
-func generatePodTemplate() *k8sCore.Pod {
-	return &k8sCore.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: Namespace,
-			Labels: map[string]string{
-				schema.PodTypeKey: schema.PodNameMount,
-			},
-			Annotations: make(map[string]string),
-		},
-		Spec: k8sCore.PodSpec{
-			Containers:         make([]k8sCore.Container, 2),
-			NodeName:           NodeName,
-			HostNetwork:        CSIPod.Spec.HostNetwork,
-			HostAliases:        CSIPod.Spec.HostAliases,
-			HostPID:            CSIPod.Spec.HostPID,
-			HostIPC:            CSIPod.Spec.HostIPC,
-			DNSConfig:          CSIPod.Spec.DNSConfig,
-			DNSPolicy:          CSIPod.Spec.DNSPolicy,
-			ServiceAccountName: CSIPod.Spec.ServiceAccountName,
-			ImagePullSecrets:   CSIPod.Spec.ImagePullSecrets,
-			PreemptionPolicy:   CSIPod.Spec.PreemptionPolicy,
-			Tolerations:        CSIPod.Spec.Tolerations,
-		},
-	}
 }

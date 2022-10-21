@@ -18,12 +18,12 @@ package mount
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
+	k8sCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -48,7 +48,7 @@ type Info struct {
 	Args        []string
 	ReadOnly    bool
 	K8sClient   utils.Client
-	PodResource corev1.ResourceRequirements
+	PodResource k8sCore.ResourceRequirements
 }
 
 func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
@@ -194,28 +194,28 @@ func (mountInfo *Info) CacheWorkerCmd() string {
 	return cmd
 }
 
-func parsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
-	podResource := corev1.ResourceRequirements{
-		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(schema.DefaultMountPodCpuLimit),
-			corev1.ResourceMemory: resource.MustParse(schema.DefaultMountPodMemLimit),
+func parsePodResources(cpuLimit, memoryLimit string) (k8sCore.ResourceRequirements, error) {
+	podResource := k8sCore.ResourceRequirements{
+		Limits: map[k8sCore.ResourceName]resource.Quantity{
+			k8sCore.ResourceCPU:    resource.MustParse(schema.DefaultMountPodCpuLimit),
+			k8sCore.ResourceMemory: resource.MustParse(schema.DefaultMountPodMemLimit),
 		},
 		// Requests must be 0 so that scheduler can correctly calculate resource usage
-		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(schema.MountPodCpuRequest),
-			corev1.ResourceMemory: resource.MustParse(schema.MountPodMemRequest),
+		Requests: map[k8sCore.ResourceName]resource.Quantity{
+			k8sCore.ResourceCPU:    resource.MustParse(schema.MountPodCpuRequest),
+			k8sCore.ResourceMemory: resource.MustParse(schema.MountPodMemRequest),
 		},
 	}
 
 	var err error
 	if cpuLimit != "" {
-		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
-			return corev1.ResourceRequirements{}, err
+		if podResource.Limits[k8sCore.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
+			return k8sCore.ResourceRequirements{}, err
 		}
 	}
 	if memoryLimit != "" {
-		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
-			return corev1.ResourceRequirements{}, err
+		if podResource.Limits[k8sCore.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
+			return k8sCore.ResourceRequirements{}, err
 		}
 	}
 	return podResource, nil

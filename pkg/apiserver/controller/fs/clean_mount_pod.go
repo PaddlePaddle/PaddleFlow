@@ -18,7 +18,6 @@ package fs
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"strings"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func cleanMountPod(mountPodExpire time.Duration) error {

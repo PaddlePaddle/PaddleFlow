@@ -122,7 +122,7 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryLimit [%s]",
 				req.FsID, rcs.MemoryLimit))
 		}
-		if memory.Cmp(resource.MustParse(schema.MaxMountPodCpuLimit)) > 0 {
+		if memory.Cmp(resource.MustParse(schema.MaxMountPodMemLimit)) > 0 {
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: memoryLimit[%s] should be no greater than %s",
 				req.FsID, rcs.MemoryLimit, schema.MaxMountPodMemLimit))
 		}
