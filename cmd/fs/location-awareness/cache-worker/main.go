@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/location-awareness/cache-worker/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
@@ -89,11 +88,11 @@ func act(c *cli.Context) error {
 		return err
 	}
 
-	namespace := os.Getenv(schema.EnvKeyNamespace)
+	podNamespace := os.Getenv(schema.EnvKeyNamespace)
 	podName := os.Getenv(schema.EnvKeyMountPodName)
 
-	if podName == "" || namespace == "" {
-		log.Fatalf("mount pod name[%s] or namespace[%s] can't be null\n", podName, namespace)
+	if podName == "" || podNamespace == "" {
+		log.Fatalf("mount pod name[%s] or podNamespace[%s] can't be null\n", podName, podNamespace)
 		os.Exit(0)
 	}
 
@@ -102,29 +101,11 @@ func act(c *cli.Context) error {
 		log.Errorf("get k8s client failed: %v", err)
 		os.Exit(0)
 	}
-	pod, err := k8sClient.GetPod(namespace, podName)
-	if err != nil {
-		log.Errorf("Can't get mount pod %s: %v", csiconfig.PodName, err)
-		os.Exit(0)
-	}
 
-	fsID := c.String("fsID")
-	cacheDir := c.String("cacheDir")
 	podCachePath := c.String("podCachePath")
-	nodName := c.String("nodename")
 
-	cacheStats := location_awareness.CacheStats{
-		FsID:     fsID,
-		CacheDir: cacheDir,
-		NodeName: nodName,
-	}
-	info := location_awareness.PatchInfo{
-		K8sClient:    k8sClient,
-		Pod:          pod,
-		PodCachePath: podCachePath,
-	}
 	go func() {
-		location_awareness.PatchCacheStatsLoop(cacheStats, info)
+		location_awareness.PatchCacheStatsLoop(k8sClient, podNamespace, podName, podCachePath)
 	}()
 
 	stopSig := make(chan os.Signal, 1)

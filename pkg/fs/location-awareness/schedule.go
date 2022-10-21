@@ -32,6 +32,7 @@ const (
 
 // FsNodeAffinity if no node affinity, return nil, nil
 func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
+	nodeAffinity := &corev1.NodeAffinity{}
 	// cached node preferred
 	preferred := make([]corev1.PreferredSchedulingTerm, 0)
 	nodes, err := storage.FsCache.ListNodes(fsIDs)
@@ -79,12 +80,11 @@ func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
 		return nil, nil
 	}
 
-	return &corev1.Affinity{
-		NodeAffinity: &corev1.NodeAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: preferred,
-			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-				NodeSelectorTerms: required,
-			},
-		},
-	}, nil
+	if len(required) > 0 {
+		nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{NodeSelectorTerms: required}
+	}
+	if len(preferred) > 0 {
+		nodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferred
+	}
+	return &corev1.Affinity{NodeAffinity: nodeAffinity}, nil
 }

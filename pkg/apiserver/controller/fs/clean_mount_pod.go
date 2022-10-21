@@ -18,6 +18,7 @@ package fs
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -28,22 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
-
-func CleanMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Duration,
-	stopChan chan struct{}) {
-	for {
-		if err := cleanMountPod(mountPodExpire); err != nil {
-			log.Errorf("clean mount pod err: %v", err)
-		}
-		select {
-		case <-stopChan:
-			log.Info("mount pod controller stopped")
-			return
-		default:
-			time.Sleep(cleanMountPodIntervalTime)
-		}
-	}
-}
 
 func cleanMountPod(mountPodExpire time.Duration) error {
 	// check k8s mount pods
@@ -88,21 +73,28 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 			needToDelete = true
 			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
-				if key != schema.AnnotationKeyMTime {
+				switch key {
+				case schema.AnnotationKeyCacheDir:
+					continue
+				case schema.AnnotationKeyMTime:
+					{
+						modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
+						if errParseTime != nil {
+							log.Errorf("parse time err: %v", err)
+							return nil, errParseTime
+						}
+						expireTime := modifyTime.Add(mountPodExpire)
+						log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
+						if expireTime.After(now) {
+							needToDelete = false
+						}
+						log.Debugf("needToDelete %v", needToDelete)
+						continue
+					}
+				}
+				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					needToDelete = false
 					break
-				} else {
-					modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
-					if errParseTime != nil {
-						log.Errorf("parse time err: %v", err)
-						return nil, errParseTime
-					}
-					expireTime := modifyTime.Add(mountPodExpire)
-					log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
-					if expireTime.After(now) {
-						needToDelete = false
-					}
-					log.Debugf("needToDelete %v", needToDelete)
 				}
 			}
 			if needToDelete {

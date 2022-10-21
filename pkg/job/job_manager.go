@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -259,9 +258,7 @@ func (m *JobManagerImpl) submitJob(clusterRuntime *ClusterRuntimeInfo, job *api.
 		return
 	}
 	if m.isRuntimeV2 {
-		runtimeSvc := clusterRuntime.RuntimeV2Svc
-		fwVersion := runtimeSvc.Client().JobFrameworkVersion(job.JobType, job.Framework)
-		m.submitJobV2(runtimeSvc.Job(fwVersion).Submit, job)
+		m.submitJobV1(clusterRuntime.RuntimeV2Svc.SubmitJob, job)
 	} else {
 		m.submitJobV1(clusterRuntime.RuntimeSvc.SubmitJob, job)
 	}
@@ -358,43 +355,6 @@ func (m *JobManagerImpl) startRuntimeV2() {
 			}
 		}
 		time.Sleep(m.clusterSyncPeriod)
-	}
-}
-
-// submitJob submit a job to cluster
-func (m *JobManagerImpl) submitJobV2(jobSubmit func(context.Context, *api.PFJob) error, jobInfo *api.PFJob) {
-	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
-	startTime := time.Now()
-	job, err := storage.Job.GetJobByID(jobInfo.ID)
-	if err != nil {
-		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
-		return
-	}
-	// check job status before create job on cluster
-	if job.Status == schema.StatusJobInit {
-		var jobStatus schema.JobStatus
-		var msg string
-		err = jobSubmit(context.TODO(), jobInfo)
-		if err != nil {
-			// new job failed, update db and skip this job
-			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
-			log.Errorln(msg)
-			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(msg)
-			jobStatus = schema.StatusJobFailed
-		} else {
-			msg = "submit job to cluster successfully."
-			trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
-			jobStatus = schema.StatusJobPending
-		}
-		// new job failed, update db and skip this job
-		if dbErr := storage.Job.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
-			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
-			log.Errorf(errMsg)
-			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
-		}
-		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
-	} else {
-		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
 	}
 }
 

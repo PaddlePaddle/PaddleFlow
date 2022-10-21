@@ -198,8 +198,7 @@ spec:
             - /bin/sh
             - -c
             - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
-              --node-id=$(KUBE_NODE_NAME) --log-dir=./log/csidriver --username=root --password=paddleflow
-              --log-level=debug
+              --node-id=$(KUBE_NODE_NAME) --log-dir=./log/csidriver --log-level=debug
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -219,7 +218,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: paddleflow/pfs-csi-plugin:1.4.4
+          image: paddleflow/pfs-csi-plugin:1.4.5
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
           resources:

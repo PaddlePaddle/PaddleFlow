@@ -63,14 +63,12 @@ func TestSFTP(t *testing.T) {
 	fh.Flush()
 	fh.Release()
 
-	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
+	fh, err = fs.Open("hello", uint32(os.O_RDONLY), 11)
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
-	r, e := fh.Read(buf, 0)
+	n, e := fh.Read(buf, 0)
 	assert.Equal(t, fuse.OK, e)
-	data, code := r.Bytes(buf)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, len(content), len(data))
+	assert.Equal(t, len(content), n)
 	fh.Release()
 
 	entries, err := fs.ReadDir("/")

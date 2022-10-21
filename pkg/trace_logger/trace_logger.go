@@ -177,7 +177,7 @@ func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 
 	// init lumberjack fileLogger
 	logPath := filepath.Join(logConf.Dir, strings.ReplaceAll(logConf.FilePrefix, hostNameHolder, hostname))
-	fmt.Printf("logPath:%s\n", logPath)
+	//fmt.Printf("logPath:%s\n", logPath)
 	writer := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    logConf.MaxFileSizeInMB,

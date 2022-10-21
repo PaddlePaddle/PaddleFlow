@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -48,6 +49,7 @@ import (
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type KubeRuntime struct {
@@ -116,6 +118,79 @@ func (kr *KubeRuntime) Init() error {
 	}
 	kr.kubeClient = kubeClient
 	return nil
+}
+
+func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("submit job failed, job is nil")
+	}
+	// add trace log point
+	jobID := job.ID
+	traceLogger := trace_logger.KeyWithUpdate(jobID)
+	msg := fmt.Sprintf("submit job[%v] to cluster[%s] queue[%s]", job.ID, kr.cluster.ID, job.QueueID)
+	log.Infof(msg)
+	traceLogger.Infof(msg)
+	// prepare kubernetes storage
+	traceLogger.Infof("prepare kubernetes storage")
+	jobFileSystems := job.Conf.GetAllFileSystem()
+	for _, task := range job.Tasks {
+		jobFileSystems = append(jobFileSystems, task.Conf.GetAllFileSystem()...)
+	}
+	for _, fs := range jobFileSystems {
+		if fs.Type == pfschema.PFSTypeLocal {
+			log.Infof("skip create pv/pvc, fs type is local")
+			continue
+		}
+		fsID := common.ID(job.UserName, fs.Name)
+		pvName, err := kr.CreatePV(job.Namespace, fsID)
+		if err != nil {
+			log.Errorf("create pv for job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+		msg = fmt.Sprintf("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		log.Infof(msg)
+		traceLogger.Infof(msg)
+		err = kr.CreatePVC(job.Namespace, fsID, pvName)
+		if err != nil {
+			log.Errorf("create pvc for job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+	}
+	// submit job
+	traceLogger.Infof("submit kubernetes job")
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	err := kr.Job(fwVersion).Submit(context.TODO(), job)
+	if err != nil {
+		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
+		return err
+	}
+	traceLogger.Infof("submit kubernetes job[%s] successful", job.ID)
+	log.Debugf("submit kubernetes job[%s] successful", jobID)
+	return nil
+}
+
+func (kr *KubeRuntime) StopJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("stop job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Stop(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) UpdateJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("update job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Update(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) DeleteJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("delete job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Delete(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
@@ -309,7 +384,6 @@ func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
-	pv.Spec.CSI.VolumeAttributes[pfschema.PFSServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSID] = fsID
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSClusterID] = kr.cluster.ID
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)

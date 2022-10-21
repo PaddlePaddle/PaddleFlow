@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,8 +40,8 @@ type FuseConfig struct {
 }
 
 var FuseConf = &FuseConfig{
-	EntryTimeout: 1*time.Second,
-	AttrTimeout:  1*time.Second,
+	EntryTimeout: 1 * time.Second,
+	AttrTimeout:  1 * time.Second,
 	DirMode:      0755,
 	FileMode:     0644,
 	Uid:          os.Getuid(),
@@ -131,7 +131,7 @@ func (fs *PFS) Mknod(cancel <-chan struct{}, input *fuse.MknodIn, name string, o
 func (fs *PFS) Mkdir(cancel <-chan struct{}, input *fuse.MkdirIn, name string, out *fuse.EntryOut) fuse.Status {
 	log.Debugf("pfs POSIX Mkdir: input[%+v] name[%s]", *input, name)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
-	entry, code := vfs.GetVFS().Mkdir(ctx, vfs.Ino(input.NodeId), name, input.Mode)
+	entry, code := vfs.GetVFS().Mkdir(ctx, vfs.Ino(input.NodeId), name, input.Mode, uint16(input.Umask))
 	if code != 0 {
 		return fuse.Status(code)
 	}

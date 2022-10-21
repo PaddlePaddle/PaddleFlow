@@ -15,6 +15,7 @@ limitations under the License.
 """
 import re
 from typing import Dict
+from hashlib import md5
 
 from paddleflow.pipeline.dsl.component import Component
 from paddleflow.pipeline.dsl.component import DAG
@@ -25,6 +26,7 @@ from paddleflow.pipeline.dsl.io_types import ArtifactPlaceholder
 from paddleflow.pipeline.dsl.io_types import ParameterPlaceholder
 from paddleflow.pipeline.dsl.io_types.loop_argument import _LoopItem
 from paddleflow.pipeline.dsl.utils.util import random_code
+from paddleflow.pipeline.dsl.utils.util import trans_10_36
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import PARAM_NAME_CODE_LEN
 from paddleflow.pipeline.dsl.utils.consts import DSL_TEMPLATE_REGEX
@@ -66,7 +68,6 @@ class ComponentInferer(object):
     def _infer_from_loop_argument(self):
         """ infer parameter and input artifact from loop_argument
         """
-        # TODO: conditon && loop_argument 字段不能引用输出artifact
         if self._component.loop_argument is None:
             return 
 
@@ -80,13 +81,15 @@ class ComponentInferer(object):
             if loop.argument.component == self._component:
                 if not isinstance(loop.argument, _LoopItem) and loop.argument.name in self._component.outputs:
                     err_msg = self._generate_error_msg(f"loop_arugment cannot reference the output artifact which " + \
-                        "beling to the same Step or DAG")
+                        "belong to the same Step or DAG")
                     raise PaddleFlowSDKException(PipelineDSLError, err_msg)
                 return 
             else:
                 if isinstance(loop.argument, Parameter):
                     self._validate_inferred_parameter(loop.argument.component.full_name)
-                    name = self._generate_art_or_param_name(prefix, "param")
+                    name = self._generate_art_or_param_name(prefix, "param", 
+                                                            loop.argument.component.full_name,
+                                                            loop.argument.name)
                     param_holder = ParameterPlaceholder(name=loop.argument.name,
                         component_full_name=loop.argument.component.full_name)
                     
@@ -97,12 +100,17 @@ class ComponentInferer(object):
                     if not self._is_parent(loop.argument.component.full_name):
                         raise PaddleFlowSDKException(PipelineDSLError, self._generate_error_msg(
                             f"component can only reference itself or its parent component's loop item"))
-            
-                    param_name = self._generate_art_or_param_name(prefix, "param")
+
+                    param_name = self._generate_art_or_param_name(prefix, "param",
+                                                                  loop.argument.component.full_name,
+                                                                  PF_LOOP_ARGUMENT[2:-2])
                     self._component.parameters[param_name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
                     self._component.loop_argument = self._component.parameters[param_name]
                 else:
-                    name = self._generate_art_or_param_name(prefix, "art")
+                    name = self._generate_art_or_param_name(prefix, "art", 
+                                                            loop.argument.component.full_name,
+                                                            loop.argument.name)
+
                     art_holder = ArtifactPlaceholder(name=loop.argument.name,
                         component_full_name=loop.argument.component.full_name)
 
@@ -195,7 +203,7 @@ class ComponentInferer(object):
             return self._component.inputs[ref_art_name]
         
         art = ArtifactPlaceholder(ref_art_name, full_name)
-        art_name = self._generate_art_or_param_name(filed_type, "art")
+        art_name = self._generate_art_or_param_name(filed_type, "art", full_name, ref_art_name)
         self._component.inputs[art_name] = art
 
         return self._component.inputs[art_name]
@@ -217,7 +225,7 @@ class ComponentInferer(object):
             return self._component.parameters[ref_param_name]
         
         param = ParameterPlaceholder(ref_param_name, full_name)
-        param_name = self._generate_art_or_param_name(filed_type, "param")
+        param_name = self._generate_art_or_param_name(filed_type, "param", full_name, ref_param_name)
         self._component.parameters[param_name] = param
 
         return self._component.parameters[param_name]
@@ -233,7 +241,7 @@ class ComponentInferer(object):
                 raise PaddleFlowSDKException(PipelineDSLError, self._generate_error_msg(
                     f"component can only reference itself or its parent component's loop item"))
             
-            param_name = self._generate_art_or_param_name(filed_type, "param")
+            param_name = self._generate_art_or_param_name(filed_type, "param", full_name, "PF_LOOP_ARGUMENT")
             self._component.parameters[param_name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
             return self._component.parameters[param_name]
         
@@ -247,10 +255,13 @@ class ComponentInferer(object):
                 self._generate_error_msg(f"only support reference Parameter from sibling component, " + \
                     "ancestor component, and ancestor sibling component"))
 
-    def _generate_art_or_param_name(self, prefix: str, io_type):
+    def _generate_art_or_param_name(self, prefix, io_type, ref_compoonent_full_name, ref_name):
         """ generate art 
         """
-        suffix = random_code(PARAM_NAME_CODE_LEN)
+        m = md5()
+        m.update((ref_compoonent_full_name + "." + ref_name).encode())
+        suffix = trans_10_36(int(m.hexdigest(), 16))
+        
         return "_".join([prefix, io_type, suffix])
 
     def _infer_from_parameter(self):

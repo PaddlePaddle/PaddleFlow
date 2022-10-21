@@ -253,7 +253,7 @@ func (fs *sftpFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *sftpFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *sftpFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	f, err := fs.sc.sftpClient.OpenFile(fs.GetPath(name), int(flags))
 	if err != nil {
 		return nil, err
@@ -326,45 +326,45 @@ type sftpFileHandle struct {
 
 var _ FileHandle = &sftpFileHandle{}
 
-func (fh *sftpFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
-	n, err := fh.f.ReadAt(buf, off)
+func (fh *sftpFileHandle) Read(buf []byte, off uint64) (int, error) {
+	n, err := fh.f.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
-		return nil, fuse.ToStatus(err)
+		return 0, err
 	}
-	return fuse.ReadResultData(buf[0:n]), fuse.OK
+	return n, nil
 }
 
-func (fh *sftpFileHandle) Write(data []byte, off int64) (uint32, fuse.Status) {
-	n, err := fh.f.WriteAt(data, off)
-	return uint32(n), fuse.ToStatus(err)
+func (fh *sftpFileHandle) Write(data []byte, off uint64) (uint32, error) {
+	n, err := fh.f.WriteAt(data, int64(off))
+	return uint32(n), err
 }
 
 func (fh *sftpFileHandle) Release() {
 	fh.f.Close()
 }
 
-func (fh *sftpFileHandle) Flush() fuse.Status {
-	return fuse.ToStatus(fh.f.Sync())
+func (fh *sftpFileHandle) Flush() error {
+	return fh.f.Sync()
 }
 
-func (fh *sftpFileHandle) Fsync(flags int) (code fuse.Status) {
-	return fuse.ToStatus(fh.f.Sync())
+func (fh *sftpFileHandle) Fsync(flags int) error {
+	return fh.f.Sync()
 }
 
-func (fh *sftpFileHandle) Truncate(size uint64) fuse.Status {
-	return fuse.ToStatus(fh.fs.Truncate(fh.name, size))
+func (fh *sftpFileHandle) Truncate(size uint64) error {
+	return fh.fs.Truncate(fh.name, size)
 }
 
-func (fh *sftpFileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Status) {
+func (fh *sftpFileHandle) Allocate(off, size uint64, mode uint32) error {
 	fInfo, err := fh.f.Stat()
 	if err != nil {
 		log.Errorf("sftp allocate: stat current fh[%s] err: %v", fh.name, err)
-		return fuse.ToStatus(err)
+		return err
 	}
 	if int64(size) > fInfo.Size() {
-		return fuse.ToStatus(fh.fs.Truncate(fh.name, size))
+		return fh.fs.Truncate(fh.name, size)
 	}
-	return fuse.OK
+	return nil
 }
 
 func NewSftpFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {

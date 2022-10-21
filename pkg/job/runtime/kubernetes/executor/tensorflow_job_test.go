@@ -53,14 +53,12 @@ func TestTFJob_CreateJob(t *testing.T) {
 				ID:        "job-test-tf",
 				Namespace: "default",
 				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
 				Framework: schema.FrameworkTF,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
-					Env: map[string]string{
-						"PF_JOB_MODE": "Collective",
-					},
 				},
 				Tasks: []schema.Member{
 					{
