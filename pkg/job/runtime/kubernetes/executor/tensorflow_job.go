@@ -114,11 +114,24 @@ func (j *TFJob) validateCustomYaml(tfSpec *tfv1.TFJobSpec) error {
 // customPyTorchJobSpec set custom PyTorchJob Spec
 func (j *TFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
 	log.Debugf("patch %s spec:%#v", j.String(), tfJobSpec)
+	if tfJobSpec == nil || tfJobSpec.TFReplicaSpecs == nil {
+		err := fmt.Errorf("build custom %s failed, TFJobSpec or TFReplicaSpecs is nil", j.String())
+		log.Errorf("%v", err)
+		return err
+	}
 	err := j.validateCustomYaml(tfJobSpec)
 	if err != nil {
 		return err
 	}
-	// TODO: patch tf job from user
+	// patch metadata
+	ps, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypePS]
+	if find && ps != nil {
+		j.patchTaskMetadata(&ps.Template.ObjectMeta, schema.Member{})
+	}
+	worker, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypeWorker]
+	if find && worker != nil {
+		j.patchTaskMetadata(&worker.Template.ObjectMeta, schema.Member{})
+	}
 	// check RunPolicy
 	return nil
 }
