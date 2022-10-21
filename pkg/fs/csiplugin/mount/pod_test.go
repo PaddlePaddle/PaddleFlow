@@ -60,8 +60,8 @@ var testExist = &k8sCore.Pod{
 		Name:      "pfs-test-node-fs-root-testfs",
 		Namespace: "default",
 		Annotations: map[string]string{
-			schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-			schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
+			schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
+			schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 		},
 	},
 	Status: k8sCore.PodStatus{
@@ -153,7 +153,7 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
 			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
-			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
+			assert.Equal(t, testTargetPath, newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
 				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
@@ -185,8 +185,8 @@ func Test_addRef(t *testing.T) {
 			},
 			wantErr: false,
 			wantAnno: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
+				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 			},
 		},
 		{
@@ -198,9 +198,9 @@ func Test_addRef(t *testing.T) {
 			},
 			wantErr: false,
 			wantAnno: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
+				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
+				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 			},
 		},
 	}
@@ -214,8 +214,8 @@ func Test_addRef(t *testing.T) {
 			}
 			newPod, _ := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
 			if newPod == nil ||
-				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] ||
-				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] {
+				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] ||
+				newPod.Annotations[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[schema.KeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] {
 				t.Errorf("waitUntilMount() got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
 			}
 			if len(newPod.Annotations) != len(tt.wantAnno) {
