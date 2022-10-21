@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -146,7 +145,7 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 func mountPodWithCacheStats() *k8sCore.Pod {
 	pod := baseMountPod()
 	pod.Annotations[schema.KeyCacheDir] = mockCacheDir
-	pod.Annotations[schema.KeyUsedSize] = "100"
+	pod.Labels[schema.KeyUsedSize] = "100"
 	pod.Labels[schema.KeyNodeName] = mockNodename
 	pod.Labels[schema.KeyFsID] = mockFSID
 	pod.Labels[schema.KeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
@@ -161,7 +160,7 @@ func baseMountPod() *k8sCore.Pod {
 			Annotations: map[string]string{},
 			Labels: map[string]string{
 				schema.KeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.KeyModifiedTime: strconv.FormatInt(time.Now().Unix(), 10),
+				schema.KeyModifiedTime: time.Now().Format(model.TimeFormat),
 				csiconfig.PodTypeKey:   csiconfig.PodMount,
 			},
 		},

@@ -18,7 +18,6 @@ package fs
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +68,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 
 		for _, pod := range pods.Items {
 			log.Debugf("list pod %+v", pod)
-			if mountPodExpired(pod.Name, pod.Labels, mountPodExpire) {
+			if mountPodExpired(pod.Name, pod.Annotations, mountPodExpire) {
 				clusterPodMap[k8sRuntime] = append(clusterPodMap[k8sRuntime], pod)
 			}
 		}
@@ -77,28 +76,25 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 	return clusterPodMap, nil
 }
 
-func mountPodExpired(podName string, labels map[string]string, mountPodExpire time.Duration) bool {
+func mountPodExpired(podName string, annotations map[string]string, mountPodExpire time.Duration) bool {
 	log.Debugf("check whether expired pod: %s", podName)
-	for key, _ := range labels {
+	for key, _ := range annotations {
 		if strings.HasPrefix(key, schema.KeyMountPrefix) {
 			// is mounted by job pod
 			return false
 		}
 	}
 
-	i, errParseTime := strconv.ParseInt(labels[schema.KeyModifiedTime], 10, 64)
+	modifyTime, errParseTime := time.Parse(TimeFormat, annotations[schema.KeyModifiedTime])
 	if errParseTime != nil {
-		log.Errorf("mount pod[%s] parse time from label %s err: %v", podName, labels[schema.KeyModifiedTime], errParseTime)
+		log.Errorf("parse time err: %v", errParseTime)
 		return false
 	}
-	modifyTime := time.Unix(i, 0)
-
 	expireTime := modifyTime.Add(mountPodExpire)
 	log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, time.Now())
-	if expireTime.After(time.Now()) {
-		return false
-	} else {
-		log.Debugf("needToDelete mount pod %v", podName)
+	if expireTime.Before(time.Now()) {
 		return true
+	} else {
+		return false
 	}
 }

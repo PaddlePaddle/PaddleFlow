@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -128,8 +127,8 @@ func addRef(c utils.Client, pod *k8sCore.Pod, targetPath string) error {
 		log.Errorf("mount_pod[%s] addRef: buildMountPatch err: %v", pod.Name, err)
 		return err
 	}
-	if err = c.PatchPodLabel(pod); err != nil {
-		retErr := fmt.Errorf("mount_pod addRef: patch pod[%s] PatchPodLabel:%+v err:%v", pod.Name, pod.Labels, err)
+	if err = c.PatchPodAnnotation(pod); err != nil {
+		retErr := fmt.Errorf("mount_pod addRef: patch pod[%s] PatchPodAnnotation:%+v err:%v", pod.Name, pod.Annotations, err)
 		log.Errorf(retErr.Error())
 		return retErr
 	}
@@ -190,10 +189,9 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	// label for pod listing
 	pod.Labels[schema.KeyFsID] = mountInfo.FS.ID
 	pod.Labels[schema.KeyNodeName] = csiconfig.NodeName
-	// labels for cache stats
 	pod.Labels[schema.KeyCacheID] = model.CacheID(csiconfig.ClusterID,
 		csiconfig.NodeName, mountInfo.CacheConfig.CacheDir, mountInfo.FS.ID)
-	// cache dir has "/" and is not allowed in label
+	// annotation: cache dir has "/" and is not allowed in label
 	pod.Annotations[schema.KeyCacheDir] = mountInfo.CacheConfig.CacheDir
 	return pod, nil
 }
@@ -205,8 +203,8 @@ func buildMountPatch(pod *k8sCore.Pod, targetPath string) error {
 		log.Errorf(err.Error())
 		return err
 	}
-	pod.ObjectMeta.Labels[schema.KeyMountPrefix+workPodUID] = "mounted"
-	pod.ObjectMeta.Labels[schema.KeyModifiedTime] = strconv.FormatInt(time.Now().Unix(), 10)
+	pod.ObjectMeta.Annotations[schema.KeyMountPrefix+workPodUID] = targetPath
+	pod.ObjectMeta.Annotations[schema.KeyModifiedTime] = time.Now().Format(model.TimeFormat)
 	return nil
 }
 
