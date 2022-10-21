@@ -850,6 +850,7 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 		Name           string                         `yaml:"name"`
 		DockerEnv      string                         `yaml:"docker_env"`
 		EntryPoints    map[string]Component           `yaml:"entry_points"`
+		Components     map[string]Component           `yaml:"components"`
 		Cache          Cache                          `yaml:"cache"`
 		Parallelism    int                            `yaml:"parallelism"`
 		Disabled       string                         `yaml:"disabled"`
@@ -862,6 +863,7 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 		Name:           wfs.Name,
 		DockerEnv:      wfs.DockerEnv,
 		EntryPoints:    wfs.EntryPoints.EntryPoints,
+		Components:     wfs.Components,
 		Cache:          wfs.Cache,
 		Parallelism:    wfs.Parallelism,
 		Disabled:       wfs.Disabled,
