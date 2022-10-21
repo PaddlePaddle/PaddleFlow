@@ -25,7 +25,6 @@ import (
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -68,12 +67,8 @@ func getClusterRuntimeMap() (map[string]*runtime.KubeRuntime, error) {
 }
 
 func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime) error {
-	// label indicating a mount pod
-	label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount
-	// label indicating using cache
-	label += "," + schema.LabelKeyCacheID
 	listOptions := k8sMeta.ListOptions{
-		LabelSelector: label,
+		LabelSelector: schema.LabelMountPod,
 		FieldSelector: "status.phase=Running",
 	}
 	pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)

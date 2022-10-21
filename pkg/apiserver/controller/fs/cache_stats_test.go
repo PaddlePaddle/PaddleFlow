@@ -27,7 +27,6 @@ import (
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -157,7 +156,7 @@ func baseMountPod() *k8sCore.Pod {
 		ObjectMeta: k8sMeta.ObjectMeta{
 			Name:      "pfs-nodename_mock-pfs-fs-root-mock-default-pv",
 			Namespace: schema.MountPodNamespace,
-			Labels:    map[string]string{csiconfig.PodTypeKey: csiconfig.PodMount},
+			Labels:    map[string]string{schema.PodTypeKey: schema.PodNameMount},
 			Annotations: map[string]string{
 				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
 				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),

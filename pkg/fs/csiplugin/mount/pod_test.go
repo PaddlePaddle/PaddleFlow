@@ -25,17 +25,16 @@ import (
 	. "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var testNew = &k8sCore.Pod{
-	ObjectMeta: metav1.ObjectMeta{
+	ObjectMeta: k8sMeta.ObjectMeta{
 		Name:        "pfs-test-node-fs-root-testfs",
 		Namespace:   "default",
 		Annotations: map[string]string{},
@@ -56,7 +55,7 @@ var testTargetPath = "/var/lib/kubelet/pods/abc/volumes/kubernetes.io~csi/pfs-fs
 var testTargetPath2 = "/var/lib/kubelet/pods/def/volumes/kubernetes.io~csi/pfs-fs-root-test-default-pv/mount"
 
 var testExist = &k8sCore.Pod{
-	ObjectMeta: metav1.ObjectMeta{
+	ObjectMeta: k8sMeta.ObjectMeta{
 		Name:      "pfs-test-node-fs-root-testfs",
 		Namespace: "default",
 		Annotations: map[string]string{
@@ -77,8 +76,8 @@ var testExist = &k8sCore.Pod{
 }
 
 func TestPFSMountWithCache(t *testing.T) {
-	csiconfig.Namespace = "default"
-	csiconfig.NodeName = "node1"
+	Namespace = "default"
+	NodeName = "node1"
 	fakeClientSet := utils.GetFakeK8sClient()
 	fs := model.FileSystem{
 		Model: model.Model{
@@ -149,10 +148,10 @@ func TestPFSMountWithCache(t *testing.T) {
 			if err := PFSMount(tt.args.volumeID, tt.args.mountInfo); (err != nil) != tt.wantErr {
 				t.Errorf("PodMount() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			newPod, errGetpod := tt.args.mountInfo.K8sClient.GetPod(csiconfig.Namespace, GeneratePodNameByVolumeID(tt.args.volumeID))
+			newPod, errGetpod := tt.args.mountInfo.K8sClient.GetPod(Namespace, GeneratePodNameByVolumeID(tt.args.volumeID))
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
-			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
+			assert.Equal(t, Namespace, newPod.Namespace)
 			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
