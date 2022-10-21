@@ -846,7 +846,33 @@ func getComponentRecursively(components map[string]Component, names []string) (C
 }
 
 func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
-	runYaml, err := yaml.Marshal(wfs)
+	type workflow struct {
+		Name           string                         `yaml:"name"`
+		DockerEnv      string                         `yaml:"docker_env"`
+		EntryPoints    map[string]Component           `yaml:"entry_points"`
+		Components     map[string]Component           `yaml:"components"`
+		Cache          Cache                          `yaml:"cache"`
+		Parallelism    int                            `yaml:"parallelism"`
+		Disabled       string                         `yaml:"disabled"`
+		FailureOptions FailureOptions                 `yaml:"failure_options"`
+		PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
+		FsOptions      FsOptions                      `yaml:"fs_options"`
+	}
+
+	wf := workflow{
+		Name:           wfs.Name,
+		DockerEnv:      wfs.DockerEnv,
+		EntryPoints:    wfs.EntryPoints.EntryPoints,
+		Components:     wfs.Components,
+		Cache:          wfs.Cache,
+		Parallelism:    wfs.Parallelism,
+		Disabled:       wfs.Disabled,
+		FailureOptions: wfs.FailureOptions,
+		PostProcess:    wfs.PostProcess,
+		FsOptions:      wfs.FsOptions,
+	}
+
+	runYaml, err := yaml.Marshal(wf)
 	if err != nil {
 		return "", err
 	}

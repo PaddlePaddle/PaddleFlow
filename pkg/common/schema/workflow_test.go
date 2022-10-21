@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -84,4 +85,27 @@ func TestDagDeepCopy(t *testing.T) {
 
 	fmt.Println("in loop:", loop.GetLoopArgument())
 	fmt.Println("in loop2:", loop2.GetLoopArgument())
+}
+
+func TestTransToRunYamlRaw(t *testing.T) {
+	wfs, err := GetWorkflowSource(loadCase(runYamlPath))
+	assert.Nil(t, err)
+
+	wfs.PostProcess = map[string]*WorkflowSourceStep{
+		"post": &WorkflowSourceStep{
+			Command: "echo post"},
+	}
+
+	runYamlRaw, err := wfs.TransToRunYamlRaw()
+	assert.Nil(t, err)
+
+	runYamlBytes, err := base64.StdEncoding.DecodeString(runYamlRaw)
+
+	ioutil.WriteFile("trans.yaml", runYamlBytes, 0777)
+	newWfs, err := GetWorkflowSource(loadCase("trans.yaml"))
+	assert.Nil(t, err)
+
+	assert.Contains(t, newWfs.PostProcess, "post")
+	assert.Equal(t, len(wfs.EntryPoints.EntryPoints), len(newWfs.EntryPoints.EntryPoints))
+	assert.Equal(t, len(wfs.Components), len(newWfs.Components))
 }
