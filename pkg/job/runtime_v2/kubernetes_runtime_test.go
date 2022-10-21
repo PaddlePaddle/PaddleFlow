@@ -181,8 +181,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 				CSI: &corev1.CSIPersistentVolumeSource{
 					FSType: "ext4",
 					VolumeAttributes: map[string]string{
-						"pfs.fs.id":  "$(pfs.fs.id)",
-						"pfs.server": "$(pfs.server)",
+						"pfs.fs.id": "$(pfs.fs.id)",
 					},
 					VolumeHandle: "pfs-$(pfs.fs.id)-$(namespace)-pv",
 				},

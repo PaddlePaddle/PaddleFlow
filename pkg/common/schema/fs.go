@@ -32,7 +32,6 @@ const (
 	PFSID        = "pfs.fs.id"
 	PFSInfo      = "pfs.fs.info"
 	PFSCache     = "pfs.fs.cache"
-	PFSServer    = "pfs.server"
 	PFSClusterID = "pfs.cluster.id"
 
 	FusePodMntDir = "/home/paddleflow/mnt"
@@ -43,16 +42,15 @@ const (
 	FuseKeyFsInfo = "fs-info"
 
 	// mount pod label key
-	KeyFsID         = "fsID"
-	KeyCacheID      = "cacheID"
-	KeyNodeName     = "nodename"
+	KeyFsID     = "fsID"
+	KeyCacheID  = "cacheID"
+	KeyNodeName = "nodename"
+	KeyUsedSize = "usedSize" // patched by cache-worker in mount pod
+
+	// mount pod annotation key - patched by csi
+	KeyCacheDir     = "cacheDir"
 	KeyModifiedTime = "modifiedTime"
 	KeyMountPrefix  = "mount-"
-
-	// mount pod annotation key
-	KeyUsedSize = "usedSize"
-	KeyCacheDir = "cacheDir"
-	KeyMetrics  = "metrics"
 
 	EnvKeyMountPodName = "POD_NAME"
 	EnvKeyNamespace    = "NAMESPACE"
