@@ -31,24 +31,27 @@ import (
 )
 
 func PatchCacheStatsLoop(k8sClient utils.Client, pod *k8sCore.Pod, hasCachePath bool) {
+	if !hasCachePath {
+		return
+	}
+
 	var errStat, err error
 	var usageStat *disk.UsageStat
 	var sizeUsed string = "0"
 	for {
-		if hasCachePath {
-			usageStat, errStat = disk.Usage(mount.FusePodCachePath)
-			if errStat != nil {
-				log.Errorf("disk stat path[%s] and err[%v]", mount.FusePodCachePath, errStat)
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
 
-			pod.ObjectMeta.Labels[schema.KeyUsedSize] = sizeUsed
-			err = k8sClient.PatchPodLabel(pod)
-			if err != nil {
-				log.Errorf("PatchPodLabel %+v err[%v]", pod.Labels, err)
-			}
+		usageStat, errStat = disk.Usage(mount.FusePodCachePath)
+		if errStat != nil {
+			log.Errorf("disk stat path[%s] and err[%v]", mount.FusePodCachePath, errStat)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
+
+		pod.ObjectMeta.Labels[schema.KeyUsedSize] = sizeUsed
+		err = k8sClient.PatchPodLabel(pod)
+		if err != nil {
+			log.Errorf("PatchPodLabel %+v err[%v]", pod.Labels, err)
 		}
 
 		select {
