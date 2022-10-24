@@ -90,7 +90,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		bytesRead += nread
 		blockOff += nread
 
-		if nread == 0 {
+		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
 		}
 	}
@@ -181,6 +181,7 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	log.Debugf("read buffers map %v", len(r.buffers))
 	if err == nil {
 		n, err = r.readFromReadAhead(off, buf)
+		log.Debugf("readFromReadAhead n is %v err %v", n, err)
 		return
 	} else {
 		log.Errorf("read ahead err is %v", err)
