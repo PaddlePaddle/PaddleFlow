@@ -80,7 +80,7 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 			},
 		}),
 	)
-	pfs, err := NewFileSystem(fsMeta, nil, true, true, "", vfsConfig)
+	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)
 	if err != nil {
 		log.Errorf("new a fileSystem with fsMeta [%+v] failed: %v", fsMeta, err)
 		return nil, err
@@ -240,7 +240,7 @@ func (c *PFSClient) removeAll(path string) error {
 
 	dirs, err := parent.Readdirnames(-1)
 	if err != nil {
-		log.Errorf("Readdirnames failed: %v",  err)
+		log.Errorf("Readdirnames failed: %v", err)
 		return err
 	}
 	for _, dir := range dirs {
