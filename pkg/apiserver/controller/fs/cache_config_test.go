@@ -26,13 +26,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-func mockFS() model.FileSystem {
-	return model.FileSystem{
-		Model:    model.Model{ID: mockFSID},
-		UserName: mockRootName,
-		Name:     mockFSName,
-	}
-}
+const (
+	mockFSName   = "mock"
+	mockRootName = "root"
+)
 
 func mockFSCache() model.FSCacheConfig {
 	return model.FSCacheConfig{
