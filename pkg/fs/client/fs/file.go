@@ -300,6 +300,7 @@ func (f *File) Readdirnames(n int) ([]string, error) {
 	ctx := meta.NewEmptyContext()
 	entries, err := f.fs.vfs.ReadDir(ctx, f.inode, f.fh, 0)
 	if utils.IsError(err) {
+		log.Errorf("Readdirnames inode[%d] fh[%d]", f.inode, f.fh)
 		return []string{}, err
 	}
 	dirNames := make([]string, len(entries))

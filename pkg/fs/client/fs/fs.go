@@ -99,6 +99,7 @@ func (fs *FileSystem) Open(path_ string) (*File, error) {
 	flags := uint32(syscall.O_RDONLY)
 	ctx := meta.NewEmptyContext()
 	attr, ino, sysErr := fs.lookup(ctx, path_, true)
+	log.Debugf("fs client looup inode[%v] path[%s]", ino, path_)
 	if utils.IsError(sysErr) {
 		return nil, sysErr
 	}
