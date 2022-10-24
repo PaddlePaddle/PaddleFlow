@@ -39,6 +39,8 @@ const (
 	testTargetPath = "/var/lib/kubelet/pods/abc/volumes/kubernetes.io~csi/pfs-fs-root-test-default-pv/mount"
 	mockClusterID  = "cluster-mock"
 	mockFSID       = "fs-root-mock"
+	mockFSName     = "mock"
+	mockRootName   = "root"
 	mockNodename   = "nodename_mock"
 	mockCacheDir   = "/var/cache"
 )
