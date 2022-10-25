@@ -130,8 +130,8 @@ func MountPodController(mountPodExpire, interval time.Duration,
 	for {
 		if times%3 == 0 {
 			times = 0
-			if err := cleanMountPod(mountPodExpire); err != nil {
-				log.Errorf("clean mount pod err: %v", err)
+			if err := cleanExpiredMountPod(mountPodExpire); err != nil {
+				log.Errorf("cleanExpiredMountPod err: %v", err)
 			}
 		}
 

@@ -29,7 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
-func cleanMountPod(mountPodExpire time.Duration) error {
+func cleanExpiredMountPod(mountPodExpire time.Duration) error {
 	// check k8s mount pods
 	clusters, err := getClusterNamespaceMap()
 	if err != nil {
@@ -41,7 +41,10 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 		log.Errorf(fmt.Sprintf("clean mount pods listNotUsedAndExpireMountPods err: %v", err))
 		return err
 	}
-	log.Debugf("delete Mount pods map %v", deleteMountPodsMap)
+	if len(deleteMountPodsMap) == 0 {
+		return nil
+	}
+	log.Infof("cleanExpiredMountPod map %+v", deleteMountPodsMap)
 	if err = deleteMountPods(deleteMountPodsMap); err != nil {
 		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
 		return err
