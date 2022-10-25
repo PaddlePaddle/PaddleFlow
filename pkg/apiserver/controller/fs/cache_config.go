@@ -29,11 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-const (
-	MaxMountPodCpuLimit = "2"
-	MaxMountPodMemLimit = "8Gi"
-)
-
 func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:                   req.FsID,
