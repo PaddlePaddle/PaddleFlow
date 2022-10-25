@@ -85,7 +85,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			break
+			return 0, err
 		}
 		bytesRead += nread
 		blockOff += nread
