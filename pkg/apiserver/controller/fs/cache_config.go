@@ -29,6 +29,11 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
+const (
+	MaxMountPodCpuLimit = "2"
+	MaxMountPodMemLimit = "8Gi"
+)
+
 func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:                   req.FsID,
@@ -41,7 +46,6 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		Resource:               req.Resource,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
-		// NodeAffinity:           req.NodeAffinity,
 	}
 }
 
@@ -58,7 +62,6 @@ type CreateFileSystemCacheRequest struct {
 	Resource            model.ResourceLimit    `json:"resource"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
-	//NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 }
 
 type FileSystemCacheResponse struct {
@@ -74,7 +77,6 @@ type FileSystemCacheResponse struct {
 	Username            string                 `json:"username"`
 	CreateTime          string                 `json:"createTime"`
 	UpdateTime          string                 `json:"updateTime,omitempty"`
-	// NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 }
 
 func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
@@ -89,7 +91,6 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.FsName, resp.Username, _ = utils.GetFsNameAndUserNameByFsID(config.FsID)
 	resp.CreateTime = config.CreateTime
 	resp.UpdateTime = config.UpdateTime
-	//resp.NodeAffinity = config.NodeAffinity
 }
 
 func checkFsMountedAndCleanResource(ctx *logger.RequestContext, fsID string) error {
