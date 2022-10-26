@@ -54,7 +54,7 @@ func init() {
 	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
 
 	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
-		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
+		log.Errorf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
 		return
 	}
 
@@ -66,7 +66,7 @@ func init() {
 	pod, err := k8sClient.GetPod(csiconfig.Namespace, csiconfig.PodName)
 	if err != nil {
 		log.Errorf("Can't get pod %s: %v", csiconfig.PodName, err)
-		os.Exit(0)
+		return
 	}
 	csiconfig.CSIPod = *pod
 	csiconfig.NodeName = pod.Spec.NodeName
