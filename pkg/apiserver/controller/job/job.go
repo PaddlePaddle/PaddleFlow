@@ -132,21 +132,28 @@ type CreateJobResponse struct {
 	ID string `json:"id"`
 }
 
-func CheckPermission(ctx *logger.RequestContext) error {
-	// TODO: check permission
+func CheckPermission(ctx *logger.RequestContext, ownerUserName, jobID string) error {
+	err := common.CheckPermission(ctx.UserName, ownerUserName, common.ResourceTypeJob, jobID)
+	if err != nil {
+		log.Errorf("Check user[%s]'s permission for accessing user[%s]'s job[%s] failed, err: %s",
+			ctx.UserName, ownerUserName, jobID, err.Error())
+		return err
+	}
 	return nil
 }
 
 func DeleteJob(ctx *logger.RequestContext, jobID string) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		msg := fmt.Sprintf("get job %s failed, err: %v", jobID, err)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
+	}
+	if err := CheckPermission(ctx, job.UserName, jobID); err != nil {
+		log.Errorf("Check user[%s]'s permission for deleting user[%s]'s job[%s] failed, err: %s",
+			ctx.UserName, job.UserName, jobID, err.Error())
+		return err
 	}
 	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
@@ -165,13 +172,15 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 }
 
 func StopJob(ctx *logger.RequestContext, jobID string) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", jobID, err)
+		return err
+	}
+	if err = CheckPermission(ctx, job.UserName, job.ID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
 		return err
 	}
 	// check job status
@@ -213,15 +222,18 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 }
 
 func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(request.JobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return err
 	}
+	if err = CheckPermission(ctx, job.UserName, job.ID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return err
+	}
+
 	// check job status when update job on cluster
 	needUpdateCluster := false
 	if request.Priority != "" {
