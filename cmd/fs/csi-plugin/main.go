@@ -55,13 +55,13 @@ func init() {
 
 	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
 		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
-		os.Exit(0)
+		return
 	}
 
 	k8sClient, err := utils.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
-		os.Exit(0)
+		return
 	}
 	pod, err := k8sClient.GetPod(csiconfig.Namespace, csiconfig.PodName)
 	if err != nil {
@@ -82,7 +82,7 @@ func init() {
 	}
 	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
 		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
-		os.Exit(0)
+		return
 	}
 }
 
