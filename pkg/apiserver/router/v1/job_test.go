@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,17 +56,16 @@ var (
 	}
 )
 
-type args struct {
-	ctx *logger.RequestContext
-	req *job.CreateSingleJobRequest
-}
-
 func initQueue(t *testing.T, userName string) {
 	err := storage.Queue.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 
 func TestCreateJob(t *testing.T) {
+	type args struct {
+		ctx *logger.RequestContext
+		req *job.CreateSingleJobRequest
+	}
 	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
 	initCluster(t)
 	initQueue(t, mockUserName)
@@ -116,6 +116,169 @@ func TestCreateJob(t *testing.T) {
 		t.Logf("baseURL=%s", baseURL)
 		res, err := PerformPostRequest(router, baseURL+"/job/single", tt.args.req)
 		t.Logf("case[%s] create single job, response=%+v", tt.name, res)
+		if tt.wantErr {
+			assert.Error(t, err)
+			continue
+		} else {
+			assert.NoError(t, err)
+			assert.Equal(t, tt.responseCode, res.Code)
+		}
+	}
+}
+
+func TestUpdateJob(t *testing.T) {
+	type args struct {
+		ctx *logger.RequestContext
+		req *job.UpdateJobRequest
+	}
+
+	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
+	initCluster(t)
+	initQueue(t, MockRootUser)
+	flavourName := initFlavour(t)
+
+	//user1 := "abc"
+	user2 := "def"
+	MockJobID := "111"
+	createJobRequest := job.CreateSingleJobRequest{
+		CommonJobInfo: job.CommonJobInfo{
+			ID:          MockJobID,
+			Name:        "normal",
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+			SchedulingPolicy: job.SchedulingPolicy{
+				Queue: MockQueueName,
+			},
+		},
+		JobSpec: job.JobSpec{
+			Image: "mockImage",
+			Flavour: schema.Flavour{
+				Name: flavourName,
+			},
+		},
+	}
+
+	res, err := PerformPostRequest(router, baseURL+"/job/single", createJobRequest)
+	assert.NoError(t, err)
+	t.Logf("create Job %v", res)
+
+	//ctx := &logger.RequestContext{UserName: "testusername"}
+	tests := []struct {
+		name         string
+		args         args
+		wantErr      bool
+		responseCode int
+	}{
+		{
+			name: "empty request",
+			args: args{
+				ctx: &logger.RequestContext{UserName: user2},
+				req: &job.UpdateJobRequest{},
+			},
+			wantErr:      false,
+			responseCode: 404,
+		},
+		{
+			name: "normal",
+			args: args{
+				ctx: &logger.RequestContext{UserName: user2},
+				req: &job.UpdateJobRequest{
+					JobID:    MockJobID,
+					Priority: schema.EnvJobHighPriority,
+				},
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+	}
+	for _, tt := range tests {
+		t.Logf("baseURL=%s", baseURL)
+		res, err := PerformPutRequest(router, fmt.Sprintf("%s/job/%s?action=modify", baseURL, tt.args.req.JobID), tt.args.req)
+		t.Logf("case[%s] update single job, response=%+v", tt.name, res)
+		if tt.wantErr {
+			assert.Error(t, err)
+			continue
+		} else {
+			assert.NoError(t, err)
+			assert.Equal(t, tt.responseCode, res.Code)
+		}
+	}
+}
+
+func TestDeleteJob(t *testing.T) {
+	type args struct {
+		ctx *logger.RequestContext
+		req *job.UpdateJobRequest
+	}
+
+	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
+	initCluster(t)
+	initQueue(t, MockRootUser)
+	flavourName := initFlavour(t)
+
+	//user1 := "abc"
+	user2 := "def"
+	MockJobID := "111"
+	createJobRequest := job.CreateSingleJobRequest{
+		CommonJobInfo: job.CommonJobInfo{
+			ID:          MockJobID,
+			Name:        "normal",
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+			SchedulingPolicy: job.SchedulingPolicy{
+				Queue: MockQueueName,
+			},
+		},
+		JobSpec: job.JobSpec{
+			Image: "mockImage",
+			Flavour: schema.Flavour{
+				Name: flavourName,
+			},
+		},
+	}
+
+	res, err := PerformPostRequest(router, baseURL+"/job/single", createJobRequest)
+	assert.NoError(t, err)
+	t.Logf("create Job %v", res)
+
+	//ctx := &logger.RequestContext{UserName: "testusername"}
+	tests := []struct {
+		name         string
+		args         args
+		wantErr      bool
+		responseCode int
+	}{
+		{
+			name: "empty request",
+			args: args{
+				ctx: &logger.RequestContext{UserName: user2},
+				req: &job.UpdateJobRequest{},
+			},
+			wantErr:      false,
+			responseCode: 404,
+		},
+		{
+			name: "normal",
+			args: args{
+				ctx: &logger.RequestContext{UserName: user2},
+				req: &job.UpdateJobRequest{
+					JobID:    MockJobID,
+					Priority: schema.EnvJobHighPriority,
+				},
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+	}
+	for _, tt := range tests {
+		t.Logf("baseURL=%s", baseURL)
+
+		res, err = PerformPutRequest(router, fmt.Sprintf("%s/job/%s?action=stop", baseURL, tt.args.req.JobID), tt.args.req)
+		t.Logf("case[%s] stop single job, response=%+v", tt.name, res)
+		assert.NoError(t, err)
+
+		res, err = PerformDeleteRequest(router, fmt.Sprintf("%s/job/%s", baseURL, tt.args.req.JobID))
+		t.Logf("case[%s] delete single job, response=%+v", tt.name, res)
 		if tt.wantErr {
 			assert.Error(t, err)
 			continue
