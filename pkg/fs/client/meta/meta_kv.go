@@ -598,7 +598,7 @@ func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscal
 }
 
 func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
-	log.Debugf("kv meta parent Ino[%v] name [%s]", parent, name)
+	log.Debugf("kv meta Lookup parent Ino[%v] name [%s]", parent, name)
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
@@ -626,7 +626,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		info, err := ufs_.GetAttr(path)
 		now := time.Now()
 		if err != nil {
-			log.Debugf("[vfs-lookup] GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
+			log.Debugf("[vfs-lookup] Lookup GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
 			return err
 		}
 		if isLink {

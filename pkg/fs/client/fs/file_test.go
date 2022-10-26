@@ -731,3 +731,50 @@ func TestPathCacheAndRename(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(dirs))
 }
+
+func TestFile_Readdirnames(t *testing.T) {
+	type fields struct {
+		inode       vfs.Ino
+		fh          uint64
+		attr        FileInfo
+		readOffset  int64
+		writeOffset int64
+		fs          *FileSystem
+	}
+	type args struct {
+		n int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "want readdir err",
+			fields: fields{
+				fs: &FileSystem{
+					vfs: &vfs.VFS{},
+				},
+			},
+			want:    []string{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &File{
+				inode:       tt.fields.inode,
+				fh:          tt.fields.fh,
+				attr:        tt.fields.attr,
+				readOffset:  tt.fields.readOffset,
+				writeOffset: tt.fields.writeOffset,
+				fs:          tt.fields.fs,
+			}
+			if _, err := f.Readdirnames(tt.args.n); (err != nil) != tt.wantErr {
+				t.Errorf("Readdirnames() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
