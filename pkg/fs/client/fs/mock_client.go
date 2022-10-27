@@ -222,6 +222,10 @@ func (c *MockClient) Chmod(path string, fm os.FileMode) error {
 	return os.Chmod(filepath.Join(c.pathPrefix, path), fm)
 }
 
+func (c *MockClient) Chown(name string, uid, gid int) error {
+	return os.Chown(name, uid, gid)
+}
+
 func (c *MockClient) Walk(root string, walkFn filepath.WalkFunc) error {
 	return nil
 }
