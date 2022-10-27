@@ -427,7 +427,12 @@ func generateContainerCommand(command string, workdir string) []string {
 	command = strings.TrimPrefix(command, "sh -c")
 
 	if workdir != "" {
-		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
+		// if command is not empty
+		if command != "" {
+			command = fmt.Sprintf("cd %s; %s", workdir, command)
+		} else {
+			command = fmt.Sprintf("cd %s", workdir)
+		}
 	}
 
 	commands := []string{"sh", "-c", command}
