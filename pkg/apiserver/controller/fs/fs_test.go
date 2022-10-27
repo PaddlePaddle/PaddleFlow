@@ -17,6 +17,8 @@ limitations under the License.
 package fs
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
@@ -237,4 +239,55 @@ func Test_cleanFsResources(t *testing.T) {
 	l, err = storage.FsCache.List(mockFSID2, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(l))
+
+	notMountedFs1.Name = "notValid"
+	runtimePodsMap[mockRuntime.(*runtime.KubeRuntime)] = []k8sCore.Pod{notMountedFs1}
+	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "retrieve"))
+}
+
+func Test_FileSystem(t *testing.T) {
+	driver.InitMockDB()
+
+	svc := GetFileSystemService()
+
+	ctx := &logger.RequestContext{UserName: mockRootName}
+	listReq := &ListFileSystemRequest{
+		Username: mockRootName,
+		FsName:   mockFSName,
+	}
+	fsList, _, err := svc.ListFileSystem(ctx, listReq)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(fsList))
+
+	_, err = svc.GetFileSystem(mockRootName, mockFSName)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "not found"))
+
+	createRep := CreateFileSystemRequest{
+		Name:       mockFSName,
+		Username:   mockRootName,
+		Url:        "mockUrl",
+		Properties: map[string]string{"cat": "meow"},
+	}
+	fs, err := svc.CreateFileSystem(ctx, &createRep)
+	assert.Nil(t, err)
+	assert.Equal(t, createRep.Name, fs.Name)
+	assert.Equal(t, createRep.Username, fs.UserName)
+	fsType, serverAddress, subPath := common.InformationFromURL(createRep.Url, createRep.Properties)
+	assert.Equal(t, fsType, fs.Type)
+	assert.Equal(t, serverAddress, fs.ServerAddress)
+	assert.Equal(t, subPath, fs.SubPath)
+
+	fsList, _, err = svc.ListFileSystem(ctx, listReq)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(fsList))
+
+	fsGet, err := svc.GetFileSystem(mockRootName, mockFSName)
+	assert.Nil(t, err)
+	assert.Equal(t, fs.Name, fsGet.Name)
+
+	err = svc.DeleteFileSystem(ctx, mockFSID)
+	assert.Nil(t, err)
 }
