@@ -26,11 +26,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-const (
-	mockFSName   = "mock"
-	mockRootName = "root"
-)
-
 func mockFSCache() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:           mockFSID,
