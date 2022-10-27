@@ -17,7 +17,8 @@ limitations under the License.
 package fs
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"strings"
 	"testing"
@@ -112,15 +113,10 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	defer pRuntime.Reset()
 	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
 		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
-			log.Warnf("elsie list po listLabel: %s", listOptions.LabelSelector)
-			if strings.Contains(listOptions.LabelSelector, mockFSID) {
-				log.Warnf("elsie list po fs1")
-				return &podListFs1, nil
-			} else if strings.Contains(listOptions.LabelSelector, mockFSID2) {
-				log.Warnf("elsie list po fs2")
+			if strings.Contains(listOptions.LabelSelector, mockFSID2) {
 				return &podListFs2, nil
 			} else {
-				return nil, nil
+				return &podListFs1, nil
 			}
 		})
 	defer pListPod.Reset()
@@ -171,4 +167,74 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 			assert.Equal(t, tt.args.lensOfPodsToClean, len(podList))
 		})
 	}
+}
+
+func Test_cleanFsResources(t *testing.T) {
+	driver.InitMockDB()
+	fsCache1 := model.FSCache{
+		FsID:      mockFSID,
+		NodeName:  mockNodename,
+		ClusterID: mockClusterID,
+	}
+	fsCache2 := model.FSCache{
+		FsID:      mockFSID2,
+		NodeName:  mockNodename,
+		ClusterID: mockClusterID,
+	}
+	fsCache3 := model.FSCache{
+		FsID:      mockFSID,
+		NodeName:  mockNodename2,
+		ClusterID: mockClusterID,
+	}
+	err := storage.FsCache.Add(&fsCache1)
+	assert.Nil(t, err)
+	err = storage.FsCache.Add(&fsCache2)
+	assert.Nil(t, err)
+	err = storage.FsCache.Add(&fsCache3)
+	assert.Nil(t, err)
+
+	mockCluster := model.ClusterInfo{
+		ClusterType: schema.KubernetesType,
+		Name:        mockClusterName,
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+	}
+	cluster := schema.Cluster{
+		ID:   mockCluster.ID,
+		Name: mockCluster.Name,
+		Type: mockCluster.ClusterType,
+	}
+	mockRuntime := runtime.NewKubeRuntime(cluster)
+
+	notMountedFs1 := mountPodWithCacheID(mockFSID, mockNodename)
+	notMountedFs2 := mountPodWithCacheID(mockFSID2, mockNodename)
+	runtimePodsMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod, 0)
+	runtimePodsMap[mockRuntime.(*runtime.KubeRuntime)] = []k8sCore.Pod{notMountedFs1, notMountedFs2}
+
+	p1 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
+		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return nil
+		})
+	defer p1.Reset()
+	p2 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolume",
+		func(_ *runtime.KubeRuntime, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return nil
+		})
+	defer p2.Reset()
+	p3 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePod",
+		func(_ *runtime.KubeRuntime, namespace, name string) error {
+			return nil
+		})
+	defer p3.Reset()
+
+	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
+	assert.Nil(t, err)
+
+	l, err := storage.FsCache.List(mockFSID, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(l))
+	l, err = storage.FsCache.List(mockFSID2, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(l))
 }
