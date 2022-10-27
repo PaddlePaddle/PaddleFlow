@@ -93,6 +93,8 @@ func GetJobFrameworkVersion(jobType commomschema.JobType, framework commomschema
 		gvk = MXNetJobGVK
 	case commomschema.FrameworkMPI:
 		gvk = MPIJobGVK
+	case commomschema.FrameworkRay:
+		gvk = RayJobGVK
 	}
 	return commomschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
