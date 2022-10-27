@@ -276,7 +276,7 @@ func (s *FileSystemService) checkFsMountedAllClustersAndScheduledJobs(fsID strin
 	if len(clusters) == 0 {
 		return false, nil, nil
 	}
-	var runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod
+	runtimePodsMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod, 0)
 	for _, cluster := range clusters {
 		mounted, runtimePtr, podsToClean, err := checkFsMountedSingleCluster(cluster, fsID)
 		if err != nil {
