@@ -165,6 +165,9 @@ func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID str
 		log.Errorf("build head pod spec failed, err:%v", err)
 		return err
 	}
+	// patch queue name
+	headGroupSpec.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
+	headGroupSpec.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName
 	if preStop, exist := task.Env[pfschema.EnvRayJobHeaderPreStop]; exist {
 		for index, container := range headGroupSpec.Template.Spec.Containers {
 			if container.Name != "autoscaler" {
@@ -236,6 +239,9 @@ func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID s
 		log.Errorf("build head pod spec failed, err: %v", err)
 		return err
 	}
+	// patch queue name
+	worker.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
+	worker.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName
 	// worker save into WorkerGroupSpecs finally
 	if workerIndex < rayWorkersLength {
 		rayJobSpec.RayClusterSpec.WorkerGroupSpecs[workerIndex] = worker
