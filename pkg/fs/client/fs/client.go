@@ -89,6 +89,7 @@ type FSClient interface {
 	Copy(srcPath, dstPath string) error
 	Size(path string) (int64, error)
 	Chmod(path string, fm os.FileMode) error
+	Chown(name string, uid, gid int) error
 	Walk(root string, walkFn filepath.WalkFunc) error
 	Stat(path string) (os.FileInfo, error)
 }
