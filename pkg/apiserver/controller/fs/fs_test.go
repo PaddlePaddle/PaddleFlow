@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	log "github.com/sirupsen/logrus"
 	"reflect"
 	"strings"
 	"testing"
@@ -111,9 +112,12 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	defer pRuntime.Reset()
 	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
 		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
+			log.Warnf("elsie list po listLabel: %s", listOptions.LabelSelector)
 			if strings.Contains(listOptions.LabelSelector, mockFSID) {
+				log.Warnf("elsie list po fs1")
 				return &podListFs1, nil
 			} else if strings.Contains(listOptions.LabelSelector, mockFSID2) {
+				log.Warnf("elsie list po fs2")
 				return &podListFs2, nil
 			} else {
 				return nil, nil

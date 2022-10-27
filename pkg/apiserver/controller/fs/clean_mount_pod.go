@@ -90,6 +90,7 @@ func expiredMountedPodsSingleCluster(cluster model.ClusterInfo, expireDuration t
 		log.Errorf("list mount pods failed: %v", err)
 		return nil, nil, err
 	}
+	log.Warnf("list pods %+v", pods)
 	podsToClean := make([]k8sCore.Pod, 0)
 	for _, po := range pods.Items {
 		if checkMountPodMounted(po) {
