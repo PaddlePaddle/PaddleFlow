@@ -133,7 +133,7 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 	expired := baseMountPod()
 	expired.Annotations = map[string]string{schema.AnnotationKeyMTime: "2006-01-02 15:04:05"}
 	notMounted := baseMountPod()
-	notMounted.Annotations = map[string]string{schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat)}
+	notMounted.Annotations = map[string]string{schema.AnnotationKeyMTime: time.Now().Add(-6 * time.Hour).Format(model.TimeFormat)}
 	podList := k8sCore.PodList{
 		Items: []k8sCore.Pod{*mounted, *expired, *notMounted},
 	}
@@ -158,21 +158,21 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 		args args
 	}{
 		{
-			name: "2h expire with 1 pods to clean",
+			name: "2h expire with 2 pods to clean",
 			args: args{
 				cluster:           mockCluster,
 				expireDuration:    2 * time.Hour,
 				runtimeExpected:   mockRuntime,
-				lensOfPodsToClean: 1,
+				lensOfPodsToClean: 2,
 			},
 		},
 		{
-			name: "0s expire with 2 pod to clean",
+			name: "12h expire with 1 pod to clean",
 			args: args{
 				cluster:           mockCluster,
-				expireDuration:    0,
+				expireDuration:    12 * time.Hour,
 				runtimeExpected:   mockRuntime,
-				lensOfPodsToClean: 2,
+				lensOfPodsToClean: 1,
 			},
 		},
 		{
