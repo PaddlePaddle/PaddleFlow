@@ -17,8 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"testing"
 	"time"
@@ -31,6 +29,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func Test_cleanMountPod(t *testing.T) {
