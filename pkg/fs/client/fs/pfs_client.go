@@ -450,6 +450,10 @@ func (c *PFSClient) Chmod(path string, fm os.FileMode) error {
 	return c.pfs.Chmod(path, fm)
 }
 
+func (c *PFSClient) Chown(name string, uid, gid int) error {
+	return c.pfs.Chown(name, uid, gid)
+}
+
 func (c *PFSClient) Walk(root string, walkFn filepath.WalkFunc) error {
 	info, err := c.pfs.Stat(root)
 	if err != nil {
