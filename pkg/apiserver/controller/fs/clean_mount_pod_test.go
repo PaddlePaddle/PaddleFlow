@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -84,9 +85,11 @@ func Test_cleanMountPod(t *testing.T) {
 	l, err := storage.FsCache.List(fs1, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(l))
+	fmt.Printf("fs1 cache: %v", l)
 	l, err = storage.FsCache.List(fs2, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(l))
+	fmt.Printf("fs2 cache: %v", l)
 
 	err = cleanMountPod(0)
 	assert.Nil(t, err)
