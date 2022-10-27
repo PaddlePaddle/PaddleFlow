@@ -98,7 +98,7 @@ type WorkflowRuntimeInfo struct {
 
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	ctx.Logging().Debugf("begin list job.")
-	if err := CheckPermission(ctx, ctx.UserName, ""); err != nil {
+	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, ""); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
@@ -176,7 +176,7 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		ctx.Logging().Errorln(err.Error())
 		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
 	}
-	if err := CheckPermission(ctx, job.UserName, job.ID); err != nil {
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, job.ID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return nil, err

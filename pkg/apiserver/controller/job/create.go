@@ -60,7 +60,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	if request.ID == "" {
 		request.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
-	if err := CheckPermission(ctx, ctx.UserName, request.ID); err != nil {
+	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, request.ID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
@@ -618,7 +618,7 @@ func newExtensionTemplateJson(extensionTemplate map[string]interface{}) (string,
 
 // CreateWorkflowJob handler for creating job
 func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) (*CreateJobResponse, error) {
-	if err := CheckPermission(ctx, ctx.UserName, request.ID); err != nil {
+	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, request.ID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return nil, err

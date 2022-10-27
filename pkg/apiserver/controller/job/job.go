@@ -132,18 +132,6 @@ type CreateJobResponse struct {
 	ID string `json:"id"`
 }
 
-func CheckPermission(ctx *logger.RequestContext, ownerUserName, jobID string) error {
-	log.Debugf("Check user[%s]'s permission for accessing user[%s]'s job[%s] failed",
-		ctx.UserName, ownerUserName, jobID)
-	err := common.CheckPermission(ctx.UserName, ownerUserName, common.ResourceTypeJob, jobID)
-	if err != nil {
-		log.Errorf("Check user[%s]'s permission for accessing user[%s]'s job[%s] failed, err: %s",
-			ctx.UserName, ownerUserName, jobID, err.Error())
-		return err
-	}
-	return nil
-}
-
 func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
@@ -152,11 +140,12 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	if err := CheckPermission(ctx, job.UserName, jobID); err != nil {
-		log.Errorf("Check user[%s]'s permission for deleting user[%s]'s job[%s] failed, err: %s",
-			ctx.UserName, job.UserName, jobID, err.Error())
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, jobID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
 		return err
 	}
+
 	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -180,7 +169,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get job %s from database failed, err: %v", jobID, err)
 		return err
 	}
-	if err = CheckPermission(ctx, job.UserName, job.ID); err != nil {
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, jobID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return err
@@ -230,7 +219,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return err
 	}
-	if err = CheckPermission(ctx, job.UserName, job.ID); err != nil {
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, request.JobID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return err
