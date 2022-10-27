@@ -721,6 +721,10 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 	log.Debugf("kv meta setattr inode[%v]", inode)
 	var absolutePath string
 	var cur inodeItem
+	var ufs_ ufslib.UnderFileStorage
+	var isLink bool
+	var prefix string
+	var path string
 	err := m.txn(func(tx kv.KvTxn) error {
 		now := time.Now()
 		a := tx.Get(m.inodeKey(inode))
@@ -731,7 +735,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
 		absolutePath = m.absolutePath(inode, tx)
-		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
+		ufs_, isLink, prefix, path = m.GetUFS(absolutePath)
 		ufsAttr, err := ufs_.GetAttr(path)
 		if err != nil {
 			return err
@@ -740,38 +744,40 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		if isLink {
 			ufsAttr.FixLinkPrefix(prefix)
 		}
-		if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-			cur.attr.Uid = attr.Uid
-			cur.attr.Gid = attr.Gid
-			if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
-				return err
-			}
-		}
-
-		if set&FATTR_MODE != 0 {
-			cur.attr.Mode = attr.Mode
-			if err = ufs_.Chmod(path, attr.Mode); err != nil {
-				return err
-			}
-		}
-		// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
-		if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-			atime := time.Unix(attr.Atime, int64(attr.Atimensec))
-			ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
-			cur.attr.Atime = attr.Atime
-			cur.attr.Atimensec = attr.Atimensec
-			cur.attr.Ctime = attr.Ctime
-			cur.attr.Ctimensec = attr.Ctimensec
-			if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
-				return err
-			}
-		}
+		cur.attr = *attr
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
 		if err != nil {
 			return err
 		}
 		return nil
 	})
+	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
+		cur.attr.Uid = attr.Uid
+		cur.attr.Gid = attr.Gid
+		if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
+	if set&FATTR_MODE != 0 {
+		cur.attr.Mode = attr.Mode
+		if err = ufs_.Chmod(path, attr.Mode); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+	// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
+	if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
+		atime := time.Unix(attr.Atime, int64(attr.Atimensec))
+		ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
+		cur.attr.Atime = attr.Atime
+		cur.attr.Atimensec = attr.Atimensec
+		cur.attr.Ctime = attr.Ctime
+		cur.attr.Ctimensec = attr.Ctimensec
+		if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
 	if err != nil {
 		return "", utils.ToSyscallErrno(err)
 	}
@@ -1436,6 +1442,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		if a != nil {
 			m.parseInode(a, inodeItem_)
 			if !m.inodeItemExpired(*inodeItem_) {
+				log.Debugf("open inodeItem cache %+v and attr %+v", *inodeItem_, inodeItem_.attr)
 				*attr = inodeItem_.attr
 				return nil
 			}
