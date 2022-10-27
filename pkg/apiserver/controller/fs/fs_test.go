@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	podList := k8sCore.PodList{
 		Items: []k8sCore.Pod{notMountedFs1, mountedFs2},
 	}
-
+	fmt.Printf("podList: %+v", podList)
 	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
 		return mockRuntime, nil
 	})
