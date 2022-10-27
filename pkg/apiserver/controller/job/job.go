@@ -133,6 +133,8 @@ type CreateJobResponse struct {
 }
 
 func CheckPermission(ctx *logger.RequestContext, ownerUserName, jobID string) error {
+	log.Debugf("Check user[%s]'s permission for accessing user[%s]'s job[%s] failed",
+		ctx.UserName, ownerUserName, jobID)
 	err := common.CheckPermission(ctx.UserName, ownerUserName, common.ResourceTypeJob, jobID)
 	if err != nil {
 		log.Errorf("Check user[%s]'s permission for accessing user[%s]'s job[%s] failed, err: %s",

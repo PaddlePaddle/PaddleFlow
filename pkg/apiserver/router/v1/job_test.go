@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
@@ -40,10 +41,11 @@ var (
 		Model: model.Model{
 			ID: MockQueueID,
 		},
-		Name:      MockQueueName,
-		Namespace: "paddleflow",
-		ClusterId: MockClusterID,
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		Name:        MockQueueName,
+		Namespace:   "paddleflow",
+		ClusterId:   MockClusterID,
+		ClusterName: MockClusterName,
+		QuotaType:   schema.TypeVolcanoCapabilityQuota,
 		MaxResources: &resources.Resource{
 			Resources: map[string]resources.Quantity{
 				"cpu":            10 * 1000,
@@ -128,8 +130,9 @@ func TestCreateJob(t *testing.T) {
 
 func TestUpdateJob(t *testing.T) {
 	type args struct {
-		ctx *logger.RequestContext
-		req *job.UpdateJobRequest
+		ctx    *logger.RequestContext
+		req    *job.UpdateJobRequest
+		router *chi.Mux
 	}
 
 	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
@@ -157,7 +160,20 @@ func TestUpdateJob(t *testing.T) {
 			},
 		},
 	}
+	// change ctx user
+	routerNonRoot := NewApiTestNonRoot()
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	// create user1
+	token, err := CreateTestUser(ctx, mockUserName, MockPassword)
+	assert.Nil(t, err)
+	t.Logf("user:%s, token:%s", mockUserName, token)
+	//setToken(token)
+	// create user1
+	tokenUser2, err := CreateTestUser(ctx, user2, MockPassword+"edf")
+	t.Logf("user:%s, token:%s", user2, tokenUser2)
+	assert.Nil(t, err)
 
+	//ctx = &logger.RequestContext{UserName: mockUserName}
 	res, err := PerformPostRequest(router, baseURL+"/job/single", createJobRequest)
 	assert.NoError(t, err)
 	t.Logf("create Job %v", res)
@@ -172,8 +188,9 @@ func TestUpdateJob(t *testing.T) {
 		{
 			name: "empty request",
 			args: args{
-				ctx: &logger.RequestContext{UserName: user2},
-				req: &job.UpdateJobRequest{},
+				ctx:    &logger.RequestContext{UserName: user2},
+				req:    &job.UpdateJobRequest{},
+				router: router,
 			},
 			wantErr:      false,
 			responseCode: 404,
@@ -181,25 +198,39 @@ func TestUpdateJob(t *testing.T) {
 		{
 			name: "normal",
 			args: args{
+				ctx: &logger.RequestContext{UserName: mockUserName},
+				req: &job.UpdateJobRequest{
+					JobID:    MockJobID,
+					Priority: schema.EnvJobHighPriority,
+				},
+				router: router,
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "no permit",
+			args: args{
 				ctx: &logger.RequestContext{UserName: user2},
 				req: &job.UpdateJobRequest{
 					JobID:    MockJobID,
 					Priority: schema.EnvJobHighPriority,
 				},
+				router: routerNonRoot,
 			},
-			wantErr:      false,
-			responseCode: 200,
+			wantErr:      true,
+			responseCode: 403,
 		},
 	}
 	for _, tt := range tests {
-		t.Logf("baseURL=%s", baseURL)
-		res, err := PerformPutRequest(router, fmt.Sprintf("%s/job/%s?action=modify", baseURL, tt.args.req.JobID), tt.args.req)
+		t.Logf("Case[%s] baseURL=%s", tt.name, baseURL)
+		//setToken(tt.args.router)
+		res, _ = PerformPutRequest(tt.args.router, fmt.Sprintf("%s/job/%s?action=modify", baseURL, tt.args.req.JobID), tt.args.req)
 		t.Logf("case[%s] update single job, response=%+v", tt.name, res)
 		if tt.wantErr {
-			assert.Error(t, err)
+			assert.NotEqual(t, res.Code, 200)
 			continue
 		} else {
-			assert.NoError(t, err)
 			assert.Equal(t, tt.responseCode, res.Code)
 		}
 	}
