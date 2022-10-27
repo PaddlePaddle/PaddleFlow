@@ -1399,11 +1399,13 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	}
 
 	if accessKey != "" && secretKey != "" {
-		secretKey, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
+		secretKey_, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
 		if err != nil {
-			return nil, err
+			// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
+			log.Debug("secretKey may be not descrypy")
+			secretKey_ = secretKey
 		}
-		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey, "")
+		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
 	}
 
 	sess, err := session.NewSession(awsConfig)
