@@ -17,8 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	k8sCore "k8s.io/api/core/v1"
 	"math/rand"
 	"net/http"
 	"os"
@@ -27,10 +25,12 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )

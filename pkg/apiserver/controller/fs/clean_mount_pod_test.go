@@ -17,12 +17,12 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -48,7 +48,7 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 
 	mounted := baseMountPod()
 	expired := baseMountPod()
-	expired.Annotations = map[string]string{schema.AnnotationKeyMTime: "1603772423"}
+	expired.Annotations = map[string]string{schema.AnnotationKeyMTime: "2006-01-02 15:04:05"}
 	notMounted := baseMountPod()
 	notMounted.Annotations = map[string]string{schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat)}
 	podList := k8sCore.PodList{
