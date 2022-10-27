@@ -53,7 +53,9 @@ func cleanMountPod(expireDuration time.Duration) error {
 			podCleanMap[runtimePtr] = podsToClean
 		}
 	}
-
+	if len(podCleanMap) == 0 {
+		return nil
+	}
 	log.Infof("clean expired mount pods: %+v", podCleanMap)
 	if err = deleteMountPods(podCleanMap); err != nil {
 		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
@@ -102,7 +104,14 @@ func expiredMountedPodsSingleCluster(cluster model.ClusterInfo, expireDuration t
 			podsToClean = append(podsToClean, po)
 		}
 	}
-	return k8sRuntime, podsToClean, nil
+	if len(podsToClean) > 0 {
+		log.Debugf("cluster[%s] has expired mount pods to clean: %v", cluster.ID, podsToClean)
+		return k8sRuntime, podsToClean, nil
+	} else {
+		log.Debugf("cluster[%s] has no expired mount pods to clean", cluster.ID)
+		return nil, nil, nil
+	}
+
 }
 
 func checkMountPodExpired(po k8sCore.Pod, mountPodExpire time.Duration) (bool, error) {
@@ -116,6 +125,7 @@ func checkMountPodExpired(po k8sCore.Pod, mountPodExpire time.Duration) (bool, e
 	expireTime := modifyTime.Add(mountPodExpire)
 	log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, time.Now())
 	if expireTime.Before(time.Now()) {
+		log.Debugf("pod %s expired", po.Name)
 		return true, nil
 	} else {
 		return false, nil

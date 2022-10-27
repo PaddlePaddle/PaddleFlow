@@ -54,7 +54,7 @@ func buildCreateReq(model model.FSCacheConfig) CreateFileSystemCacheRequest {
 	return req
 }
 
-func TestRouter_FSCacheConfig(t *testing.T) {
+func Test_FSCacheConfig(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: mockRootName}
 	cacheConf := mockFSCache()

@@ -14,214 +14,69 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mount
+package fs
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 	"time"
 
-	. "github.com/agiledragon/gomonkey/v2"
-	"github.com/stretchr/testify/assert"
+	"github.com/agiledragon/gomonkey/v2"
 	k8sCore "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-var testNew = &k8sCore.Pod{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:        "pfs-test-node-fs-root-testfs",
-		Namespace:   "default",
-		Annotations: map[string]string{},
-	},
-	Status: k8sCore.PodStatus{
-		Phase: k8sCore.PodRunning,
-		Conditions: []k8sCore.PodCondition{{
-			Type:   k8sCore.PodReady,
-			Status: k8sCore.ConditionTrue,
-		}, {
-			Type:   k8sCore.ContainersReady,
-			Status: k8sCore.ConditionTrue,
-		}},
-	},
-}
-
-var testTargetPath = "/var/lib/kubelet/pods/abc/volumes/kubernetes.io~csi/pfs-fs-root-test-default-pv/mount"
-var testTargetPath2 = "/var/lib/kubelet/pods/def/volumes/kubernetes.io~csi/pfs-fs-root-test-default-pv/mount"
-
-var testExist = &k8sCore.Pod{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "pfs-test-node-fs-root-testfs",
-		Namespace: "default",
-		Annotations: map[string]string{
-			schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-			schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
-		},
-	},
-	Status: k8sCore.PodStatus{
-		Phase: k8sCore.PodRunning,
-		Conditions: []k8sCore.PodCondition{{
-			Type:   k8sCore.PodReady,
-			Status: k8sCore.ConditionTrue,
-		}, {
-			Type:   k8sCore.ContainersReady,
-			Status: k8sCore.ConditionTrue,
-		}},
-	},
-}
-
-func TestPFSMountWithCache(t *testing.T) {
-	csiconfig.Namespace = "default"
-	csiconfig.NodeName = "node1"
-	fakeClientSet := utils.GetFakeK8sClient()
-	fs := model.FileSystem{
+func Test_expiredMountedPodsSingleCluster(t *testing.T) {
+	mockCluster := model.ClusterInfo{
+		ClusterType: schema.KubernetesType,
+		Name:        "mockClusterID",
 		Model: model.Model{
-			ID:        "fs-root-testfs",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		UserName:      "root",
-		Name:          "testfs",
-		Type:          "s3",
-		SubPath:       "/supath",
-		ServerAddress: "server_address",
-
-		PropertiesMap: map[string]string{
-			"accessKey":     "accessKey",
-			"bucket":        "bucket",
-			"endpoint":      "server_address",
-			"region":        "bj",
-			"secretKey":     "secretKey",
-			common.DirMode:  "0755",
-			common.FileMode: "0644",
+			ID: mockClusterID,
 		},
 	}
-	fsStr, err := json.Marshal(fs)
-	assert.Nil(t, err)
-	fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
-
-	fsCache := model.FSCacheConfig{
-		FsID:       fs.ID,
-		CacheDir:   "/data/paddleflow-FS/mnt",
-		MetaDriver: "disk",
-		BlockSize:  4096,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+	cluster := schema.Cluster{
+		ID:   mockCluster.ID,
+		Name: mockCluster.Name,
+		Type: mockCluster.ClusterType,
 	}
-	fsCacheStr, err := json.Marshal(fsCache)
-	assert.Nil(t, err)
-	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+	mockRuntime := runtime.NewKubeRuntime(cluster)
 
-	info, err := ConstructMountInfo(fsBase64, fsCacheBase64, testTargetPath, fakeClientSet, false)
-	assert.Nil(t, err)
-
-	patch1 := ApplyFunc(isPodReady, func(pod *k8sCore.Pod) bool {
-		return true
+	mounted := baseMountPod()
+	expired := baseMountPod()
+	expired.Annotations = map[string]string{schema.AnnotationKeyMTime: "1603772423"}
+	notMounted := baseMountPod()
+	notMounted.Annotations = map[string]string{schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat)}
+	podList := k8sCore.PodList{
+		Items: []k8sCore.Pod{*mounted, *expired, *notMounted},
+	}
+	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+		return mockRuntime, nil
 	})
-	defer patch1.Reset()
-
-	type args struct {
-		volumeID  string
-		mountInfo Info
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "fuse-pod",
-			args: args{
-				volumeID:  "aaaaa",
-				mountInfo: info,
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := PFSMount(tt.args.volumeID, tt.args.mountInfo); (err != nil) != tt.wantErr {
-				t.Errorf("PodMount() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			newPod, errGetpod := tt.args.mountInfo.K8sClient.GetPod(csiconfig.Namespace, GeneratePodNameByVolumeID(tt.args.volumeID))
-			assert.Nil(t, errGetpod)
-			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
-			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
-			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
-			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
-				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
-				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
-				" --data-cache-path="+FusePodCachePath+DataCacheDir+
-				" --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
+	defer pRuntime.Reset()
+	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
+		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
+			return &podList, nil
 		})
-	}
-}
+	defer pListPod.Reset()
 
-func Test_addRef(t *testing.T) {
-	fakeClientSet := utils.GetFakeK8sClient()
-	type args struct {
-		c          utils.Client
-		pod        *k8sCore.Pod
-		targetPath string
-	}
-	tests := []struct {
-		name     string
-		args     args
-		wantErr  bool
-		wantAnno map[string]string
-	}{
-		{
-			name: "new pod add annotation",
-			args: args{
-				c:          fakeClientSet,
-				pod:        testNew,
-				targetPath: testTargetPath,
-			},
-			wantErr: false,
-			wantAnno: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
-			},
-		},
-		{
-			name: "exist pod add annotation",
-			args: args{
-				c:          fakeClientSet,
-				pod:        testExist,
-				targetPath: testTargetPath2,
-			},
-			wantErr: false,
-			wantAnno: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.args.pod != nil {
-				_, _ = tt.args.c.CreatePod(tt.args.pod)
-			}
-			if err := addRef(tt.args.c, tt.args.pod, tt.args.targetPath); (err != nil) != tt.wantErr {
-				t.Errorf("addRef() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			newPod, _ := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
-			if newPod == nil ||
-				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] ||
-				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] {
-				t.Errorf("waitUntilMount() got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
-			}
-			if len(newPod.Annotations) != len(tt.wantAnno) {
-				t.Errorf("pod annotions nums not correct () got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
-			}
+	rt, podMap, err := expiredMountedPodsSingleCluster(mockCluster, 2*time.Hour)
+	assert.Nil(t, err)
+	assert.Equal(t, mockRuntime, rt)
+	assert.Equal(t, 1, len(podMap))
 
-		})
-	}
+	rt, podMap, err = expiredMountedPodsSingleCluster(mockCluster, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, mockRuntime, rt)
+	assert.Equal(t, 2, len(podMap))
+
+	mockCluster.ClusterType = schema.LocalType
+	rt, podMap, err = expiredMountedPodsSingleCluster(mockCluster, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, nil, rt)
+	assert.Equal(t, 0, len(podMap))
 }
