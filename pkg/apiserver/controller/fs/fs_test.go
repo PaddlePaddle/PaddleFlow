@@ -17,8 +17,8 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,21 +96,28 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	mockRuntime := runtime.NewKubeRuntime(cluster)
 
 	notMountedFs1 := mountPodWithCacheID(mockFSID, mockNodename)
-	//mounted := mountPodWithCacheID(mockFSID, mockNodename2)
-	//mounted.Annotations[schema.AnnotationKeyMountPrefix+"dogcatrabbit"] = "/talking/to/the/moon"
-	mountedFs2 := mountPodWithCacheID(mockFSID2, mockNodename)
-	mountedFs2.Annotations[schema.AnnotationKeyMountPrefix+"dogcatrabbit"] = "/talking/to/the/moon"
-	podList := k8sCore.PodList{
-		Items: []k8sCore.Pod{notMountedFs1, mountedFs2},
+	mounted := mountPodWithCacheID(mockFSID, mockNodename2)
+	mounted.Annotations[schema.AnnotationKeyMountPrefix+"dogcatrabbit"] = "/talking/to/the/moon"
+	notMountedFs2 := mountPodWithCacheID(mockFSID2, mockNodename)
+	podListFs1 := k8sCore.PodList{
+		Items: []k8sCore.Pod{notMountedFs1, mounted},
 	}
-	fmt.Printf("podList: %+v", podList)
+	podListFs2 := k8sCore.PodList{
+		Items: []k8sCore.Pod{notMountedFs2},
+	}
 	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
 		return mockRuntime, nil
 	})
 	defer pRuntime.Reset()
 	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
 		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
-			return &podList, nil
+			if strings.Contains(listOptions.LabelSelector, mockFSID) {
+				return &podListFs1, nil
+			} else if strings.Contains(listOptions.LabelSelector, mockFSID2) {
+				return &podListFs2, nil
+			} else {
+				return nil, nil
+			}
 		})
 	defer pListPod.Reset()
 
@@ -125,21 +132,21 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 		args args
 	}{
 		{
-			name: "fs1 not mounted",
+			name: "fs1 mounted",
 			args: args{
 				cluster:           mockCluster,
 				fsID:              mockFSID,
-				expectMounted:     false,
-				lensOfPodsToClean: 1,
+				expectMounted:     true,
+				lensOfPodsToClean: 0,
 			},
 		},
 		{
-			name: "fs2 mounted",
+			name: "fs2 not mounted",
 			args: args{
 				cluster:           mockCluster,
 				fsID:              mockFSID2,
-				expectMounted:     true,
-				lensOfPodsToClean: 0,
+				expectMounted:     false,
+				lensOfPodsToClean: 1,
 			},
 		},
 		{

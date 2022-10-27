@@ -325,8 +325,7 @@ func checkFsMountedSingleCluster(cluster model.ClusterInfo, fsID string) (bool, 
 func checkMountPodMounted(po k8sCore.Pod) bool {
 	for key, targetPath := range po.Annotations {
 		if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
-			log.Warnf("pod[%s] mounted with target path[%s]", po.Name, targetPath)
-			log.Warnf("pod: %+v", po)
+			log.Debugf("pod[%s] mounted with target path[%s]", po.Name, targetPath)
 			return true
 		}
 	}
