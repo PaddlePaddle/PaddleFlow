@@ -253,10 +253,7 @@ func Test_FileSystem(t *testing.T) {
 	svc := GetFileSystemService()
 
 	ctx := &logger.RequestContext{UserName: mockRootName}
-	listReq := &ListFileSystemRequest{
-		Username: mockRootName,
-		FsName:   mockFSName,
-	}
+	listReq := &ListFileSystemRequest{}
 	fsList, _, err := svc.ListFileSystem(ctx, listReq)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(fsList))
@@ -279,10 +276,6 @@ func Test_FileSystem(t *testing.T) {
 	assert.Equal(t, fsType, fs.Type)
 	assert.Equal(t, serverAddress, fs.ServerAddress)
 	assert.Equal(t, subPath, fs.SubPath)
-
-	fsList, _, err = svc.ListFileSystem(ctx, listReq)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(fsList))
 
 	fsGet, err := svc.GetFileSystem(mockRootName, mockFSName)
 	assert.Nil(t, err)
