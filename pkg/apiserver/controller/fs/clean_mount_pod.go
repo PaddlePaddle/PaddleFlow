@@ -42,7 +42,7 @@ func cleanMountPod(expireDuration time.Duration) error {
 	if len(clusters) == 0 {
 		return nil
 	}
-	var podCleanMap map[*runtime.KubeRuntime][]k8sCore.Pod
+	podCleanMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod, 0)
 	for _, cluster := range clusters {
 		runtimePtr, podsToClean, err := expiredMountedPodsSingleCluster(cluster, expireDuration)
 		if err != nil {
