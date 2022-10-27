@@ -17,6 +17,9 @@ limitations under the License.
 package fs
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"testing"
 	"time"
@@ -31,10 +34,100 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
+func mountPodWithFsID(fsID string) k8sCore.Pod {
+	return k8sCore.Pod{
+		ObjectMeta: k8sMeta.ObjectMeta{
+			Name:      "pfs-nodename_mock-pfs-" + fsID + "-default-pv",
+			Namespace: schema.MountPodNamespace,
+			Labels: map[string]string{
+				csiconfig.PodTypeKey: csiconfig.PodMount,
+				schema.LabelKeyFsID:  fsID,
+			},
+			Annotations: map[string]string{
+				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
+			},
+		},
+		Status: k8sCore.PodStatus{
+			Phase: k8sCore.PodRunning,
+			Conditions: []k8sCore.PodCondition{{
+				Type:   k8sCore.PodReady,
+				Status: k8sCore.ConditionTrue,
+			}, {
+				Type:   k8sCore.ContainersReady,
+				Status: k8sCore.ConditionTrue,
+			}},
+		},
+	}
+}
+
+func Test_cleanMountPod(t *testing.T) {
+	fs1, fs2 := "fs-root-fs1", "fs-root-fs2"
+	fs1mp := mountPodWithFsID(fs1)
+	fs2mp := mountPodWithFsID(fs2)
+	fs1mpAnoterNode := mountPodWithFsID(fs1)
+	fs1mpAnoterNode.Name = "pfs-another.nodename_mock-pfs-" + fs1 + "-default-pv"
+	mountpods := []k8sCore.Pod{fs1mp, fs2mp, fs1mpAnoterNode}
+	cluster := schema.Cluster{
+		ID:   mockClusterID,
+		Name: mockClusterName,
+		Type: schema.KubernetesType,
+	}
+	mockRuntime := runtime.NewKubeRuntime(cluster)
+	p1 := gomonkey.ApplyFunc(expiredMountedPodsSingleCluster,
+		func(cluster model.ClusterInfo, expireDuration time.Duration) (*runtime.KubeRuntime, []k8sCore.Pod, error) {
+			return mockRuntime.(*runtime.KubeRuntime), mountpods, nil
+		})
+	defer p1.Reset()
+	p2 := gomonkey.ApplyFunc(deleteMountPods,
+		func(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+			return nil
+		})
+	defer p2.Reset()
+
+	driver.InitMockDB()
+	fsCache1 := model.FSCache{
+		FsID:      fs1,
+		NodeName:  "nodename_mock",
+		ClusterID: mockClusterID,
+	}
+	fsCache2 := model.FSCache{
+		FsID:      fs2,
+		NodeName:  "nodename_mock",
+		ClusterID: mockClusterID,
+	}
+	fsCache3 := model.FSCache{
+		FsID:      fs1,
+		NodeName:  "another.nodename_mock",
+		ClusterID: mockClusterID,
+	}
+	err := storage.FsCache.Add(&fsCache1)
+	assert.Nil(t, err)
+	err = storage.FsCache.Add(&fsCache2)
+	assert.Nil(t, err)
+	err = storage.FsCache.Add(&fsCache3)
+	assert.Nil(t, err)
+
+	l, err := storage.FsCache.List(fs1, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(l))
+	l, err = storage.FsCache.List(fs2, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(l))
+
+	err = cleanMountPod(0)
+	assert.Nil(t, err)
+	l, err = storage.FsCache.List(fs1, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(l))
+	l, err = storage.FsCache.List(fs2, "")
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(l))
+}
+
 func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 	mockCluster := model.ClusterInfo{
 		ClusterType: schema.KubernetesType,
-		Name:        "mockClusterID",
+		Name:        mockClusterName,
 		Model: model.Model{
 			ID: mockClusterID,
 		},
@@ -82,21 +175,21 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 		args args
 	}{
 		{
-			name: "2h expire with 2 pods to clean",
+			name: "2h expire with 1 pods to clean",
 			args: args{
 				cluster:           mockCluster,
 				expireDuration:    2 * time.Hour,
 				runtimeExpected:   mockRuntime,
-				lensOfPodsToClean: 2,
+				lensOfPodsToClean: 1,
 			},
 		},
 		{
-			name: "0s expire with 1 pod to clean",
+			name: "0s expire with 2 pod to clean",
 			args: args{
 				cluster:           mockCluster,
 				expireDuration:    0,
 				runtimeExpected:   mockRuntime,
-				lensOfPodsToClean: 1,
+				lensOfPodsToClean: 2,
 			},
 		},
 		{
