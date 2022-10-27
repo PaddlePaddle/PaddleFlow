@@ -39,6 +39,13 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 			ID: mockClusterID,
 		},
 	}
+	localCluster := model.ClusterInfo{
+		ClusterType: schema.LocalType,
+		Name:        "mockClusterLocal",
+		Model: model.Model{
+			ID: "local",
+		},
+	}
 	cluster := schema.Cluster{
 		ID:   mockCluster.ID,
 		Name: mockCluster.Name,
@@ -64,19 +71,50 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 		})
 	defer pListPod.Reset()
 
-	rt, podMap, err := expiredMountedPodsSingleCluster(mockCluster, 2*time.Hour)
-	assert.Nil(t, err)
-	assert.Equal(t, mockRuntime, rt)
-	assert.Equal(t, 1, len(podMap))
-
-	rt, podMap, err = expiredMountedPodsSingleCluster(mockCluster, 0)
-	assert.Nil(t, err)
-	assert.Equal(t, mockRuntime, rt)
-	assert.Equal(t, 2, len(podMap))
-
-	mockCluster.ClusterType = schema.LocalType
-	rt, podMap, err = expiredMountedPodsSingleCluster(mockCluster, 0)
-	assert.Nil(t, err)
-	assert.Equal(t, nil, rt)
-	assert.Equal(t, 0, len(podMap))
+	type args struct {
+		cluster           model.ClusterInfo
+		expireDuration    time.Duration
+		runtimeExpected   runtime.RuntimeService
+		lensOfPodsToClean int
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "2h expire with 2 pods to clean",
+			args: args{
+				cluster:           mockCluster,
+				expireDuration:    2 * time.Hour,
+				runtimeExpected:   mockRuntime,
+				lensOfPodsToClean: 2,
+			},
+		},
+		{
+			name: "0s expire with 1 pod to clean",
+			args: args{
+				cluster:           mockCluster,
+				expireDuration:    0,
+				runtimeExpected:   mockRuntime,
+				lensOfPodsToClean: 1,
+			},
+		},
+		{
+			name: "local cluster to skip",
+			args: args{
+				cluster:           localCluster,
+				expireDuration:    0,
+				runtimeExpected:   (*runtime.KubeRuntime)(nil),
+				lensOfPodsToClean: 0,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt, podMap, err := expiredMountedPodsSingleCluster(tt.args.cluster, tt.args.expireDuration)
+			assert.Nil(t, err)
+			assert.Equal(t, tt.args.runtimeExpected, rt)
+			assert.Equal(t, tt.args.lensOfPodsToClean, len(podMap))
+		})
+	}
 }
