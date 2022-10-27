@@ -32,7 +32,7 @@ Please refer to the quick start guide and start using PaddleFlow now
 ## Command reference
 see [client command inference](docs/zh_cn/reference/client_command_reference.md) get all commands and examples.
 ## Python sdk reference
-see [sdk inference](docs/zh_cn/reference/sdk_reference.md) get the sdk user manual.
+see [sdk inference](docs/zh_cn/reference/sdk_reference/sdk_reference.md) get the sdk user manual.
 ## Other detailed reference
 [Pipeline](docs/zh_cn/reference/pipeline/overview.md) <br>
 [Job](docs/zh_cn/reference/job_reference.md) <br>

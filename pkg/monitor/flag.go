@@ -22,11 +22,6 @@ import (
 
 func MetricsFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:  "pprof-enable",
-			Value: false,
-			Usage: "enable go pprof",
-		},
 		&cli.IntFlag{
 			Name:  "pprof-port",
 			Value: 6060,
