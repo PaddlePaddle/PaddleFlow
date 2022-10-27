@@ -37,7 +37,9 @@ const (
 	mockClusterID   = "cluster-mock"
 	mockClusterName = "cluster-name-mock"
 	mockFSID        = "fs-root-mock"
+	mockFSID2       = "fs-root-mock2"
 	mockNodename    = "nodename_mock"
+	mockNodename2   = "nodename_mock2"
 	mockCacheDir    = "/var/cache"
 	mockFSName      = "mock"
 	mockRootName    = "root"
@@ -92,13 +94,13 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	}
 	mockRuntime := runtime.NewKubeRuntime(cluster)
 
-	notMounted := mountPodWithCacheID(mockFSID, mockNodename)
-	mounted := mountPodWithCacheID(mockFSID, mockNodename)
-	mounted.Annotations["mount-dogcatrabbit"] = "/talking/to/the/moon"
-	mountedFs2 := mountPodWithCacheID("non-relevant", mockNodename)
-	mountedFs2.Annotations["mount-dogcatrabbit"] = "/talking/to/the/moon"
-	podListNotMounted := k8sCore.PodList{
-		Items: []k8sCore.Pod{notMounted, mountedFs2},
+	notMountedFs1 := mountPodWithCacheID(mockFSID, mockNodename)
+	//mounted := mountPodWithCacheID(mockFSID, mockNodename2)
+	//mounted.Annotations[schema.AnnotationKeyMountPrefix+"dogcatrabbit"] = "/talking/to/the/moon"
+	mountedFs2 := mountPodWithCacheID(mockFSID2, mockNodename)
+	mountedFs2.Annotations[schema.AnnotationKeyMountPrefix+"dogcatrabbit"] = "/talking/to/the/moon"
+	podList := k8sCore.PodList{
+		Items: []k8sCore.Pod{notMountedFs1, mountedFs2},
 	}
 
 	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
@@ -107,7 +109,7 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	defer pRuntime.Reset()
 	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
 		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
-			return &podListNotMounted, nil
+			return &podList, nil
 		})
 	defer pListPod.Reset()
 
@@ -134,7 +136,7 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 			name: "fs2 mounted",
 			args: args{
 				cluster:           mockCluster,
-				fsID:              "non-relevant",
+				fsID:              mockFSID2,
 				expectMounted:     true,
 				lensOfPodsToClean: 0,
 			},

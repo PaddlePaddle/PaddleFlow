@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -35,6 +34,7 @@ import (
 )
 
 func Test_cleanMountPod(t *testing.T) {
+	driver.InitMockDB()
 	fs1, fs2 := "fs-root-fs1", "fs-root-fs2"
 	nodename1, nodename2 := "mock.nodename.1", "mock.nodename.2"
 	fs1mp := mountPodWithCacheID(fs1, nodename1)
@@ -42,11 +42,20 @@ func Test_cleanMountPod(t *testing.T) {
 	fs1mpAnoterNode := mountPodWithCacheID(fs1, nodename2)
 	fs1mpAnoterNode.Name = "pfs-another.nodename_mock-pfs-" + fs1 + "-default-pv"
 	mountpods := []k8sCore.Pod{fs1mp, fs2mp, fs1mpAnoterNode}
+	mockCluster := model.ClusterInfo{
+		ClusterType: schema.KubernetesType,
+		Name:        mockClusterName,
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+	}
 	cluster := schema.Cluster{
 		ID:   mockClusterID,
 		Name: mockClusterName,
 		Type: schema.KubernetesType,
 	}
+	err := storage.Cluster.CreateCluster(&mockCluster)
+	assert.Nil(t, err)
 	mockRuntime := runtime.NewKubeRuntime(cluster)
 	p1 := gomonkey.ApplyFunc(expiredMountedPodsSingleCluster,
 		func(cluster model.ClusterInfo, expireDuration time.Duration) (*runtime.KubeRuntime, []k8sCore.Pod, error) {
@@ -59,7 +68,6 @@ func Test_cleanMountPod(t *testing.T) {
 		})
 	defer p2.Reset()
 
-	driver.InitMockDB()
 	fsCache1 := model.FSCache{
 		FsID:      fs1,
 		NodeName:  nodename1,
@@ -75,7 +83,7 @@ func Test_cleanMountPod(t *testing.T) {
 		NodeName:  nodename2,
 		ClusterID: mockClusterID,
 	}
-	err := storage.FsCache.Add(&fsCache1)
+	err = storage.FsCache.Add(&fsCache1)
 	assert.Nil(t, err)
 	err = storage.FsCache.Add(&fsCache2)
 	assert.Nil(t, err)
@@ -85,11 +93,9 @@ func Test_cleanMountPod(t *testing.T) {
 	l, err := storage.FsCache.List(fs1, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(l))
-	fmt.Printf("fs1 cache: %v", l)
 	l, err = storage.FsCache.List(fs2, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(l))
-	fmt.Printf("fs2 cache: %v", l)
 
 	err = cleanMountPod(0)
 	assert.Nil(t, err)
