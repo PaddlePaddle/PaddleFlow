@@ -17,6 +17,10 @@ limitations under the License.
 package fs
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/agiledragon/gomonkey/v2"
+	k8sCore "k8s.io/api/core/v1"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,7 +59,6 @@ func Test_FSCacheConfig(t *testing.T) {
 	cacheConf := mockFSCache()
 	createRep := buildCreateReq(cacheConf)
 
-	// test create failure - no fs
 	err := CreateFileSystemCacheConfig(ctx, createRep)
 	assert.Nil(t, err)
 
@@ -74,9 +77,36 @@ func Test_FSCacheConfig(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// delete
+	svc := GetFileSystemService()
+	p := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return true, nil, nil
+		})
+
+	p2 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return nil
+		})
+	defer p2.Reset()
+
+	// delete failed - mounted
 	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
+	assert.NotNil(t, err)
+	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
 	assert.Nil(t, err)
 
+	// delete successful
+	defer p.Reset()
+	p = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return false, nil, nil
+		})
+	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
+	assert.Nil(t, err)
+	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
+	assert.NotNil(t, err)
+
+	// delete failed - not exist
 	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
 	assert.NotNil(t, err)
 }
