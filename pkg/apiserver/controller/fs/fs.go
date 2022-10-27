@@ -315,15 +315,21 @@ func checkFsMountedSingleCluster(cluster model.ClusterInfo, fsID string) (bool, 
 		return false, nil, nil, err
 	}
 	for _, po := range pods.Items {
-		for key, targetPath := range po.Annotations {
-			if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
-				log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
-					fsID, po.Name, targetPath)
-				return true, nil, nil, nil
-			}
+		if checkMountPodMounted(po) {
+			return true, nil, nil, nil
 		}
 	}
 	return false, k8sRuntime, pods.Items, nil
+}
+
+func checkMountPodMounted(po k8sCore.Pod) bool {
+	for key, targetPath := range po.Annotations {
+		if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
+			log.Debugf("pod[%s] mounted with target path[%s]", po.Name, targetPath)
+			return true
+		}
+	}
+	return false
 }
 
 func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
@@ -423,7 +429,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
-		marker = time.Now().Format(TimeFormat)
+		marker = time.Now().Format(model.TimeFormat)
 	}
 	listUserName := req.Username
 	if req.Username == common.UserRoot {
@@ -442,7 +448,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 		return []model.FileSystem{}, "", err
 	}
 	if itemsLen > int(req.MaxKeys) {
-		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(TimeFormat), err
+		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(model.TimeFormat), err
 	}
 
 	return items, "", err
