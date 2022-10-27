@@ -414,7 +414,7 @@ func deletePvPvc(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID str
 }
 
 func getPVCNamespaceFromMountPod(podName string) (string, error) {
-	// pfs-gzbh-bos-aries-r104-178546849.gzbh.baidu.com-pfs-fs-root-elsies3-default-pv
+	// pfs-{hostName}-pfs-{fsID}-{namespace}-pv
 	names := strings.Split(podName, "-")
 	if len(names) < 3 || names[len(names)-1] != "pv" {
 		err := fmt.Errorf("mount pod name[%s] not valid to retrieve pvc info", podName)
