@@ -308,30 +308,44 @@ func patchRestartPolicy(podSpec *corev1.PodSpec, task schema.Member) {
 func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affinity, error) {
 	nodeAffinity, err := locationAwareness.FsNodeAffinity(fsIDs)
 	if err != nil {
-		err := fmt.Errorf("KubeJob generateAffinity err: %v", err)
+		err = fmt.Errorf("KubeJob generateAffinity err: %v", err)
 		log.Errorf(err.Error())
 		return nil, err
 	}
-	if nodeAffinity == nil {
-		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
-		return affinity, nil
+	return mergeNodeAffinity(affinity, nodeAffinity), nil
+}
+
+func mergeNodeAffinity(former, new *corev1.Affinity) *corev1.Affinity {
+	if new == nil {
+		log.Infof("mergeNodeAffinity new affinity is nil")
+		return former
 	}
-	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
-	// merge filesystem location awareness affinity to pod affinity
-	if affinity == nil {
-		return nodeAffinity, nil
+	if former == nil {
+		log.Infof("mergeNodeAffinity former affinity is nil")
+		return new
 	}
-	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = nodeAffinity.NodeAffinity
-	} else {
-		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+
+	if former.NodeAffinity == nil {
+		former.NodeAffinity = new.NodeAffinity
+		return former
 	}
-	return affinity, nil
+
+	// merge required
+	newRequired := new.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if newRequired != nil && len(newRequired.NodeSelectorTerms) != 0 {
+		formerRequired := former.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		if formerRequired == nil || len(formerRequired.NodeSelectorTerms) == 0 {
+			formerRequired = newRequired
+		} else {
+			formerRequired.NodeSelectorTerms = append(formerRequired.NodeSelectorTerms, newRequired.NodeSelectorTerms...)
+		}
+	}
+
+	// merge preferred
+	former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		new.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	return former
 }
 
 func buildPodContainers(podSpec *corev1.PodSpec, task schema.Member) error {
@@ -353,7 +367,9 @@ func buildPodContainers(podSpec *corev1.PodSpec, task schema.Member) error {
 func fillContainer(container *corev1.Container, podName string, task schema.Member) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
-	container.Name = podName
+	if task.Name != "" {
+		container.Name = task.Name
+	}
 	// fill image
 	container.Image = task.Image
 	// fill command
