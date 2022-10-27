@@ -374,7 +374,7 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	container.Image = task.Image
 	// fill command
 	filesystems := task.Conf.GetAllFileSystem()
-	workDir := getWorkDir(nil, filesystems, task.Env)
+	workDir := getWorkDir(&task, filesystems, task.Env)
 	container.Command = generateContainerCommand(task.Command, workDir)
 
 	// container.Args would be passed
