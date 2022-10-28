@@ -17,18 +17,17 @@ limitations under the License.
 package fs
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
-)
-
-const (
-	mockFSName   = "mock"
-	mockRootName = "root"
 )
 
 func mockFSCache() model.FSCacheConfig {
@@ -54,13 +53,12 @@ func buildCreateReq(model model.FSCacheConfig) CreateFileSystemCacheRequest {
 	return req
 }
 
-func TestRouter_FSCacheConfig(t *testing.T) {
+func Test_FSCacheConfig(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: mockRootName}
 	cacheConf := mockFSCache()
 	createRep := buildCreateReq(cacheConf)
 
-	// test create failure - no fs
 	err := CreateFileSystemCacheConfig(ctx, createRep)
 	assert.Nil(t, err)
 
@@ -79,9 +77,36 @@ func TestRouter_FSCacheConfig(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// delete
+	svc := GetFileSystemService()
+	p := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return true, nil, nil
+		})
+
+	p2 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return nil
+		})
+	defer p2.Reset()
+
+	// delete failed - mounted
 	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
+	assert.NotNil(t, err)
+	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
 	assert.Nil(t, err)
 
+	// delete successful
+	defer p.Reset()
+	p = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return false, nil, nil
+		})
+	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
+	assert.Nil(t, err)
+	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
+	assert.NotNil(t, err)
+
+	// delete failed - not exist
 	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
 	assert.NotNil(t, err)
 }
