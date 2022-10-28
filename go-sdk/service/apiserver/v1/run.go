@@ -172,7 +172,7 @@ type ArtifactEventBrief struct {
 	ArtifactName string `json:"artifactName"`
 	Meta         string `json:"meta"`
 	CreateTime   string `json:"createTime"`
-	UpdateTime   string `json:"updateTime`
+	UpdateTime   string `json:"updateTime"`
 }
 
 type ListArtifactRequest struct {
@@ -226,26 +226,33 @@ func (r *run) Create(ctx context.Context, request *CreateRunRequest,
 
 func (r *run) Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error) {
 	// 由于GetResponse中的Runtime类型为接口，不能在直接传给WithResult，因此先用一个临时Map接收Response信息
-	rspMap := map[string]interface{}{}
 	result = &GetRunResponse{}
 	err = newRequestBuilderWithTokenHeader(r.client, token).
 		WithMethod(http.GET).
 		WithURL(runApi + "/" + runID).
-		WithResult(&rspMap).
+		WithResult(result).
 		Do()
 	if err != nil {
 		return nil, err
 	}
 
+	return
+}
+
+func (r *GetRunResponse) UnmarshalJson(data []byte) error {
+	rspMap := map[string]interface{}{}
+
+	json.Unmarshal(data, &rspMap)
+
 	// 1. 先单独处理runtime
-	if runtime, ok := rspMap["runtime"]; ok {
+	if runtime, ok := rspMap["runtime"]; ok && runtime != nil {
 		runtimeMap, ok := runtime.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("init Runtime of response failed: value of runtime is not Map type")
+			return fmt.Errorf("init Runtime of response failed: value of runtime is not Map type")
 		}
-		result.Runtime, err = initRuntime(runtimeMap)
-		if err != nil {
-			return nil, err
+		var err error
+		if r.Runtime, err = initRuntime(runtimeMap); err != nil {
+			return err
 		}
 	}
 
@@ -253,11 +260,11 @@ func (r *run) Get(ctx context.Context, runID string, token string) (result *GetR
 	delete(rspMap, "runtime")
 	tempRsp, err := json.Marshal(rspMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	json.Unmarshal(tempRsp, result)
+	json.Unmarshal(tempRsp, r)
 
-	return
+	return nil
 }
 
 func initRuntime(compMap map[string]interface{}) (map[string][]schema.ComponentView, error) {
