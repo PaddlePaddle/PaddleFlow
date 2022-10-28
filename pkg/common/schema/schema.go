@@ -211,6 +211,7 @@ func (rv *RuntimeView) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &compMap); err != nil {
 		return err
 	}
+
 	var err error
 	*rv, err = initRuntime(compMap)
 	if err != nil {
