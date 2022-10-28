@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -129,13 +130,14 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 	}
 	mockRuntime := runtime.NewKubeRuntime(cluster)
 
-	mounted := baseMountPod()
-	expired := baseMountPod()
+	mounted := mountPodWithCacheID(mockFSID, mockNodename)
+	mounted.Annotations[schema.AnnotationKeyMountPrefix+"mounted"] = "/what/does/the/fox/say"
+	expired := mountPodWithCacheID(mockFSID, mockNodename2)
 	expired.Annotations = map[string]string{schema.AnnotationKeyMTime: "2006-01-02 15:04:05"}
-	notMounted := baseMountPod()
+	notMounted := mountPodWithCacheID(mockFSID2, mockNodename)
 	notMounted.Annotations = map[string]string{schema.AnnotationKeyMTime: time.Now().Add(-6 * time.Hour).Format(model.TimeFormat)}
 	podList := k8sCore.PodList{
-		Items: []k8sCore.Pod{*mounted, *expired, *notMounted},
+		Items: []k8sCore.Pod{mounted, expired, notMounted},
 	}
 	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
 		return mockRuntime, nil
@@ -143,6 +145,7 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 	defer pRuntime.Reset()
 	pListPod := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListPods",
 		func(_ *runtime.KubeRuntime, namespace string, listOptions k8sMeta.ListOptions) (*k8sCore.PodList, error) {
+
 			return &podList, nil
 		})
 	defer pListPod.Reset()
@@ -193,4 +196,14 @@ func Test_expiredMountedPodsSingleCluster(t *testing.T) {
 			assert.Equal(t, tt.args.lensOfPodsToClean, len(podMap))
 		})
 	}
+}
+
+func TestExpireTime(t *testing.T) {
+	t1 := time.Now().Add(-6 * time.Hour)
+	t2 := time.Now()
+	expireDuration := 2 * time.Hour
+	expireTime := t1.Add(expireDuration)
+	fmt.Printf("-6 time vs now time: %s vs %s, %s", t1.Format(model.TimeFormat), t2.Format(model.TimeFormat), expireTime.Format(model.TimeFormat))
+
+	assert.True(t, expireTime.Before(time.Now()))
 }
