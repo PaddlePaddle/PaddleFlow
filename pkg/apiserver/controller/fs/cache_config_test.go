@@ -17,15 +17,15 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/agiledragon/gomonkey/v2"
-	k8sCore "k8s.io/api/core/v1"
 	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	k8sCore "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
