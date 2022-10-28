@@ -23,15 +23,12 @@ import (
 )
 
 var (
-	NodeName         = ""
-	ClusterID        = ""
-	PaddleFlowServer = ""
-	UserNameRoot     = ""
-	PassWordRoot     = ""
-	Namespace        = ""
-	PodName          = ""
-	MountImage       = ""
-	HostMntDir       = ""
+	NodeName   = ""
+	ClusterID  = ""
+	Namespace  = ""
+	PodName    = ""
+	MountImage = ""
+	HostMntDir = ""
 
 	CSIPod = corev1.Pod{}
 )
@@ -57,7 +54,7 @@ func GeneratePodTemplate() *corev1.Pod {
 			Annotations: make(map[string]string),
 		},
 		Spec: corev1.PodSpec{
-			Containers:         []corev1.Container{},
+			Containers:         make([]corev1.Container, 2),
 			NodeName:           NodeName,
 			HostNetwork:        CSIPod.Spec.HostNetwork,
 			HostAliases:        CSIPod.Spec.HostAliases,

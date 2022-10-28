@@ -87,19 +87,19 @@ type JobConfig struct {
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
 	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
 	SyncClusterQueue bool `yaml:"syncClusterQueue"`
-	// DefaultJobYamlDir is directory that stores default template yaml files for job
-	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
 	// DefaultJobYamlPath defines file path that stores all default templates in one yaml
 	DefaultJobYamlPath string `yaml:"defaultJobYamlPath"`
 	IsSingleCluster    bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {
-	DefaultPVPath             string        `yaml:"defaultPVPath"`
-	DefaultPVCPath            string        `yaml:"defaultPVCPath"`
-	LinkMetaDirPrefix         string        `yaml:"linkMetaDirPrefix"`
-	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
-	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
+	DefaultPVPath        string        `yaml:"defaultPVPath"`
+	DefaultPVCPath       string        `yaml:"defaultPVCPath"`
+	LinkMetaDirPrefix    string        `yaml:"linkMetaDirPrefix"`
+	MountPodExpire       time.Duration `yaml:"mountPodExpire"`
+	MountPodIntervalTime time.Duration `yaml:"mountPodIntervalTime"`
+	// ServicePort is used to call paddleflow api-server in k8s, the default is the same as ApiServerConfig.Port
+	ServicePort int `yaml:"servicePort"`
 }
 
 type ReclaimConfig struct {

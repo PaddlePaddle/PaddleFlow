@@ -152,7 +152,8 @@ spec:
 func initGlobalServerConfig() {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
 }
 
 // TestSparkApp_CreateJob tests create spark app by single yaml

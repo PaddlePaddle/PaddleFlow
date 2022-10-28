@@ -21,9 +21,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
-
-	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -110,7 +109,7 @@ func (fs *localFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *localFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *localFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	// filter out append. The kernel layer will translate the
 	// offsets for us appropriately.
 	flags = flags &^ syscall.O_APPEND
@@ -118,13 +117,13 @@ func (fs *localFileSystem) Open(name string, flags uint32) (fd FileHandle, err e
 	if err != nil {
 		return nil, err
 	}
-	return nodefs.NewLoopbackFile(f), nil
+	return newLocalFileHandle(f), nil
 }
 
 func (fs *localFileSystem) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
-	return nodefs.NewLoopbackFile(f), err
+	return newLocalFileHandle(f), err
 }
 
 // Directory handling
@@ -132,7 +131,9 @@ func (fs *localFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	// What other ways beyond O_RDONLY are there to open
 	// directories?
 	ofile, err := os.Open(fs.GetPath(name))
-	defer ofile.Close()
+	defer func() {
+		_ = ofile.Close()
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +184,74 @@ func (fs *localFileSystem) StatFs(name string) *base.StatfsOut {
 		return out
 	}
 	return nil
+}
+
+func newLocalFileHandle(f *os.File) FileHandle {
+	return &localFileHandle{File: f}
+}
+
+type localFileHandle struct {
+	File *os.File
+
+	// os.File is not threadsafe. Although fd themselves are
+	// constant during the lifetime of an open file, the OS may
+	// reuse the fd number after it is closed. When open races
+	// with another close, they may lead to confusion as which
+	// file gets written in the end.
+	lock sync.Mutex
+}
+
+func (f *localFileHandle) Read(buf []byte, off uint64) (int, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	// This is not racy by virtue of the kernel properly
+	// synchronizing the open/write/close.
+	n, err := f.File.ReadAt(buf, int64(off))
+	if err != nil && err != io.EOF {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (f *localFileHandle) Write(data []byte, off uint64) (uint32, error) {
+	f.lock.Lock()
+	n, err := f.File.WriteAt(data, int64(off))
+	f.lock.Unlock()
+	return uint32(n), err
+}
+
+func (f *localFileHandle) Release() {
+	f.lock.Lock()
+	f.File.Close()
+	f.lock.Unlock()
+}
+
+func (f *localFileHandle) Flush() error {
+	f.lock.Lock()
+
+	// Since Flush() may be called for each dup'd fd, we don't
+	// want to really close the file, we just want to flush. This
+	// is achieved by closing a dup'd fd.
+	newFd, err := syscall.Dup(int(f.File.Fd()))
+	f.lock.Unlock()
+
+	if err != nil {
+		return err
+	}
+	err = syscall.Close(newFd)
+	return err
+}
+
+func (f *localFileHandle) Fsync(flags int) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return syscall.Fsync(int(f.File.Fd()))
+}
+
+func (f *localFileHandle) Truncate(size uint64) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return syscall.Ftruncate(int(f.File.Fd()), int64(size))
 }
 
 // A FUSE filesystem that shunts all request to an underlying file

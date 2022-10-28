@@ -23,6 +23,7 @@ import (
 	router "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -110,7 +111,7 @@ func start() error {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
+	go fs.MountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.MountPodIntervalTime, stopChan)
 
 	trace_logger.Start(ServerConf.TraceLog)
 
@@ -146,15 +147,6 @@ func initConfig() error {
 	}
 
 	config.GlobalServerConfig = ServerConf
-
-	// make sure template job yaml file exist
-	if filesNum, err := config.FileNumsInDir(ServerConf.Job.DefaultJobYamlDir); err != nil {
-		log.Errorf("validate default job yaml dir[%s] failed. error: %s\n", ServerConf.Job.DefaultJobYamlDir, err)
-		return err
-	} else if filesNum == 0 {
-		log.Errorf("validate default job yaml dir[%s] failed. error: yaml files not found", ServerConf.Job.DefaultJobYamlDir)
-		return errors.New("yaml files not found")
-	}
 	return nil
 }
 
@@ -274,7 +266,13 @@ func startMetricsService(port int) (err error) {
 		return queues
 	}
 
-	metrics.StartMetricsService(port, listQueue)
+	listJobByStatus := func() []model.Job {
+		jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
+		return jobs
+	}
+
+	//  TODO: add job func
+	metrics.StartMetricsService(port, listQueue, listJobByStatus)
 	return
 }
 

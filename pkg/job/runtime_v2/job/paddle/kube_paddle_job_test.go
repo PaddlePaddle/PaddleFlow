@@ -63,6 +63,7 @@ spec:
 		Namespace: "default",
 		JobType:   schema.TypeDistributed,
 		Framework: schema.FrameworkPaddle,
+		JobMode:   schema.EnvJobModeCollective,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf: schema.Conf{
@@ -81,8 +82,7 @@ spec:
 				"PF_JOB_WORKER_FLAVOUR": "cpu",
 				"PF_JOB_WORKER_COMMAND": "sleep 3600",
 				"PF_JOB_QUEUE_NAME":     "mockQueueName",
-				// schema.EnvJobType:   string(schema.TypePodJob),
-				"PF_USER_NAME": "root",
+				"PF_USER_NAME":          "root",
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
 		},
@@ -119,6 +119,7 @@ spec:
 		Namespace: "default",
 		JobType:   schema.TypeDistributed,
 		Framework: schema.FrameworkPaddle,
+		JobMode:   schema.EnvJobModePS,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf:      schema.Conf{},
@@ -155,7 +156,8 @@ spec:
 func TestPaddleJob_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -176,7 +178,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 				Framework: schema.FrameworkPaddle,
 				JobMode:   "xx",
 			},
-			wantErr: errors.New("get default template failed, err: get job file from path[../../../../../config/server/default/job/paddle_xx.yaml] failed"),
+			wantErr: errors.New("get default template failed, err: job template paddle-xx-job is not found"),
 			wantMsg: "namespace is empty",
 		},
 		{

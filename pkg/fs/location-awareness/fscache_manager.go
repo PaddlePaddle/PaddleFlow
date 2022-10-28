@@ -18,33 +18,47 @@ package location_awareness
 
 import (
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
-func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PaddleFlowClient) error {
-	var err, errStat error
+func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCachePath string) {
+	var errStat error
 	var usageStat *disk.UsageStat
+	var sizeUsed string = "0"
 	for {
-		usageStat, errStat = disk.Usage(podCachePath)
-		if errStat != nil {
-			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
-			time.Sleep(1 * time.Second)
+		if podCachePath != "" {
+			usageStat, errStat = disk.Usage(podCachePath)
+			if errStat != nil {
+				log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			sizeUsed = strconv.Itoa(int(usageStat.Used / 1024))
+		}
+
+		// TODO memory, cpu stats
+
+		pod, err := k8sClient.GetPod(podNamespace, podName)
+		if err != nil {
+			log.Errorf("Can't get mount pod %s: %v", podName, err)
 			continue
 		}
-		cacheReport.UsedSize = int(usageStat.Used / 1024)
-		err = api.CacheReportRequest(cacheReport, httpClient)
+
+		pod.ObjectMeta.Labels[schema.LabelKeyUsedSize] = sizeUsed
+		err = k8sClient.PatchPodLabel(pod)
 		if err != nil {
-			log.Errorf("cache report failed with params[%+v] and err[%v]", cacheReport, err)
+			log.Errorf("PatchPodLabel %+v err[%v]", pod.ObjectMeta.Labels, err)
 		}
+
 		select {
 		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
 		}
 	}
-	return nil
 }

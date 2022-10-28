@@ -41,7 +41,7 @@ var (
 	KubeSingleFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
-// KubeSingleJob is an executor struct that runs a single pod
+// KubeSingleJob is an executor struct that runs a single job
 type KubeSingleJob struct {
 	GVK              schema.GroupVersionKind
 	frameworkVersion pfschema.FrameworkVersion
@@ -79,12 +79,20 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&singlePod.ObjectMeta, job)
+	// set framework for single job
+	singlePod.Labels[pfschema.JobLabelFramework] = string(pfschema.FrameworkStandalone)
+
+	// set scheduling policy for single job
+	if err = sp.buildSchedulingPolicy(singlePod, job); err != nil {
+		log.Errorf("build scheduling policy for %s failed, err: %v", sp.String(jobName), err)
+		return err
+	}
 	// build job spec field
 	if job.IsCustomYaml {
-		// set custom PyTorchJob Spec from user
+		// set custom single job Spec from user
 		err = sp.customSingleJob(singlePod, job)
 	} else {
-		// set builtin PyTorchJob Spec
+		// set builtin single job Spec
 		err = sp.builtinSingleJob(singlePod, job)
 	}
 	if err != nil {
@@ -100,13 +108,25 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
+func (sp *KubeSingleJob) buildSchedulingPolicy(jobPod *v1.Pod, job *api.PFJob) error {
+	if jobPod == nil || job == nil {
+		return fmt.Errorf("jobSpec or PFJob is nil")
+	}
+	// set queue
+	if len(job.QueueName) > 0 {
+		jobPod.Annotations[pfschema.QueueLabelKey] = job.QueueName
+	}
+	// set priority
+	jobPod.Spec.PriorityClassName = kuberuntime.KubePriorityClass(job.PriorityClassName)
+	return nil
+}
+
 func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	if jobPod == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
 	// TODO: add more patch
-	// set job priorityClass
-	return kuberuntime.BuildSchedulingPolicy(&jobPod.Spec, job.PriorityClassName)
+	return nil
 
 }
 
@@ -188,7 +208,20 @@ func (sp *KubeSingleJob) addJobEventListener(ctx context.Context, jobQueue workq
 	sp.jobQueue = jobQueue
 	informer := listener.(cache.SharedIndexInformer)
 	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
+		FilterFunc: func(obj interface{}) bool {
+			job := obj.(*unstructured.Unstructured)
+			labels := job.GetLabels()
+			jobName := job.GetLabels()
+			if labels != nil && labels[pfschema.JobOwnerLabel] == pfschema.JobOwnerValue {
+				if labels[pfschema.JobLabelFramework] != string(pfschema.FrameworkStandalone) {
+					log.Debugf("job %s is not single job", jobName)
+					return false
+				}
+				log.Debugf("responsible for handle job. jobName:[%s]", jobName)
+				return true
+			}
+			return false
+		},
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    sp.addJob,
 			UpdateFunc: sp.updateJob,
@@ -231,10 +264,10 @@ func (sp *KubeSingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.GVK.String(), err.Error())
 		return api.StatusInfo{}, err
 	}
-	// convert single job status
+	// convert job status
 	state, msg, err := sp.getJobStatus(&job.Status)
 	if err != nil {
-		log.Errorf("get KubeSingleJob status failed, err: %v", err)
+		log.Errorf("get single job status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
 	log.Infof("Single job status: %s", state)

@@ -58,7 +58,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Post("/fsCache", pr.createFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
-	r.Post("/fsCache/report", pr.fsCacheReport)
 }
 
 var URLPrefix = map[string]bool{
@@ -185,7 +184,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	if fileSystemType == fsCommon.MockType {
+	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType {
 		return nil
 	}
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
@@ -244,11 +243,6 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 			}
 		} else {
 			return common.InvalidField("properties", "not correct hdfs properties")
-		}
-		return nil
-	case fsCommon.LocalType:
-		if req.Properties["debug"] != "true" {
-			return common.InvalidField("debug", "properties key[debug] must true")
 		}
 		return nil
 	case fsCommon.S3Type:

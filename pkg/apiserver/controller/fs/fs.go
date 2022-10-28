@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -49,6 +51,7 @@ type FileSystemService struct{}
 
 var fileSystemService *FileSystemService
 var once sync.Once
+var mountPodMutex sync.Mutex
 
 // GetFileSystemService returns the instance of file system service
 func GetFileSystemService() *FileSystemService {
@@ -121,8 +124,39 @@ type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
 
+func MountPodController(mountPodExpire, interval time.Duration,
+	stopChan chan struct{}) {
+	times := 0
+	for {
+		if times%3 == 0 {
+			times = 0
+			if err := cleanMountPod(mountPodExpire); err != nil {
+				log.Errorf("clean mount pod err: %v", err)
+			}
+		}
+
+		mountPodMutex.Lock()
+		if err := scrapeCacheStats(); err != nil {
+			log.Errorf("scrapeCacheStats err: %v", err)
+		}
+		mountPodMutex.Unlock()
+
+		select {
+		case <-stopChan:
+			log.Info("mount pod controller stopped")
+			return
+		default:
+			time.Sleep(interval)
+			times++
+		}
+	}
+}
+
 func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
-	fsName, owner := utils.FsIDToFsNameUsername(fsID)
+	fsName, owner, err := utils.GetFsNameAndUserNameByFsID(fsID)
+	if err != nil {
+		return false, err
+	}
 	fs, err := s.GetFileSystem(owner, fsName)
 	if err != nil {
 		return false, err
@@ -209,6 +243,8 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 }
 
 func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
+	mountPodMutex.Lock()
+	defer mountPodMutex.Unlock()
 	// check fs used for pipeline scheduled jobs
 	jobMap, err := models.ScheduleUsedFsIDs()
 	if err != nil {
@@ -241,11 +277,12 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		return true, nil
 	}
 
-	if err = removeFSCache(fsID); err != nil {
-		err := fmt.Errorf("removeFSCache[%s] err: %v", fsID, err)
-		log.Errorf(err.Error())
+	if err = storage.FsCache.Delete(fsID, ""); err != nil {
+		err := fmt.Errorf("removeFSCache[%s] failed: %v", fsID, err)
+		log.Error(err.Error())
 		return false, err
 	}
+
 	if err = deleteMountPods(mountPodMap); err != nil {
 		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
@@ -307,8 +344,10 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
+		// label indicating a mount pod
+		label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
 		listOptions := k8sMeta.ListOptions{
-			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
+			LabelSelector: label,
 		}
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
@@ -319,7 +358,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
-				if key != schema.AnnotationKeyMTime {
+				if strings.HasPrefix(key, schema.AnnotationKeyMountPrefix) {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
 					return true, nil, nil
@@ -348,15 +387,16 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	var err error
 	for _, pods := range podMap {
 		for _, pod := range pods {
-			cacheID := pod.Labels[schema.LabelCacheID]
+			cacheID := pod.Labels[schema.LabelKeyCacheID]
 			log.Debugf("cacheID is %v", cacheID)
 			if cacheID == "" {
 				log.Debugf("cacheId is empty with pod: %+v", pod)
 				continue
 			}
-			err = removeFSCacheWithCacheID(cacheID)
-			if err != nil {
-				log.Errorf("removeFSCacheWithCacheID error: %v", err)
+
+			if err = storage.FsCache.Delete("", cacheID); err != nil {
+				err := fmt.Errorf("removeFSCacheWithCacheID[%s] failed: %v", cacheID, err)
+				log.Error(err.Error())
 				return err
 			}
 		}

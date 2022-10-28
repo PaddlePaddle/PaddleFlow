@@ -79,6 +79,11 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
+	// set scheduling policy for paddle job
+	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
+		log.Errorf("build scheduling policy for %s failed, err: %v", pj.String(jobName), err)
+		return err
+	}
 	// build job spec field
 	if job.IsCustomYaml {
 		// set custom PaddleJob Spec from user
@@ -104,22 +109,21 @@ func (pj *KubePaddleJob) customPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PF
 	if pdj == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
-	jobName := job.NamespacedName()
-	if err := pj.validateCustomYaml(pdj, jobName); err != nil {
-		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(jobName), err)
+	if err := pj.validateCustomYaml(pdj, job.ID); err != nil {
+		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(job.ID), err)
 		return err
 	}
-	// set scheduling policy
-	return pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf)
+	return nil
 }
 
-func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, name string) error {
-	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(name), pdj)
+func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, jobID string) error {
+	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(jobID), pdj)
 	resourceSpecs := []*paddlejobv1.ResourceSpec{pdj.Spec.PS, pdj.Spec.Worker}
 	for _, resourceSpec := range resourceSpecs {
 		if resourceSpec == nil {
 			continue
 		}
+		kuberuntime.BuildTaskMetadata(&resourceSpec.Template.ObjectMeta, jobID, &pfschema.Conf{})
 		if err := kuberuntime.ValidatePodResources(&resourceSpec.Template.Spec); err != nil {
 			err = fmt.Errorf("validate resource in extensionTemplate.Worker failed, err %v", err)
 			log.Errorf("%v", err)
@@ -170,11 +174,6 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 		return fmt.Errorf("PaddleJob or PFJob is nil")
 	}
 	jobName := job.NamespacedName()
-	// set scheduling policy for builtin paddle job
-	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
-		log.Errorf("build scheduling policy for job failed, err: %v", err)
-		return err
-	}
 	// build job tasks
 	var minAvailable int32
 	minResources := resources.EmptyResource()
@@ -213,7 +212,7 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 	return nil
 }
 
-// xx patches info into task of paddleJob
+// patchPaddleTask patch info into task of paddle job
 func (pj *KubePaddleJob) patchPaddleTask(resourceSpec *paddlejobv1.ResourceSpec, task pfschema.Member, jobID string) error {
 	log.Infof("patch paddle task %s, task: %#v", pj.String(""), task)
 	if resourceSpec == nil {
@@ -339,7 +338,7 @@ func (pj *KubePaddleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
 		return api.StatusInfo{}, err
 	}
-	// convert single job status
+	// convert job status
 	state, msg, err := pj.getJobStatus(&job.Status)
 	if err != nil {
 		log.Errorf("get PaddleJob status failed, err: %v", err)

@@ -25,8 +25,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 

@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -48,6 +49,7 @@ import (
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type KubeRuntime struct {
@@ -118,31 +120,113 @@ func (kr *KubeRuntime) Init() error {
 	return nil
 }
 
-func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
-	jobBuilder, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
-	if !found {
-		log.Errorf("get %s job on %s failed, err: this job is not implemented", fwVersion, kr.String())
-		return &framework.JobSample{}
+func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("submit job failed, job is nil")
 	}
-	return jobBuilder(kr.kubeClient)
+	// add trace log point
+	jobID := job.ID
+	traceLogger := trace_logger.KeyWithUpdate(jobID)
+	msg := fmt.Sprintf("submit job[%v] to cluster[%s] queue[%s]", job.ID, kr.cluster.ID, job.QueueID)
+	log.Infof(msg)
+	traceLogger.Infof(msg)
+	// prepare kubernetes storage
+	traceLogger.Infof("prepare kubernetes storage")
+	jobFileSystems := job.Conf.GetAllFileSystem()
+	for _, task := range job.Tasks {
+		jobFileSystems = append(jobFileSystems, task.Conf.GetAllFileSystem()...)
+	}
+	for _, fs := range jobFileSystems {
+		if fs.Type == pfschema.PFSTypeLocal {
+			log.Infof("skip create pv/pvc, fs type is local")
+			continue
+		}
+		fsID := common.ID(job.UserName, fs.Name)
+		pvName, err := kr.CreatePV(job.Namespace, fsID)
+		if err != nil {
+			log.Errorf("create pv for job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+		msg = fmt.Sprintf("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		log.Infof(msg)
+		traceLogger.Infof(msg)
+		err = kr.CreatePVC(job.Namespace, fsID, pvName)
+		if err != nil {
+			log.Errorf("create pvc for job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+	}
+	// submit job
+	traceLogger.Infof("submit kubernetes job")
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	err := kr.Job(fwVersion).Submit(context.TODO(), job)
+	if err != nil {
+		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
+		return err
+	}
+	traceLogger.Infof("submit kubernetes job[%s] successful", job.ID)
+	log.Debugf("submit kubernetes job[%s] successful", jobID)
+	return nil
 }
 
-func (kr *KubeRuntime) Queue(quotaType string) framework.QueueInterface {
-	// TODO: add queue builder logic
-	log.Errorf("queue is not supported")
-	return &framework.QueueSample{}
+func (kr *KubeRuntime) StopJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("stop job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Stop(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) UpdateJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("update job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Update(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) DeleteJob(job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("delete job failed, job is nil")
+	}
+	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
+	return kr.Job(fwVersion).Delete(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+	jobPlugin, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
+	if !found {
+		log.Errorf("get job plugin on %s failed, err: %s job is not implemented", kr.String(), fwVersion)
+		return &framework.JobSample{}
+	}
+	return jobPlugin(kr.kubeClient)
+}
+
+func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.QueueInterface {
+	queuePlugin, found := framework.GetQueuePlugin(kr.cluster.Type, fwVersion)
+	if !found {
+		log.Errorf("get queue plugin on %s failed, err: %s queue is not implemented", kr.String(), fwVersion)
+		return &framework.QueueSample{}
+	}
+	return queuePlugin(kr.kubeClient)
 }
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	log.Infof("start job/queue controller on %s", kr.String())
-
-	syncController := controller.NewJobSync()
-	err := syncController.Initialize(kr.kubeClient)
+	jobController := controller.NewJobSync()
+	err := jobController.Initialize(kr.kubeClient)
 	if err != nil {
-		log.Errorf("init controller on %s failed, err: %v", kr.String(), err)
+		log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
-	go syncController.Run(stopCh)
+	queueController := controller.NewQueueSync()
+	err = queueController.Initialize(kr.kubeClient)
+	if err != nil {
+		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
+		return
+	}
+	go jobController.Run(stopCh)
+	go queueController.Run(stopCh)
 }
 
 func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
@@ -300,7 +384,6 @@ func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
-	pv.Spec.CSI.VolumeAttributes[pfschema.PFSServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSID] = fsID
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSClusterID] = kr.cluster.ID
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)

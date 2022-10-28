@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi"
-	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -86,7 +85,7 @@ func validationReturnError(ctx *logger.RequestContext, err error) error {
 
 func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: meta driver[%s] not valid",
+		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: meta driver[%s] not valid, must mem or disk",
 			req.FsID, req.MetaDriver))
 	}
 	// BlockSize
@@ -100,22 +99,33 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 			req.FsID, req.CacheDir))
 	}
 	// must assign cacheDir when cache in use
-	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaLevelDB {
+	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaDisk {
 		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cacheDir[%s] should be an absolute path when cache in use",
 			req.FsID, req.CacheDir))
 	}
+
 	// check resource
 	rcs := req.Resource
 	if rcs.CpuLimit != "" {
-		if _, err := resource.ParseQuantity(rcs.CpuLimit); err != nil {
+		cpu, err := resource.ParseQuantity(rcs.CpuLimit)
+		if err != nil {
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuLimit [%s]",
 				req.FsID, rcs.CpuLimit))
 		}
+		if cpu.Cmp(resource.MustParse(api.MaxMountPodCpuLimit)) > 0 {
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cpuLimit[%s] should be no greater than %s",
+				req.FsID, rcs.CpuLimit, api.MaxMountPodCpuLimit))
+		}
 	}
 	if rcs.MemoryLimit != "" {
-		if _, err := resource.ParseQuantity(rcs.MemoryLimit); err != nil {
+		memory, err := resource.ParseQuantity(rcs.MemoryLimit)
+		if err != nil {
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryLimit [%s]",
 				req.FsID, rcs.MemoryLimit))
+		}
+		if memory.Cmp(resource.MustParse(api.MaxMountPodMemLimit)) > 0 {
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: memoryLimit[%s] should be no greater than %s",
+				req.FsID, rcs.MemoryLimit, api.MaxMountPodMemLimit))
 		}
 	}
 	return nil
@@ -202,62 +212,4 @@ func (pr *PFSRouter) deleteFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	common.RenderStatus(w, http.StatusOK)
-}
-
-// FSCacheReport
-// @Summary 上报FsID的缓存信息
-// @Description  上报FsID的缓存信息
-// @Id FSCacheReport
-// @tags FSCacheConfig
-// @Accept  json
-// @Produce json
-// @Param fsName path string true "存储名称"
-// @Param username query string false "用户名"
-// @Param request body fs.CacheReportRequest true "request body"
-// @Success 200 {object}
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fsCache/report [POST]
-func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-	var request api.CacheReportRequest
-	err := common.BindJSON(r, &request)
-	if err != nil {
-		ctx.Logging().Errorf("FSCachReport bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
-	}
-	if request.Username == "" {
-		request.Username = ctx.UserName
-	}
-
-	err = validateFsCacheReport(&ctx, &request)
-	if err != nil {
-		ctx.Logging().Errorf("validateFsCacheReport request[%v] failed: [%v]", request, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	ctx.Logging().Debugf("report cache with req[%v]", request)
-
-	err = api.ReportCache(&ctx, request)
-	if err != nil {
-		ctx.Logging().Errorf("report cache with service error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateFsCacheReport(ctx *logger.RequestContext, req *api.CacheReportRequest) error {
-	validate := validator.New()
-	err := validate.Struct(req)
-	if err != nil {
-		for _, err = range err.(validator.ValidationErrors) {
-			ctx.ErrorCode = common.InappropriateJSON
-			return err
-		}
-	}
-	return nil
 }

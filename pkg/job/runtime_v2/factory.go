@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -33,6 +34,15 @@ type RuntimeService interface {
 	Client() framework.RuntimeClientInterface
 	// SyncController start sync controller
 	SyncController(stopCh <-chan struct{})
+
+	// SubmitJob submit job to cluster
+	SubmitJob(job *api.PFJob) error
+	// StopJob stop job on cluster
+	StopJob(job *api.PFJob) error
+	// UpdateJob update job on cluster
+	UpdateJob(job *api.PFJob) error
+	// DeleteJob delete job from cluster
+	DeleteJob(job *api.PFJob) error
 
 	framework.JobGetter
 	framework.QueueGetter

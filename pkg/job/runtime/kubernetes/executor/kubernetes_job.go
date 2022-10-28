@@ -18,7 +18,6 @@ package executor
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -33,7 +32,6 @@ import (
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -118,22 +116,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	}
 
 	switch job.JobType {
-	case schema.TypeVcJob:
-		// todo(zhongzichao): to be removed
-		kubeJob.GroupVersionKind = k8s.VCJobGVK
-		if len(job.Tasks) == 0 {
-			kubeJob.Tasks = []schema.Member{
-				{
-					Conf: schema.Conf{
-						Flavour: job.Conf.Flavour,
-					},
-				},
-			}
-		}
-		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
-		}, nil
 	case schema.TypeWorkflow:
 		kubeJob.GroupVersionKind = k8s.ArgoWorkflowGVK
 		return &WorkflowJob{
@@ -169,12 +151,6 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		}
 		log.Debugf("newFrameWorkJob: create spark job: %#v", sparkJob)
 		return sparkJob, nil
-	case schema.FrameworkMPI:
-		// TODO: use k8s.MPIJobGVK
-		kubeJob.GroupVersionKind = k8s.VCJobGVK
-		return &VCJob{
-			KubeJob: kubeJob,
-		}, nil
 	case schema.FrameworkPaddle:
 		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
 		return &PaddleJob{
@@ -235,26 +211,40 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*
 		log.Errorf(err.Error())
 		return nil, err
 	}
-	if nodeAffinity == nil {
-		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
-		return affinity, nil
+	return mergeNodeAffinity(affinity, nodeAffinity), nil
+}
+
+func mergeNodeAffinity(former, new *corev1.Affinity) *corev1.Affinity {
+	if new == nil {
+		log.Infof("mergeNodeAffinity new affinity is nil")
+		return former
 	}
-	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
-	// merge filesystem location awareness affinity to pod affinity
-	if affinity == nil {
-		return nodeAffinity, nil
+	if former == nil {
+		log.Infof("mergeNodeAffinity former affinity is nil")
+		return new
 	}
-	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = nodeAffinity.NodeAffinity
-	} else {
-		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+
+	if former.NodeAffinity == nil {
+		former.NodeAffinity = new.NodeAffinity
+		return former
 	}
-	return affinity, nil
+
+	// merge required
+	newRequired := new.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if newRequired != nil && len(newRequired.NodeSelectorTerms) != 0 {
+		formerRequired := former.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		if formerRequired == nil || len(formerRequired.NodeSelectorTerms) == 0 {
+			formerRequired = newRequired
+		} else {
+			formerRequired.NodeSelectorTerms = append(formerRequired.NodeSelectorTerms, newRequired.NodeSelectorTerms...)
+		}
+	}
+
+	// merge preferred
+	former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		new.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	return former
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
@@ -307,6 +297,39 @@ func KubePriorityClass(priority string) string {
 	}
 }
 
+// getDefaultTemplateNew get default job template from file
+func (j *KubeJob) getDefaultTemplateNew(framework schema.Framework) ([]byte, error) {
+	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
+	jobTemplateName := ""
+
+	//the footer comment of all type job as the follow:
+	//  single -> single-job, workflow -> workflow-job,
+	//  spark -> spark-job, ray -> ray-job
+	//  paddle with ps mode -> paddle-ps-job
+	//  paddle with collective mode -> paddle-collective-job
+	//  tensorflow with ps mode -> tensorflow-ps-job
+	//  pytorch with ps mode -> pytorch-ps-job
+	switch j.JobType {
+	case schema.TypeSingle, schema.TypeWorkflow:
+		jobTemplateName = fmt.Sprintf("%s-job", j.JobType)
+	case schema.TypeDistributed:
+		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay {
+			jobTemplateName = fmt.Sprintf("%s-job", framework)
+		} else {
+			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(j.JobMode))
+		}
+	default:
+		return []byte{}, fmt.Errorf("job type %s is not supported", j.JobType)
+	}
+
+	log.Infof("get default template for %s, template name is %s", j.String(), jobTemplateName)
+	jobTemplate, find := config.DefaultJobTemplate[jobTemplateName]
+	if !find {
+		return []byte{}, fmt.Errorf("job template %s is not found", jobTemplateName)
+	}
+	return jobTemplate, nil
+}
+
 // createJobFromYaml parse the object of job from specified yaml file path
 func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	log.Debugf("createJobFromYaml jobEntity[%+v] %v", jobEntity, reflect.TypeOf(jobEntity))
@@ -314,7 +337,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	if len(j.YamlTemplateContent) == 0 {
 		var err error
 		j.IsCustomYaml = false
-		j.YamlTemplateContent, err = j.getDefaultTemplate(j.Framework)
+		j.YamlTemplateContent, err = j.getDefaultTemplateNew(j.Framework)
 		if err != nil {
 			return fmt.Errorf("get default template failed, err: %v", err)
 		}
@@ -360,9 +383,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *schema.Member) erro
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
 	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
-	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
-		podSpec.RestartPolicy = corev1.RestartPolicyNever
-	}
 	// fill affinity
 	if err := j.setAffinity(podSpec); err != nil {
 		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
@@ -532,14 +552,15 @@ func (j *KubeJob) patchTaskMetadata(metadata *metav1.ObjectMeta, member schema.M
 	metadata.Namespace = j.Namespace
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, member.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, member.Labels)
-	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = j.ID
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 }
 
 func (j *KubeJob) fillPodTemplateSpec(pod *corev1.PodTemplateSpec, member schema.Member) error {
 	// ObjectMeta
 	j.patchTaskMetadata(&pod.ObjectMeta, member)
 	pod.Labels[schema.QueueLabelKey] = member.QueueName
+	pod.Annotations[schema.QueueLabelKey] = member.QueueName
 	// fill volumes
 	if err := j.fillPodSpec(&pod.Spec, &member); err != nil {
 		err = fmt.Errorf("fill pod.Spec failed, err:%v", err)
@@ -627,6 +648,9 @@ func GetPodGroupName(jobID string) string {
 		if anno != nil {
 			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
 		}
+		if pgName == "" {
+			pgName = fmt.Sprintf("podgroup-%s", jobObj.GetUID())
+		}
 	default:
 		log.Warningf("the framework[%s] of job is not supported", job.Framework)
 		pgName = jobID
@@ -708,46 +732,6 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 	return nil
 }
 
-// getDefaultPath get extra runtime conf default path
-func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
-	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
-	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
-	suffix := ".yaml"
-	if len(jobMode) != 0 && framework != schema.FrameworkSpark {
-		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(jobMode))
-	}
-
-	switch jobType {
-	case schema.TypeSingle:
-		return fmt.Sprintf("%s/%s%s", baseDir, jobType, suffix)
-	case schema.TypeDistributed:
-		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml, basedir/tensorflow.yaml basedir/pytorch.yaml
-		return fmt.Sprintf("%s/%s%s", baseDir, framework, suffix)
-	default:
-		// todo(zhongzichao) remove vcjob type
-		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
-	}
-}
-
-// getDefaultTemplate get default template from file
-func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error) {
-	// get template from default path
-	filePath := getDefaultPath(j.JobType, framework, j.JobMode)
-	// check file exist
-	if exist, err := config.PathExists(filePath); !exist || err != nil {
-		log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
-		return nil, errors.JobFileNotFound(filePath)
-	}
-
-	// read file as []byte
-	extConf, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
-		return nil, err
-	}
-	return extConf, nil
-}
-
 func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
 	var vs []corev1.Volume
@@ -759,11 +743,21 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	for _, fs := range fileSystem {
 		volume := corev1.Volume{
 			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
+		}
+		if fs.Type == schema.PFSTypeLocal {
+			// use hostPath
+			volume.VolumeSource = corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: fs.HostPath,
+				},
+			}
+		} else {
+			// use pvc
+			volume.VolumeSource = corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: schema.ConcatenatePVCName(fs.ID),
 				},
-			},
+			}
 		}
 		vs = append(vs, volume)
 	}
@@ -786,11 +780,13 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		}
 		mp := corev1.MountPropagationHostToContainer
 		volumeMount := corev1.VolumeMount{
-			Name:             fs.Name,
-			ReadOnly:         fs.ReadOnly,
-			MountPath:        fs.MountPath,
-			SubPath:          fs.SubPath,
-			MountPropagation: &mp,
+			Name:      fs.Name,
+			ReadOnly:  fs.ReadOnly,
+			MountPath: fs.MountPath,
+			SubPath:   fs.SubPath,
+		}
+		if fs.Type != schema.PFSTypeLocal {
+			volumeMount.MountPropagation = &mp
 		}
 		vms = append(vms, volumeMount)
 	}

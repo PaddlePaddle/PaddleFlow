@@ -169,17 +169,22 @@ func (c *fileDataCache) clean() {
 	// 1. 首先清理掉已过期文件
 	c.keys.Range(func(key, value interface{}) bool {
 		cache := value.(*cacheItem)
-		if time.Now().Sub(cache.expTime) >= 0 {
+		if time.Since(cache.expTime) >= 0 {
 			c.delete(key.(string))
 		}
 		return true
 	})
 
+	cacheDir := filepath.Join(c.dir, CacheDir)
 	if c.dir == "/" || c.dir == "" {
 		return
 	}
 	// 2. 清理目录下存在，但是c.keys中不存在的的文件,
-	filepath.Walk(filepath.Join(c.dir, CacheDir), func(path string, info os.FileInfo, err error) error {
+	if errCheck := filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Debugf("prevent panic by handling failure accessing a path %q: %v", path, err)
+			return err
+		}
 		if info == nil {
 			return nil
 		}
@@ -195,10 +200,13 @@ func (c *fileDataCache) clean() {
 		if strings.HasSuffix(path, "tmp") {
 			return nil
 		}
-		err = os.Remove(path)
-		return err
-	})
-	c.updateCapacity()
+		return os.Remove(path)
+	}); errCheck != nil {
+		log.Debugf("data cache clean: filepath.Walk failed: %v", errCheck)
+	}
+	if errCheck := c.updateCapacity(); errCheck != nil {
+		log.Debugf("data cache clean: updateCapacity failed: %v", errCheck)
+	}
 }
 
 func (c *fileDataCache) cachePath(key string) string {
@@ -219,7 +227,7 @@ func (c *fileDataCache) exist(key string) bool {
 		return false
 	} else {
 		cache := value.(*cacheItem)
-		if cache.expTime.Sub(time.Now()) <= 0 {
+		if time.Until(cache.expTime) <= 0 {
 			return false
 		}
 	}

@@ -63,6 +63,7 @@ class StepCompiler(ComponentCompiler):
         if self._component.outputs:
             self._dict.setdefault("artifacts", {})
             self._dict["artifacts"]["output"] = list(self._component.outputs.keys())
+            self._dict["artifacts"]["output"].sort()
     
     def _compile_cache_options(self):
         """ compile cache_options

@@ -108,12 +108,25 @@ func (pj *PyTorchJob) validateCustomYaml(torchJobSpec *pytorchv1.PyTorchJobSpec)
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
 func (pj *PyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec) error {
+	if torchJobSpec == nil || torchJobSpec.PyTorchReplicaSpecs == nil {
+		err := fmt.Errorf("build custom %s failed, PyTorchJobSpec or PyTorchReplicaSpecs is nil", pj.String())
+		log.Errorf("%v", err)
+		return err
+	}
 	log.Debugf("patch %s spec:%#v", pj.String(), torchJobSpec)
 	err := pj.validateCustomYaml(torchJobSpec)
 	if err != nil {
 		return err
 	}
-	// TODO: patch pytorch job from user
+	// patch metadata
+	ps, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
+	if find && ps != nil {
+		pj.patchTaskMetadata(&ps.Template.ObjectMeta, schema.Member{})
+	}
+	worker, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeWorker]
+	if find && worker != nil {
+		pj.patchTaskMetadata(&worker.Template.ObjectMeta, schema.Member{})
+	}
 	// check RunPolicy
 	return nil
 }

@@ -24,23 +24,45 @@ import (
 var (
 	GitVersion = "v0.0.0"
 	GitCommit  = "unknown"
+	GitBranch  = "unknown"
 	BuildDate  = "unknown"
 )
 
-func Info() []string {
+type VerInfo struct {
+	GitVersion string `json:"gitVersion"`
+	GitCommit  string `json:"gitCommit"`
+	GitBranch  string `json:"gitBranch"`
+	BuildDate  string `json:"buildDate"`
+	GoVersion  string `json:"goVersion"`
+	Compiler   string `json:"compiler"`
+	Platform   string `json:"platform"`
+}
+
+var Info = VerInfo{
+	GitVersion: GitVersion,
+	GitCommit:  GitCommit,
+	GitBranch:  GitBranch,
+	BuildDate:  BuildDate,
+	GoVersion:  runtime.Version(),
+	Compiler:   runtime.Compiler,
+	Platform:   fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+}
+
+func info() []string {
 	return []string{
-		fmt.Sprintf("GitVersion: %v", GitVersion),
-		fmt.Sprintf("GitCommit: %v", GitCommit),
-		fmt.Sprintf("BuildDate: %v", BuildDate),
-		fmt.Sprintf("GoVersion: %v", runtime.Version()),
-		fmt.Sprintf("Compiler: %v", runtime.Compiler),
-		fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH),
+		fmt.Sprintf("GitVersion: %v", Info.GitVersion),
+		fmt.Sprintf("GitCommit: %v", Info.GitCommit),
+		fmt.Sprintf("GitBranch: %v", Info.GitBranch),
+		fmt.Sprintf("BuildDate: %v", Info.BuildDate),
+		fmt.Sprintf("GoVersion: %v", Info.GoVersion),
+		fmt.Sprintf("Compiler: %v", Info.Compiler),
+		fmt.Sprintf("Platform: %s", Info.Platform),
 	}
 }
 
 func InfoStr() string {
 	var str string
-	for _, i := range Info() {
+	for _, i := range info() {
 		str += fmt.Sprintf("\n%v", i)
 	}
 	return str
