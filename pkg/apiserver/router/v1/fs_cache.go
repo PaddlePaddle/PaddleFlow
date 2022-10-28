@@ -112,8 +112,9 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuLimit [%s]",
 				req.FsID, rcs.CpuLimit))
 		}
-		if cpu.Cmp(resource.MustParse(api.MaxMountPodCpuLimit)) > 0 {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cpuLimit[%s] should be no greater than %s",
+		if cpu.Cmp(resource.MustParse(api.MaxMountPodCpuLimit)) > 0 ||
+			cpu.Cmp(resource.MustParse("0")) <= 0 {
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cpuLimit[%s] should be positive and no greater than %s",
 				req.FsID, rcs.CpuLimit, api.MaxMountPodCpuLimit))
 		}
 	}
@@ -123,8 +124,9 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryLimit [%s]",
 				req.FsID, rcs.MemoryLimit))
 		}
-		if memory.Cmp(resource.MustParse(api.MaxMountPodMemLimit)) > 0 {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: memoryLimit[%s] should be no greater than %s",
+		if memory.Cmp(resource.MustParse(api.MaxMountPodMemLimit)) > 0 ||
+			memory.Cmp(resource.MustParse("0")) <= 0 {
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: memoryLimit[%s] should be positive and no greater than %s",
 				req.FsID, rcs.MemoryLimit, api.MaxMountPodMemLimit))
 		}
 	}
