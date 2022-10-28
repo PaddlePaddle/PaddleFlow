@@ -115,18 +115,17 @@ func expiredMountedPodsSingleCluster(cluster model.ClusterInfo, expireDuration t
 
 }
 
-func checkMountPodExpired(po k8sCore.Pod, mountPodExpire time.Duration) (bool, error) {
+func checkMountPodExpired(po k8sCore.Pod, expireDuration time.Duration) (bool, error) {
 	modifiedTimeStr := po.Annotations[schema.AnnotationKeyMTime]
 	modifyTime, errParseTime := time.Parse(model.TimeFormat, modifiedTimeStr)
 	if errParseTime != nil {
-		errRet := fmt.Errorf("mountPodExpired: pod [%s] parse time str [%s] err: %v", po.Name, modifiedTimeStr, errParseTime)
+		errRet := fmt.Errorf("checkMountPodExpired: pod [%s] parse time str [%s] err: %v", po.Name, modifiedTimeStr, errParseTime)
 		log.Errorf(errRet.Error())
 		return false, errRet
 	}
-	expireTime := modifyTime.Add(mountPodExpire)
-	log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, time.Now())
-	if expireTime.Before(time.Now()) {
-		log.Debugf("pod %s expired", po.Name)
+	log.Infof("modifyTime %v, expireDuration %v and nowTime %v", modifyTime, expireDuration, time.Now())
+	if modifyTime.Add(expireDuration).Before(time.Now()) {
+		log.Infof("pod %s expired", po.Name)
 		return true, nil
 	} else {
 		return false, nil
