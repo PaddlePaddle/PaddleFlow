@@ -390,7 +390,7 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 func deletePvPvc(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) error {
 	for k8sRuntime, pods := range runtimePodsMap {
 		for _, po := range pods {
-			ns, err := getPVCNamespaceFromMountPod(po.Name)
+			ns, err := getPVCNamespaceFromMountPod(po.Name, fsID)
 			if err != nil {
 				err := fmt.Errorf("deletePvPvc of fs[%s] failed: %v", fsID, err)
 				log.Errorf(err.Error())
@@ -413,10 +413,16 @@ func deletePvPvc(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID str
 	return nil
 }
 
-func getPVCNamespaceFromMountPod(podName string) (string, error) {
+func getPVCNamespaceFromMountPod(podName, fsID string) (string, error) {
 	// pfs-{hostName}-pfs-{fsID}-{namespace}-pv
-	names := strings.Split(podName, "-")
-	if len(names) < 3 || names[len(names)-1] != "pv" {
+	strs := strings.Split(podName, fsID)
+	if len(strs) < 2 {
+		err := fmt.Errorf("mount pod name[%s] not valid to retrieve pvc info: no fsID", podName)
+		log.Errorf(err.Error())
+		return "", err
+	}
+	names := strings.Split(strs[len(strs)-1], "-")
+	if len(names) < 2 || names[len(names)-1] != "pv" {
 		err := fmt.Errorf("mount pod name[%s] not valid to retrieve pvc info", podName)
 		log.Errorf(err.Error())
 		return "", err

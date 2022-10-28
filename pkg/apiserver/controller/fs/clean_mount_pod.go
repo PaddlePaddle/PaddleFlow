@@ -53,10 +53,10 @@ func cleanMountPod(expireDuration time.Duration) error {
 			podCleanMap[runtimePtr] = podsToClean
 		}
 	}
+	log.Infof("clean expired mount pods: %+v", podCleanMap)
 	if len(podCleanMap) == 0 {
 		return nil
 	}
-	log.Infof("clean expired mount pods: %+v", podCleanMap)
 	if err = deleteMountPods(podCleanMap); err != nil {
 		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
 		return err
@@ -90,7 +90,6 @@ func expiredMountedPodsSingleCluster(cluster model.ClusterInfo, expireDuration t
 		log.Errorf("list mount pods failed: %v", err)
 		return nil, nil, err
 	}
-	log.Warnf("list pods %+v", pods)
 	podsToClean := make([]k8sCore.Pod, 0)
 	for _, po := range pods.Items {
 		if checkMountPodMounted(po) {
