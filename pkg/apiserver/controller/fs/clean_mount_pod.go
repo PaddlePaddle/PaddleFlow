@@ -123,8 +123,10 @@ func checkMountPodExpired(po k8sCore.Pod, expireDuration time.Duration) (bool, e
 		log.Errorf(errRet.Error())
 		return false, errRet
 	}
-	log.Infof("modifyTime %v, expireDuration %v and nowTime %v", modifyTime, expireDuration, time.Now())
-	if modifyTime.Add(expireDuration).Before(time.Now()) {
+	now_ := time.Now().Format(model.TimeFormat)
+	now, _ := time.Parse(model.TimeFormat, now_)
+	log.Infof("modifyTime %v, expireDuration %v and nowTime %v", modifyTime, expireDuration, now)
+	if modifyTime.Add(expireDuration).Before(now) {
 		log.Infof("pod %s expired", po.Name)
 		return true, nil
 	} else {
