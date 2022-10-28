@@ -167,9 +167,6 @@ func MockInitJob(t *testing.T) (*chi.Mux, *chi.Mux, string) {
 	t.Logf("user:%s, token:%s", MockNonRootUser2, tokenMockNonRootUser2)
 	assert.Nil(t, err)
 
-	res, err := PerformPostRequest(router, baseURL+"/job/single", MockCreateJobRequest)
-	assert.NoError(t, err)
-	t.Logf("create Job %v", res)
 	return router, routerNonRoot, baseURL
 }
 
@@ -224,15 +221,20 @@ func TestUpdateJob(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Logf("Case[%s] baseURL=%s", tt.name, baseURL)
-		res, _ := PerformPutRequest(tt.args.router, fmt.Sprintf("%s/job/%s?action=modify", baseURL, tt.args.req.JobID), tt.args.req)
-		t.Logf("case[%s] update single job, response=%+v", tt.name, res)
-		if tt.wantErr {
-			assert.NotEqual(t, res.Code, 200)
-			continue
-		} else {
-			assert.Equal(t, tt.responseCode, res.Code)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := PerformPostRequest(tt.args.router, baseURL+"/job/single", MockCreateJobRequest)
+			assert.NoError(t, err)
+			t.Logf("create Job %v", res)
+
+			t.Logf("Case[%s] baseURL=%s", tt.name, baseURL)
+			res, _ = PerformPutRequest(tt.args.router, fmt.Sprintf("%s/job/%s?action=modify", baseURL, tt.args.req.JobID), tt.args.req)
+			t.Logf("case[%s] update single job, response=%+v", tt.name, res)
+			if tt.wantErr {
+				assert.NotEqual(t, res.Code, 200)
+			} else {
+				assert.Equal(t, tt.responseCode, res.Code)
+			}
+		})
 	}
 }
 
@@ -281,18 +283,22 @@ func TestStopJob(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Logf("baseURL=%s", baseURL)
-
-		res, err := PerformPutRequest(tt.args.router, fmt.Sprintf("%s/job/%s?action=stop", baseURL, tt.args.req), tt.args.req)
-		t.Logf("case[%s] stop job, response=%+v", tt.name, res)
-
-		if tt.wantErr {
-			assert.Contains(t, res.Body.String(), "has no access to")
-			continue
-		} else {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("baseURL=%s", baseURL)
+			res, err := PerformPostRequest(tt.args.router, baseURL+"/job/single", MockCreateJobRequest)
 			assert.NoError(t, err)
-			assert.Equal(t, tt.responseCode, res.Code)
-		}
+			t.Logf("create Job %v", res)
+
+			res, err = PerformPutRequest(tt.args.router, fmt.Sprintf("%s/job/%s?action=stop", baseURL, tt.args.req), tt.args.req)
+			t.Logf("case[%s] stop job, response=%+v", tt.name, res)
+
+			if tt.wantErr {
+				assert.Contains(t, res.Body.String(), "has no access to")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.responseCode, res.Code)
+			}
+		})
 	}
 }
 
@@ -341,20 +347,21 @@ func TestDeleteJob(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Logf("baseURL=%s", baseURL)
-
-		res, err := PerformPutRequest(router, fmt.Sprintf("%s/job/%s?action=stop", baseURL, tt.args.req), tt.args.req)
-		t.Logf("case[%s] stop job, response=%+v", tt.name, res)
-		assert.NoError(t, err)
-
-		res, err = PerformDeleteRequest(tt.args.router, fmt.Sprintf("%s/job/%s", baseURL, tt.args.req))
-		t.Logf("case[%s] delete job, response=%+v", tt.name, res)
-		if tt.wantErr {
-			assert.Contains(t, res.Body.String(), "has no access to")
-			continue
-		} else {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("baseURL=%s", baseURL)
+			res, err := PerformPostRequest(tt.args.router, baseURL+"/job/single", MockCreateJobRequest)
+			res, err = PerformPutRequest(router, fmt.Sprintf("%s/job/%s?action=stop", baseURL, tt.args.req), tt.args.req)
+			t.Logf("case[%s] stop job, response=%+v", tt.name, res)
 			assert.NoError(t, err)
-			assert.Equal(t, tt.responseCode, res.Code)
-		}
+
+			res, err = PerformDeleteRequest(tt.args.router, fmt.Sprintf("%s/job/%s", baseURL, tt.args.req))
+			t.Logf("case[%s] delete job, response=%+v", tt.name, res)
+			if tt.wantErr {
+				assert.Contains(t, res.Body.String(), "has no access to")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.responseCode, res.Code)
+			}
+		})
 	}
 }
