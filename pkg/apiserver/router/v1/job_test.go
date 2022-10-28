@@ -287,7 +287,7 @@ func TestStopJob(t *testing.T) {
 		t.Logf("case[%s] stop job, response=%+v", tt.name, res)
 
 		if tt.wantErr {
-			assert.Error(t, err)
+			assert.Contains(t, res.Body.String(), "has no access to")
 			continue
 		} else {
 			assert.NoError(t, err)
