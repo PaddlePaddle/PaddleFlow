@@ -1,6 +1,9 @@
 package job
 
 import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -8,13 +11,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
-	"github.com/stretchr/testify/assert"
-	"testing"
-)
-
-const (
-//mockRootUser = "root"
-
 )
 
 func TestDeleteJob(t *testing.T) {
@@ -66,15 +62,15 @@ func TestDeleteJob(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
-		err := DeleteJob(tt.args.ctx, tt.args.req)
-		t.Logf("case[%s] create single job, response=%+v", tt.name, err)
-		if tt.wantErr {
-			assert.Error(t, err)
-			continue
-		} else {
-			assert.NoError(t, err)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			err := DeleteJob(tt.args.ctx, tt.args.req)
+			t.Logf("case[%s] create single job, response=%+v", tt.name, err)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
-
 }

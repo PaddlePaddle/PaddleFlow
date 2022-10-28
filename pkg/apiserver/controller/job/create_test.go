@@ -77,7 +77,6 @@ func TestCreatePFJob(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.Contains(t, err.Error(), "record not found")
-				//assert.Equal(t, tt.responseCode, res.Code)
 			}
 		})
 	}
