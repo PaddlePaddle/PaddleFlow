@@ -17,30 +17,16 @@ limitations under the License.
 package fs
 
 import (
-	"strings"
-	"testing"
-	"time"
-
-	"github.com/agiledragon/gomonkey/v2"
-	"github.com/stretchr/testify/assert"
-	k8sCore "k8s.io/api/core/v1"
-	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
-)
-
-const (
-	testTargetPath = "/var/lib/kubelet/pods/abc/volumes/kubernetes.io~csi/pfs-fs-root-test-default-pv/mount"
-	mockClusterID  = "cluster-mock"
-	mockFSID       = "fs-root-mock"
-	mockNodename   = "nodename_mock"
-	mockCacheDir   = "/var/cache"
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
+	k8sCore "k8s.io/api/core/v1"
+	"strings"
+	"testing"
 )
 
 func Test_getClusterRuntimeMap(t *testing.T) {
@@ -142,51 +128,26 @@ func Test_addOrUpdateFSCache(t *testing.T) {
 	}
 }
 
-func mountPodWithCacheStats() *k8sCore.Pod {
-	pod := baseMountPod()
+func mountPodWithCacheStats() k8sCore.Pod {
+	pod := mountPodWithCacheID(mockFSID, mockNodename)
 	pod.Annotations[schema.AnnotationKeyCacheDir] = mockCacheDir
 	pod.Labels[schema.LabelKeyNodeName] = mockNodename
 	pod.Labels[schema.LabelKeyUsedSize] = "100"
-	pod.Labels[schema.LabelKeyFsID] = mockFSID
-	pod.Labels[schema.LabelKeyCacheID] = model.CacheID(mockClusterID, mockNodename, mockCacheDir, mockFSID)
 	return pod
-}
-
-func baseMountPod() *k8sCore.Pod {
-	return &k8sCore.Pod{
-		ObjectMeta: k8sMeta.ObjectMeta{
-			Name:      "pfs-nodename_mock-pfs-fs-root-mock-default-pv",
-			Namespace: schema.MountPodNamespace,
-			Labels:    map[string]string{csiconfig.PodTypeKey: csiconfig.PodMount},
-			Annotations: map[string]string{
-				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
-			},
-		},
-		Status: k8sCore.PodStatus{
-			Phase: k8sCore.PodRunning,
-			Conditions: []k8sCore.PodCondition{{
-				Type:   k8sCore.PodReady,
-				Status: k8sCore.ConditionTrue,
-			}, {
-				Type:   k8sCore.ContainersReady,
-				Status: k8sCore.ConditionTrue,
-			}},
-		},
-	}
 }
 
 func Test_syncCacheFromMountPod(t *testing.T) {
 	driver.InitMockDB()
+	mockPod := mountPodWithCacheID(mockFSID, mockNodename)
 	tests := []struct {
 		name    string
-		pod     *k8sCore.Pod
+		pod     k8sCore.Pod
 		wantErr bool
 		wantLen int
 	}{
 		{
 			name:    "mount-pod",
-			pod:     baseMountPod(),
+			pod:     mockPod,
 			wantErr: true,
 			wantLen: 0,
 		},
@@ -199,7 +160,7 @@ func Test_syncCacheFromMountPod(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := syncCacheFromMountPod(tt.pod, mockClusterID); (err != nil) != tt.wantErr {
+			if err := syncCacheFromMountPod(&tt.pod, mockClusterID); (err != nil) != tt.wantErr {
 				t.Errorf("PodMount() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			listCache, err := storage.FsCache.List(mockFSID, "")
