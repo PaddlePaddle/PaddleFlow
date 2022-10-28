@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const runYamlPath = "../../../../pkg/apiserver/controller/pipeline/testcase/run_dag.json"
+const runYamlPath = "../../../../pkg/apiserver/controller/pipeline/testcase/get_run_rsp.json"
 
 func loadCase(casePath string) []byte {
 	data, err := ioutil.ReadFile(casePath)
