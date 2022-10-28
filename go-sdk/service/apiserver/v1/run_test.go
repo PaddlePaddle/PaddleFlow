@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const runYamlPath = "../../../../pkg/apiserver/controller/pipeline/testcase/get_run_rsp.json"
+const rspPath = "../../../../pkg/apiserver/controller/pipeline/testcase/get_run_rsp.json"
 
 func loadCase(casePath string) []byte {
 	data, err := ioutil.ReadFile(casePath)
@@ -37,7 +37,7 @@ func loadCase(casePath string) []byte {
 
 func TestGetRunRspUnmarshal(t *testing.T) {
 	rsp := GetRunResponse{}
-	yamlByte := loadCase(runYamlPath)
-	err := rsp.UnmarshalJson(yamlByte)
+	rspByte := loadCase(rspPath)
+	err := rsp.UnmarshalJson(rspByte)
 	assert.Nil(t, err)
 }
