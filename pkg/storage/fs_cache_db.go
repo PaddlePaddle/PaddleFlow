@@ -59,14 +59,15 @@ func (f *DBFSCache) Delete(fsID, cacheID string) error {
 }
 
 func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
+	tx := f.db
 	if fsID != "" {
-		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
 	}
 	if cacheID != "" {
-		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
 	}
 	var fsCaches []model.FSCache
-	err := f.db.Find(&fsCaches).Error
+	err := tx.Find(&fsCaches).Error
 	if err != nil {
 		return nil, err
 	}
