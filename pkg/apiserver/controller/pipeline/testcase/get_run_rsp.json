@@ -1,0 +1,218 @@
+{
+    "runID": "run-000001",
+    "name": "dagProject",
+    "source": "runDag.yaml",
+    "username": "root",
+    "fsName": "fs",
+    "fsOptions": {
+        "mainFS": {
+            "id": "",
+            "name": "fs",
+            "mountPath": "",
+            "subPath": "",
+            "readOnly": false
+        }
+    },
+    "description": "run_desc",
+    "parameters": null,
+    "runYaml": "yaml",
+    "runtime": {
+        "disDag": [
+            {
+                "id": "dag-run-000001-53c2e926b545dd23",
+                "name": "dag-run-000001-disDag",
+                "type": "dag",
+                "dagName": "disDag",
+                "parentDagID": "dag-run-000001-87358802d68e6eeb",
+                "deps": "",
+                "parameters": {
+                    "num": "111"
+                },
+                "artifacts": {
+                    "input": {},
+                    "output": {}
+                },
+                "startTime": "2022-10-18 15:19:50",
+                "endTime": "2022-10-18 15:20:08",
+                "status": "succeeded",
+                "message": "all subDag or subStep run succeeded or skipped",
+                "entryPoints": {
+                    "disStep": [
+                        {
+                            "jobID": "job-run-000001-disstep-2-d3ed9dd9",
+                            "name": "run-000001-disStep-2",
+                            "type": "step",
+                            "stepName": "disStep",
+                            "parentDagID": "dag-run-000001-53c2e926b545dd23",
+                            "command": "echo dis",
+                            "parameters": {},
+                            "env": {
+                                "PF_JOB_FLAVOUR": "flavour1",
+                                "PF_JOB_MODE": "",
+                                "PF_JOB_NAMESPACE": "default",
+                                "PF_JOB_PRIORITY": "HIGH",
+                                "PF_JOB_QUEUE_NAME": "default-queue",
+                                "PF_JOB_TYPE": "single",
+                                "PF_LOOP_ARGUMENT": "3",
+                                "PF_RUN_ID": "run-000001",
+                                "PF_STEP_NAME": "disStep",
+                                "PF_USER_NAME": "root"
+                            },
+                            "extraFS": null,
+                            "startTime": "2022-10-18 15:19:50",
+                            "endTime": "2022-10-18 15:20:08",
+                            "status": "succeeded",
+                            "deps": "",
+                            "dockerEnv": "image",
+                            "artifacts": {
+                                "input": {},
+                                "output": {}
+                            },
+                            "cache": {
+                                "enable": false,
+                                "maxExpiredTime": "-1",
+                                "fsScope": []
+                            },
+                            "jobMessage": "job is succeeded",
+                            "cacheRunID": "",
+                            "cacheJobID": ""
+                        },
+                        {
+                            "jobID": "job-run-000001-disstep-030bef5d",
+                            "name": "run-000001-disStep",
+                            "type": "step",
+                            "stepName": "disStep",
+                            "parentDagID": "dag-run-000001-53c2e926b545dd23",
+                            "command": "echo dis",
+                            "parameters": {},
+                            "env": {
+                                "PF_JOB_FLAVOUR": "flavour1",
+                                "PF_JOB_MODE": "",
+                                "PF_JOB_NAMESPACE": "default",
+                                "PF_JOB_PRIORITY": "HIGH",
+                                "PF_JOB_QUEUE_NAME": "default-queue",
+                                "PF_JOB_TYPE": "single",
+                                "PF_LOOP_ARGUMENT": "1",
+                                "PF_RUN_ID": "run-000001",
+                                "PF_STEP_NAME": "disStep",
+                                "PF_USER_NAME": "root"
+                            },
+                            "extraFS": null,
+                            "startTime": "2022-10-18 15:19:50",
+                            "endTime": "2022-10-18 15:20:05",
+                            "status": "succeeded",
+                            "deps": "",
+                            "dockerEnv": "image",
+                            "artifacts": {
+                                "input": {},
+                                "output": {}
+                            },
+                            "cache": {
+                                "enable": false,
+                                "maxExpiredTime": "-1",
+                                "fsScope": []
+                            },
+                            "jobMessage": "job is succeeded",
+                            "cacheRunID": "",
+                            "cacheJobID": ""
+                        },
+                        {
+                            "jobID": "job-run-000001-disstep-1-f1f21578",
+                            "name": "run-000001-disStep-1",
+                            "type": "step",
+                            "stepName": "disStep",
+                            "parentDagID": "dag-run-000001-53c2e926b545dd23",
+                            "command": "echo dis",
+                            "parameters": {},
+                            "env": {
+                                "PF_JOB_FLAVOUR": "flavour1",
+                                "PF_JOB_MODE": "",
+                                "PF_JOB_NAMESPACE": "default",
+                                "PF_JOB_PRIORITY": "HIGH",
+                                "PF_JOB_QUEUE_NAME": "default-queue",
+                                "PF_JOB_TYPE": "single",
+                                "PF_LOOP_ARGUMENT": "2",
+                                "PF_RUN_ID": "run-000001",
+                                "PF_STEP_NAME": "disStep",
+                                "PF_USER_NAME": "root"
+                            },
+                            "extraFS": null,
+                            "startTime": "2022-10-18 15:19:50",
+                            "endTime": "2022-10-18 15:20:08",
+                            "status": "succeeded",
+                            "deps": "",
+                            "dockerEnv": "image",
+                            "artifacts": {
+                                "input": {},
+                                "output": {}
+                            },
+                            "cache": {
+                                "enable": false,
+                                "maxExpiredTime": "-1",
+                                "fsScope": []
+                            },
+                            "jobMessage": "job is succeeded",
+                            "cacheRunID": "",
+                            "cacheJobID": ""
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "postProcess": {
+        "last": {
+            "jobID": "job-run-000001-last-dda0dd0f",
+            "name": "run-000001-last",
+            "type": "step",
+            "stepName": "last",
+            "parentDagID": "",
+            "command": "echo 111",
+            "parameters": {
+                "num": "111"
+            },
+            "env": {
+                "PF_JOB_FLAVOUR": "flavour1",
+                "PF_JOB_MODE": "",
+                "PF_JOB_NAMESPACE": "default",
+                "PF_JOB_PRIORITY": "HIGH",
+                "PF_JOB_QUEUE_NAME": "default-queue",
+                "PF_JOB_TYPE": "single",
+                "PF_LOOP_ARGUMENT": "",
+                "PF_RUN_ID": "run-000001",
+                "PF_STEP_NAME": "last",
+                "PF_USER_NAME": "root"
+            },
+            "extraFS": null,
+            "startTime": "2022-10-18 15:21:34",
+            "endTime": "2022-10-18 15:21:46",
+            "status": "succeeded",
+            "deps": "",
+            "dockerEnv": "image",
+            "artifacts": {
+                "input": {},
+                "output": {}
+            },
+            "cache": {
+                "enable": false,
+                "maxExpiredTime": "",
+                "fsScope": null
+            },
+            "jobMessage": "job is succeeded",
+            "cacheRunID": "",
+            "cacheJobID": ""
+        }
+    },
+    "failureOptions": {
+        "strategy": "fail_fast"
+    },
+    "dockerEnv": "image",
+    "disabled": "",
+    "scheduleID": "",
+    "runMsg": "begin to running, update status to running",
+    "status": "succeeded",
+    "runCachedIDs": "",
+    "createTime": "2022-10-18 15:19:50",
+    "activateTime": "2022-10-18 15:19:50",
+    "updateTime": "2022-10-18 15:21:46"
+}
