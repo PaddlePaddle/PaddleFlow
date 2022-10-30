@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
@@ -30,6 +31,10 @@ import (
 func TestJobManager(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 
+	clusterInfo := &model.ClusterInfo{
+		Name:   "test-cluster",
+		Status: model.ClusterStatusOnLine,
+	}
 	jobM, err := NewJobManagerImpl()
 	assert.Equal(t, nil, err)
 	testCases := []struct {
@@ -45,6 +50,9 @@ func TestJobManager(t *testing.T) {
 	}
 
 	driver.InitMockDB()
+	err = storage.Cluster.CreateCluster(clusterInfo)
+	assert.Equal(t, nil, err)
+
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			go testCase.jobManager.Start(storage.Cluster.ActiveClusters, storage.Job.ListQueueJob)
