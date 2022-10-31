@@ -113,7 +113,7 @@ func TestOpenWriteMetaConsistence(t *testing.T) {
 	clean()
 	defer clean()
 	d := cache.Config{
-		Expire: 600 * time.Second,
+		Expire: 1 * time.Second,
 		Config: kv.Config{
 			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
@@ -134,6 +134,7 @@ func TestOpenWriteMetaConsistence(t *testing.T) {
 	writeString = "456"
 	_, err = writer.Write([]byte(writeString))
 	assert.Equal(t, nil, err)
+	time.Sleep(2 * time.Second)
 
 	fInfo, err = client.Stat(path)
 	assert.Equal(t, nil, err)
