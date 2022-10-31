@@ -32,9 +32,23 @@ jobs:
         name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
         path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
 
+    # 0. 获取当前分支branch_name信息
+    - id: get_branch_name
+      name: get branch name
+      run: |
+        # pull_request
+        echo "branch=${GITHUB_HEAD_REF}"
+        echo "branch=${GITHUB_BASE_REF}"
+        # push
+        echo "branch=${GITHUB_REF}"
+        echo "branch=${GITHUB_REF_NAME}"
+        # refs/heads/
+        echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+
     # 1. 获取当前分支tag信息
     - id: branch-name
-      name: Get branch name
+      name: Get tag info
       with:
         strip_tag_prefix: true
       env:
@@ -55,36 +69,34 @@ jobs:
         echo "${{ steps.commit.outputs.short }}"
 
 
-    # 3.获取当前分支名称
-    # build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
+    # 3.获取build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
     #  当前仅构建Release分支,若要放开,则改为if [[ $current_branch =~ ^(release|dev|master|main).* ]];then
     - name: get build-image-enabled, version-fragment and current-version
       run: |
+        build_image_enabled=false
+        event_name=${{ github.event_name }}
+        if [[ $event_name != 'push' ]]; then
+          echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+          exit 0
+        fi
         current_branch=${{ steps.branch-name.outputs.base_ref_branch }}
         echo "current_branch is [$current_branch]"
-        event_name=${{ github.event_name }}
-        build_image_enabled=false
 
         if [[ $current_branch =~ ^(release).* ]];then
           echo "current_branch is [$current_branch]"
-          if [[ $event_name == 'push' ]]; then
           echo "event_name is [$event_name]"
           build_image_enabled=true
-          fi
-        fi
 
-        echo "打印build_image_enabled值 [$build_image_enabled] 并存储到环境变量"
-        echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
-        echo "计算版本tag cur_version"
-        echo "version_fragment=alpha" >> $GITHUB_ENV
-        if [[ $current_branch =~ ^release.* ]]; then
-          echo "version_fragment=rc" >> $GITHUB_ENV
+          echo "计算版本tag cur_version"
           cur_version=${current_branch#*release}
           cur_version=${cur_version#*/}
           cur_version=${cur_version#*-}
           echo "cur_version is [$cur_version]"
           echo "cur_version=$cur_version" >> $GITHUB_ENV
         fi
+
+        echo "打印build_image_enabled值 [$build_image_enabled] 并存储到环境变量"
+        echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
 
         # 有tag则按照tag来
         if [ !${{ steps.branch-name.outputs.is_tag }} ]; then
