@@ -47,9 +47,10 @@ func TestCreateOrDeleteClusterObject(t *testing.T) {
 		{
 			name: "create cluster configmap",
 			request: ObjectRequest{
-				Object:    map[string]interface{}{},
-				Name:      "test-cm",
-				Namespace: "default",
+				ClusterName: testClusterName,
+				Object:      map[string]interface{}{},
+				Name:        "test-cm",
+				Namespace:   "default",
 			},
 			action: util.QueryActionCreate,
 			err:    nil,
@@ -57,6 +58,7 @@ func TestCreateOrDeleteClusterObject(t *testing.T) {
 		{
 			name: "delete cluster object",
 			request: ObjectRequest{
+				ClusterName:      testClusterName,
 				GroupVersionKind: configMapGVK,
 				Name:             "test-cm",
 				Namespace:        "default",
