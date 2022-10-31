@@ -868,39 +868,13 @@ func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 	return err
 }
 
-func kubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
-	if jobInfo == nil {
-		return nil, fmt.Errorf("job is nil")
-	}
-	var updateData []byte
-	var err error
-	// update labels and annotations
-	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
-		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
-		patchJSON := struct {
-			metav1.ObjectMeta `json:"metadata,omitempty"`
-		}{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      jobInfo.Labels,
-				Annotations: jobInfo.Annotations,
-			},
-		}
-		updateData, err = json.Marshal(patchJSON)
-		if err != nil {
-			log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
-			return nil, err
-		}
-	}
-	return updateData, err
-}
-
 func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.FrameworkVersion) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 
 	jobmsg := fmt.Sprintf("%s job %s on %s", fv.String(), job.NamespacedName(), runtimeClient.Cluster())
-	// update job priority
+	//  1. update job priority
 	if len(job.PriorityClassName) != 0 {
 		err := updateKubeJobPriority(job, runtimeClient)
 		if err != nil {
@@ -908,16 +882,27 @@ func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterfac
 			return err
 		}
 	}
-	// update job labels or annotations
-	data, err := kubeJobUpdatedData(job)
-	if err != nil {
-		log.Errorf("update %s failed, err: %v", jobmsg, err)
-		return err
-	}
-	log.Infof("begin to update %s, data: %s", jobmsg, string(data))
-	if err = runtimeClient.Patch(job.Namespace, job.ID, fv, data); err != nil {
-		log.Errorf("update %s failed, err: %v", jobmsg, err)
-		return err
+	// 2. update job labels or annotations
+	if (job.Labels != nil && len(job.Labels) != 0) ||
+		(job.Annotations != nil && len(job.Annotations) != 0) {
+		patchJSON := struct {
+			metav1.ObjectMeta `json:"metadata,omitempty"`
+		}{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: job.Annotations,
+			},
+		}
+		updateData, err := json.Marshal(patchJSON)
+		if err != nil {
+			log.Errorf("update kubernetes job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+		log.Infof("begin to update %s, data: %s", jobmsg, string(updateData))
+		if err = runtimeClient.Patch(job.Namespace, job.ID, fv, updateData); err != nil {
+			log.Errorf("update %s failed, err: %v", jobmsg, err)
+			return err
+		}
 	}
 	return nil
 }
