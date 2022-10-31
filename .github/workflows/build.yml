@@ -29,8 +29,8 @@ jobs:
         path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
 
     # 1. 获取当前分支tag信息
-    - name: Get branch name
-      id: branch-name
+    - id: branch-name
+      name: Get branch name
       with:
         strip_tag_prefix: true
       env:
@@ -41,6 +41,8 @@ jobs:
       run: |
         echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
         echo "tag=${{ steps.branch-name.outputs.tag }}"
+        echo "当前分支为 ${{ steps.branch-name.outputs.base_ref_branch }}"
+
 
     # 2. 获取commit hash
     - id: commit
@@ -50,14 +52,11 @@ jobs:
 
 
     # 3.获取当前分支名称
-    - id: current_branch
-      name: get current branch
-      uses: nelonoel/branch-name@v1.0.1
     # build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
     #  当前仅构建Release分支,若要放开,则改为if [[ $current_branch =~ ^(release|dev|master|main).* ]];then
     - name: get build-image-enabled, version-fragment and current-version
       run: |
-        current_branch=${BRANCH_NAME}
+        current_branch=${{ steps.branch-name.outputs.base_ref_branch }}
         echo "current_branch is [$current_branch]"
         event_name=${{ github.event_name }}
         build_image_enabled=false
