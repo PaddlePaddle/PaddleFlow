@@ -653,7 +653,6 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 	if fh > 0 {
 		v.releaseFileHandle(ino, fh)
 		log.Debugf("release inode %v", ino)
-		return
 	}
 	_ = v.Meta.Close(ctx, ino)
 }

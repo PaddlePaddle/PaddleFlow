@@ -110,6 +110,44 @@ func TestFSClient_bigBuf(t *testing.T) {
 	assert.Equal(t, n, 22)
 }
 
+func TestOpenWriteMetaConsistence(t *testing.T) {
+	fmt.Println("begin")
+	fmt.Println(syscall.ENOENT)
+	fmt.Println(syscall.LOCK_NB)
+	fmt.Println(syscall.LOCK_EX)
+	fmt.Println(syscall.LOCK_UN)
+	return
+	clean()
+	defer clean()
+	d := cache.Config{
+		Expire: 600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "123"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+
+	fInfo, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(3), fInfo.Size())
+	writeString = "456"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+
+	fInfo, err = client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(6), fInfo.Size())
+
+}
+
 func TestFSClient_case1(t *testing.T) {
 	clean()
 	defer clean()
