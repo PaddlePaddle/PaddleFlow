@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -111,12 +110,6 @@ func TestFSClient_bigBuf(t *testing.T) {
 }
 
 func TestOpenWriteMetaConsistence(t *testing.T) {
-	fmt.Println("begin")
-	fmt.Println(syscall.ENOENT)
-	fmt.Println(syscall.LOCK_NB)
-	fmt.Println(syscall.LOCK_EX)
-	fmt.Println(syscall.LOCK_UN)
-	return
 	clean()
 	defer clean()
 	d := cache.Config{
@@ -203,7 +196,6 @@ func TestFSClient_case1(t *testing.T) {
 	err = client.Rename(newDir1, newDir4)
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir4, 0755)
-	fmt.Println("err", err, newDir4)
 	assert.Equal(t, nil, err)
 	dirs, err := client.Readdirnames("/mock", -1)
 	assert.Equal(t, nil, err)
