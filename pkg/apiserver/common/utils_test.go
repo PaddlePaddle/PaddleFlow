@@ -222,3 +222,76 @@ func TestCheckFsNested(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckPermission(t *testing.T) {
+	type args struct {
+		requestUserName string
+		ownerUserName   string
+		resourceType    string
+		jobID           string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "root access abc",
+			args: args{
+				requestUserName: "root",
+				ownerUserName:   "abc",
+				resourceType:    ResourceTypeJob,
+				jobID:           "1",
+			},
+			want: true,
+		},
+		{
+			name: "abc access root",
+			args: args{
+				requestUserName: "abc",
+				ownerUserName:   "root",
+				resourceType:    ResourceTypeJob,
+				jobID:           "1",
+			},
+			want: false,
+		},
+		{
+			name: "root access root",
+			args: args{
+				requestUserName: "root",
+				ownerUserName:   "root",
+				resourceType:    ResourceTypeJob,
+				jobID:           "1",
+			},
+			want: true,
+		},
+		{
+			name: "abc access abc",
+			args: args{
+				requestUserName: "abc",
+				ownerUserName:   "abc",
+				resourceType:    ResourceTypeJob,
+				jobID:           "1",
+			},
+			want: true,
+		},
+		{
+			name: "abc access def",
+			args: args{
+				requestUserName: "abc",
+				ownerUserName:   "def",
+				resourceType:    ResourceTypeJob,
+				jobID:           "1",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CheckPermission(tt.args.requestUserName, tt.args.ownerUserName, tt.args.resourceType, tt.args.jobID); (got != nil) == tt.want {
+				t.Errorf("CheckFsNested() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+}

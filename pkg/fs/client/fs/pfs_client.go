@@ -227,24 +227,20 @@ func (c *PFSClient) removeAll(path string) error {
 		return &os.PathError{Op: "RemoveAll", Path: path, Err: syscall.EINVAL}
 	}
 
-	// Simple case: if Remove works, we're done.
-	err := c.Remove(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-
 	parent, err := c.pfs.Open(path)
 	if os.IsNotExist(err) {
 		// If parent does not exist, base cannot exist. Fail silently
 		return nil
 	}
 	if err != nil {
+		log.Errorf("Open[%s] failed: %v", path, err)
 		return err
 	}
 	defer parent.Close()
 
 	dirs, err := parent.Readdirnames(-1)
 	if err != nil {
+		log.Errorf("Readdirnames failed: %v", err)
 		return err
 	}
 	for _, dir := range dirs {
@@ -452,6 +448,10 @@ func (c *PFSClient) Size(path string) (int64, error) {
 
 func (c *PFSClient) Chmod(path string, fm os.FileMode) error {
 	return c.pfs.Chmod(path, fm)
+}
+
+func (c *PFSClient) Chown(name string, uid, gid int) error {
+	return c.pfs.Chown(name, uid, gid)
 }
 
 func (c *PFSClient) Walk(root string, walkFn filepath.WalkFunc) error {
