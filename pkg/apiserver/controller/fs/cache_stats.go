@@ -92,6 +92,11 @@ func updateMountPodCacheStats(clusterID string, k8sRuntime *runtime.KubeRuntime)
 }
 
 func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
+	if pod.Labels == nil || pod.Annotations == nil {
+		errRet := fmt.Errorf("mount pod[%s] Labels or Annotations is nil", pod.Name)
+		log.Errorf(errRet.Error())
+		return errRet
+	}
 	fsCache := &model.FSCache{ClusterID: clusterID}
 	for k, v := range pod.Labels {
 		switch k {
