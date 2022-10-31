@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -38,6 +39,6 @@ func loadCase(casePath string) []byte {
 func TestGetRunRspUnmarshal(t *testing.T) {
 	rsp := GetRunResponse{}
 	rspByte := loadCase(rspPath)
-	err := rsp.UnmarshalJson(rspByte)
+	err := json.Unmarshal(rspByte, &rsp)
 	assert.Nil(t, err)
 }
