@@ -111,7 +111,14 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 			fsCache.CacheID = v
 		}
 	}
-	fsCache.CacheDir = pod.Annotations[schema.AnnotationKeyCacheDir]
+
+	cacheDir, ok := pod.Annotations[schema.AnnotationKeyCacheDir]
+	if !ok {
+		errRet := fmt.Errorf("mount pod[%s] cache dir not exist in annotation", pod.Name)
+		log.Errorf(errRet.Error())
+		return errRet
+	}
+	fsCache.CacheDir = cacheDir
 
 	if fsCache.FsID == "" ||
 		fsCache.CacheID == "" ||
