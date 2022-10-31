@@ -104,7 +104,6 @@ jobs:
         echo "tagname=null" >> $GITHUB_ENV
         current_branch=${{ env.cur_version }}
 
-      # paddleflow-server
         ps_repo=${{ env.BASE_REPO }}/${{ env.PF_SERVER }}
         csi_repo=${{ env.BASE_REPO }}/${{ env.PF_CSI }}
 
