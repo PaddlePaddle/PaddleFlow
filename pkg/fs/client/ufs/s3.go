@@ -1151,6 +1151,9 @@ func (fh *s3FileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []byte) 
 		return err
 	}
 	partCnt := int64(len(chunk)) / partSize
+	if len(chunk)%int(partSize) != 0 {
+		partCnt += 1
+	}
 	mpuEG := new(errgroup.Group)
 	log.Tracef("s3 mpu readFileAndUploadChunks: fh.name[%s], chunkNum: %d, chunkLength: %d, partCnt: %d, partSize: %d",
 		fh.name, chunkNum, len(chunk), partCnt, partSize)
@@ -1597,8 +1600,8 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 
 func (fh *s3FileHandle) multipartCommit() error {
 	partCnt := fh.mpuInfo.lastPartNum
-	parts := make([]*s3.CompletedPart, partCnt-1)
-	for i := int64(0); i < partCnt-1; i++ {
+	parts := make([]*s3.CompletedPart, partCnt)
+	for i := int64(0); i < partCnt; i++ {
 		if fh.mpuInfo.partsETag[i] == nil {
 			err := fmt.Errorf("s3 mpu partNum: %d missing ETag", i+1)
 			log.Errorf("s3 mpu commit: failed: fh.name[%s], mpuID[%s]. err:%v", fh.name, *fh.mpuInfo.uploadID, err)
