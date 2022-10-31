@@ -111,13 +111,7 @@ func syncCacheFromMountPod(pod *k8sCore.Pod, clusterID string) error {
 			fsCache.CacheID = v
 		}
 	}
-
-	for k, v := range pod.Annotations {
-		if k == schema.AnnotationKeyCacheDir {
-			fsCache.CacheDir = v
-			break
-		}
-	}
+	fsCache.CacheDir = pod.Annotations[schema.AnnotationKeyCacheDir]
 
 	if fsCache.FsID == "" ||
 		fsCache.CacheID == "" ||
