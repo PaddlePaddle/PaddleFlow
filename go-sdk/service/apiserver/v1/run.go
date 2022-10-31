@@ -17,8 +17,6 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -237,97 +235,6 @@ func (r *run) Get(ctx context.Context, runID string, token string) (result *GetR
 	}
 
 	return
-}
-
-func (r *GetRunResponse) UnmarshalJson(data []byte) error {
-	rspMap := map[string]interface{}{}
-
-	json.Unmarshal(data, &rspMap)
-
-	// 1. 先单独处理runtime
-	if runtime, ok := rspMap["runtime"]; ok && runtime != nil {
-		runtimeMap, ok := runtime.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("init Runtime of response failed: value of runtime is not Map type")
-		}
-		var err error
-		if r.Runtime, err = initRuntime(runtimeMap); err != nil {
-			return err
-		}
-	}
-
-	// 2. 处理完runtime后，将runtime剔除，然后将Map转换成GetResponse结构体
-	delete(rspMap, "runtime")
-	tempRsp, err := json.Marshal(rspMap)
-	if err != nil {
-		return err
-	}
-	json.Unmarshal(tempRsp, r)
-
-	return nil
-}
-
-func initRuntime(compMap map[string]interface{}) (map[string][]schema.ComponentView, error) {
-	resMap := map[string][]schema.ComponentView{}
-	// 遍历compMap中的每个compList
-	for name, comps := range compMap {
-		compList, ok := comps.([]interface{})
-		if !ok {
-			return nil, fmt.Errorf("init Runtime of response failed: value of comp is not list")
-		}
-
-		resList := []schema.ComponentView{}
-		for _, comp := range compList {
-			// 遍历compList中的每个comp
-			compMap, ok := comp.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("init Runtime of response failed: comp should be map type")
-			}
-
-			// 通过是否有entryPoints判断是否是Dag
-			if entryPoints, ok := compMap["entryPoints"]; ok {
-				// 如果是Dag
-				subCompMap, ok := entryPoints.(map[string]interface{})
-				if !ok {
-					return nil, fmt.Errorf("init Runtime of response failed: entryPoints in dag[%s] should be map type", name)
-				}
-
-				// 先Marshal再Unmarshal回davView
-				// 由于entryPoints中的内容无法直接Unmarshal到davView中，这里先删除，后续单独初始化
-				delete(compMap, "entryPoints")
-				compByte, err := json.Marshal(compMap)
-				if err != nil {
-					return nil, err
-				}
-				dagView := schema.DagView{}
-				if err := json.Unmarshal(compByte, &dagView); err != nil {
-					return nil, err
-				}
-
-				// 递归调用initRuntime来初始化entryPoints子节点
-				subComps, err := initRuntime(subCompMap)
-				if err != nil {
-					return nil, err
-				}
-
-				dagView.EntryPoints = subComps
-				resList = append(resList, &dagView)
-			} else {
-				// 如果不是Dag，而是Job
-				compByte, err := json.Marshal(compMap)
-				if err != nil {
-					return nil, err
-				}
-				jobView := schema.JobView{}
-				if err := json.Unmarshal(compByte, &jobView); err != nil {
-					return nil, err
-				}
-				resList = append(resList, &jobView)
-			}
-		}
-		resMap[name] = resList
-	}
-	return resMap, nil
 }
 
 func (r *run) List(ctx context.Context, request *ListRunRequest, token string) (result *ListRunResponse, err error) {
