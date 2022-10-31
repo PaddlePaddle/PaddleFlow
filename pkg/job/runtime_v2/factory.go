@@ -44,6 +44,13 @@ type RuntimeService interface {
 	// DeleteJob delete job from cluster
 	DeleteJob(job *api.PFJob) error
 
+	// CreateQueue create a queue on cluster
+	CreateQueue(q *api.QueueInfo) error
+	// DeleteQueue delete a queue on cluster
+	DeleteQueue(q *api.QueueInfo) error
+	// UpdateQueue update a queue on cluster
+	UpdateQueue(q *api.QueueInfo) error
+
 	framework.JobGetter
 	framework.QueueGetter
 }
