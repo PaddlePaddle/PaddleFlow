@@ -17,16 +17,18 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+	"strings"
+	"testing"
+	
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
-	"strings"
-	"testing"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func Test_getClusterRuntimeMap(t *testing.T) {

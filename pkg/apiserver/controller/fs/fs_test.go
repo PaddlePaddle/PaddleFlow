@@ -17,10 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,10 +27,14 @@ import (
 	k8sCore "k8s.io/api/core/v1"
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
