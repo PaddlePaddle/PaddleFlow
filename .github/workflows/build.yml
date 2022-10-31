@@ -1,17 +1,18 @@
 on: [push, pull_request]
 name: Build
-env:
-  BASE_REPO: paddleflow
-  PF_SERVER: paddleflow-server
-  PF_CSI: pfs-csi-plugin
 jobs:
   docker:
+    name: build
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         go-version: [1.18.x]
         goos: [linux]
         goarch: [amd64]
-    runs-on: ubuntu-latest
+    env:
+      BASE_REPO: paddleflow
+      PF_SERVER: paddleflow-server
+      PF_CSI: pfs-csi-plugin
     steps:
       - name: Install go
         uses: actions/setup-go@v3
