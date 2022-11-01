@@ -116,6 +116,9 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				break
 			}
 			off += uint64(nread)
+			if nread == 0 {
+				break
+			}
 		}
 	} else {
 		if fh.fd == nil {
