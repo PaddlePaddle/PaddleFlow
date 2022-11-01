@@ -67,8 +67,8 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
-wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/paddleflow.sql
-bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
+wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/database/paddleflow.sql
+bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
