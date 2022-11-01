@@ -938,7 +938,7 @@ func (fs *s3FileSystem) Get(name string, flags uint32, off, limit int64) (io.Rea
 
 	response, err := fs.s3.GetObject(request)
 	if err != nil {
-		log.Errorf("s3 get: s3.GetObject[%s] err: %v ", name, err)
+		log.Errorf("s3 get: s3.GetObject[%s] off[%d] limit[%d] err: %v ", name, off, limit, err)
 		return nil, err
 	}
 	return response.Body, err
