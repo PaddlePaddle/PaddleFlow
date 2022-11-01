@@ -79,6 +79,8 @@ var groups = make(map[string]int)
 var mutex sync.Mutex
 
 func UserName(uid int) string {
+	mutex.Lock()
+	defer mutex.Unlock()
 	name, ok := uids[uid]
 	if !ok {
 		if u, err := user.LookupId(strconv.Itoa(uid)); err == nil {
@@ -90,6 +92,8 @@ func UserName(uid int) string {
 }
 
 func GroupName(gid int) string {
+	mutex.Lock()
+	defer mutex.Unlock()
 	name, ok := gids[gid]
 	if !ok {
 		if g, err := user.LookupGroupId(strconv.Itoa(gid)); err == nil {
