@@ -95,7 +95,7 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
 	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
-	isMounted, _, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(req.FsID)
+	isMounted, cleanPodMap, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(req.FsID)
 	if err != nil {
 		ctx.Logging().Errorf("check fs[%s] mounted failed: %v", req.FsID, err)
 		return err
@@ -104,6 +104,13 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", req.FsID)
 		ctx.Logging().Errorf(err.Error())
 		ctx.ErrorCode = common.ActionNotAllowed
+		return err
+	}
+	// need to clean pv/pvc and mount pod, as these might have been previously created.
+	if err := GetFileSystemService().cleanFsResources(cleanPodMap, req.FsID); err != nil {
+		err := fmt.Errorf("fs[%s] cleanFsResources clean map: %+v, failed: %v", req.FsID, cleanPodMap, err)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.InternalError
 		return err
 	}
 
