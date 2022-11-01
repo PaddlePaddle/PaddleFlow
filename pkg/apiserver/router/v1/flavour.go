@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -147,7 +146,7 @@ func (fr *FlavourRouter) updateFlavour(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := flavour.UpdateFlavour(&request)
+	response, err := flavour.UpdateFlavour(&ctx, &request)
 	if err != nil {
 		ctx.Logging().Errorf("update flavour failed. flavour request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -291,22 +290,7 @@ func (fr *FlavourRouter) deleteFlavour(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !common.IsRootUser(ctx.UserName) {
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorln("delete user failed, root is needed.")
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "")
-		return
-	}
-
-	if _, err := flavour.GetFlavour(flavourName); err != nil {
-		ctx.ErrorCode = common.FlavourNotFound
-		ctx.Logging().Errorf("get flavour failed. flavour %s error:%s", flavourName, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	userIDInt64, _ := strconv.ParseInt(ctx.UserID, 10, 64)
-	if err := flavour.DeleteFlavour(flavourName, userIDInt64); err != nil {
+	if err := flavour.DeleteFlavour(&ctx, flavourName); err != nil {
 		ctx.Logging().Errorf("delete flavour %s failed, error:%s", flavourName, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
