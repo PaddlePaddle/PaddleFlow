@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -58,8 +59,40 @@ func Test_FSCacheConfig(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: mockRootName}
 	cacheConf := mockFSCache()
 	createRep := buildCreateReq(cacheConf)
+	svc := GetFileSystemService()
+	pMount := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return true, nil, nil
+		})
 
+	pClean := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return nil
+		})
+
+	// mounted - create fail
 	err := CreateFileSystemCacheConfig(ctx, createRep)
+	assert.NotNil(t, err)
+	// clean failed - create fail
+	pMount.Reset()
+	pMount = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+			return false, nil, nil
+		})
+	pClean.Reset()
+	pClean = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return fmt.Errorf("clean failed")
+		})
+	err = CreateFileSystemCacheConfig(ctx, createRep)
+	assert.NotNil(t, err)
+	// not mounted - create successful
+	pClean.Reset()
+	pClean = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return nil
+		})
+	err = CreateFileSystemCacheConfig(ctx, createRep)
 	assert.Nil(t, err)
 
 	// test get success
@@ -76,37 +109,35 @@ func Test_FSCacheConfig(t *testing.T) {
 	_, err = GetFileSystemCacheConfig(ctx, "notExist")
 	assert.NotNil(t, err)
 
-	// delete
-	svc := GetFileSystemService()
-	p := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+	// mounted - delete fail
+	pMount.Reset()
+	pMount = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
 		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 			return true, nil, nil
 		})
-
-	p2 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
-		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
-			return nil
-		})
-	defer p2.Reset()
-
-	// delete failed - mounted
 	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
 	assert.NotNil(t, err)
-	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
-	assert.Nil(t, err)
-
-	// delete successful
-	defer p.Reset()
-	p = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
+	// clean failed - delete fail
+	pMount.Reset()
+	pMount = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "checkFsMountedAllClustersAndScheduledJobs",
 		func(fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 			return false, nil, nil
 		})
-	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
+	pClean.Reset()
+	pClean = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return fmt.Errorf("clean failed")
+		})
+	defer pMount.Reset()
+	err = CreateFileSystemCacheConfig(ctx, createRep)
+	assert.NotNil(t, err)
+	// not mounted - delete successful
+	pClean.Reset()
+	pClean = gomonkey.ApplyPrivateMethod(reflect.TypeOf(svc), "cleanFsResources",
+		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
+			return nil
+		})
+	defer pClean.Reset()
+	err = CreateFileSystemCacheConfig(ctx, createRep)
 	assert.Nil(t, err)
-	_, err = GetFileSystemCacheConfig(ctx, mockFSID)
-	assert.NotNil(t, err)
-
-	// delete failed - not exist
-	err = DeleteFileSystemCacheConfig(ctx, mockFSID)
-	assert.NotNil(t, err)
 }
