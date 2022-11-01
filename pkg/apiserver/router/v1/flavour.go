@@ -290,7 +290,6 @@ func (fr *FlavourRouter) deleteFlavour(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//userIDInt64, _ := strconv.ParseInt(ctx.UserID, 10, 64)
 	if err := flavour.DeleteFlavour(&ctx, flavourName); err != nil {
 		ctx.Logging().Errorf("delete flavour %s failed, error:%s", flavourName, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
