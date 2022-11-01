@@ -938,7 +938,7 @@ func (fs *s3FileSystem) Get(name string, flags uint32, off, limit int64) (io.Rea
 
 	response, err := fs.s3.GetObject(request)
 	if err != nil {
-		log.Errorf("s3 get: s3.GetObject[%s] err: %v ", name, err)
+		log.Errorf("s3 get: s3.GetObject[%s] off[%d] limit[%d] err: %v ", name, off, limit, err)
 		return nil, err
 	}
 	return response.Body, err
@@ -1122,6 +1122,9 @@ func (fh *s3FileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []byte) 
 		return err
 	}
 	partCnt := int64(len(chunk)) / partSize
+	if len(chunk)%int(partSize) != 0 {
+		partCnt += 1
+	}
 	mpuEG := new(errgroup.Group)
 	log.Tracef("s3 mpu readFileAndUploadChunks: fh.name[%s], chunkNum: %d, chunkLength: %d, partCnt: %d, partSize: %d",
 		fh.name, chunkNum, len(chunk), partCnt, partSize)
@@ -1396,11 +1399,13 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	}
 
 	if accessKey != "" && secretKey != "" {
-		secretKey, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
+		secretKey_, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
 		if err != nil {
-			return nil, err
+			// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
+			log.Debug("secretKey may be not descrypy")
+			secretKey_ = secretKey
 		}
-		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey, "")
+		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
 	}
 
 	sess, err := session.NewSession(awsConfig)
@@ -1527,8 +1532,8 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 
 func (fh *s3FileHandle) multipartCommit() error {
 	partCnt := fh.mpuInfo.lastPartNum
-	parts := make([]*s3.CompletedPart, partCnt-1)
-	for i := int64(0); i < partCnt-1; i++ {
+	parts := make([]*s3.CompletedPart, partCnt)
+	for i := int64(0); i < partCnt; i++ {
 		if fh.mpuInfo.partsETag[i] == nil {
 			err := fmt.Errorf("s3 mpu partNum: %d missing ETag", i+1)
 			log.Errorf("s3 mpu commit: failed: fh.name[%s], mpuID[%s]. err:%v", fh.name, *fh.mpuInfo.uploadID, err)

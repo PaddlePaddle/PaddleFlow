@@ -87,7 +87,10 @@ spec:
 					Name:  "normal",
 					Image: "mockImage",
 					Env: map[string]string{
-						schema.EnvJobType: string(schema.TypeSparkJob),
+						schema.EnvJobType:           string(schema.TypeSparkJob),
+						schema.EnvJobSparkMainFile:  "local:///opt/spark/examples/src/main/python/pi.py",
+						schema.EnvJobSparkMainClass: "org.apache.spark.examples.SparkPi",
+						schema.EnvJobSparkArguments: "a=b,c=d",
 					},
 					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3G"}},
 				},

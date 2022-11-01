@@ -110,11 +110,11 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	m.init()
 	// start job manager
 	rVersion := os.Getenv(EnvRuntimeVersion)
-	if rVersion == "v2" {
+	if rVersion == "v1" {
+		m.startRuntime()
+	} else {
 		m.isRuntimeV2 = true
 		m.startRuntimeV2()
-	} else {
-		m.startRuntime()
 	}
 }
 

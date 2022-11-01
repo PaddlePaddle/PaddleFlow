@@ -242,3 +242,11 @@ func IsDNS1123Label(value string) []string {
 	}
 	return errs
 }
+
+func CheckPermission(requestUserName, ownerUserName, resourceType, resourceID string) error {
+	if !IsRootUser(requestUserName) && ownerUserName != requestUserName {
+		err := NoAccessError(requestUserName, resourceType, resourceID)
+		return err
+	}
+	return nil
+}

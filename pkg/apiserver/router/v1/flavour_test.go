@@ -32,12 +32,12 @@ const (
 	MockClusterName = "testCn"
 	MockClusterID   = "testClusterID"
 	MockNamespace   = "paddle"
+	MockFlavourName = "MockFlavourName"
 )
 
 var (
-	apiURL          = "/api/paddleflow/v1/flavour"
-	mockFlavourName = "mockFlavourName"
-	clusterInfo     = model.ClusterInfo{
+	apiURL      = "/api/paddleflow/v1/flavour"
+	clusterInfo = model.ClusterInfo{
 		Model:         model.Model{ID: MockClusterID},
 		Name:          MockClusterName,
 		Description:   "Description",
@@ -51,7 +51,7 @@ var (
 		NamespaceList: []string{"n1", "n2", MockNamespace},
 	}
 	mockFlavour = model.Flavour{
-		Name: mockFlavourName,
+		Name: MockFlavourName,
 		CPU:  "1",
 		Mem:  "1",
 	}
@@ -83,7 +83,7 @@ func TestListFlavour(t *testing.T) {
 	num := 10
 	for i := 0; i < num; i++ {
 		f := flavour.CreateFlavourRequest{
-			Name: fmt.Sprintf("%s-%d", mockFlavourName, i),
+			Name: fmt.Sprintf("%s-%d", MockFlavourName, i),
 			CPU:  "1",
 			Mem:  "1",
 		}
@@ -117,7 +117,7 @@ func TestCreateFlavour(t *testing.T) {
 	router, baseURL := prepareDBAndAPIForUser(t, "")
 
 	f := flavour.CreateFlavourRequest{
-		Name: mockFlavourName,
+		Name: MockFlavourName,
 		CPU:  "1",
 		Mem:  "1",
 	}
@@ -134,11 +134,11 @@ func TestUpdateFlavour(t *testing.T) {
 	// create flavour
 	TestCreateFlavour(t)
 	f := flavour.UpdateFlavourRequest{
-		Name: mockFlavourName,
+		Name: MockFlavourName,
 		CPU:  "2",
 	}
 	// update
-	res, err := PerformPutRequest(router, baseURL+"/flavour/"+mockFlavourName, f)
+	res, err := PerformPutRequest(router, baseURL+"/flavour/"+MockFlavourName, f)
 	assert.NoError(t, err)
 	assert.Equal(t, 200, res.Code)
 
@@ -151,7 +151,7 @@ func TestUpdateFlavour(t *testing.T) {
 
 func TestGetFlavour(t *testing.T) {
 	router, baseURL := prepareDBAndAPIForUser(t, "")
-	res, err := PerformGetRequest(router, baseURL+"/flavour/"+mockFlavourName)
+	res, err := PerformGetRequest(router, baseURL+"/flavour/"+MockFlavourName)
 	assert.NoError(t, err)
 	assert.Equal(t, 404, res.Code)
 
@@ -159,7 +159,7 @@ func TestGetFlavour(t *testing.T) {
 	// create flavour
 	TestCreateFlavour(t)
 
-	res, err = PerformGetRequest(router, baseURL+"/flavour/"+mockFlavourName)
+	res, err = PerformGetRequest(router, baseURL+"/flavour/"+MockFlavourName)
 	assert.NoError(t, err)
 	assert.Equal(t, 200, res.Code)
 	var response model.Flavour
@@ -171,7 +171,7 @@ func TestGetFlavour(t *testing.T) {
 func TestDeleteFlavour(t *testing.T) {
 	router, baseURL := prepareDBAndAPIForUser(t, "")
 
-	res, err := PerformDeleteRequest(router, baseURL+"/flavour/"+mockFlavourName)
+	res, err := PerformDeleteRequest(router, baseURL+"/flavour/"+MockFlavourName)
 	assert.NoError(t, err)
 	assert.Equal(t, 404, res.Code)
 
@@ -179,7 +179,7 @@ func TestDeleteFlavour(t *testing.T) {
 	TestCreateFlavour(t)
 
 	// delete again
-	res2, err := PerformDeleteRequest(router, baseURL+"/flavour/"+mockFlavourName)
+	res2, err := PerformDeleteRequest(router, baseURL+"/flavour/"+MockFlavourName)
 	assert.NoError(t, err)
 	t.Logf("%v", res2)
 
