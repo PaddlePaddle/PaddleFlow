@@ -788,6 +788,12 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		}
 	}
 
+	if set&FATTR_SIZE != 0 {
+		if err = ufs_.Truncate(path, attr.Size); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
 	if err != nil {
 		return "", utils.ToSyscallErrno(err)
 	}
