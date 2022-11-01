@@ -128,6 +128,7 @@ func Test_FSCacheConfig(t *testing.T) {
 		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
 			return fmt.Errorf("clean failed")
 		})
+	defer pMount.Reset()
 	err = CreateFileSystemCacheConfig(ctx, createRep)
 	assert.NotNil(t, err)
 	// not mounted - delete successful
@@ -136,6 +137,7 @@ func Test_FSCacheConfig(t *testing.T) {
 		func(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) (err error) {
 			return nil
 		})
+	defer pClean.Reset()
 	err = CreateFileSystemCacheConfig(ctx, createRep)
 	assert.Nil(t, err)
 }
