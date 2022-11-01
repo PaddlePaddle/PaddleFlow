@@ -25,7 +25,7 @@ import (
 )
 
 type handle struct {
-	sync.Mutex
+	lock     sync.RWMutex
 	fh       uint64
 	inode    Ino
 	reader   FileReader
@@ -102,8 +102,8 @@ func (v *VFS) releaseFileHandle(ino Ino, fh uint64) {
 func (v *VFS) newFileHandle(inode Ino, length uint64, flags uint32, ufs ufslib.UnderFileStorage, path string) (uint64, error) {
 	h := v.newHandle(inode)
 	var err error
-	h.Lock()
-	defer h.Unlock()
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	switch flags & syscall.O_ACCMODE {
 	case syscall.O_RDONLY:
 		h.reader, err = v.reader.Open(inode, length, ufs, path)

@@ -79,7 +79,7 @@ func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 	var err error
 	if f.writer.store != nil {
 		// todo:: length可能会有遗漏
-		log.Debugf("fileWriter write: InvalidateCache path[%s] cache lenght[%d]", f.path, f.length)
+		log.Debugf("fileWriter write: InvalidateCache path[%s] cache length[%d]", f.path, f.length)
 		err = f.writer.store.InvalidateCache(f.path, int(f.length))
 		if err != nil {
 			log.Errorf("ufs delete cache err: %v", err)

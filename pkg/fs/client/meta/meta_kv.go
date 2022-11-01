@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -1506,11 +1505,17 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 	err := m.txn(func(tx kv.KvTxn) error {
 		updateInodeItem := &inodeItem{}
-		if m.getAttrFromCacheWithNoExpired(inode, updateInodeItem) {
-			if atomic.AddInt32(&updateInodeItem.fileHandles, -1) == -1 {
-				panic(updateInodeItem.fileHandles)
+		buf := tx.Get(m.inodeKey(inode))
+		if buf != nil {
+			m.parseInode(buf, updateInodeItem)
+			if !m.inodeItemExpired(*updateInodeItem) {
+				updateInodeItem.fileHandles -= 1
+				if updateInodeItem.fileHandles == -1 {
+					panic(updateInodeItem.fileHandles)
+				}
+				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
+				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
 			}
-			return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
 		}
 		return nil
 
