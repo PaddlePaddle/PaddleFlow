@@ -41,4 +41,14 @@ func TestGetRunRspUnmarshal(t *testing.T) {
 	rspByte := loadCase(rspPath)
 	err := json.Unmarshal(rspByte, &rsp)
 	assert.Nil(t, err)
+
+	startTime := rsp.GetStartTime()
+	assert.Equal(t, startTime, "2022-10-18 15:19:50")
+	endTime := rsp.GetEndTime()
+	assert.Equal(t, endTime, "2022-10-18 15:21:46")
+
+	compStartTime := rsp.Runtime["disDag"][0].GetStartTime()
+	assert.Equal(t, compStartTime, "2022-10-18 15:19:50")
+	compEndTime := rsp.Runtime["disDag"][0].GetEndTime()
+	assert.Equal(t, compEndTime, "2022-10-18 15:20:08")
 }
