@@ -1,5 +1,5 @@
-# 安装PaddleFlow服务端
-## 1.基于kubernetes快速安装（二选一）
+# 1. 安装PaddleFlow服务端
+## 1.1 基于kubernetes快速安装（二选一）
 1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`. 若需更换路径,请等待后续支持的shell部署脚本
 
 ```shell
@@ -45,8 +45,8 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
 
-## 2.自定义安装（二选一）
-### 2.1 安装paddleflow-server
+## 1.2 自定义安装（二选一）
+### 1.2.1 安装paddleflow-server
 `paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
 - **指定用sqllite安装paddleflow-server**
 ```shell
@@ -67,8 +67,8 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
-wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/paddleflow.sql
-bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
+wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/database/paddleflow.sql
+bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
@@ -77,7 +77,7 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 # For arm64: todo
 ```
 
-### 2.2 安装paddleflow-csi-plugin
+### 1.2.2 安装paddleflow-csi-plugin
 
 1. 检查 `kubelet root-dir` 路径
 
@@ -115,7 +115,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-### 2.3 安装volcano
+### 1.2.3 安装volcano
 ```shell
 # For x86_64:
 kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
@@ -123,8 +123,25 @@ kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/relea
 # For arm64:
 todo
 ```
-# PaddleFlow客户端安装和初始化
-## 3.初始化数据（必须）
+
+## 1.3 卸载paddleflow
+如需要卸载或重装PaddleFlow,请执行如下步骤
+```shell
+# 清理环境资源
+kubectl delete queue `kubectl get queue | grep -v NAME | awk '{print $1}'`
+# 清理PaddleFlow服务以及调度器CRD
+kubectl delete -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+# 清理数据库
+export DB_DRIVER='mysql'
+export DB_HOST=127.0.0.1
+export DB_PORT=3306
+export DB_USER=paddleflow
+export DB_PW=paddleflow
+export DB_DATABASE=paddleflow
+mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT $DB_DATABASE -e "drop database if exists $DB_DATABASE;"
+```
+
+# 2. PaddleFlow客户端安装和初始化
 release1.4.2版本需要手动初始化数据，流程如下：
 1. 安装并配置客户端
 2. 注册一个集群到PaddleFlow
@@ -202,5 +219,5 @@ paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMax
 paddleflow cluster list
 paddleflow queue list
 ```
-# 快速上手
+# 3. 快速上手
 [快速上手](../quickstart/simple_quickstart.md)
