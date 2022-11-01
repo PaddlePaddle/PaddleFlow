@@ -824,7 +824,7 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	assert.Equal(t, nil, err)
 	writer.Close()
 	var wg sync.WaitGroup
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 500; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
