@@ -1,5 +1,9 @@
 on: [push, pull_request]
 name: Build
+env:
+  BASE_REPO: paddleflow
+  PF_SERVER: paddleflow-server
+  PF_CSI: pfs-csi-plugin
 jobs:
   docker:
     strategy:
@@ -27,3 +31,142 @@ jobs:
       with:
         name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
         path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+    # 0. 获取当前分支branch_name信息
+    - id: get_branch_name
+      name: get branch name
+      run: |
+        # pull_request
+        echo "branch=${GITHUB_HEAD_REF}"
+        echo "branch=${GITHUB_BASE_REF}"
+        # push
+        echo "branch=${GITHUB_REF}"
+        echo "branch=${GITHUB_REF_NAME}"
+        # refs/heads/
+        echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+
+    # 1. 获取当前分支tag信息
+    - id: branch-name
+      name: Get tag info
+      with:
+        strip_tag_prefix: true
+      env:
+        strip_tag_prefix: true
+      uses: tj-actions/branch-names@v6
+    # 打印当前分支tag信息, is_tag代表分支是否被设置tag, tag代表具体的tag值
+    - name: print is_tag and tag
+      run: |
+        echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
+        echo "tag=${{ steps.branch-name.outputs.tag }}"
+        echo "当前分支为 ${{ steps.branch-name.outputs.base_ref_branch }}"
+
+
+    # 2. 获取commit hash
+    - id: commit
+      name: get commit hash
+      uses: pr-mpt/actions-commit-hash@v2
+    - name: print commit hash
+      run: |
+        echo "${{ steps.commit.outputs.short }}"
+
+
+    # 3.获取build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
+    #  当前仅构建Release分支,若要放开,则改为if [[ $current_branch =~ ^(release|dev|master|main).* ]];then
+    - name: get build-image-enabled, version-fragment and current-version
+      run: |
+        build_image_enabled=false
+        event_name=${{ github.event_name }}
+        if [[ $event_name != 'push' ]]; then
+          echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+          exit 0
+        fi
+        current_branch=${{ steps.branch-name.outputs.base_ref_branch }}
+        echo "current_branch is [$current_branch]"
+
+        if [[ $current_branch =~ ^(release).* ]];then
+          echo "current_branch is [$current_branch]"
+          echo "event_name is [$event_name]"
+          build_image_enabled=true
+
+          echo "计算版本tag cur_version"
+          cur_version=${current_branch#*release}
+          cur_version=${cur_version#*/}
+          cur_version=${cur_version#*-}
+          echo "cur_version is [$cur_version]"
+          echo "cur_version=$cur_version" >> $GITHUB_ENV
+        fi
+
+        echo "打印build_image_enabled值 [$build_image_enabled] 并存储到环境变量"
+        echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+
+        # 有tag则按照tag来
+        if [ !${{ steps.branch-name.outputs.is_tag }} ]; then
+          echo "current branch without tag"
+        else
+          echo "cur_version is [$steps.branch-name.outputs.tag]"
+          echo "cur_version=$steps.branch-name.outputs.tag" >> $GITHUB_ENV
+        fi
+
+    # 设置最终tag={镜像仓库前缀}/{镜像名称}:{分支号},{镜像仓库前缀}/{镜像名称}:{分支号}-6位commit
+    - name: Set Image Tag Name, only dev and release
+      if: env.build_image_enabled=='true'
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        echo "tagname=null" >> $GITHUB_ENV
+        current_branch=${{ env.cur_version }}
+
+        ps_repo=${{ env.BASE_REPO }}/${{ env.PF_SERVER }}
+        csi_repo=${{ env.BASE_REPO }}/${{ env.PF_CSI }}
+
+        arch=${{ matrix.goarch }}
+        if [[ !($arch =~ amd.*) ]]; then
+             ps_repo=$ps_repo-$arch
+             csi_repo=$csi_repo-$arch
+        fi
+
+        echo "tag_pf=$ps_repo:$current_branch,$ps_repo:$current_branch-${{ steps.commit.outputs.short }}"
+        echo "tag_pf=$ps_repo:$current_branch,$ps_repo:$current_branch-${{ steps.commit.outputs.short }}" >> $GITHUB_ENV
+
+        echo "tag_csi=$csi_repo:$current_branch,$csi_repo:$current_branch-${{ steps.commit.outputs.short }}"
+        echo "tag_csi=$csi_repo:$current_branch,$csi_repo:$current_branch-${{ steps.commit.outputs.short }}" >> $GITHUB_ENV
+
+    # 登录到docker hub
+    - name: Login to DockerHub
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/login-action@v2
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    # build paddleflow-server 并推送镜像到hub
+    - name: Build and push paddleflow-server
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/build-push-action@v3
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        context: .
+        file: ./installer/paddleflow-server/Dockerfile
+        platforms: ${{ matrix.goarch }}
+        push: true
+        tags: ${{ env.tag_pf }}
+    # build paddleflow-csi-plugin 并推送镜像到hub
+    - name: Build and push pfs-csi-plugin
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/build-push-action@v3
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        context: .
+        file: ./installer/paddleflow-csi-plugin/Dockerfile
+        platforms: ${{ matrix.goarch }}
+        push: true
+        tags: ${{ env.tag_csi }}
