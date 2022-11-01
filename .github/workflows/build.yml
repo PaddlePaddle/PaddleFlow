@@ -8,7 +8,7 @@ jobs:
   docker:
     strategy:
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.16.x]
         goos: [linux]
         goarch: [amd64]
     runs-on: ubuntu-latest
@@ -64,8 +64,10 @@ jobs:
 
     # 2. 获取commit hash
     - id: commit
+      name: get commit hash
       uses: pr-mpt/actions-commit-hash@v2
-    - run: |
+    - name: print commit hash
+      run: |
         echo "${{ steps.commit.outputs.short }}"
 
 
