@@ -392,3 +392,63 @@ func Test_s3FileSystem_getFullPath(t *testing.T) {
 		})
 	}
 }
+
+func Test_s3FileSystem_getFullPath1(t *testing.T) {
+	type fields struct {
+		bucket      string
+		subpath     string
+		dirMode     int
+		fileMode    int
+		sess        *session.Session
+		s3          *s3.S3
+		defaultTime time.Time
+		Mutex       sync.Mutex
+		chunkPool   *sync.Pool
+	}
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			name: "file",
+			fields: fields{
+				subpath: Delimiter,
+			},
+			args: args{
+				name: "a",
+			},
+			want: "a",
+		},
+		{
+			name: "dir",
+			fields: fields{
+				subpath: Delimiter,
+			},
+			args: args{
+				name: "a/",
+			},
+			want: "a/",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &s3FileSystem{
+				bucket:      tt.fields.bucket,
+				subpath:     tt.fields.subpath,
+				dirMode:     tt.fields.dirMode,
+				fileMode:    tt.fields.fileMode,
+				sess:        tt.fields.sess,
+				s3:          tt.fields.s3,
+				defaultTime: tt.fields.defaultTime,
+				Mutex:       tt.fields.Mutex,
+				chunkPool:   tt.fields.chunkPool,
+			}
+			assert.Equalf(t, tt.want, fs.getFullPath(tt.args.name), "getFullPath(%v)", tt.args.name)
+		})
+	}
+}
