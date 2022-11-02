@@ -57,7 +57,7 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	}
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
-	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.receiveEventChildren,
+	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.userName, srt.receiveEventChildren,
 		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 	srt.job = job
 
