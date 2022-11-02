@@ -118,6 +118,19 @@ type GetRunResponse struct {
 	UpdateTime     string                 `json:"updateTime,omitempty"`
 }
 
+func (r *GetRunResponse) GetStartTime() string {
+	return r.ActivateTime
+}
+
+func (r *GetRunResponse) GetEndTime() string {
+	for _, status := range common.RunFinalStatus {
+		if status == r.Status {
+			return r.UpdateTime
+		}
+	}
+	return ""
+}
+
 type StopRequest struct {
 	StopForce bool `json:"stopForce"`
 }
