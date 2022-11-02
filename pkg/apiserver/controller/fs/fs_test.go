@@ -225,7 +225,7 @@ func Test_deletePvPvc(t *testing.T) {
 		})
 	defer pPvc.Reset()
 
-	err := deletePvPvc(mockFSID)
+	err = deletePvPvc(mockFSID)
 	assert.Nil(t, err)
 
 	p2.Reset()
