@@ -229,6 +229,18 @@ func Test_cleanFsResources(t *testing.T) {
 			return nil
 		})
 	defer p3.Reset()
+	p4 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "PatchPVCFinalizerNull",
+		func(_ *runtime.KubeRuntime, namespace, name string) error {
+			return nil
+		})
+	defer p4.Reset()
+	pvc := &k8sCore.PersistentVolumeClaim{}
+	pvc.Finalizers = []string{"meow"}
+	pPvc := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "GetPersistentVolumeClaims",
+		func(_ *runtime.KubeRuntime, namespace, name string, getOptions k8sMeta.GetOptions) (*k8sCore.PersistentVolumeClaim, error) {
+			return pvc, nil
+		})
+	defer pPvc.Reset()
 
 	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
 	assert.Nil(t, err)
@@ -245,6 +257,7 @@ func Test_cleanFsResources(t *testing.T) {
 	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
 	assert.NotNil(t, err)
 	assert.Equal(t, true, strings.Contains(err.Error(), "retrieve"))
+
 }
 
 func Test_FileSystem(t *testing.T) {
