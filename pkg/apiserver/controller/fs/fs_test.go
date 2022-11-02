@@ -172,7 +172,7 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	}
 }
 
-func Test_getClusterNamespaceMap(t *testing.T) {
+func mockRuntime(t *testing.T) runtime.RuntimeService {
 	driver.InitMockDB()
 	mockCluster := model.ClusterInfo{
 		ClusterType: schema.KubernetesType,
@@ -182,22 +182,34 @@ func Test_getClusterNamespaceMap(t *testing.T) {
 		},
 	}
 	err := storage.Cluster.CreateCluster(&mockCluster)
+	assert.Nil(t, err)
 	cluster := schema.Cluster{
 		ID:   mockCluster.ID,
 		Name: mockCluster.Name,
 		Type: mockCluster.ClusterType,
 	}
-	mockRuntime := runtime.NewKubeRuntime(cluster)
+	return runtime.NewKubeRuntime(cluster)
+}
+
+func activeNamespace(name string) k8sCore.Namespace {
+	return k8sCore.Namespace{
+		ObjectMeta: k8sMeta.ObjectMeta{
+			Name: name,
+		},
+		Status: k8sCore.NamespaceStatus{Phase: k8sCore.NamespaceActive},
+	}
+}
+
+func Test_getClusterNamespaceMap(t *testing.T) {
+	mockRuntime := mockRuntime(t)
 	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
 		return mockRuntime, nil
 	})
 	defer pRuntime.Reset()
 	pListNs := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
 		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
-			defaultNS := k8sCore.Namespace{}
-			defaultNS.Name = "default"
-			custome := k8sCore.Namespace{}
-			custome.Name = "paddleflow"
+			defaultNS := activeNamespace("default")
+			custome := activeNamespace("paddleflow")
 			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{defaultNS, custome}}
 			return ns, nil
 		})
@@ -229,19 +241,7 @@ func Test_getClusterNamespaceMap(t *testing.T) {
 }
 
 func Test_patchAndDeletePvcPv(t *testing.T) {
-	mockCluster := model.ClusterInfo{
-		ClusterType: schema.KubernetesType,
-		Name:        mockClusterName,
-		Model: model.Model{
-			ID: mockClusterID,
-		},
-	}
-	cluster := schema.Cluster{
-		ID:   mockCluster.ID,
-		Name: mockCluster.Name,
-		Type: mockCluster.ClusterType,
-	}
-	mockRuntime := runtime.NewKubeRuntime(cluster)
+	mockRuntime := mockRuntime(t)
 
 	p1 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
 		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
