@@ -251,13 +251,6 @@ func Test_cleanFsResources(t *testing.T) {
 	l, err = storage.FsCache.List(mockFSID2, "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(l))
-
-	notMountedFs1.Name = "notValid"
-	runtimePodsMap[mockRuntime.(*runtime.KubeRuntime)] = []k8sCore.Pod{notMountedFs1}
-	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
-	assert.NotNil(t, err)
-	assert.Equal(t, true, strings.Contains(err.Error(), "retrieve"))
-
 }
 
 func Test_FileSystem(t *testing.T) {
