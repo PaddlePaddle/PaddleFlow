@@ -345,7 +345,7 @@ func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRun
 		return err
 	}
 
-	if err = deletePvPvcAllClusters(runtimePodsMap, fsID); err != nil {
+	if err = deletePvPvc(fsID); err != nil {
 		err = fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
 		return err
@@ -387,12 +387,17 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	return nil
 }
 
-func deletePvPvcAllClusters(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Pod, fsID string) error {
-	var err error
-	for k8sRuntime, pods := range runtimePodsMap {
-		for _, po := range pods {
-			if err = patchAndDeletePvcFromMountPod(k8sRuntime, po, fsID); err != nil {
-				err := fmt.Errorf("patchAndDeletePvcFromMountPod of pod[%s] fs[%s] failed: %v", po.Name, fsID, err)
+func deletePvPvc(fsID string) error {
+	cnm, err := getClusterNamespaceMap()
+	if err != nil {
+		err := fmt.Errorf("getClusterNamespaceMap failed: %v", err)
+		log.Errorf(err.Error())
+		return err
+	}
+	for k8sRuntime, namespaces := range cnm {
+		for _, ns := range namespaces {
+			if err = patchAndDeletePvcPv(k8sRuntime, ns, fsID); err != nil {
+				err := fmt.Errorf("patchAndDeletePvcPv ns[%s] fsID[%s] failed: %v", ns, fsID, err)
 				log.Errorf(err.Error())
 				return err
 			}
@@ -401,40 +406,80 @@ func deletePvPvcAllClusters(runtimePodsMap map[*runtime.KubeRuntime][]k8sCore.Po
 	return nil
 }
 
-func patchAndDeletePvcFromMountPod(k8sRuntime *runtime.KubeRuntime, po k8sCore.Pod, fsID string) error {
-	ns, err := getPVCNamespaceFromMountPod(po.Name, fsID)
+func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
+	cnm := make(map[*runtime.KubeRuntime][]string)
+	clusters, err := storage.Cluster.ListCluster(0, 0, nil, "")
 	if err != nil {
-		err := fmt.Errorf("deletePvPvc of fs[%s] failed: %v", fsID, err)
-		log.Errorf(err.Error())
-		return err
+		err := fmt.Errorf("list clusters err: %v", err)
+		log.Errorf("getClusterNamespaceMap failed: %v", err)
+		return nil, err
 	}
+	for _, cluster := range clusters {
+		if cluster.ClusterType != schema.KubernetesType {
+			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
+			continue
+		}
+		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
+		if err != nil {
+			err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
+			log.Errorf(err.Error())
+			return nil, err
+		}
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		namespaces := cluster.NamespaceList
+		if len(namespaces) == 0 { // cluster has no namespace restrictions. iterate all namespaces
+			nsList, err := k8sRuntime.ListNamespaces(k8sMeta.ListOptions{})
+			if err != nil {
+				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces err: %v", cluster.Name, err)
+				log.Errorf(err.Error())
+				return nil, err
+			}
+			if nsList == nil {
+				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces nil", cluster.Name)
+				log.Errorf(err.Error())
+				return nil, err
+			}
+			for _, ns := range nsList.Items {
+				if ns.Status.Phase == k8sCore.NamespaceActive {
+					namespaces = append(namespaces, ns.Name)
+				}
+			}
+			cnm[k8sRuntime] = namespaces
+			log.Debugf("cluster[%s] namespaces: %v", cluster.Name, namespaces)
+		}
+	}
+	return cnm, nil
+}
+
+func patchAndDeletePvcPv(k8sRuntime *runtime.KubeRuntime, namespace, fsID string) error {
 	pvcName := schema.ConcatenatePVCName(fsID)
-	pvc, err := k8sRuntime.GetPersistentVolumeClaims(ns, pvcName, k8sMeta.GetOptions{})
+	pvc, err := k8sRuntime.GetPersistentVolumeClaims(namespace, pvcName, k8sMeta.GetOptions{})
 	if k8sErrors.IsNotFound(err) {
 		return nil
 	}
 	if err != nil {
-		err := fmt.Errorf("get pvc[%s/%s] err: %v", ns, pvcName, err)
+		err := fmt.Errorf("get pvc[%s/%s] err: %v", namespace, pvcName, err)
 		log.Errorf(err.Error())
 		return err
 	}
+
 	if len(pvc.Finalizers) > 0 {
-		if err := k8sRuntime.PatchPVCFinalizerNull(ns, pvcName); err != nil {
-			err := fmt.Errorf("PatchPVCFinalizerNull [%s/%s] err: %v", ns, pvcName, err)
+		if err := k8sRuntime.PatchPVCFinalizerNull(namespace, pvcName); err != nil {
+			err := fmt.Errorf("PatchPVCFinalizerNull [%s/%s] err: %v", namespace, pvcName, err)
 			log.Errorf(err.Error())
 			return err
 		}
 	}
 
 	// delete pvc manually. pv will be deleted automatically
-	if err := k8sRuntime.DeletePersistentVolumeClaim(ns, pvcName, k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-		err := fmt.Errorf("delete pvc[%s/%s] err: %v", ns, pvcName, err)
+	if err := k8sRuntime.DeletePersistentVolumeClaim(namespace, pvcName, k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+		err := fmt.Errorf("delete pvc[%s/%s] err: %v", namespace, pvcName, err)
 		log.Errorf(err.Error())
 		return err
 	}
 	// delete pv in case pv not deleted
-	if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-		err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
+	if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(namespace, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+		err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(namespace, fsID), err)
 		log.Errorf(err.Error())
 		return err
 	}
