@@ -239,7 +239,6 @@ func Test_deletePvPvc(t *testing.T) {
 	pListNs.Reset()
 	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
 		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
-			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{}}
 			return nil, fmt.Errorf("meow")
 		})
 	err = deletePvPvc(mockFSID)
