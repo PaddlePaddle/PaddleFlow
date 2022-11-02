@@ -36,15 +36,16 @@ jobs:
     - id: get_branch_name
       name: get branch name
       run: |
-        if [[ $event_name == 'push' ]]; then
-          # push
-          echo "branch=${GITHUB_REF}"
-          echo "branch=${GITHUB_REF_NAME}"
+        # push
+        echo "GITHUB_REF=${GITHUB_REF}"
+        echo "GITHUB_REF_NAME=${GITHUB_REF_NAME}"
+        # pull_request
+        echo "GITHUB_HEAD_REF=${GITHUB_HEAD_REF}"
+        echo "GITHUB_BASE_REF=${GITHUB_BASE_REF}"
+
+        if [[ ${{ github.event_name }} == 'push' ]]; then
           echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
         else
-          # pull_request
-          echo "branch=${GITHUB_HEAD_REF}"
-          echo "branch=${GITHUB_BASE_REF}"
           echo "branch=${GITHUB_BASE_REF}" >> $GITHUB_OUTPUT
         fi
 
