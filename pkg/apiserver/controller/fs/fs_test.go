@@ -281,7 +281,7 @@ func Test_patchAndDeletePvcPv(t *testing.T) {
 	p1.Reset()
 	p1 = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
 		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
-			return fmt.Errorf("DeletePersistentVolume")
+			return fmt.Errorf("DeletePersistentVolumeClaim")
 		})
 	err = patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.NotNil(t, err)
