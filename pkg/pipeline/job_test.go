@@ -26,4 +26,6 @@ func TestStopJob(t *testing.T) {
 		return nil
 	})
 	defer patches2.Reset()
+
+	pfj.Stop()
 }
