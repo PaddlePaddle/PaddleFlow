@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -518,9 +519,43 @@ func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *corev1
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
+func (kr *KubeRuntime) GetPersistentVolumeClaims(namespace, name string, getOptions metav1.GetOptions) (*corev1.PersistentVolumeClaim, error) {
+	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
+}
+
 func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string,
 	deleteOptions metav1.DeleteOptions) error {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
+}
+
+type PatchMapValue struct {
+	Op    string   `json:"op"`
+	Path  string   `json:"path"`
+	Value []string `json:"value"`
+}
+
+func (kr *KubeRuntime) PatchPVCFinalizerNull(namespace, name string) error {
+	payload := []PatchMapValue{{
+		Op:    "replace",
+		Path:  "/metadata/finalizers",
+		Value: nil,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse pvc[%s-%s] finalizer null error: %v", namespace, name, err)
+		return err
+	}
+	if err := kr.patchPersistentVolumeClaim(namespace, name, payloadBytes); err != nil {
+		log.Errorf("patch pvc[%s-%s] [%s] error: %v", namespace, name, string(payloadBytes), err)
+		return err
+	}
+	return nil
+}
+
+func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data []byte) error {
+	_, err := kr.clientset().CoreV1().PersistentVolumeClaims(namespace).
+		Patch(context.TODO(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+	return err
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
