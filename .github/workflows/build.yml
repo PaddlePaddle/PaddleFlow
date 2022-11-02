@@ -90,7 +90,7 @@ jobs:
           build_image_enabled=true
 
           echo "计算版本tag cur_version"
-          cur_version=${$cur_version#*release}
+          cur_version=${cur_version#*release}
           cur_version=${cur_version#*/}
           cur_version=${cur_version#*-}
           echo "cur_version is [$cur_version]"
