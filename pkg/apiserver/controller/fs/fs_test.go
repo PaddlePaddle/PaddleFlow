@@ -352,33 +352,15 @@ func Test_cleanFsResources(t *testing.T) {
 	runtimePodsMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod, 0)
 	runtimePodsMap[mockRuntime.(*runtime.KubeRuntime)] = []k8sCore.Pod{notMountedFs1, notMountedFs2}
 
-	p1 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
-		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
-			return nil
-		})
+	p1 := gomonkey.ApplyFunc(deletePvPvc, func(fsID string) error {
+		return nil
+	})
 	defer p1.Reset()
-	p2 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolume",
-		func(_ *runtime.KubeRuntime, name string, deleteOptions k8sMeta.DeleteOptions) error {
-			return nil
-		})
-	defer p2.Reset()
 	p3 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePod",
 		func(_ *runtime.KubeRuntime, namespace, name string) error {
 			return nil
 		})
 	defer p3.Reset()
-	p4 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "PatchPVCFinalizerNull",
-		func(_ *runtime.KubeRuntime, namespace, name string) error {
-			return nil
-		})
-	defer p4.Reset()
-	pvc := &k8sCore.PersistentVolumeClaim{}
-	pvc.Finalizers = []string{"meow"}
-	pPvc := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "GetPersistentVolumeClaims",
-		func(_ *runtime.KubeRuntime, namespace, name string, getOptions k8sMeta.GetOptions) (*k8sCore.PersistentVolumeClaim, error) {
-			return pvc, nil
-		})
-	defer pPvc.Reset()
 
 	err = GetFileSystemService().cleanFsResources(runtimePodsMap, mockFSID)
 	assert.Nil(t, err)
