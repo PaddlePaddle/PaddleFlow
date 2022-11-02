@@ -172,7 +172,7 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	}
 }
 
-func Test_deletePvPvc(t *testing.T) {
+func Test_getClusterNamespaceMap(t *testing.T) {
 	driver.InitMockDB()
 	mockCluster := model.ClusterInfo{
 		ClusterType: schema.KubernetesType,
@@ -202,6 +202,45 @@ func Test_deletePvPvc(t *testing.T) {
 			return ns, nil
 		})
 	defer pListNs.Reset()
+
+	cnm, err := getClusterNamespaceMap()
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(cnm))
+	assert.Equal(t, 2, len(cnm[mockRuntime.(*runtime.KubeRuntime)]))
+
+	pListNs.Reset()
+	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
+		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
+			return nil, fmt.Errorf("ListNamespaces")
+		})
+	_, err = getClusterNamespaceMap()
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "ListNamespaces"))
+
+	pRuntime.Reset()
+	pRuntime = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+		return nil, fmt.Errorf("GetOrCreateRuntime")
+	})
+	_, err = getClusterNamespaceMap()
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "GetOrCreateRuntime"))
+}
+
+func Test_patchAndDeletePvcPv(t *testing.T) {
+	mockCluster := model.ClusterInfo{
+		ClusterType: schema.KubernetesType,
+		Name:        mockClusterName,
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+	}
+	cluster := schema.Cluster{
+		ID:   mockCluster.ID,
+		Name: mockCluster.Name,
+		Type: mockCluster.ClusterType,
+	}
+	mockRuntime := runtime.NewKubeRuntime(cluster)
+
 	p1 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
 		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
 			return nil
@@ -224,8 +263,8 @@ func Test_deletePvPvc(t *testing.T) {
 			return pvc, nil
 		})
 	defer pPvc.Reset()
-
-	err = deletePvPvc(mockFSID)
+	k8sRuntime := mockRuntime.(*runtime.KubeRuntime)
+	err := patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.Nil(t, err)
 
 	p2.Reset()
@@ -233,7 +272,7 @@ func Test_deletePvPvc(t *testing.T) {
 		func(_ *runtime.KubeRuntime, name string, deleteOptions k8sMeta.DeleteOptions) error {
 			return fmt.Errorf("DeletePersistentVolume")
 		})
-	err = deletePvPvc(mockFSID)
+	err = patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.NotNil(t, err)
 	assert.Equal(t, true, strings.Contains(err.Error(), "DeletePersistentVolume"))
 
@@ -242,7 +281,7 @@ func Test_deletePvPvc(t *testing.T) {
 		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
 			return fmt.Errorf("DeletePersistentVolume")
 		})
-	err = deletePvPvc(mockFSID)
+	err = patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.NotNil(t, err)
 	assert.Equal(t, true, strings.Contains(err.Error(), "DeletePersistentVolumeClaim"))
 
@@ -251,7 +290,7 @@ func Test_deletePvPvc(t *testing.T) {
 		func(_ *runtime.KubeRuntime, namespace, name string) error {
 			return fmt.Errorf("PatchPVCFinalizerNull")
 		})
-	err = deletePvPvc(mockFSID)
+	err = patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.NotNil(t, err)
 	assert.Equal(t, true, strings.Contains(err.Error(), "PatchPVCFinalizerNull"))
 
@@ -260,26 +299,10 @@ func Test_deletePvPvc(t *testing.T) {
 		func(_ *runtime.KubeRuntime, namespace, name string, getOptions k8sMeta.GetOptions) (*k8sCore.PersistentVolumeClaim, error) {
 			return pvc, fmt.Errorf("GetPersistentVolumeClaims")
 		})
-	err = deletePvPvc(mockFSID)
+	err = patchAndDeletePvcPv(k8sRuntime, "ns", mockFSID)
 	assert.NotNil(t, err)
 	assert.Equal(t, true, strings.Contains(err.Error(), "GetPersistentVolumeClaims"))
 
-	pListNs.Reset()
-	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
-		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
-			return nil, fmt.Errorf("ListNamespaces")
-		})
-	err = deletePvPvc(mockFSID)
-	assert.NotNil(t, err)
-	assert.Equal(t, true, strings.Contains(err.Error(), "ListNamespaces"))
-
-	pRuntime.Reset()
-	pRuntime = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
-		return nil, fmt.Errorf("GetOrCreateRuntime")
-	})
-	err = deletePvPvc(mockFSID)
-	assert.NotNil(t, err)
-	assert.Equal(t, true, strings.Contains(err.Error(), "GetOrCreateRuntime"))
 }
 
 func Test_cleanFsResources(t *testing.T) {
