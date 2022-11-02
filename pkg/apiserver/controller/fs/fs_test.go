@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -224,6 +225,34 @@ func Test_deletePvPvc(t *testing.T) {
 
 	err := deletePvPvc(mockFSID)
 	assert.Nil(t, err)
+
+	pListNs.Reset()
+	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
+		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
+			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{}}
+			return ns, nil
+		})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "ListNamespaces nil"))
+
+	pListNs.Reset()
+	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
+		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
+			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{}}
+			return nil, fmt.Errorf("meow")
+		})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "meow"))
+
+	pRuntime.Reset()
+	pRuntime = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+		return mockRuntime, nil
+	})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "GetOrCreateRuntime"))
 }
 
 func Test_cleanFsResources(t *testing.T) {
