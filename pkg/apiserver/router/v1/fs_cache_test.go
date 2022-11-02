@@ -122,8 +122,20 @@ func TestRouter_FSCacheConfig(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, result.Code)
 
+	// test create failure - negative memory
+	createRep.Resource.MemoryLimit = "-1Gi"
+	result, err = PerformPostRequest(router, url, createRep)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
 	// test create failure - too many cpu
 	createRep.Resource.CpuLimit = "4"
+	result, err = PerformPostRequest(router, url, createRep)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	// test create failure - 0 cpu
+	createRep.Resource.CpuLimit = "0"
 	result, err = PerformPostRequest(router, url, createRep)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, result.Code)

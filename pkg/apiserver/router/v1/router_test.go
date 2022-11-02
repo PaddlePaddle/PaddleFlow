@@ -73,6 +73,15 @@ func mockAuth2(next http.Handler) http.Handler {
 	})
 }
 
+// mockAuth3 for non-root operate
+func mockAuth3(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Set(common.HeaderKeyUserName, mockUserName)
+		r.Header.Set(common.HeaderKeyAuthorization, auth)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
 	chiRouter := NewApiTest()
 	baseUrl := util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
@@ -98,6 +107,14 @@ func NewApiTest() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.CheckRequestID, mockAuth2)
 	RegisterRouters(r, false)
+	return r
+}
+
+// NewApiTestNonRoot func create router of chi for non-root test
+func NewApiTestNonRoot() *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.CheckRequestID, mockAuth3)
+	RegisterRouters(r, true)
 	return r
 }
 

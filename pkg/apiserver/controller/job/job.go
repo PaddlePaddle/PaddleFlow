@@ -26,7 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -132,15 +132,7 @@ type CreateJobResponse struct {
 	ID string `json:"id"`
 }
 
-func CheckPermission(ctx *logger.RequestContext) error {
-	// TODO: check permission
-	return nil
-}
-
 func DeleteJob(ctx *logger.RequestContext, jobID string) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
@@ -148,6 +140,12 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, jobID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return err
+	}
+
 	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -165,13 +163,15 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 }
 
 func StopJob(ctx *logger.RequestContext, jobID string) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", jobID, err)
+		return err
+	}
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, jobID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
 		return err
 	}
 	// check job status
@@ -213,15 +213,18 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 }
 
 func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
-	if err := CheckPermission(ctx); err != nil {
-		return err
-	}
 	job, err := storage.Job.GetJobByID(request.JobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return err
 	}
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, request.JobID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return err
+	}
+
 	// check job status when update job on cluster
 	needUpdateCluster := false
 	if request.Priority != "" {
@@ -313,10 +316,4 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 		return nil, fmt.Errorf("delete queue failed")
 	}
 	return runtimeSvc, nil
-}
-
-// StopJobByID deprecated use StopJob
-func StopJobByID(jobID string) error {
-	logCtx := &logger.RequestContext{}
-	return StopJob(logCtx, jobID)
 }

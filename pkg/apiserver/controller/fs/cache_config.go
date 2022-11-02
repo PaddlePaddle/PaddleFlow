@@ -93,26 +93,27 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.UpdateTime = config.UpdateTime
 }
 
-func checkFsMountedAndCleanResource(ctx *logger.RequestContext, fsID string) error {
+func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
 	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
-	isMounted, err := GetFileSystemService().CheckFsMountedAndCleanResources(fsID)
+	isMounted, cleanPodMap, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(req.FsID)
 	if err != nil {
-		ctx.Logging().Errorf("CheckFsMountedAndCleanResources failed: %v", err)
+		ctx.Logging().Errorf("check fs[%s] mounted failed: %v", req.FsID, err)
 		return err
 	}
 	if isMounted {
-		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", fsID)
+		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", req.FsID)
 		ctx.Logging().Errorf(err.Error())
 		ctx.ErrorCode = common.ActionNotAllowed
 		return err
 	}
-	return nil
-}
-
-func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
-	if err := checkFsMountedAndCleanResource(ctx, req.FsID); err != nil {
+	// need to clean pv/pvc and mount pod, as these might have been previously created.
+	if err := GetFileSystemService().cleanFsResources(cleanPodMap, req.FsID); err != nil {
+		err := fmt.Errorf("fs[%s] cleanFsResources clean map: %+v, failed: %v", req.FsID, cleanPodMap, err)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.InternalError
 		return err
 	}
+
 	cacheConfig := req.toModel()
 	if err := storage.Filesystem.CreateFSCacheConfig(&cacheConfig); err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
@@ -133,10 +134,28 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	if err := checkFsMountedAndCleanResource(ctx, fsID); err != nil {
+	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
+	isMounted, cleanPodMap, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("check fs[%s] mounted failed: %v", fsID, err)
 		return err
 	}
-	_, err := storage.Filesystem.GetFSCacheConfig(fsID)
+	if isMounted {
+		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", fsID)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.ActionNotAllowed
+		return err
+	}
+
+	err = GetFileSystemService().cleanFsResources(cleanPodMap, fsID)
+	if err != nil {
+		err := fmt.Errorf("fs[%s] cleanFsResources clean map: %+v, failed: %v", fsID, cleanPodMap, err)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.InternalError
+		return err
+	}
+
+	_, err = storage.Filesystem.GetFSCacheConfig(fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound

@@ -24,15 +24,13 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	kschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -74,7 +72,7 @@ func TestCreateQueue(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyFunc(executor.Create, func(resource interface{}, gvk kschema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateQueue", func(*api.QueueInfo) error {
 		return nil
 	})
 	defer p3.Reset()
@@ -115,7 +113,7 @@ func TestGetQueueByName(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*model.Queue) (*resources.Resource, error) {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*api.QueueInfo) (*resources.Resource, error) {
 		return resources.EmptyResource(), nil
 	})
 	defer p3.Reset()
@@ -152,14 +150,10 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 		return nil
 	})
 	defer p1.Reset()
-	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *model.Queue) error {
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(*api.QueueInfo) error {
 		return nil
 	})
 	defer p2.Reset()
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *model.Queue) error {
-		return nil
-	})
-	defer p3.Reset()
 
 	err := DeleteQueue(ctx, MockQueueName)
 	assert.Nil(t, err)

@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -90,13 +91,17 @@ func CreateFlavour(request *CreateFlavourRequest) (*CreateFlavourResponse, error
 }
 
 // UpdateFlavour handler for updating flavour
-func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error) {
+func UpdateFlavour(ctx *logger.RequestContext, request *UpdateFlavourRequest) (*UpdateFlavourResponse, error) {
 	flavour, err := GetFlavour(request.Name)
 	if err != nil {
 		log.Errorf("get flavour %s failed when update", request.Name)
 		return nil, err
 	}
-
+	if err = common.CheckPermission(ctx.UserName, flavour.UserName, common.ResourceTypeFlavour, flavour.ID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
 	if request.ClusterName != flavour.ClusterName {
 		errMsg := fmt.Sprintf("not support operate to update flavour[%s]'s cluster", request.Name)
 		log.Error(errMsg)
@@ -191,8 +196,22 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 }
 
 // DeleteFlavour handler for deleting flavour
-func DeleteFlavour(flavourName string, userID int64) error {
-	if err := storage.Flavour.DeleteFlavour(flavourName); err != nil {
+func DeleteFlavour(ctx *logger.RequestContext, flavourName string) error {
+	flavour, err := GetFlavour(flavourName)
+	if err != nil {
+		ctx.ErrorCode = common.FlavourNotFound
+		err = fmt.Errorf("delete flavour %s occur a error:%s", flavourName, err.Error())
+		ctx.Logging().Errorln(err)
+		return err
+	}
+
+	if err = common.CheckPermission(ctx.UserName, flavour.UserName, common.ResourceTypeFlavour, flavour.ID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return err
+	}
+
+	if err = storage.Flavour.DeleteFlavour(flavourName); err != nil {
 		log.Errorf("delete flavour %s failed, err: %v", flavourName, err)
 		return err
 	}

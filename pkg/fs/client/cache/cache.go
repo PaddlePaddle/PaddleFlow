@@ -169,7 +169,7 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	blockOff := r.off(int(off))
 	start := time.Now()
 	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
-	if hitCache {
+	if hitCache && nReadFromCache != 0 {
 		// metrics
 		cacheHits.Inc()
 		cacheHitBytes.Add(float64(nReadFromCache))

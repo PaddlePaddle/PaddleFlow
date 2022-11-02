@@ -514,6 +514,8 @@ func (v *VFS) Read(ctx *meta.Context, ino Ino, buf []byte, off uint64, fh uint64
 		err = syscall.EACCES
 		return
 	}
+	h.lock.RLock()
+	defer h.lock.RUnlock()
 	// todo:: 对读入的文件大小加上限制
 	n, err = h.reader.Read(buf, off)
 	for err == syscall.EAGAIN {
@@ -545,8 +547,8 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 		err = syscall.EACCES
 		return
 	}
-	// todo:: 对写入的文件大小加上限制
-	// todo:: 限制并发写的情况
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	err = h.writer.Write(buf, off)
 	if utils.IsError(err) {
 		return err
@@ -653,7 +655,6 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 	if fh > 0 {
 		v.releaseFileHandle(ino, fh)
 		log.Debugf("release inode %v", ino)
-		return
 	}
 	_ = v.Meta.Close(ctx, ino)
 }
