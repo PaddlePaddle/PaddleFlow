@@ -77,12 +77,12 @@ jobs:
       run: |
         build_image_enabled=false
         event_name=${{ github.event_name }}
-        #if [[ $event_name != 'push' ]]; then
-        #  echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
-        #  exit 0
-        #fi
-        cur_version=${{ steps.branch-name.outputs.base_ref_branch }}
-        echo "cur_version is [$cur_version]"
+        if [[ $event_name != 'push' ]]; then
+          echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+          exit 0
+        fi
+        current_branch=${{ steps.branch-name.outputs.base_ref_branch }}
+        echo "current_branch is [$current_branch]"
 
         if [[ $cur_version =~ ^(release).* ]];then
           echo "cur_version is [$cur_version]"
@@ -156,4 +156,40 @@ jobs:
         done
 
 
+    # 登录到docker hub
+    - name: Login to DockerHub
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/login-action@v2
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+    # build paddleflow-server 并推送镜像到hub
+    - name: Build and push paddleflow-server
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/build-push-action@v3
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        context: .
+        file: ./installer/paddleflow-server/Dockerfile
+        platforms: ${{ matrix.goarch }}
+        push: true
+        tags: ${{ env.tag_pf }}
+    # build paddleflow-csi-plugin 并推送镜像到hub
+    - name: Build and push pfs-csi-plugin
+      if: env.tagname!='null' && env.build_image_enabled=='true'
+      uses: docker/build-push-action@v3
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      with:
+        context: .
+        file: ./installer/paddleflow-csi-plugin/Dockerfile
+        platforms: ${{ matrix.goarch }}
+        push: true
+        tags: ${{ env.tag_csi }}
