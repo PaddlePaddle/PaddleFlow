@@ -226,15 +226,41 @@ func Test_deletePvPvc(t *testing.T) {
 	err := deletePvPvc(mockFSID)
 	assert.Nil(t, err)
 
-	pListNs.Reset()
-	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
-		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
-			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{}}
-			return ns, nil
+	p2.Reset()
+	p2 = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolume",
+		func(_ *runtime.KubeRuntime, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return fmt.Errorf("DeletePersistentVolume")
 		})
 	err = deletePvPvc(mockFSID)
 	assert.NotNil(t, err)
-	assert.Equal(t, true, strings.Contains(err.Error(), "ListNamespaces nil"))
+	assert.Equal(t, true, strings.Contains(err.Error(), "DeletePersistentVolume"))
+
+	p1.Reset()
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
+		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return fmt.Errorf("DeletePersistentVolume")
+		})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "DeletePersistentVolumeClaim"))
+
+	p4.Reset()
+	p4 = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "PatchPVCFinalizerNull",
+		func(_ *runtime.KubeRuntime, namespace, name string) error {
+			return fmt.Errorf("PatchPVCFinalizerNull")
+		})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "PatchPVCFinalizerNull"))
+
+	pPvc.Reset()
+	pPvc = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "GetPersistentVolumeClaims",
+		func(_ *runtime.KubeRuntime, namespace, name string, getOptions k8sMeta.GetOptions) (*k8sCore.PersistentVolumeClaim, error) {
+			return pvc, fmt.Errorf("GetPersistentVolumeClaims")
+		})
+	err = deletePvPvc(mockFSID)
+	assert.NotNil(t, err)
+	assert.Equal(t, true, strings.Contains(err.Error(), "GetPersistentVolumeClaims"))
 
 	pListNs.Reset()
 	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",

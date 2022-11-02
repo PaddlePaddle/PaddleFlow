@@ -434,11 +434,6 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 				log.Errorf(err.Error())
 				return nil, err
 			}
-			if nsList == nil {
-				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces nil", cluster.Name)
-				log.Errorf(err.Error())
-				return nil, err
-			}
 			for _, ns := range nsList.Items {
 				if ns.Status.Phase == k8sCore.NamespaceActive {
 					namespaces = append(namespaces, ns.Name)
