@@ -77,6 +77,7 @@ jobs:
       run: |
         build_image_enabled=false
         event_name=${{ github.event_name }}
+        echo "event_name is $event_name"
         if [[ $event_name != 'push' ]]; then
           echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
           exit 0
@@ -96,7 +97,6 @@ jobs:
           echo "cur_version is [$cur_version]"
           echo "cur_version=$cur_version" >> $GITHUB_ENV
         fi
-
 
         # 有tag则按照tag来
         if [ ! ${{ steps.branch-name.outputs.is_tag }} ]; then
@@ -120,6 +120,7 @@ jobs:
 
     # 设置最终tag={镜像仓库前缀}/{镜像名称}:{分支号},{镜像仓库前缀}/{镜像名称}:{分支号}-6位commit
     - name: Set Image Tag Name, only dev and release
+      if: env.build_image_enabled=='true'
       env:
         GOARCH: ${{ matrix.goarch }}
       run: |
