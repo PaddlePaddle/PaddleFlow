@@ -36,14 +36,17 @@ jobs:
     - id: get_branch_name
       name: get branch name
       run: |
-        # pull_request
-        echo "branch=${GITHUB_HEAD_REF}"
-        echo "branch=${GITHUB_BASE_REF}"
-        # push
-        echo "branch=${GITHUB_REF}"
-        echo "branch=${GITHUB_REF_NAME}"
-        # refs/heads/
-        echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+        if [[ $event_name == 'push' ]]; then
+          # push
+          echo "branch=${GITHUB_REF}"
+          echo "branch=${GITHUB_REF_NAME}"
+          echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+        else
+          # pull_request
+          echo "branch=${GITHUB_HEAD_REF}"
+          echo "branch=${GITHUB_BASE_REF}"
+          echo "branch=${GITHUB_BASE_REF}" >> $GITHUB_OUTPUT
+        fi
 
 
     # 1. 获取当前分支tag信息
@@ -59,7 +62,8 @@ jobs:
       run: |
         echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
         echo "tag=${{ steps.branch-name.outputs.tag }}"
-        echo "当前分支为 ${{ steps.branch-name.outputs.base_ref_branch }}"
+        # 千万别用steps.branch-name.outputs.base_ref_branch,一直是空值
+        echo "当前分支为 ${{ env.branch }}"
 
 
     # 2. 获取commit hash
@@ -82,7 +86,7 @@ jobs:
           echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
           exit 0
         fi
-        cur_version=${{ steps.branch-name.outputs.base_ref_branch }}
+        cur_version=${{ env.branch }}
         echo "current_branch is [$cur_version]"
 
         if [[ $cur_version =~ ^(release).* ]];then
