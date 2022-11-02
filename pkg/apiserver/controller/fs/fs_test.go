@@ -206,7 +206,9 @@ func Test_getClusterNamespaceMap(t *testing.T) {
 	cnm, err := getClusterNamespaceMap()
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(cnm))
-	assert.Equal(t, 2, len(cnm[mockRuntime.(*runtime.KubeRuntime)]))
+	for _, nsList := range cnm {
+		assert.Equal(t, 2, len(nsList))
+	}
 
 	pListNs.Reset()
 	pListNs = gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
