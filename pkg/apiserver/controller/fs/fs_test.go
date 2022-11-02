@@ -171,6 +171,61 @@ func Test_checkFsMountedSingleCluster(t *testing.T) {
 	}
 }
 
+func Test_deletePvPvc(t *testing.T) {
+	mockCluster := model.ClusterInfo{
+		ClusterType: schema.KubernetesType,
+		Name:        mockClusterName,
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+	}
+	cluster := schema.Cluster{
+		ID:   mockCluster.ID,
+		Name: mockCluster.Name,
+		Type: mockCluster.ClusterType,
+	}
+	mockRuntime := runtime.NewKubeRuntime(cluster)
+	pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+		return mockRuntime, nil
+	})
+	defer pRuntime.Reset()
+	pListNs := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "ListNamespaces",
+		func(_ *runtime.KubeRuntime, listOptions k8sMeta.ListOptions) (*k8sCore.NamespaceList, error) {
+			defaultNS := k8sCore.Namespace{}
+			defaultNS.Name = "default"
+			custome := k8sCore.Namespace{}
+			custome.Name = "paddleflow"
+			ns := &k8sCore.NamespaceList{Items: []k8sCore.Namespace{defaultNS, custome}}
+			return ns, nil
+		})
+	defer pListNs.Reset()
+	p1 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolumeClaim",
+		func(_ *runtime.KubeRuntime, namespace string, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return nil
+		})
+	defer p1.Reset()
+	p2 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "DeletePersistentVolume",
+		func(_ *runtime.KubeRuntime, name string, deleteOptions k8sMeta.DeleteOptions) error {
+			return nil
+		})
+	defer p2.Reset()
+	p4 := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "PatchPVCFinalizerNull",
+		func(_ *runtime.KubeRuntime, namespace, name string) error {
+			return nil
+		})
+	defer p4.Reset()
+	pvc := &k8sCore.PersistentVolumeClaim{}
+	pvc.Finalizers = []string{"meow"}
+	pPvc := gomonkey.ApplyMethod(reflect.TypeOf(mockRuntime), "GetPersistentVolumeClaims",
+		func(_ *runtime.KubeRuntime, namespace, name string, getOptions k8sMeta.GetOptions) (*k8sCore.PersistentVolumeClaim, error) {
+			return pvc, nil
+		})
+	defer pPvc.Reset()
+
+	err := deletePvPvc(mockFSID)
+	assert.Nil(t, err)
+}
+
 func Test_cleanFsResources(t *testing.T) {
 	driver.InitMockDB()
 	fsCache1 := model.FSCache{
