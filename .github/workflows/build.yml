@@ -81,8 +81,8 @@ jobs:
           echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
           exit 0
         fi
-        current_branch=${{ steps.branch-name.outputs.base_ref_branch }}
-        echo "current_branch is [$current_branch]"
+        cur_version=${{ steps.branch-name.outputs.base_ref_branch }}
+        echo "current_branch is [$cur_version]"
 
         if [[ $cur_version =~ ^(release).* ]];then
           echo "cur_version is [$cur_version]"
