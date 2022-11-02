@@ -19,9 +19,13 @@ package ufs
 import (
 	"os"
 	"strconv"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -337,4 +341,54 @@ func TestS3Rename_ReNameOk(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "testfile", list[0].Name)
 	cleanS3TestDir(fs, rename6)
+}
+
+func Test_s3FileSystem_getFullPath(t *testing.T) {
+	type fields struct {
+		bucket      string
+		subpath     string
+		dirMode     int
+		fileMode    int
+		sess        *session.Session
+		s3          *s3.S3
+		defaultTime time.Time
+		Mutex       sync.Mutex
+		chunkPool   *sync.Pool
+	}
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			name: "/",
+			fields: fields{
+				subpath: Delimiter,
+			},
+			args: args{
+				name: Delimiter,
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &s3FileSystem{
+				bucket:      tt.fields.bucket,
+				subpath:     tt.fields.subpath,
+				dirMode:     tt.fields.dirMode,
+				fileMode:    tt.fields.fileMode,
+				sess:        tt.fields.sess,
+				s3:          tt.fields.s3,
+				defaultTime: tt.fields.defaultTime,
+				Mutex:       tt.fields.Mutex,
+				chunkPool:   tt.fields.chunkPool,
+			}
+			assert.Equalf(t, tt.want, fs.getFullPath(tt.args.name), "getFullPath(%v)", tt.args.name)
+		})
+	}
 }

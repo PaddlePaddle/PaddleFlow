@@ -89,6 +89,9 @@ func (fs *s3FileSystem) String() string {
 func (fs *s3FileSystem) getFullPath(name string) string {
 	name = toS3Path(name)
 	// will remove suffix "/"
+	if fs.subpath == Delimiter && name == Delimiter {
+		return ""
+	}
 	path := filepath.Join(fs.subpath, name)
 	// keep '/'
 	if strings.HasSuffix(name, Delimiter) {
