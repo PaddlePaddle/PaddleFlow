@@ -159,7 +159,7 @@ jobs:
 
     # 登录到docker hub
     - name: Login to DockerHub
-      if: env.tagname!='null' && env.build_image_enabled=='true'
+      if: env.build_image_enabled=='true'
       uses: docker/login-action@v2
       env:
         GOOS: ${{ matrix.goos }}
@@ -170,7 +170,7 @@ jobs:
 
     # build paddleflow-server 并推送镜像到hub
     - name: Build and push paddleflow-server
-      if: env.tagname!='null' && env.build_image_enabled=='true'
+      if: env.tag_pf!='null' && env.build_image_enabled=='true'
       uses: docker/build-push-action@v3
       env:
         GOOS: ${{ matrix.goos }}
@@ -183,7 +183,7 @@ jobs:
         tags: ${{ env.tag_pf }}
     # build paddleflow-csi-plugin 并推送镜像到hub
     - name: Build and push pfs-csi-plugin
-      if: env.tagname!='null' && env.build_image_enabled=='true'
+      if: env.tag_csi!='null' && env.build_image_enabled=='true'
       uses: docker/build-push-action@v3
       env:
         GOOS: ${{ matrix.goos }}
