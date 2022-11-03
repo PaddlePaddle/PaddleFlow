@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -514,8 +515,12 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+}
+
+func (kr *KubeRuntime) GetPersistentVolumeClaims(namespace, name string, getOptions metav1.GetOptions) (*corev1.PersistentVolumeClaim, error) {
+	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 
 func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string,
@@ -523,8 +528,37 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 
+func (kr *KubeRuntime) PatchPVCFinalizerNull(namespace, name string) error {
+	type patchStruct struct {
+		Op    string   `json:"op"`
+		Path  string   `json:"path"`
+		Value []string `json:"value"`
+	}
+	payload := []patchStruct{{
+		Op:    "replace",
+		Path:  "/metadata/finalizers",
+		Value: nil,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse pvc[%s-%s] finalizer null error: %v", namespace, name, err)
+		return err
+	}
+	if err := kr.patchPersistentVolumeClaim(namespace, name, payloadBytes); err != nil {
+		log.Errorf("patch pvc[%s-%s] [%s] error: %v", namespace, name, string(payloadBytes), err)
+		return err
+	}
+	return nil
+}
+
+func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data []byte) error {
+	_, err := kr.clientset().CoreV1().PersistentVolumeClaims(namespace).
+		Patch(context.TODO(), name, types.JSONPatchType, data, metav1.PatchOptions{})
+	return err
+}
+
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 
