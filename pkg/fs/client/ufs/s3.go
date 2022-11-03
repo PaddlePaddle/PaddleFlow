@@ -87,16 +87,12 @@ func (fs *s3FileSystem) String() string {
 }
 
 func (fs *s3FileSystem) getFullPath(name string) string {
-	name = toS3Path(name)
-	// will remove suffix "/"
-	if fs.subpath == Delimiter && name == Delimiter {
-		return ""
-	}
 	path := filepath.Join(fs.subpath, name)
 	// keep '/'
 	if strings.HasSuffix(name, Delimiter) {
 		path += Delimiter
 	}
+	path = strings.TrimPrefix(path, Delimiter)
 	return path
 }
 
@@ -115,6 +111,10 @@ func (fs *s3FileSystem) list(name, continuationToken string, limit int, recursiv
 	}
 	limit_ := int64(limit)
 	fullPath := fs.getFullPath(name)
+	if fullPath == Delimiter {
+		fullPath = ""
+	}
+
 	request := &s3.ListObjectsV2Input{
 		Bucket:  &fs.bucket,
 		Prefix:  &fullPath,

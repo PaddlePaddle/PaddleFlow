@@ -17,18 +17,22 @@ limitations under the License.
 package ufs
 
 import (
+	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -365,14 +369,24 @@ func Test_s3FileSystem_getFullPath(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "/",
+			name: "file",
 			fields: fields{
 				subpath: Delimiter,
 			},
 			args: args{
-				name: Delimiter,
+				name: "a",
 			},
-			want: "",
+			want: "a",
+		},
+		{
+			name: "dir",
+			fields: fields{
+				subpath: Delimiter,
+			},
+			args: args{
+				name: "a/",
+			},
+			want: "a/",
 		},
 	}
 	for _, tt := range tests {
@@ -389,6 +403,75 @@ func Test_s3FileSystem_getFullPath(t *testing.T) {
 				chunkPool:   tt.fields.chunkPool,
 			}
 			assert.Equalf(t, tt.want, fs.getFullPath(tt.args.name), "getFullPath(%v)", tt.args.name)
+		})
+	}
+}
+
+func Test_s3FileSystem_list(t *testing.T) {
+	type fields struct {
+		bucket      string
+		subpath     string
+		dirMode     int
+		fileMode    int
+		sess        *session.Session
+		s3          *s3.S3
+		defaultTime time.Time
+		Mutex       sync.Mutex
+		chunkPool   *sync.Pool
+	}
+	type args struct {
+		name              string
+		continuationToken string
+		limit             int
+		recursive         bool
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []base.FileInfo
+		want1   string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "list fail",
+			fields: fields{
+				subpath: Delimiter,
+			},
+			args: args{
+				name: Delimiter,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	a := &s3.S3{}
+	var p3 = gomonkey.ApplyMethod(reflect.TypeOf(a), "ListObjectsV2",
+		func(a *s3.S3, input *s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, error) {
+			return nil, fmt.Errorf("list err")
+		})
+	defer p3.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &s3FileSystem{
+				bucket:      tt.fields.bucket,
+				subpath:     tt.fields.subpath,
+				dirMode:     tt.fields.dirMode,
+				fileMode:    tt.fields.fileMode,
+				sess:        tt.fields.sess,
+				s3:          tt.fields.s3,
+				defaultTime: tt.fields.defaultTime,
+				Mutex:       tt.fields.Mutex,
+				chunkPool:   tt.fields.chunkPool,
+			}
+			got, got1, err := fs.list(tt.args.name, tt.args.continuationToken, tt.args.limit, tt.args.recursive)
+			if !tt.wantErr(t, err, fmt.Sprintf("list(%v, %v, %v, %v)", tt.args.name, tt.args.continuationToken, tt.args.limit, tt.args.recursive)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "list(%v, %v, %v, %v)", tt.args.name, tt.args.continuationToken, tt.args.limit, tt.args.recursive)
+			assert.Equalf(t, tt.want1, got1, "list(%v, %v, %v, %v)", tt.args.name, tt.args.continuationToken, tt.args.limit, tt.args.recursive)
 		})
 	}
 }
