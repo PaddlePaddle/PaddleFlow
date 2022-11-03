@@ -15,7 +15,7 @@ limitations under the License.
 
 VARIBLE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9_]{0,49}$"
 
-PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9_]{0,49}$"
+PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
 
 COMPONENT_NAME_REGEX = "^[a-zA-Z][a-zA-Z0-9-]{0,29}$"
 

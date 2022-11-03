@@ -36,6 +36,17 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	return nil
 }
 
+func (variableChecker *VariableChecker) CheckRunAndPPLName(varName string) error {
+	// 校验字符串是一个合格变量名，只能由字母数字下划线组成，且以字母下划线开头
+	pattern := `^[A-Za-z_][A-Za-z0-9_-]{0,127}$`
+	reg := regexp.MustCompile(pattern)
+	if !reg.MatchString(varName) {
+		err := fmt.Errorf("format of run or pipeline name[%s] invalid, should be in ^[A-Za-z_][A-Za-z0-9_-]{0,127}$", varName)
+		return err
+	}
+	return nil
+}
+
 func (VariableChecker *VariableChecker) CheckCompName(compName string) error {
 	// 和CheckVarName的区别在于，component的名称不可以包含下划线(_)，而可以包含中划线(-)
 	// 由于数据库中jobName字段的长度上限为60，因此需要限制stepName的长度
