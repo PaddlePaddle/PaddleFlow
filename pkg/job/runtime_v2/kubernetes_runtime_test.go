@@ -193,8 +193,9 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	}
 	config.DefaultPVC = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pfs-$(pfs.fs.id)-pvc",
-			Namespace: "$(namespace)",
+			Name:       "pfs-$(pfs.fs.id)-pvc",
+			Namespace:  "$(namespace)",
+			Finalizers: []string{"meow"},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName: "pfs-$(pfs.fs.id)-$(namespace)-pv",
@@ -233,6 +234,13 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	// create pvc
 	err = kubeRuntime.CreatePVC(namespace, fsID, pv)
 	assert.Equal(t, nil, err)
+	// patch pvc
+	err = kubeRuntime.PatchPVCFinalizerNull(namespace, pvc)
+	assert.Equal(t, nil, err)
+	pvcNew, err := kubeRuntime.GetPersistentVolumeClaims(namespace, pvc, metav1.GetOptions{})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, pvc, pvcNew.Name)
+	assert.Equal(t, 0, len(pvcNew.Finalizers))
 	// delete pvc
 	err = kubeRuntime.DeletePersistentVolumeClaim(namespace, pvc, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
