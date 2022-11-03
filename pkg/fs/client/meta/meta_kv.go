@@ -765,7 +765,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			cur.attr.Ctimensec = ctimensec
 		}
 		if set&FATTR_SIZE != 0 {
-			log.Debugf("set size %+v size %+v", set, attr.Size)
+			log.Debugf("set size %+v size %+v", set, size)
 			cur.attr.Size = size
 		}
 		log.Debugf("set attr info is %+v", cur)
