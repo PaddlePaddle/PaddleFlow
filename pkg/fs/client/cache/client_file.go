@@ -265,7 +265,7 @@ func (c *fileDataCache) updateCapacity() error {
 				return err
 			}
 			c.Lock()
-			c.capacity = total * 1024
+			c.capacity = int64(float64(total*1024) * 0.9)
 			c.used = used * 1024
 			c.Unlock()
 			return nil

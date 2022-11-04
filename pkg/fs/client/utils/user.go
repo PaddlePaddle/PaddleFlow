@@ -105,8 +105,6 @@ func GroupName(gid int) string {
 }
 
 func GetOwnerGroup(info os.FileInfo) (string, string) {
-	mutex.Lock()
-	defer mutex.Unlock()
 	var owner, group string
 	switch st := info.Sys().(type) {
 	case *syscall.Stat_t:
