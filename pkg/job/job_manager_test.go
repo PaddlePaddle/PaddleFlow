@@ -17,44 +17,90 @@ limitations under the License.
 package job
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
+const (
+	mockQueueID   = "queue-test"
+	mockClusterID = "cluster-test"
+)
+
 func TestJobManager(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 
-	clusterInfo := &model.ClusterInfo{
-		Name:   "test-cluster",
-		Status: model.ClusterStatusOnLine,
+	mockCluster := &model.ClusterInfo{
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+		Name:        "test-cluster",
+		ClusterType: schema.KubernetesType,
+		Status:      model.ClusterStatusOnLine,
+	}
+	mockQueue := &model.Queue{
+		Model: model.Model{
+			ID: mockQueueID,
+		},
+		Status:    schema.StatusQueueOpen,
+		ClusterId: mockClusterID,
 	}
 	jobM, err := NewJobManagerImpl()
 	assert.Equal(t, nil, err)
 	testCases := []struct {
 		name       string
 		jobManager *JobManagerImpl
+		job        *model.Job
 		err        error
 	}{
 		{
 			name:       "start job manager v2",
 			jobManager: jobM,
-			err:        nil,
+			job: &model.Job{
+				Name:    "test-job",
+				Status:  schema.StatusJobInit,
+				QueueID: mockQueueID,
+				Config:  &schema.Conf{},
+			},
+			err: nil,
 		},
 	}
 
 	driver.InitMockDB()
-	err = storage.Cluster.CreateCluster(clusterInfo)
+	err = storage.Cluster.CreateCluster(mockCluster)
 	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(mockQueue)
+	assert.Equal(t, nil, err)
+	// mock cluster
+	rts := &runtime.KubeRuntime{}
+	var p1 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
+		return nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "SyncController", func(<-chan struct{}) error {
+		return nil
+	})
+	defer p2.Reset()
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "SubmitJob", func(*api.PFJob) error {
+		return nil
+	})
+	defer p3.Reset()
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			err = storage.Job.CreateJob(testCase.job)
+			assert.Equal(t, nil, err)
 			go testCase.jobManager.Start(storage.Cluster.ActiveClusters, storage.Job.ListQueueJob)
 			time.Sleep(2 * time.Second)
 		})
