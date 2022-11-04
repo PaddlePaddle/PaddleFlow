@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS `grant` (
 CREATE TABLE IF NOT EXISTS `run` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
-    `name` varchar(60) NOT NULL,
+    `name` varchar(128) NOT NULL,
     `source` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
     `fs_id` varchar(200) NOT NULL,
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS `image` (
 CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
-    `name` varchar(60) NOT NULL,
+    `name` varchar(128) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
     `created_at` datetime(3) DEFAULT NULL,
