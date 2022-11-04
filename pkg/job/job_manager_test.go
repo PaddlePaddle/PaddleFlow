@@ -34,21 +34,27 @@ import (
 )
 
 const (
-	mockQueueID = "queue-test"
+	mockQueueID   = "queue-test"
+	mockClusterID = "cluster-test"
 )
 
 func TestJobManager(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 
 	mockCluster := &model.ClusterInfo{
-		Name:   "test-cluster",
-		Status: model.ClusterStatusOnLine,
+		Model: model.Model{
+			ID: mockClusterID,
+		},
+		Name:        "test-cluster",
+		ClusterType: schema.KubernetesType,
+		Status:      model.ClusterStatusOnLine,
 	}
 	mockQueue := &model.Queue{
 		Model: model.Model{
 			ID: mockQueueID,
 		},
-		Status: schema.StatusQueueOpen,
+		Status:    schema.StatusQueueOpen,
+		ClusterId: mockClusterID,
 	}
 	jobM, err := NewJobManagerImpl()
 	assert.Equal(t, nil, err)
@@ -65,6 +71,7 @@ func TestJobManager(t *testing.T) {
 				Name:    "test-job",
 				Status:  schema.StatusJobInit,
 				QueueID: mockQueueID,
+				Config:  &schema.Conf{},
 			},
 			err: nil,
 		},
