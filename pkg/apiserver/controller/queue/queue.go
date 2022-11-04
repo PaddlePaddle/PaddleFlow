@@ -33,7 +33,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -326,7 +327,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, err
 	}
 
-	err = runtimeSvc.CreateQueue(&queueInfo)
+	rQ := api.NewQueueInfo(queueInfo)
+	err = runtimeSvc.CreateQueue(rQ)
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		_, err = UpdateQueue(ctx, &UpdateQueueRequest{
 			Name:         request.Name,
@@ -497,7 +499,8 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	// update queue in cluster, which will roll back changes in db if failed
 	if updateClusterRequired {
 		log.Debugf("required to update queue in cluster. queueName:[%s]", queueInfo.Name)
-		if err = runtimeSvc.UpdateQueue(&queueInfo); err != nil {
+		rQ := api.NewQueueInfo(queueInfo)
+		if err = runtimeSvc.UpdateQueue(rQ); err != nil {
 			ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 			ctx.ErrorCode = common.QueueResourceNotMatch
 			ctx.ErrorMessage = err.Error()
@@ -600,7 +603,8 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		switch clusterInfo.ClusterType {
 		case schema.KubernetesType:
 			kubeRuntime := runtimeSvc.(*runtime.KubeRuntime)
-			usedResource, err = kubeRuntime.GetQueueUsedQuota(&queue)
+			rQ := api.NewQueueInfo(queue)
+			usedResource, err = kubeRuntime.GetQueueUsedQuota(rQ)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
 				ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
@@ -654,7 +658,8 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		ctx.Logging().Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
 		return errors.New("delete queue failed")
 	}
-	err = runtimeSvc.DeleteQueue(&queue)
+	rQ := api.NewQueueInfo(queue)
+	err = runtimeSvc.DeleteQueue(rQ)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())

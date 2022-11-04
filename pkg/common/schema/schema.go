@@ -16,6 +16,11 @@ limitations under the License.
 
 package schema
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type ComponentView interface {
 	GetComponentName() string
 	GetParentDagID() string
@@ -24,6 +29,8 @@ type ComponentView interface {
 	GetDeps() string
 	GetMsg() string
 	GetName() string
+	GetStartTime() string
+	GetEndTime() string
 
 	SetDeps(string)
 }
@@ -85,6 +92,14 @@ func (j JobView) GetName() string {
 	return j.Name
 }
 
+func (j JobView) GetStartTime() string {
+	return j.StartTime
+}
+
+func (j JobView) GetEndTime() string {
+	return j.EndTime
+}
+
 type DagView struct {
 	PK          int64                      `json:"-"`
 	DagID       string                     `json:"id"`
@@ -135,8 +150,93 @@ func (d DagView) GetName() string {
 	return d.Name
 }
 
+func (d DagView) GetStartTime() string {
+	return d.StartTime
+}
+
+func (d DagView) GetEndTime() string {
+	return d.EndTime
+}
+
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
 type RuntimeView map[string][]ComponentView
+
+func initRuntime(compMap map[string]interface{}) (map[string][]ComponentView, error) {
+	resMap := map[string][]ComponentView{}
+	// 遍历compMap中的每个compList
+	for name, comps := range compMap {
+		compList, ok := comps.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("init Runtime of response failed: value of comp is not list")
+		}
+
+		resList := []ComponentView{}
+		for _, comp := range compList {
+			// 遍历compList中的每个comp
+			compMap, ok := comp.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("init Runtime of response failed: comp should be map type")
+			}
+
+			// 通过是否有entryPoints判断是否是Dag
+			if entryPoints, ok := compMap["entryPoints"]; ok {
+				// 如果是Dag
+				subCompMap, ok := entryPoints.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("init Runtime of response failed: entryPoints in dag[%s] should be map type", name)
+				}
+
+				// 先Marshal再Unmarshal回davView
+				// 由于entryPoints中的内容无法直接Unmarshal到davView中，这里先删除，后续单独初始化
+				delete(compMap, "entryPoints")
+				compByte, err := json.Marshal(compMap)
+				if err != nil {
+					return nil, err
+				}
+				dagView := DagView{}
+				if err := json.Unmarshal(compByte, &dagView); err != nil {
+					return nil, err
+				}
+
+				// 递归调用initRuntime来初始化entryPoints子节点
+				subComps, err := initRuntime(subCompMap)
+				if err != nil {
+					return nil, err
+				}
+
+				dagView.EntryPoints = subComps
+				resList = append(resList, &dagView)
+			} else {
+				// 如果不是Dag，而是Job
+				compByte, err := json.Marshal(compMap)
+				if err != nil {
+					return nil, err
+				}
+				jobView := JobView{}
+				if err := json.Unmarshal(compByte, &jobView); err != nil {
+					return nil, err
+				}
+				resList = append(resList, &jobView)
+			}
+		}
+		resMap[name] = resList
+	}
+	return resMap, nil
+}
+
+func (rv *RuntimeView) UnmarshalJSON(data []byte) error {
+	compMap := map[string]interface{}{}
+	if err := json.Unmarshal(data, &compMap); err != nil {
+		return err
+	}
+
+	var err error
+	*rv, err = initRuntime(compMap)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 type PostProcessView map[string]*JobView
 

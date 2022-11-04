@@ -176,11 +176,16 @@ func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *sche
 	if metadata == nil || taskConf == nil {
 		return
 	}
-	metadata.Name = taskConf.GetName()
-	metadata.Namespace = taskConf.GetNamespace()
+	if taskConf.GetName() != "" {
+		metadata.Name = taskConf.GetName()
+	}
+	if taskConf.GetNamespace() != "" {
+		metadata.Namespace = taskConf.GetNamespace()
+	}
 	metadata.Annotations = appendMapsIfAbsent(metadata.Annotations, taskConf.GetAnnotations())
 	metadata.Labels = appendMapsIfAbsent(metadata.Labels, taskConf.GetLabels())
 	metadata.Labels[schema.JobIDLabel] = jobID
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	// TODO: add more metadata for task
 }
 
@@ -303,30 +308,44 @@ func patchRestartPolicy(podSpec *corev1.PodSpec, task schema.Member) {
 func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affinity, error) {
 	nodeAffinity, err := locationAwareness.FsNodeAffinity(fsIDs)
 	if err != nil {
-		err := fmt.Errorf("KubeJob generateAffinity err: %v", err)
+		err = fmt.Errorf("KubeJob generateAffinity err: %v", err)
 		log.Errorf(err.Error())
 		return nil, err
 	}
-	if nodeAffinity == nil {
-		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
-		return affinity, nil
+	return mergeNodeAffinity(affinity, nodeAffinity), nil
+}
+
+func mergeNodeAffinity(former, new *corev1.Affinity) *corev1.Affinity {
+	if new == nil {
+		log.Infof("mergeNodeAffinity new affinity is nil")
+		return former
 	}
-	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
-	// merge filesystem location awareness affinity to pod affinity
-	if affinity == nil {
-		return nodeAffinity, nil
+	if former == nil {
+		log.Infof("mergeNodeAffinity former affinity is nil")
+		return new
 	}
-	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = nodeAffinity.NodeAffinity
-	} else {
-		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+
+	if former.NodeAffinity == nil {
+		former.NodeAffinity = new.NodeAffinity
+		return former
 	}
-	return affinity, nil
+
+	// merge required
+	newRequired := new.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if newRequired != nil && len(newRequired.NodeSelectorTerms) != 0 {
+		formerRequired := former.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		if formerRequired == nil || len(formerRequired.NodeSelectorTerms) == 0 {
+			formerRequired = newRequired
+		} else {
+			formerRequired.NodeSelectorTerms = append(formerRequired.NodeSelectorTerms, newRequired.NodeSelectorTerms...)
+		}
+	}
+
+	// merge preferred
+	former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+		former.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+		new.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	return former
 }
 
 func buildPodContainers(podSpec *corev1.PodSpec, task schema.Member) error {
@@ -348,12 +367,14 @@ func buildPodContainers(podSpec *corev1.PodSpec, task schema.Member) error {
 func fillContainer(container *corev1.Container, podName string, task schema.Member) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
-	container.Name = podName
+	if task.Name != "" {
+		container.Name = task.Name
+	}
 	// fill image
 	container.Image = task.Image
 	// fill command
 	filesystems := task.Conf.GetAllFileSystem()
-	workDir := getWorkDir(nil, filesystems, task.Env)
+	workDir := getWorkDir(&task, filesystems, task.Env)
 	container.Command = generateContainerCommand(task.Command, workDir)
 
 	// container.Args would be passed
@@ -406,7 +427,12 @@ func generateContainerCommand(command string, workdir string) []string {
 	command = strings.TrimPrefix(command, "sh -c")
 
 	if workdir != "" {
-		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
+		// if command is not empty
+		if command != "" {
+			command = fmt.Sprintf("cd %s; %s", workdir, command)
+		} else {
+			command = fmt.Sprintf("cd %s", workdir)
+		}
 	}
 
 	commands := []string{"sh", "-c", command}
@@ -585,11 +611,13 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		}
 		mp := corev1.MountPropagationHostToContainer
 		volumeMount := corev1.VolumeMount{
-			Name:             fs.Name,
-			ReadOnly:         fs.ReadOnly,
-			MountPath:        fs.MountPath,
-			SubPath:          fs.SubPath,
-			MountPropagation: &mp,
+			Name:      fs.Name,
+			ReadOnly:  fs.ReadOnly,
+			MountPath: fs.MountPath,
+			SubPath:   fs.SubPath,
+		}
+		if fs.Type != schema.PFSTypeLocal {
+			volumeMount.MountPropagation = &mp
 		}
 		vms = append(vms, volumeMount)
 	}
@@ -704,25 +732,23 @@ func GetKubeflowJobStatus(jobCond kubeflowv1.JobCondition) (schema.JobStatus, st
 }
 
 // BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *schema.Member) error {
+func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, jobID string, task *schema.Member) error {
 	if podSpec == nil || task == nil {
 		return fmt.Errorf("podTemplateSpec or task is nil")
 	}
-
+	// build task metadata
+	BuildTaskMetadata(&podSpec.ObjectMeta, jobID, &schema.Conf{})
+	// build pod spec
 	err := BuildPodSpec(&podSpec.Spec, *task)
 	if err != nil {
 		log.Errorf("build pod spec failed, err: %v", err)
 		return err
 	}
-	// TODO: remove hard coded schedulerName when upstream package is fixed
-	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
-	// see issue https://github.com/kubeflow/training-operator/issues/1630
-	podSpec.Spec.SchedulerName = "default-scheduler"
 	return nil
 }
 
 // KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Member) error {
+func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task *schema.Member) error {
 	if replicaSpec == nil || task == nil {
 		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
 	}
@@ -732,8 +758,12 @@ func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Membe
 	// set RestartPolicy
 	// TODO: make RestartPolicy configurable
 	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
+	// TODO: remove hard coded schedulerName when upstream package is fixed
+	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
+	// see issue https://github.com/kubeflow/training-operator/issues/1630
+	replicaSpec.Template.Spec.SchedulerName = "default-scheduler"
 	// set PodTemplate
-	return BuildPodTemplateSpec(&replicaSpec.Template, task)
+	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
 }
 
 // KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
@@ -785,6 +815,9 @@ func getPodGroupName(jobID string) string {
 		if anno != nil {
 			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
 		}
+		if pgName == "" {
+			pgName = fmt.Sprintf("podgroup-%s", jobObj.GetUID())
+		}
 	default:
 		log.Warningf("the framework[%s] of job is not supported", job.Framework)
 		pgName = jobID
@@ -835,39 +868,13 @@ func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 	return err
 }
 
-func kubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
-	if jobInfo == nil {
-		return nil, fmt.Errorf("job is nil")
-	}
-	var updateData []byte
-	var err error
-	// update labels and annotations
-	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
-		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
-		patchJSON := struct {
-			metav1.ObjectMeta `json:"metadata,omitempty"`
-		}{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      jobInfo.Labels,
-				Annotations: jobInfo.Annotations,
-			},
-		}
-		updateData, err = json.Marshal(patchJSON)
-		if err != nil {
-			log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
-			return nil, err
-		}
-	}
-	return updateData, err
-}
-
 func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.FrameworkVersion) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 
 	jobmsg := fmt.Sprintf("%s job %s on %s", fv.String(), job.NamespacedName(), runtimeClient.Cluster())
-	// update job priority
+	//  1. update job priority
 	if len(job.PriorityClassName) != 0 {
 		err := updateKubeJobPriority(job, runtimeClient)
 		if err != nil {
@@ -875,16 +882,27 @@ func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterfac
 			return err
 		}
 	}
-	// update job labels or annotations
-	data, err := kubeJobUpdatedData(job)
-	if err != nil {
-		log.Errorf("update %s failed, err: %v", jobmsg, err)
-		return err
-	}
-	log.Infof("begin to update %s, data: %s", jobmsg, string(data))
-	if err = runtimeClient.Patch(job.Namespace, job.ID, fv, data); err != nil {
-		log.Errorf("update %s failed, err: %v", jobmsg, err)
-		return err
+	// 2. update job labels or annotations
+	if (job.Labels != nil && len(job.Labels) != 0) ||
+		(job.Annotations != nil && len(job.Annotations) != 0) {
+		patchJSON := struct {
+			metav1.ObjectMeta `json:"metadata,omitempty"`
+		}{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: job.Annotations,
+			},
+		}
+		updateData, err := json.Marshal(patchJSON)
+		if err != nil {
+			log.Errorf("update kubernetes job[%s] failed, err: %v", job.ID, err)
+			return err
+		}
+		log.Infof("begin to update %s, data: %s", jobmsg, string(updateData))
+		if err = runtimeClient.Patch(job.Namespace, job.ID, fv, updateData); err != nil {
+			log.Errorf("update %s failed, err: %v", jobmsg, err)
+			return err
+		}
 	}
 	return nil
 }

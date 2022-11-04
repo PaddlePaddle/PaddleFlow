@@ -26,9 +26,9 @@ paddleflow fs showlink fsname fspath -u username// 显示某个link详情 -u 表
 +----------+---------+--------+-----------------------------------+--------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | name     | owner   | type   | server address                    | sub path           | properties                                                                                                                                                                                                                                  |
 +==========+=========+========+===================================+====================+=============================================================================================================================================================================================================================================+
-| sftp1236 | root    | sftp   | localhost:8001                 | /data2             | {'password': 'xxx', 'user': 'xxx'}                                                                                                                                                                             |
+| sftp1 | root    | sftp   | localhost:8001                 | /data2             | {'password': 'xxx', 'user': 'xxx'}                                                                                                                                                                             |
 +----------+---------+--------+-----------------------------------+--------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| elsiefs1 | root    | hdfs   | 192.168.1.2:9000,192.168.1.3:9000 | /elsiefs           | {'dfs.namenode.address': '192.168.1.2:9000,192.168.1.3:9000', 'group': 'test', 'user': 'test'}
+| hdfs1 | root    | hdfs   | 192.168.1.2:9000,192.168.1.3:9000 | /elsiefs           | {'dfs.namenode.address': '192.168.1.2:9000,192.168.1.3:9000', 'group': 'test', 'user': 'test'}
 ```
 
 存储详情：用户输入```paddleflow fs show {fs_name}```，界面上显示
@@ -48,7 +48,25 @@ paddleflow fs showlink fsname fspath -u username// 显示某个link详情 -u 表
 ```fs[{fs_name}] delete success```
 
 mount命令：用户输入```paddleflow fs mount {fs_name} {mountpath}```，界面上显示
-```mount success```
+```mount success```，还可以通过paddleflow fs mount --help查看挂载其他详细参数，如下
+```azure
+Usage: paddleflow fs mount [OPTIONS] FSNAME PATH
+
+  mount fs
+FSNAME: mount fs name which contain mount fs and mount path
+PATH: your local mount path
+
+Options:
+  -u, --username TEXT  Mount the specified fs by username, only useful for root.
+  -o, --o TEXT         mount options:
+                         -o block-size: data cache block size (default: 20971520), if block-size equals to 0, it means that no data cache is used
+                         -o data-cache-path: directory path of local data cache (default:"/var/cache/pfs-cache-dir/data-cache")
+                         -o data-cache-expire: file data cache timeout (default 0s)
+                         -o meta-cache-path: directory path of meta cache (default:"/var/cache/pfs-cache-dir/meta-cache")
+                         -o meta-cache-driver: meta driver type (e.g. mem, disk)",
+                         -o meta-cache-expire: file meta cache timeout (default 5s)
+                         -o entry-cache-expire: file entry cache timeout (default 5s)
+```
 
 某个文件系统下的Link列表：用户输入```paddleflow fs listlink {fsname}```
 

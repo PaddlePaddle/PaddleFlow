@@ -68,6 +68,7 @@ func NewQueueInfo(q model.Queue) *QueueInfo {
 		UID:             QueueID(q.ID),
 		Name:            q.Name,
 		ClusterID:       ClusterID(q.ClusterId),
+		Type:            q.QuotaType,
 		Status:          q.Status,
 		SortPolicyNames: q.SchedulingPolicy,
 		SortPolicies:    NewRegistry(q.SchedulingPolicy),

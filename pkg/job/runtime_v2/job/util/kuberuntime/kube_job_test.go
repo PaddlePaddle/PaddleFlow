@@ -26,6 +26,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func TestBuildKubeMetadata(t *testing.T) {
@@ -63,4 +66,84 @@ func TestBuildSchedulingPolicy(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, schema.PriorityClassNormal, pod.Spec.PriorityClassName)
 	assert.Equal(t, schedulerName, pod.Spec.SchedulerName)
+}
+
+func TestBuildPodSpec(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+
+	testCases := []struct {
+		testName string
+		podSpec  *corev1.PodSpec
+		task     schema.Member
+		err      error
+	}{
+		{
+			testName: "pod affinity is nil",
+			podSpec:  &corev1.PodSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+		},
+		{
+			testName: "pod has affinity",
+			podSpec: &corev1.PodSpec{
+				Affinity: &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key:      "kubernetes.io/hostname",
+											Operator: corev1.NodeSelectorOpIn,
+											Values:   []string{"instance1"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test2",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+		},
+	}
+
+	driver.InitMockDB()
+	for _, testCase := range testCases {
+		t.Run(testCase.testName, func(t *testing.T) {
+			storage.FsCache.Add(&model.FSCache{
+				FsID:      testCase.task.Conf.FileSystem.ID,
+				CacheDir:  "./xx",
+				NodeName:  "instance1",
+				ClusterID: "xxx",
+			})
+			err := BuildPodSpec(testCase.podSpec, testCase.task)
+			assert.Equal(t, testCase.err, err)
+		})
+	}
 }

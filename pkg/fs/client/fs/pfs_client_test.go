@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -110,6 +109,39 @@ func TestFSClient_bigBuf(t *testing.T) {
 	assert.Equal(t, n, 22)
 }
 
+func TestOpenWriteMetaConsistence(t *testing.T) {
+	clean()
+	defer clean()
+	d := cache.Config{
+		Expire: 1 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "123"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+
+	fInfo, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(3), fInfo.Size())
+	writeString = "456"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	time.Sleep(2 * time.Second)
+
+	fInfo, err = client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(6), fInfo.Size())
+
+}
+
 func TestFSClient_case1(t *testing.T) {
 	clean()
 	defer clean()
@@ -160,10 +192,11 @@ func TestFSClient_case1(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir1, 0777)
 	assert.Equal(t, nil, err)
+	err = client.Chown(newDir1, 601, 601)
+	assert.Equal(t, nil, err)
 	err = client.Rename(newDir1, newDir4)
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir4, 0755)
-	fmt.Println("err", err, newDir4)
 	assert.Equal(t, nil, err)
 	dirs, err := client.Readdirnames("/mock", -1)
 	assert.Equal(t, nil, err)

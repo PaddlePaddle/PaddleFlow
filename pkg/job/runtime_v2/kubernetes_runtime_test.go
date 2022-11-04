@@ -38,10 +38,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -191,8 +193,9 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	}
 	config.DefaultPVC = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pfs-$(pfs.fs.id)-pvc",
-			Namespace: "$(namespace)",
+			Name:       "pfs-$(pfs.fs.id)-pvc",
+			Namespace:  "$(namespace)",
+			Finalizers: []string{"meow"},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName: "pfs-$(pfs.fs.id)-$(namespace)-pv",
@@ -231,6 +234,13 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	// create pvc
 	err = kubeRuntime.CreatePVC(namespace, fsID, pv)
 	assert.Equal(t, nil, err)
+	// patch pvc
+	err = kubeRuntime.PatchPVCFinalizerNull(namespace, pvc)
+	assert.Equal(t, nil, err)
+	pvcNew, err := kubeRuntime.GetPersistentVolumeClaims(namespace, pvc, metav1.GetOptions{})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, pvc, pvcNew.Name)
+	assert.Equal(t, 0, len(pvcNew.Finalizers))
 	// delete pvc
 	err = kubeRuntime.DeletePersistentVolumeClaim(namespace, pvc, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
@@ -282,6 +292,80 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 	obj, err := kubeRuntime.GetObject(namespace, name, gvk)
 	assert.Equal(t, nil, err)
 	t.Logf("get object: %v", obj)
+}
+
+func TestKubeRuntimeVCQueue(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	q := api.NewQueueInfo(model.Queue{
+		Model: model.Model{
+			ID: "test_queue_id",
+		},
+		Name:      "test_queue_name",
+		Namespace: "default",
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
+		},
+	})
+	// create vc queue
+	err := kubeRuntime.CreateQueue(q)
+	assert.Equal(t, nil, err)
+	// update vc queue
+	err = kubeRuntime.UpdateQueue(q)
+	assert.Equal(t, nil, err)
+	// delete vc queue
+	err = kubeRuntime.DeleteQueue(q)
+	assert.Equal(t, nil, err)
+}
+
+func TestKubeRuntimeElasticQuota(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	q := api.NewQueueInfo(model.Queue{
+		Model: model.Model{
+			ID: "test_queue_id",
+		},
+		Name:      "test_queue_name",
+		Namespace: "default",
+		QuotaType: schema.TypeElasticQuota,
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
+		},
+		MinResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 10 * 1000,
+				"mem": 10 * 1024 * 1024 * 1024,
+			},
+		},
+	})
+	// create elastic quota
+	err := kubeRuntime.CreateQueue(q)
+	assert.Equal(t, nil, err)
+	// update elastic quota
+	err = kubeRuntime.UpdateQueue(q)
+	assert.Equal(t, nil, err)
+	// delete elastic quota
+	err = kubeRuntime.DeleteQueue(q)
+	assert.Equal(t, nil, err)
 }
 
 func TestKubeRuntimeNodeResource(t *testing.T) {

@@ -98,7 +98,7 @@ type WorkflowRuntimeInfo struct {
 
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	ctx.Logging().Debugf("begin list job.")
-	if err := CheckPermission(ctx); err != nil {
+	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, ""); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
@@ -132,7 +132,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		queueID = queue.ID
 	}
 	// model list
-	jobList, err := storage.Job.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, common.UserRoot, request.Labels)
+	jobList, err := storage.Job.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, ctx.UserName, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -170,18 +170,18 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 }
 
 func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
-	if err := CheckPermission(ctx); err != nil {
-		ctx.ErrorCode = common.ActionNotAllowed
-		ctx.Logging().Errorln(err.Error())
-		return nil, err
-	}
-
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
 		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
 	}
+	if err = common.CheckPermission(ctx.UserName, job.UserName, common.ResourceTypeJob, job.ID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+
 	response, err := convertJobToResponse(job, true)
 	if err != nil {
 		return nil, err

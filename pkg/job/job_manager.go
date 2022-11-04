@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -28,7 +27,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -40,8 +38,6 @@ const (
 	defaultCacheSize  = 500
 	defaultExpireTime = 30
 	defaultJobLoop    = 1
-	// EnvRuntimeVersion contains the version of PaddleFlow runtime
-	EnvRuntimeVersion = "PF_RUNTIME_VERSION"
 )
 
 type ActiveClustersFunc func() []model.ClusterInfo
@@ -65,8 +61,6 @@ type JobManagerImpl struct {
 	// clusterRuntimes contains cluster status and runtime services
 	clusterRuntimes   ClusterRuntimes
 	clusterSyncPeriod time.Duration
-
-	isRuntimeV2 bool
 }
 
 func NewJobManagerImpl() (*JobManagerImpl, error) {
@@ -109,50 +103,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	/// init config for job manager
 	m.init()
 	// start job manager
-	rVersion := os.Getenv(EnvRuntimeVersion)
-	if rVersion == "v2" {
-		m.isRuntimeV2 = true
-		m.startRuntimeV2()
-	} else {
-		m.startRuntime()
-	}
-}
-
-func (m *JobManagerImpl) startRuntime() {
-	log.Infof("Start job manager on runtime!")
-	// submit job to cluster
-	go m.pJobProcessLoop()
-
-	for {
-		// get active clusters
-		clusters := m.activeClusters()
-
-		for _, cluster := range clusters {
-			clusterID := api.ClusterID(cluster.ID)
-			// skip when cluster status is offline
-			if cluster.Status == model.ClusterStatusOffLine {
-				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, model.ClusterStatusOffLine)
-				m.stopClusterRuntime(clusterID)
-				continue
-			}
-
-			_, find := m.clusterRuntimes.Get(clusterID)
-			if !find {
-				runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
-				if err != nil {
-					log.Errorf("new runtime for cluster[%s] failed, err: %v. skip it", cluster.ID, err)
-					continue
-				}
-				log.Infof("Create new runtime with cluster <%s>", cluster.ID)
-
-				cr := NewClusterRuntimeInfo(cluster.Name, runtimeSvc)
-				m.clusterRuntimes.Store(clusterID, cr)
-				// start runtime for new cluster
-				go m.Run(runtimeSvc, cr.StopCh, clusterID)
-			}
-		}
-		time.Sleep(m.clusterSyncPeriod)
-	}
+	m.startRuntime()
 }
 
 func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
@@ -163,19 +114,8 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 		close(cr.StopCh)
 	}
 	m.clusterRuntimes.Delete(clusterID)
-	runtime.PFRuntimeMap.Delete(clusterID)
 	runtime_v2.PFRuntimeMap.Delete(clusterID)
 	m.stopClusterQueueSubmit(clusterID)
-}
-
-func (m *JobManagerImpl) Run(runtimeService runtime.RuntimeService, stopCh <-chan struct{}, clusterID api.ClusterID) {
-	log.Infof("Start %s!", runtimeService.Name())
-	// start queue sync
-	go runtimeService.SyncQueue(stopCh)
-	// start job sync
-	go runtimeService.SyncJob(stopCh)
-	// start job gc
-	go runtimeService.GCJob(stopCh)
 }
 
 func (m *JobManagerImpl) pJobProcessLoop() {
@@ -245,27 +185,19 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, clusterRuntime 
 				log.Infof("Leaving submit %s job in queue %s, total elapsed time: %s", job.ID, name, time.Since(startTime))
 			} else {
 				// TODO: add to config
-				// time.Sleep(m.jobLoopPeriod)
 				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}
 }
 
-func (m *JobManagerImpl) submitJob(clusterRuntime *ClusterRuntimeInfo, job *api.PFJob) {
-	if clusterRuntime == nil || job == nil {
+// submitJob submit a job to cluster
+func (m *JobManagerImpl) submitJob(clusterRuntime *ClusterRuntimeInfo, jobInfo *api.PFJob) {
+	if clusterRuntime == nil || jobInfo == nil {
 		log.Errorf("submit job to cluster failed, err: clusterRuntime or job is nil")
 		return
 	}
-	if m.isRuntimeV2 {
-		m.submitJobV1(clusterRuntime.RuntimeV2Svc.SubmitJob, job)
-	} else {
-		m.submitJobV1(clusterRuntime.RuntimeSvc.SubmitJob, job)
-	}
-}
 
-// submitJob submit a job to cluster
-func (m *JobManagerImpl) submitJobV1(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
 	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
 	startTime := time.Now()
 	job, err := storage.Job.GetJobByID(jobInfo.ID)
@@ -277,7 +209,7 @@ func (m *JobManagerImpl) submitJobV1(jobSubmit func(*api.PFJob) error, jobInfo *
 	if job.Status == schema.StatusJobInit {
 		var jobStatus schema.JobStatus
 		var msg string
-		err = jobSubmit(jobInfo)
+		err = clusterRuntime.RuntimeSvc.SubmitJob(jobInfo)
 		if err != nil {
 			// new job failed, update db and skip this job
 			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
@@ -320,8 +252,8 @@ func (m *JobManagerImpl) stopQueueSubmit(queueID api.QueueID) {
 }
 
 // PaddleFlow runtime v2
-// startRuntimeV2 start job manager on runtime v2
-func (m *JobManagerImpl) startRuntimeV2() {
+// startRuntime start job manager on runtime v2
+func (m *JobManagerImpl) startRuntime() {
 	log.Infof("Start job manager on runtime v2!")
 	// submit job to cluster
 	go m.pJobProcessLoop()
@@ -348,7 +280,7 @@ func (m *JobManagerImpl) startRuntimeV2() {
 				}
 				log.Infof("Create new runtime with cluster <%s>", cluster.ID)
 
-				cr := NewClusterRuntimeV2Info(cluster.Name, runtimeSvc)
+				cr := NewClusterRuntimeInfo(cluster.Name, runtimeSvc)
 				m.clusterRuntimes.Store(clusterID, cr)
 				// start runtime for new cluster
 				go runtimeSvc.SyncController(cr.StopCh)
@@ -407,25 +339,16 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*clusterQueue, bool) {
 
 // ClusterRuntimeInfo defines cluster runtime
 type ClusterRuntimeInfo struct {
-	Name         string
-	StopCh       chan struct{}
-	RuntimeSvc   runtime.RuntimeService
-	RuntimeV2Svc runtime_v2.RuntimeService
+	Name       string
+	StopCh     chan struct{}
+	RuntimeSvc runtime_v2.RuntimeService
 }
 
-func NewClusterRuntimeInfo(name string, r runtime.RuntimeService) *ClusterRuntimeInfo {
+func NewClusterRuntimeInfo(name string, r runtime_v2.RuntimeService) *ClusterRuntimeInfo {
 	return &ClusterRuntimeInfo{
 		Name:       name,
 		StopCh:     make(chan struct{}),
 		RuntimeSvc: r,
-	}
-}
-
-func NewClusterRuntimeV2Info(name string, r runtime_v2.RuntimeService) *ClusterRuntimeInfo {
-	return &ClusterRuntimeInfo{
-		Name:         name,
-		StopCh:       make(chan struct{}),
-		RuntimeV2Svc: r,
 	}
 }
 

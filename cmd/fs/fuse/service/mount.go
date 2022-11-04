@@ -25,7 +25,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -142,7 +141,7 @@ func setup(c *cli.Context) error {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
 		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
-	if c.Bool("pprof-enable") {
+	if c.Int("pprof-port") != 0 {
 		go func() {
 			http.ListenAndServe(fmt.Sprintf(":%d", c.Int("pprof-port")), nil)
 		}()
@@ -259,15 +258,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		fsMeta = common.FSMeta{
 			UfsType: common.LocalType,
 			SubPath: localRoot,
-		}
-		linkPath, linkRoot := c.String("link-path"), c.String("link-root")
-		if linkPath != "" && linkRoot != "" {
-			links = map[string]common.FSMeta{
-				path.Clean(linkPath): common.FSMeta{
-					UfsType: common.LocalType,
-					SubPath: linkRoot,
-				},
-			}
 		}
 	} else if c.String(schema.FuseKeyFsInfo) != "" {
 		fs, err := utils.ProcessFSInfo(c.String(schema.FuseKeyFsInfo))

@@ -496,7 +496,7 @@ func (bwf *BaseWorkflow) checkExtra() error {
 func (bwf *BaseWorkflow) checkRunYaml() error {
 	variableChecker := VariableChecker{}
 
-	if err := variableChecker.CheckVarName(bwf.Source.Name); err != nil {
+	if err := variableChecker.CheckRunAndPPLName(bwf.Source.Name); err != nil {
 		return fmt.Errorf("check pipelineName[%s] in run[%s] failed: %s", bwf.Source.Name, bwf.RunID, err.Error())
 	}
 

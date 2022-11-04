@@ -207,19 +207,6 @@ func (fs *hdfsFileSystem) Utimens(name string, atime, mtime *time.Time) error {
 
 func (fs *hdfsFileSystem) Truncate(name string, size uint64) error {
 	log.Tracef("hdfs truncate: name[%s], size[%d]", name, size)
-	if size == 0 {
-		if err := fs.Unlink(name); err != nil {
-			return err
-		}
-		flags := syscall.O_CREAT | syscall.O_EXCL
-		fh, err := fs.Create(name, uint32(flags), 0644)
-		if err != nil {
-			return err
-		}
-		fh.Release()
-		return nil
-	}
-	// 保证fio顺序读和随机读性能测试能够正常，不返回报错
 	return nil
 
 }

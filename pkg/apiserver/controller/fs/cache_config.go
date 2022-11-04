@@ -21,13 +21,17 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+)
+
+const (
+	MaxMountPodCpuLimit = "2"
+	MaxMountPodMemLimit = "8Gi"
 )
 
 func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
@@ -40,7 +44,6 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		Debug:                  req.Debug,
 		CleanCache:             req.CleanCache,
 		Resource:               req.Resource,
-		NodeAffinity:           req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
 	}
@@ -57,7 +60,6 @@ type CreateFileSystemCacheRequest struct {
 	Debug               bool                   `json:"debug"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 }
@@ -69,7 +71,6 @@ type FileSystemCacheResponse struct {
 	BlockSize           int                    `json:"blockSize"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 	FsName              string                 `json:"fsName"`
@@ -85,35 +86,34 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.BlockSize = config.BlockSize
 	resp.CleanCache = config.CleanCache
 	resp.Resource = config.Resource
-	resp.NodeAffinity = config.NodeAffinity
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
 	resp.FsName, resp.Username, _ = utils.GetFsNameAndUserNameByFsID(config.FsID)
-	// format time
-	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
-	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
+	resp.CreateTime = config.CreateTime
+	resp.UpdateTime = config.UpdateTime
 }
 
-func checkFsMountedAndCleanResource(ctx *logger.RequestContext, fsID string) error {
+func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
 	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
-	isMounted, err := GetFileSystemService().CheckFsMountedAndCleanResources(fsID)
+	isMounted, cleanPodMap, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(req.FsID)
 	if err != nil {
-		ctx.Logging().Errorf("CheckFsMountedAndCleanResources failed: %v", err)
+		ctx.Logging().Errorf("check fs[%s] mounted failed: %v", req.FsID, err)
 		return err
 	}
 	if isMounted {
-		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", fsID)
+		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", req.FsID)
 		ctx.Logging().Errorf(err.Error())
 		ctx.ErrorCode = common.ActionNotAllowed
 		return err
 	}
-	return nil
-}
-
-func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
-	if err := checkFsMountedAndCleanResource(ctx, req.FsID); err != nil {
+	// need to clean pv/pvc and mount pod, as these might have been previously created.
+	if err := GetFileSystemService().cleanFsResources(cleanPodMap, req.FsID); err != nil {
+		err := fmt.Errorf("fs[%s] cleanFsResources clean map: %+v, failed: %v", req.FsID, cleanPodMap, err)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.InternalError
 		return err
 	}
+
 	cacheConfig := req.toModel()
 	if err := storage.Filesystem.CreateFSCacheConfig(&cacheConfig); err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
@@ -134,10 +134,28 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	if err := checkFsMountedAndCleanResource(ctx, fsID); err != nil {
+	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
+	isMounted, cleanPodMap, err := GetFileSystemService().checkFsMountedAllClustersAndScheduledJobs(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("check fs[%s] mounted failed: %v", fsID, err)
 		return err
 	}
-	_, err := storage.Filesystem.GetFSCacheConfig(fsID)
+	if isMounted {
+		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", fsID)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.ActionNotAllowed
+		return err
+	}
+
+	err = GetFileSystemService().cleanFsResources(cleanPodMap, fsID)
+	if err != nil {
+		err := fmt.Errorf("fs[%s] cleanFsResources clean map: %+v, failed: %v", fsID, cleanPodMap, err)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.InternalError
+		return err
+	}
+
+	_, err = storage.Filesystem.GetFSCacheConfig(fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound

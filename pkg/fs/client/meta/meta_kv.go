@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -598,7 +597,7 @@ func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscal
 }
 
 func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
-	log.Debugf("kv meta parent Ino[%v] name [%s]", parent, name)
+	log.Debugf("kv meta Lookup parent Ino[%v] name [%s]", parent, name)
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
@@ -612,8 +611,8 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		m.parseEntry(entry, entryItem_)
 		inode = entryItem_.ino
 		ok := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
-		log.Debugf("kv meta look up cache inode[%v] item[%+v]", inode, inodeItem_)
 		if ok {
+			log.Debugf("kv meta look up cache inode[%v] item[%+v]", inode, inodeItem_)
 			*attr = inodeItem_.attr
 			m.setPathCache(inode, inodeItem_)
 			return inode, attr, syscall.F_OK
@@ -626,7 +625,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		info, err := ufs_.GetAttr(path)
 		now := time.Now()
 		if err != nil {
-			log.Debugf("[vfs-lookup] GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
+			log.Debugf("[vfs-lookup] Lookup GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
 			return err
 		}
 		if isLink {
@@ -718,60 +717,90 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 }
 
 func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno) {
-	log.Debugf("kv meta setattr inode[%v]", inode)
+	log.Debugf("kv meta setattr inode[%v] and set [%v] %+v", inode, set, attr)
 	var absolutePath string
 	var cur inodeItem
+	var ufs_ ufslib.UnderFileStorage
+	var isLink bool
+	var prefix string
+	var path string
+	uid := attr.Uid
+	gid := attr.Gid
+	mode := attr.Mode
+	atime := attr.Atime
+	atimensec := attr.Atimensec
+	ctime := attr.Ctime
+	ctimensec := attr.Ctimensec
+	size := attr.Size
 	err := m.txn(func(tx kv.KvTxn) error {
-		now := time.Now()
-		a := tx.Get(m.inodeKey(inode))
-		if a == nil {
-			return syscall.ENOENT
-		}
-		m.parseInode(a, &cur)
-		attr.Ctime = now.Unix()
-		attr.Ctimensec = uint32(now.Nanosecond())
 		absolutePath = m.absolutePath(inode, tx)
-		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
-		ufsAttr, err := ufs_.GetAttr(path)
-		if err != nil {
-			return err
-		}
-		attr.FromFileInfo(ufsAttr)
-		if isLink {
-			ufsAttr.FixLinkPrefix(prefix)
+		ufs_, isLink, prefix, path = m.GetUFS(absolutePath)
+		if !m.getAttrFromCacheWithNoExpired(inode, &cur) {
+			ufsAttr, err := ufs_.GetAttr(path)
+			if err != nil {
+				return err
+			}
+			if isLink {
+				ufsAttr.FixLinkPrefix(prefix)
+			}
+			attr.FromFileInfo(ufsAttr)
+			cur.attr = *attr
+		} else {
+			*attr = cur.attr
 		}
 		if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-			cur.attr.Uid = attr.Uid
-			cur.attr.Gid = attr.Gid
-			if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
-				return err
-			}
+			log.Debugf("set uid %+v", set)
+			cur.attr.Uid = uid
+			cur.attr.Gid = gid
 		}
-
 		if set&FATTR_MODE != 0 {
-			cur.attr.Mode = attr.Mode
-			if err = ufs_.Chmod(path, attr.Mode); err != nil {
-				return err
-			}
+			log.Debugf("set mode %+v", set)
+			cur.attr.Mode = mode
 		}
-		// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
 		if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-			atime := time.Unix(attr.Atime, int64(attr.Atimensec))
-			ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
-			cur.attr.Atime = attr.Atime
-			cur.attr.Atimensec = attr.Atimensec
-			cur.attr.Ctime = attr.Ctime
-			cur.attr.Ctimensec = attr.Ctimensec
-			if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
-				return err
-			}
+			log.Debugf("set time %+v", set)
+			cur.attr.Atime = atime
+			cur.attr.Atimensec = atimensec
+			cur.attr.Ctime = ctime
+			cur.attr.Ctimensec = ctimensec
 		}
-		err = tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
+		if set&FATTR_SIZE != 0 {
+			log.Debugf("set size %+v size %+v", set, size)
+			cur.attr.Size = size
+		}
+		log.Debugf("set attr info is %+v", cur)
+		err := tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
 		if err != nil {
 			return err
 		}
 		return nil
 	})
+	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
+		if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
+	if set&FATTR_MODE != 0 {
+		if err = ufs_.Chmod(path, attr.Mode); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+	// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
+	if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
+		atime := time.Unix(attr.Atime, int64(attr.Atimensec))
+		ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
+		if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
+	if set&FATTR_SIZE != 0 {
+		if err = ufs_.Truncate(path, attr.Size); err != nil {
+			return "", utils.ToSyscallErrno(err)
+		}
+	}
+
 	if err != nil {
 		return "", utils.ToSyscallErrno(err)
 	}
@@ -1297,6 +1326,15 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				expire:    expire,
 				name:      []byte(dir.Name),
 			}
+			newInodeItemBuf := tx.Get(m.inodeKey(newInode))
+			if len(newInodeItemBuf) != 0 {
+				var newInodeItem inodeItem
+				m.parseInode(newInodeItemBuf, &newInodeItem)
+				if newInodeItem.fileHandles != 0 {
+					insertChildInode.fileHandles = newInodeItem.fileHandles
+					insertChildInode.attr.Size = newInodeItem.attr.Size
+				}
+			}
 			err = tx.Set(m.inodeKey(newInode), m.marshalInode(insertChildInode))
 			if err != nil {
 				return err
@@ -1436,8 +1474,11 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		if a != nil {
 			m.parseInode(a, inodeItem_)
 			if !m.inodeItemExpired(*inodeItem_) {
+				log.Debugf("open inodeItem cache %+v and attr %+v", *inodeItem_, inodeItem_.attr)
 				*attr = inodeItem_.attr
-				return nil
+				inodeItem_.fileHandles += 1
+				err := tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+				return err
 			}
 		} else {
 			return syscall.ENOENT
@@ -1458,6 +1499,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
+		inodeItem_.fileHandles += 1
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		return err
 	})
@@ -1470,13 +1512,21 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 
 func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 	err := m.txn(func(tx kv.KvTxn) error {
-		a := tx.Get(m.inodeKey(inode))
 		updateInodeItem := &inodeItem{}
-		m.parseInode(a, updateInodeItem)
-		if atomic.AddInt32(&updateInodeItem.fileHandles, -1) == -1 {
-			panic(updateInodeItem.fileHandles)
+		buf := tx.Get(m.inodeKey(inode))
+		if buf != nil {
+			m.parseInode(buf, updateInodeItem)
+			if !m.inodeItemExpired(*updateInodeItem) {
+				updateInodeItem.fileHandles -= 1
+				if updateInodeItem.fileHandles == -1 {
+					panic(updateInodeItem.fileHandles)
+				}
+				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
+				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
+			}
 		}
-		return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
+		return nil
+
 	})
 	return utils.ToSyscallErrno(err)
 }

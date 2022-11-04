@@ -63,11 +63,13 @@ class TestPipeline(object):
         pipeline.name = "ppl1"
         assert pipeline.name == "ppl1"
 
+        pipeline.name = "adefef-fefe_dfefe" + "a" * 80
+
         with pytest.raises(PaddleFlowSDKException):
             pipeline.name = "01224"
 
         with pytest.raises(PaddleFlowSDKException):
-            pipeline.name = "a" * 53
+            pipeline.name = "a" * 153
 
     @pytest.mark.call
     def test_call(self):
