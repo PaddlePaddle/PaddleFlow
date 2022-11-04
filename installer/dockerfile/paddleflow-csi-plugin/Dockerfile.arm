@@ -1,7 +1,9 @@
-FROM paddleflow/paddleflow-server-base-arm:1.4.2
+FROM paddelflow/pfs-csi-plugin-arm:base
 
+RUN echo "Asia/shanghai" > /etc/timezone
 ENV WORKDIR /home/paddleflow
-ADD bin/paddleflow $WORKDIR/server/
-RUN useradd paddleflow
+ADD  bin/csi-plugin $WORKDIR/csi-plugin
+ADD  bin/pfs-fuse $WORKDIR/pfs-fuse
+ADD  bin/cache-worker $WORKDIR/cache-worker
 
-USER paddleflow
+WORKDIR /home/paddleflow
