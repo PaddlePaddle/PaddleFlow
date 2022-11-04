@@ -35,7 +35,7 @@ import (
 type Run struct {
 	Pk             int64                  `gorm:"primaryKey;autoIncrement;not null" json:"-"`
 	ID             string                 `gorm:"type:varchar(60);not null"         json:"runID"`
-	Name           string                 `gorm:"type:varchar(60);not null"         json:"name"`
+	Name           string                 `gorm:"type:varchar(128);not null"         json:"name"`
 	Source         string                 `gorm:"type:varchar(256);not null"        json:"source"` // pipelineID or yamlPath
 	UserName       string                 `gorm:"type:varchar(60);not null"         json:"username"`
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
