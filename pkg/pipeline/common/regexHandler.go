@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 )
 
 type VariableChecker struct {
@@ -38,8 +40,7 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 
 func (variableChecker *VariableChecker) CheckRunAndPPLName(varName string) error {
 	// 校验字符串是一个合格变量名，只能由字母数字下划线组成，且以字母下划线开头
-	pattern := `^[A-Za-z_][A-Za-z0-9_-]{0,127}$`
-	reg := regexp.MustCompile(pattern)
+	reg := regexp.MustCompile(common.RegPatternRunName)
 	if !reg.MatchString(varName) {
 		err := fmt.Errorf("format of run or pipeline name[%s] invalid, should be in ^[A-Za-z_][A-Za-z0-9_-]{0,127}$", varName)
 		return err
