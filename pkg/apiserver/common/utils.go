@@ -33,8 +33,8 @@ import (
 const (
 	RegPatternQueueName    = "^[a-z0-9][a-z0-9-]{0,8}[a-z0-9]$"
 	RegPatternUserName     = "^[A-Za-z0-9]{4,16}$"
-	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
-	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
 	RegPatternScheduleName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternResource     = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
 	RegPatternClusterName  = "^[A-Za-z0-9_][A-Za-z0-9-_]{0,253}[A-Za-z0-9_]$"
