@@ -407,10 +407,8 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 	case schema.TypeDistributed:
 		switch framework {
 		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
+			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay, schema.FrameworkMPI:
 			err = nil
-		case schema.FrameworkMPI:
-			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
 		default:
 			err = fmt.Errorf("invalid framework %s for distributed job", framework)
 		}
