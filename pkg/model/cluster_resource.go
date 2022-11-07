@@ -23,7 +23,7 @@ const (
 
 type NodeInfo struct {
 	Pk        int64  `gorm:"primaryKey;autoIncrement" json:"-"`
-	ID        string `gorm:"column:id;index:idx_id" json:"nodeID"`
+	ID        string `gorm:"column:id" json:"nodeID"`
 	Name      string `gorm:"column:name" json:"nodeName"`
 	ClusterID string `gorm:"column:cluster_id" json:"-"`
 	Status    string `gorm:"column:status" json:"nodeStatus"`
@@ -36,7 +36,7 @@ func (NodeInfo) TableName() string {
 
 type PodInfo struct {
 	Pk     int64  `gorm:"primaryKey;autoIncrement" json:"-"`
-	ID     string `gorm:"column:id;index:idx_id" json:"podID"`
+	ID     string `gorm:"column:id" json:"podID"`
 	Name   string `gorm:"column:name" json:"podName"`
 	NodeID string `gorm:"column:node_id" json:"nodeID"`
 	Status string `gorm:"column:status" json:"podStatus"`
