@@ -85,3 +85,60 @@ func (cpc *ClusterPodCache) UpdatePod(podID string, podInfo *model.PodInfo) erro
 	// TODO: update related resource
 	return nil
 }
+
+type PodResourceCache struct {
+	dbCache *gorm.DB
+}
+
+var (
+	trInfo = &model.ResourceInfo{}
+)
+
+func newResourceCache(db *gorm.DB) *PodResourceCache {
+	return &PodResourceCache{dbCache: db}
+}
+
+func (nc *PodResourceCache) Table() *gorm.DB {
+	return nc.dbCache.Table(trInfo.TableName())
+}
+
+func (nc *PodResourceCache) AddResource(rInfo *model.ResourceInfo) error {
+	log.Debugf("begin to add pod resources, pod id:%s, name:%s", rInfo.PodID, rInfo.Name)
+	tx := nc.Table().Create(rInfo)
+	if tx.Error != nil {
+		log.Errorf("add pod resources failed, pod id: %s, error:%s", rInfo.PodID, tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
+func (nc *PodResourceCache) BatchAddResource(rInfo []model.ResourceInfo) error {
+	log.Debugf("begin to batch add %d pod resources, info: %v", len(rInfo), rInfo)
+	tx := nc.Table().Create(rInfo)
+	if tx.Error != nil {
+		log.Errorf("batch add pod resources failed, error:%s", tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
+func (nc *PodResourceCache) DeleteResource(podID string) error {
+	log.Infof("begin to delete pod resources. pod id:%s", podID)
+	rInfo := &model.ResourceInfo{}
+	tx := nc.Table().Unscoped().Where("pod_id = ?", podID).Delete(rInfo)
+	if tx.Error != nil && errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		log.Errorf("delete pod resources failed. pod id:%s, error:%s", podID, tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
+func (nc *PodResourceCache) UpdateResource(podID string, rName string, podInfo *model.ResourceInfo) error {
+	log.Debugf("begin to update pod resource. pod id:%s", podID)
+	tx := nc.Table().Where("pod_id = ? AND resource_name = ?", podID, rName).Updates(podInfo)
+	if tx.Error != nil {
+		log.Errorf("update pod resource failed. pod id:%s, error:%s", podID, tx.Error)
+		return tx.Error
+	}
+	return nil
+}

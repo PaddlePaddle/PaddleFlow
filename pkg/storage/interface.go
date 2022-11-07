@@ -224,7 +224,7 @@ func InitClusterCaches(db *gorm.DB) {
 	// do not use once.Do() because unit test need to init dbCache twice
 	NodeCache = newClusterNodeCache(db)
 	PodCache = newClusterPodCache(db)
-	ResourceCache = newClusterResourceCache(db)
+	ResourceCache = newResourceCache(db)
 	LabelCache = newLabelCache(db)
 }
 

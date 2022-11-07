@@ -43,3 +43,44 @@ func TestPodCache(t *testing.T) {
 	err = PodCache.DeletePod(mockPodID)
 	assert.Equal(t, nil, err)
 }
+
+func TestPodResourceCache(t *testing.T) {
+	initMockCache()
+	mockNodeID := "test-node-id"
+	mockNodeName := "test-node-name"
+	mockPodID := "test-pod-id"
+	mockResources := []model.ResourceInfo{
+		{
+			PodID:    mockPodID,
+			NodeID:   mockNodeID,
+			NodeName: mockNodeName,
+			Name:     "cpu",
+			Value:    1000,
+		},
+		{
+			PodID:    mockPodID,
+			NodeID:   mockNodeID,
+			NodeName: mockNodeName,
+			Name:     "memory",
+			Value:    1 * 1024 * 1024 * 1024,
+		},
+	}
+
+	err := ResourceCache.AddResource(&model.ResourceInfo{
+		PodID:    mockPodID,
+		NodeID:   mockNodeID,
+		NodeName: mockNodeName,
+		Name:     "cpu",
+		Value:    1000,
+	})
+	assert.Equal(t, nil, err)
+
+	err = ResourceCache.BatchAddResource(mockResources)
+	assert.Equal(t, nil, err)
+
+	err = ResourceCache.UpdateResource(mockPodID, "cpu", &model.ResourceInfo{Value: 2000})
+	assert.Equal(t, nil, err)
+
+	err = ResourceCache.DeleteResource(mockPodID)
+	assert.Equal(t, nil, err)
+}
