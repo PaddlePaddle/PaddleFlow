@@ -29,7 +29,10 @@ type ClusterPodCache struct {
 	dbCache *gorm.DB
 }
 
-var podInfo = &model.PodInfo{}
+var (
+	podInfo = model.PodInfo{}
+	trInfo  = model.ResourceInfo{}
+)
 
 func newClusterPodCache(db *gorm.DB) *ClusterPodCache {
 	return &ClusterPodCache{dbCache: db}
@@ -89,10 +92,6 @@ func (cpc *ClusterPodCache) UpdatePod(podID string, podInfo *model.PodInfo) erro
 type PodResourceCache struct {
 	dbCache *gorm.DB
 }
-
-var (
-	trInfo = &model.ResourceInfo{}
-)
 
 func newResourceCache(db *gorm.DB) *PodResourceCache {
 	return &PodResourceCache{dbCache: db}

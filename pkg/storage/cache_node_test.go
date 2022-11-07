@@ -75,3 +75,20 @@ func TestNodeCache(t *testing.T) {
 	err = NodeCache.DeleteNode(mockNodeID)
 	assert.Equal(t, nil, err)
 }
+
+func TestCacheLabel(t *testing.T) {
+	initMockCache()
+
+	mockObjectID := "test-node-id"
+	err := LabelCache.AddLabel(&model.LabelInfo{
+		ID:         "test-label-id",
+		Name:       "xxx/queue-name",
+		Value:      "default-queue",
+		ObjectID:   mockObjectID,
+		ObjectType: model.ObjectTypeNode,
+	})
+	assert.Equal(t, nil, err)
+
+	LabelCache.DeleteLabel(mockObjectID, model.ObjectTypeNode)
+	assert.Equal(t, nil, err)
+}

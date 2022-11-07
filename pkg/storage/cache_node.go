@@ -29,7 +29,10 @@ type ClusterNodeCache struct {
 	dbCache *gorm.DB
 }
 
-var nInfo = &model.NodeInfo{}
+var (
+	nInfo     = model.NodeInfo{}
+	labelInfo = model.LabelInfo{}
+)
 
 func newClusterNodeCache(db *gorm.DB) *ClusterNodeCache {
 	return &ClusterNodeCache{dbCache: db}
@@ -81,6 +84,40 @@ func (nc *ClusterNodeCache) UpdateNode(nodeID string, nodeInfo *model.NodeInfo) 
 	if tx.Error != nil {
 		log.Errorf("update node failed. node id:%s, error:%s",
 			nodeID, tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
+type ObjectLabelCache struct {
+	dbCache *gorm.DB
+}
+
+func newLabelCache(db *gorm.DB) *ObjectLabelCache {
+	return &ObjectLabelCache{dbCache: db}
+}
+
+func (lc *ObjectLabelCache) Table() *gorm.DB {
+	return lc.dbCache.Table(labelInfo.TableName())
+}
+
+func (lc *ObjectLabelCache) AddLabel(lInfo *model.LabelInfo) error {
+	log.Debugf("begin to add labels, info: %v", lInfo)
+	tx := lc.Table().Create(lInfo)
+	if tx.Error != nil {
+		log.Errorf("add node failed, label name: %s, error:%s", lInfo.Name, tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
+func (lc *ObjectLabelCache) DeleteLabel(objID, objType string) error {
+	log.Infof("begin to delete labels. object id:%s, and type: %s", objID, objType)
+
+	lInfo := &model.LabelInfo{}
+	tx := lc.Table().Unscoped().Where("object_id = ? AND object_type = ?", objID, objType).Delete(lInfo)
+	if tx.Error != nil && errors.Is(tx.Error, gorm.ErrRecordNotFound) {
+		log.Errorf("delete labels failed. object id:%s, error:%s", objID, tx.Error)
 		return tx.Error
 	}
 	return nil
