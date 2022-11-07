@@ -21,7 +21,7 @@ import re
 from setuptools import setup, find_packages
 
 NAME = 'PaddleFlow'
-VERSION = '1.4.4'
+VERSION = '1.4.5'
 
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()
