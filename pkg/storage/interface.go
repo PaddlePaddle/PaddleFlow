@@ -238,6 +238,7 @@ type NodeCacheInterface interface {
 type PodCacheInterface interface {
 	AddPod(podInfo *model.PodInfo) error
 	UpdatePod(podID string, podInfo *model.PodInfo) error
+	UpdatePodResources(podID string, podInfo *model.PodInfo) error
 	DeletePod(podID string) error
 }
 

@@ -58,19 +58,31 @@ func TestNodeCache(t *testing.T) {
 		Name:      "test-instance",
 		ClusterID: "test-cluster-ID",
 		Status:    "Ready",
-		Capacity:  `{"cpu"":10, "memory":"20Gi"}`,
+		Capacity: map[string]string{
+			"cpu":    "20",
+			"memory": "20Gi",
+		},
+		Labels: map[string]string{
+			"xxx/queue-name": "default-queue",
+		},
 	})
 	assert.Equal(t, nil, err)
 
 	_, err = NodeCache.GetNode(mockNodeID)
 	assert.Equal(t, nil, err)
 
-	err = NodeCache.UpdateNode(mockNodeID, &model.NodeInfo{Status: "NotReady"})
+	updatedNode := &model.NodeInfo{
+		Status: "NotReady",
+		Labels: map[string]string{
+			"xxx/queue-name": "test-queue",
+		},
+	}
+	err = NodeCache.UpdateNode(mockNodeID, updatedNode)
 	assert.Equal(t, nil, err)
 
-	nodeInfo, err := NodeCache.GetNode(mockNodeID)
+	mockNodeInfo, err := NodeCache.GetNode(mockNodeID)
 	assert.Equal(t, nil, err)
-	t.Logf("node info %v", nodeInfo)
+	t.Logf("node info %v", mockNodeInfo)
 
 	err = NodeCache.DeleteNode(mockNodeID)
 	assert.Equal(t, nil, err)
@@ -89,6 +101,6 @@ func TestCacheLabel(t *testing.T) {
 	})
 	assert.Equal(t, nil, err)
 
-	LabelCache.DeleteLabel(mockObjectID, model.ObjectTypeNode)
+	err = LabelCache.DeleteLabel(mockObjectID, model.ObjectTypeNode)
 	assert.Equal(t, nil, err)
 }
