@@ -571,7 +571,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPipelineID", "pipelineid should not be none or empty")
         return PipelineServiceApi.delete_pipeline(self.paddleflow_server, pipeline_id, self.header)
 
-    def update_pipeline(self, pipeline_id, fs_name, yaml_path, username=None, desc=None):
+    def update_pipeline(self, pipeline_id, fs_name, yaml_path=None, username=None, desc=None, yaml_raw=None):
         """
             update pipeline
         """
@@ -580,10 +580,8 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
         if fs_name is None or fs_name == "":
             raise PaddleFlowSDKException("InvalidFSName", "fs_name should not be none or empty")
-        if yaml_path is None or yaml_path == "":
-            raise PaddleFlowSDKException("InvalidYamlPath", "yaml_path should not be none or empty")
         return PipelineServiceApi.update_pipeline(self.paddleflow_server, self.header, pipeline_id, fs_name, yaml_path,
-                                                  username, desc)
+                                                  username, desc, yaml_raw)
 
     def show_pipeline_version(self, pipeline_id, pipeline_version_id):
         """
