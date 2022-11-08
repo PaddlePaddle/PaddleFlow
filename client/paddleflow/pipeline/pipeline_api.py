@@ -15,7 +15,7 @@ limitations under the License.
 
 #!/usr/bin/env python3
 # -*- coding:utf8 -*-
-
+import base64
 import json
 from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
@@ -32,7 +32,7 @@ class PipelineServiceApi(object):
         """
 
     @classmethod
-    def create_pipeline(self, host, fs_name, yaml_path=None, desc=None, username=None, header=None):
+    def create_pipeline(self, host, fs_name, yaml_path=None, desc=None, username=None, header=None, yaml_raw=None):
         """
             create pipeline
             this method returns a pipeline brief info and a pipeline version brief list info
@@ -47,6 +47,11 @@ class PipelineServiceApi(object):
             body['desc'] = desc
         if username:
             body['username'] = username
+        if yaml_raw:
+            if isinstance(yaml_raw, bytes):
+                body['yamlRaw'] = base64.b64encode(yaml_raw).decode()
+            else:
+                raise PaddleFlowSDKException("InvalidRequest", "yaml_raw must be bytes type")
 
         response = api_client.call_api(method="POST",
                                        url=parse.urljoin(
@@ -162,7 +167,7 @@ class PipelineServiceApi(object):
             return True, None
 
     @classmethod
-    def update_pipeline(self, host, header, pipeline_id, fs_name, yaml_path, username=None, desc=None):
+    def update_pipeline(self, host, header, pipeline_id, fs_name, yaml_path, username=None, desc=None, yaml_raw=None):
         """update pipeline (create pipeline version)
         """
         if not header:
@@ -176,6 +181,11 @@ class PipelineServiceApi(object):
             body['username'] = username
         if desc:
             body['desc'] = desc
+        if yaml_raw:
+            if isinstance(yaml_raw, bytes):
+                body['yamlRaw'] = base64.b64encode(yaml_raw).decode()
+            else:
+                raise PaddleFlowSDKException("InvalidRequest", "yaml_raw must be bytes type")
 
         response = api_client.call_api(
             method="POST",
