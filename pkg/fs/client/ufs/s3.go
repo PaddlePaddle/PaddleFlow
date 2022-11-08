@@ -495,6 +495,7 @@ func (fs *s3FileSystem) isEmptyDir(name string) (isDir bool, err error) {
 	if !strings.HasSuffix(fullPath, Delimiter) {
 		fullPath = fullPath + "/"
 	}
+
 	maxKey := int64(2)
 	listInput := &s3.ListObjectsV2Input{
 		Bucket:    &fs.bucket,
@@ -507,6 +508,7 @@ func (fs *s3FileSystem) isEmptyDir(name string) (isDir bool, err error) {
 		log.Errorf("s3 isEmptyDir: name[%s] s3.ListObjectsV2 failed: %v", name, err)
 		return false, err
 	}
+
 	if len(resp.CommonPrefixes) > 0 || len(resp.Contents) > 1 {
 		err = syscall.ENOTEMPTY
 		isDir = true
