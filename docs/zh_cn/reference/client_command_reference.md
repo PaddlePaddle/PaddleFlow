@@ -193,7 +193,7 @@ queue info:
 ]
 ```
 
-队列创建：用户输入 ```paddleflow queue create queuename default 10 20Gi --clustername default-cluster```，创建成功后可以在界面上看到
+队列创建：用户输入 ```paddleflow queue create queuename default 10 20Gi --clustername default-cluster --quota volcanoCapabilityQuota```，创建成功后可以在界面上看到
 
 ```queue[queuename] create  success```
 
