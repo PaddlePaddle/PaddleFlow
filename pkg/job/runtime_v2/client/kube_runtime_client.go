@@ -419,14 +419,14 @@ func convertPodResources(pod *corev1.Pod) map[string]int64 {
 	return podResources
 }
 
-func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, labels map[string]string) {
+func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, status string, labels map[string]string) {
 	// TODO: use multi workQueues
 	nodeTaskSync := &api.NodeTaskSyncInfo{
 		ID:       string(pod.UID),
 		Name:     pod.Name,
 		NodeName: pod.Spec.NodeName,
 		// TODO: split status into Creating、Running、Terminating
-		Status:    "Running",
+		Status:    status,
 		Resources: convertPodResources(pod),
 		Labels:    labels,
 		Action:    action,
@@ -448,7 +448,7 @@ func (n *NodeTaskHandler) AddPod(obj interface{}) {
 
 	// TODO: check weather pod is exist or not
 	if isAllocatedPod(pod) {
-		n.addQueue(pod, pfschema.Create, getLabels(n.labelKeys, pod.Labels))
+		n.addQueue(pod, pfschema.Create, "Running", getLabels(n.labelKeys, pod.Labels))
 	}
 }
 
@@ -460,14 +460,22 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	newPodAllocated := isAllocatedPod(newPod)
 
 	if oldPodAllocated != newPodAllocated {
-		n.addQueue(newPod, pfschema.Update, nil)
+		status := ""
+		if newPodAllocated {
+			status = "Running"
+		}
+		n.addQueue(newPod, pfschema.Update, status, nil)
 	}
 }
 
 func (n *NodeTaskHandler) DeletePod(obj interface{}) {
 	pod := obj.(*corev1.Pod)
+	status := ""
+	if isAllocatedPod(pod) {
+		status = "Terminating"
+	}
 	// TODO: check terminating pod
-	n.addQueue(pod, pfschema.Delete, nil)
+	n.addQueue(pod, pfschema.Delete, status, nil)
 }
 
 func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan struct{}) error {
