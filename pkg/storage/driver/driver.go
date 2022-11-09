@@ -67,6 +67,19 @@ func InitStorage(conf *config.StorageConfig, logLevel string) error {
 	return nil
 }
 
+func InitCache(logLevel string) error {
+	var err error
+	gormConf := getGormConf(logLevel)
+	storage.ClusterCache, err = gorm.Open(sqlite.Open("file::memory:"), gormConf)
+	if err != nil {
+		log.Fatalf("init sqlite open db error: %v", err)
+		return err
+	}
+	log.Debugf("InitCache with conf: %v", gormConf)
+	storage.InitClusterCaches(storage.ClusterCache)
+	return nil
+}
+
 func getGormConf(logLevel string) *gorm.Config {
 	gormConf := &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
