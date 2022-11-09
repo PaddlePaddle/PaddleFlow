@@ -25,14 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	"k8s.io/client-go/informers"
-	fakedclient "k8s.io/client-go/kubernetes/fake"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/util/workqueue"
 	"net/http/httptest"
 
@@ -42,30 +35,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 )
 
-func newFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
-	kubeClient := fakedclient.NewSimpleClientset()
-
-	return &KubeRuntimeClient{
-		Client:          kubeClient,
-		InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &pfschema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-		},
-		Config: &restclient.Config{Host: server.URL},
-	}
-}
-
 func TestExecutor(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	runtimeClient := newFakeKubeRuntimeClient(server)
+	runtimeClient := NewFakeKubeRuntimeClient(server)
 
 	// create namespaced kubernetes resource
 	gvk := k8s.VCJobGVK
@@ -142,7 +115,7 @@ func TestNodeTaskListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	runtimeClient := newFakeKubeRuntimeClient(server)
+	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2w pods
 	var podCount = 20000
 	var namespaceList = []string{"default", "test1", "test2", "test3", "test4"}
@@ -241,7 +214,7 @@ func TestNodeListener(t *testing.T) {
 		return true
 	}
 
-	runtimeClient := newFakeKubeRuntimeClient(server)
+	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2k nodes
 	var nodeCount = 2000
 	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, condList, labelList)
