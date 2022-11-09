@@ -218,7 +218,7 @@ func TestNodeListener(t *testing.T) {
 	}
 	var labelList = []map[string]string{
 		{
-			"xxx/resource-pool": "cpu-1",
+			pfschema.PFNodeLabels: "cpu-1",
 		},
 		{
 			"xxx/resource-pool": "cpu-2",

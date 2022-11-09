@@ -313,31 +313,6 @@ func NewNodeHandler(q workqueue.RateLimitingInterface) *NodeHandler {
 	}
 }
 
-func getNodeStatus(node *corev1.Node) string {
-	if node.Spec.Unschedulable {
-		return "Unschedulable"
-	}
-	nodeStatus := "NotReady"
-	condLen := len(node.Status.Conditions)
-	if condLen > 0 {
-		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
-			nodeStatus = "Ready"
-		}
-	}
-	return nodeStatus
-}
-
-func getLabels(labelKeys []string, totalLabels map[string]string) map[string]string {
-	labels := make(map[string]string)
-
-	for _, key := range labelKeys {
-		if value, find := totalLabels[key]; find {
-			labels[key] = value
-		}
-	}
-	return labels
-}
-
 func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
@@ -380,6 +355,31 @@ func (n *NodeHandler) UpdateNode(old, new interface{}) {
 func (n *NodeHandler) DeleteNode(obj interface{}) {
 	node := obj.(*corev1.Node)
 	n.addQueue(node, pfschema.Delete, nil)
+}
+
+func getNodeStatus(node *corev1.Node) string {
+	if node.Spec.Unschedulable {
+		return "Unschedulable"
+	}
+	nodeStatus := "NotReady"
+	condLen := len(node.Status.Conditions)
+	if condLen > 0 {
+		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
+			nodeStatus = "Ready"
+		}
+	}
+	return nodeStatus
+}
+
+func getLabels(labelKeys []string, totalLabels map[string]string) map[string]string {
+	labels := make(map[string]string)
+
+	for _, key := range labelKeys {
+		if value, find := totalLabels[key]; find {
+			labels[key] = value
+		}
+	}
+	return labels
 }
 
 type NodeTaskHandler struct {
