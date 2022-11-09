@@ -91,6 +91,8 @@ func InitCache(logLevel string) error {
 		log.Fatalf("Get DB.DB error: %s", err.Error())
 		return err
 	}
+	// Set max open connections to 1, because of no such table error.
+	// TODO: evaluate the write performance when max open connections is 1
 	sqlDB.SetMaxOpenConns(1)
 	log.Debugf("InitCache with conf: %v", gormConf)
 	storage.ClusterCache = db
