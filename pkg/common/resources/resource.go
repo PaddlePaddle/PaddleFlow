@@ -194,6 +194,19 @@ func (r *Resource) IsNegative() bool {
 	return isNegative
 }
 
+func (r *Resource) IsZero() bool {
+	isZero := true
+	if r != nil {
+		for _, rQuantity := range r.Resources {
+			if rQuantity > 0 {
+				isZero = false
+				break
+			}
+		}
+	}
+	return isZero
+}
+
 // Clone Return a deep copy of the resource it is called on.
 func (r *Resource) Clone() *Resource {
 	res := EmptyResource()
