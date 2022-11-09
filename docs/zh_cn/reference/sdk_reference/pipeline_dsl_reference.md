@@ -108,19 +108,11 @@ ppl.compile("run.yaml")
 ppl.entry_points
 ```
 
-#### 接口入参说明
-|字段名称 | 字段类型 | 字段含义
-|:---:|:---:|:---:|
-|fs_name| string (required)|共享存储名称
-|yaml_path| string (optional)|yaml 文件所在路径
-|desc| string (optional)|工作流模板的描述
-|username| string (optional)|模板所属用户名称
+#### 参数说明
+无参数
 
-#### 接口返回说明
-|字段名称 | 字段类型 | 字段含义
-|:---:|:---:|:---:|
-|ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回dict：{'name': 名称, 'pplID': 工作流模板id, 'pplVerID': 工作流模板版本id}
+#### 返回值说明
+一个Dict，其key为节点的名字，value为节点实例
 
 ### 1.7、获取pipeline名字
 ```python3
