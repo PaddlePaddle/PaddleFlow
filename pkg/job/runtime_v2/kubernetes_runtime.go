@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -493,6 +492,96 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 	return jobLogInfo, nil
 }
 
+// GetEvents
+func (kr *KubeRuntime) GetEvents(namespace, name string) ([]corev1.Event, error) {
+	log.Infof("get %s/%s events info from Kubernetes", namespace, name)
+	var response []corev1.Event
+	listOptions := metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s", name),
+	}
+	// current k8s unsupported 'sort by time'
+	events, err := kr.clientset().CoreV1().Events(namespace).List(context.TODO(), listOptions)
+	if err != nil {
+		log.Errorf("list events for resource %s/%s failed, err: %v", namespace, name, err)
+		return response, err
+	}
+	return events.Items, nil
+}
+
+// GetPod
+func (kr *KubeRuntime) GetPod(namespace, name string) (*corev1.Pod, error) {
+	log.Debugf("get kubernetes pod: %s/%s", namespace, name)
+	pod, err := kr.clientset().CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("get kubernetes pod %s/%s failed, err: %v", namespace, name, err.Error())
+		return nil, err
+	}
+	return pod, nil
+}
+
+func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.MixedLogResponse, error) {
+	var mixedRes pfschema.MixedLogResponse
+	// events
+	events, err := kr.GetEvents(mixedLogRequest.Namespace, mixedLogRequest.Name)
+	if err != nil {
+		log.Errorf("failed to get events for %s/%s. err: %v", mixedLogRequest.Namespace, mixedLogRequest.Name, err)
+		return mixedRes, err
+	}
+	mixedRes.Events = formatAllEventLogs(events)
+	// get pods
+	var pods []*corev1.Pod
+	switch mixedLogRequest.ResourceType {
+	case string(pfschema.TypePodJob):
+		// resourceType is pod and framework is nil
+		pod, err := kr.GetPod(mixedLogRequest.Namespace, mixedLogRequest.Name)
+		if err != nil {
+			log.Errorf("failed to get pods %s/%s. err: %v", mixedLogRequest.Namespace, mixedLogRequest.Name, err)
+			return mixedRes, err
+		}
+		pods = append(pods, pod)
+	case string(pfschema.TypeDeployment):
+		pods = getDeployPodList(mixedLogRequest)
+	default:
+		err = fmt.Errorf("unknown jobtype %s, cannot get log for %s.", mixedLogRequest.ResourceType, mixedLogRequest.Name)
+		log.Errorln(err)
+		return mixedRes, err
+	}
+
+	// get pods logs
+	logFilePosition := common.BeginFilePosition
+	if mixedLogRequest.IsReadFromTail {
+		logFilePosition = common.EndFilePosition
+	}
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
+	for _, pod := range pods {
+		itemLogInfoList, err := kubeClient.GetTaskLogV2(mixedLogRequest.Namespace, pod.Name, logFilePosition,
+			mixedLogRequest.LineLimit, mixedLogRequest.SizeLimit)
+		if err != nil {
+			log.Errorf("%s construct %s task log failed, err: %v", mixedLogRequest.ResourceType, pod.Name, err)
+			return mixedRes, err
+		}
+		taskLogInfoList = append(taskLogInfoList, itemLogInfoList...)
+	}
+	return mixedRes, nil
+
+}
+
+// getDeployPodList return pod list of a deployments
+func getDeployPodList(mixedLogRequest pfschema.MixedLogRequest) []*corev1.Pod {
+	return nil
+}
+
+func formatAllEventLogs(events []corev1.Event) []string {
+	var formatedEvents []string
+	//Type-Reason-Timestamp-Message
+	for _, event := range events {
+		formatedEvents = append(formatedEvents, fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
+			event.Type, event.Reason, event.EventTime, event.Message))
+	}
+	return formatedEvents
+}
+
 func (kr *KubeRuntime) clientset() kubernetes.Interface {
 	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
 	return kubeClient.Client
@@ -515,7 +604,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -558,7 +647,7 @@ func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data [
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

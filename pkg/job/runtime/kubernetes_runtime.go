@@ -596,6 +596,16 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
+func (kr *KubeRuntime) ListObject(namespace, name string, gvk k8sschema.GroupVersionKind) (interface{}, error) {
+	log.Infof("list kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
+	list, err := executor.List(namespace, name, gvk, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("list kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
+		return nil, err
+	}
+	return list, nil
+}
+
 func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	pv := config.DefaultPV
 	pv.Name = schema.ConcatenatePVName(namespace, fsID)

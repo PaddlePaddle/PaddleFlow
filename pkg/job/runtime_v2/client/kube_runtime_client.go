@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -489,6 +490,70 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 			}
 		} else {
 			overFlag = true
+		}
+
+		taskLogInfo := pfschema.TaskLogInfo{
+			TaskID: fmt.Sprintf("%s_%s", pod.GetUID(), c.Name),
+			Info: pfschema.LogInfo{
+				LogContent:  splitLog(logContent, startIndex, endIndex, overFlag),
+				HasNextPage: hasNextPage,
+				Truncated:   truncated,
+			},
+		}
+		taskLogInfoList = append(taskLogInfoList, taskLogInfo)
+	}
+	return taskLogInfoList, nil
+
+}
+
+func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name, logFilePosition, lineLimit string, sizeLimit int64) ([]pfschema.TaskLogInfo, error) {
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []pfschema.TaskLogInfo{}, nil
+	} else if err != nil {
+		return []pfschema.TaskLogInfo{}, err
+	}
+	lineNumber, err := strconv.Atoi(lineLimit)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range pod.Spec.Containers {
+		podLogOptions := mapToLogOptions(c.Name, logFilePosition)
+		logContent, length, err := krc.getContainerLog(namespace, name, podLogOptions)
+		if err != nil {
+			return []pfschema.TaskLogInfo{}, err
+		}
+		startIndex := -1
+		endIndex := -1
+		hasNextPage := false
+		truncated := false
+		limitFlag := isReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
+		overFlag := false
+		// 判断开始位置是否已超过日志总行数，若超过overFlag为true；
+		// 如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
+		// 如果是logFilePPosition为begin，则判断末尾index是否超过总长度，若超过endIndex为-1（直到末尾），并检查日志是否被截断
+		switch logFilePosition {
+		case common.EndFilePosition:
+			startIndex = length - lineNumber
+			endIndex = -1
+			if startIndex <= 0 {
+				startIndex = -1
+				truncated = limitFlag
+			} else {
+				hasNextPage = true
+			}
+			if endIndex == length {
+				endIndex = -1
+			}
+		case common.BeginFilePosition:
+			startIndex = 0
+			if lineNumber < length {
+				endIndex = lineNumber
+				hasNextPage = true
+			} else {
+				truncated = limitFlag
+			}
 		}
 
 		taskLogInfo := pfschema.TaskLogInfo{

@@ -52,6 +52,27 @@ func Get(namespace string, name string, gvk schema.GroupVersionKind, clientOpt *
 	return obj, err
 }
 
+func List(namespace string, name string, gvk schema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) (*unstructured.UnstructuredList, error) {
+	log.Debugf("executor begin to get kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
+	if clientOpt == nil {
+		return nil, fmt.Errorf("dynamic client is nil")
+	}
+	gvrMap, err := clientOpt.GetGVR(gvk)
+	if err != nil {
+		return nil, err
+	}
+	var obj *unstructured.UnstructuredList
+	if gvrMap.Scope.Name() == meta.RESTScopeNameNamespace {
+		obj, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Namespace(namespace).List(context.TODO(), v1.ListOptions{})
+	} else {
+		obj, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).List(context.TODO(), v1.ListOptions{})
+	}
+	if err != nil {
+		log.Errorf("get kubernetes %s resource[%s/%s] failed. error:[%s]", gvk.String(), namespace, name, err.Error())
+	}
+	return obj, err
+}
+
 func Create(resource interface{}, gvk schema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
 	log.Debugf("executor begin to create kuberentes resource[%s]", gvk.String())
 	if clientOpt == nil {

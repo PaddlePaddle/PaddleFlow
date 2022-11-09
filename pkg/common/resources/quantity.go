@@ -54,6 +54,10 @@ func (q Quantity) String() string {
 	return rq.String()
 }
 
+func (q Quantity) AsInt64() int64 {
+	return int64(q)
+}
+
 func (q Quantity) MilliString() string {
 	rq := resource.NewMilliQuantity(int64(q), resource.DecimalSI)
 	return rq.String()

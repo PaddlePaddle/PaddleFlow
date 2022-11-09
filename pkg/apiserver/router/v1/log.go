@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"net/http"
 	"strconv"
 
@@ -28,6 +30,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
+const defaultMemory = "100MB"
+
 type LogRouter struct {
 }
 
@@ -38,6 +42,7 @@ func (lr *LogRouter) Name() string {
 func (lr *LogRouter) AddRouter(r chi.Router) {
 	log.Info("add pipeline router")
 	r.Get("/log/run/{runID}", lr.getRunLog)
+	r.Get("/log/job", lr.getJobLog)
 }
 
 // getRunLog
@@ -113,5 +118,98 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 		return
 	}
 
+	common.Render(writer, http.StatusOK, response)
+}
+
+// getJobLog
+// @Summary 获取作业或pod/deploy日志
+// @Description 获取作业或pod/deploy日志
+// @Id getJobLog
+// @tags Log
+// @Accept  json
+// @Produce json
+// @Param name query string false "作业ID/pod名/deploy名"
+// @Param clusterName query string false "集群名"
+// @Param namespace query string false "作业对应的命名空间"
+// @Param readFromTail query string false "日志内容开始位置(begin or end)"
+// @Param lineLimit query int false "返回的日志行数"
+// @Param sizeLimit query int false "返回的日志数据大小"
+// @Param type query int false "job type, in {single, distributed, workflow, deploy, pod}"
+// @Param framework query int false "job framework such as paddle、pytorch、tensorflow"
+// @Success 200 {object} log.GetRunLogResponse "日志详情"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /log/job [GET]
+func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request) {
+	ctx := common.GetRequestContext(request)
+	var err error
+	// get query param, name
+	name := request.URL.Query().Get(util.QueryKeyName)
+	// check clusterName
+	clusterName := request.URL.Query().Get(util.QueryKeyClusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
+	if err != nil {
+		ctx.ErrorMessage = err.Error()
+		ctx.Logging().Errorf("get cluster %s failed. err:%v", clusterName, err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+	// namespace, todo whether be checked or not
+	namespace := request.URL.Query().Get(util.QueryKeyNamespace)
+	// readFromTail
+	readFromTail := request.URL.Query().Get(util.QueryKeyReadFromTail)
+	isReadFromTail := false
+	if readFromTail != "" {
+		isReadFromTail, err = strconv.ParseBool(readFromTail)
+		if err != nil {
+			ctx.Logging().Errorf("resource[%s/%s] request param isReadFromTail value failed, error:%s.", namespace, name, err.Error())
+			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	}
+	// sizeLimit, check by resource
+	lineLimit := request.URL.Query().Get(util.QueryKeyLineLimit)
+	_, err = strconv.Atoi(lineLimit)
+	if err != nil {
+		ctx.Logging().Errorf("resource[%s/%s] request param lineLimit value failed, error:%s.", namespace, name, err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+	// todo check lineLimit 0~200
+	//if strings.Contains(lineLimit, ",") {
+	//	if strings.Split("")
+	//}
+	sizeLimit := request.URL.Query().Get(util.QueryKeySizeLimit)
+	var memory resources.Quantity
+	if sizeLimit != "" {
+		memory, err = resources.ParseQuantity(sizeLimit)
+		if err != nil {
+			ctx.Logging().Errorf("resource[%s/%s] request param sizelimit %s. error:%s.", namespace, name, sizeLimit, err.Error())
+			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	} else {
+		memory, _ = resources.ParseQuantity(defaultMemory)
+	}
+	// type
+	resourceType := request.URL.Query().Get(util.QueryKeyType)
+	framework := request.URL.Query().Get(util.QueryKeyFramework)
+	runLogRequest := runLog.GetMixedLogRequest{
+		Name:           name,
+		Namespace:      namespace,
+		ClusterInfo:    clusterInfo,
+		LineLimit:      lineLimit,
+		SizeLimit:      memory.AsInt64(),
+		IsReadFromTail: isReadFromTail,
+		ResourceType:   resourceType,
+		Framework:      framework,
+	}
+
+	response, err := runLog.GetK8sLog(&ctx, runLogRequest)
+	if err != nil {
+		ctx.Logging().Errorf("get k8s logs %s failed. err:%v", clusterName, err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
 	common.Render(writer, http.StatusOK, response)
 }
