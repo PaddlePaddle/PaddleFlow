@@ -124,10 +124,10 @@ func (cpc *ClusterPodCache) UpdatePod(podID string, podInfo *model.PodInfo) erro
 				log.Errorf("delete pod labels failed. pod id:%s, error:%s", podID, err)
 				return err
 			}
-			labels := model.NewLabels(podID, model.ObjectTypePod, nodeTable.Labels)
+			labels := model.NewLabels(podID, model.ObjectTypePod, podInfo.Labels)
 			err = tx.Table(labelTable.TableName()).Create(labels).Error
 			if err != nil {
-				log.Errorf("add pod labels failed, labels: %v, error:%s", nodeTable.Labels, err)
+				log.Errorf("add pod labels failed, labels: %v, error:%s", podInfo.Labels, err)
 				return err
 			}
 		}
