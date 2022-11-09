@@ -243,10 +243,9 @@ type PodCacheInterface interface {
 }
 
 type ResourceCacheInterface interface {
+	// TODO: update
 	AddResource(rInfo *model.ResourceInfo) error
-	BatchAddResource(rInfo []model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
-	DeleteResource(podID string) error
 }
 
 type LabelCacheInterface interface {
