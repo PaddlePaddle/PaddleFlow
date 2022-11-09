@@ -119,6 +119,13 @@ func (mountInfo *Info) podMountArgs() (args []string) {
 	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
 	args = append(args, mountInfo.commonOptions()...)
 	args = append(args, mountInfo.cachePathArgs(false)...)
+	args = append(args, mountInfo.metrics()...)
+	return args
+}
+
+func (mountInfo *Info) metrics() (args []string) {
+	args = append(args, fmt.Sprintf("--metrics-service-on=true"))
+	args = append(args, fmt.Sprintf("--metrics-service-port=9090"))
 	return args
 }
 
