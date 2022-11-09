@@ -22,22 +22,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/dynamic/fake"
+	fakedynamicclient "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
-	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
 	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&rest.Config{Host: server.URL})
+	kubeClient := fakedclient.NewSimpleClientset()
 
 	return &KubeRuntimeClient{
+		Client:          kubeClient,
+		InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &pfschema.Cluster{
+		ClusterInfo: &schema.Cluster{
 			Name: "default-cluster",
 			ID:   "cluster-123",
 			Type: "Kubernetes",
