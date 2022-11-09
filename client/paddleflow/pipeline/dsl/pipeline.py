@@ -362,7 +362,7 @@ class Pipeline(object):
             PaddleFlowSDKException: if name is illegal 
         """
         if not validate_string_by_regex(name, PIPELINE_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"error occured in Pipeline[{name}]: " + \
                     f"the name of Pipeline[{name}] is is illegal" + \
                     f"the regex used for validation is {PIPELINE_NAME_REGEX}")
 

@@ -540,8 +540,6 @@ class Client(object):
         create pipeline
         """
         self.pre_check()
-        if fs_name is None or fs_name.strip() == "":
-            raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
         return PipelineServiceApi.create_pipeline(self.paddleflow_server, fs_name, yaml_path, desc,
                                                   username, self.header, yaml_raw)
 
@@ -578,8 +576,6 @@ class Client(object):
         self.pre_check()
         if pipeline_id is None or pipeline_id == "":
             raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
-        if fs_name is None or fs_name == "":
-            raise PaddleFlowSDKException("InvalidFSName", "fs_name should not be none or empty")
         return PipelineServiceApi.update_pipeline(self.paddleflow_server, self.header, pipeline_id, fs_name, yaml_path,
                                                   username, desc, yaml_raw)
 
