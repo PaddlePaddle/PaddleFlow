@@ -115,9 +115,15 @@ const (
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
 
-	ListenerTypeJob   = "job"
-	ListenerTypeTask  = "task"
-	ListenerTypeQueue = "queue"
+	ListenerTypeJob      = "job"
+	ListenerTypeTask     = "task"
+	ListenerTypeQueue    = "queue"
+	ListenerTypeNode     = "node"
+	ListenerTypeNodeTask = "nodeTask"
+
+	EnvPFNodeLabels = "PF_NODE_LABELS"
+	EnvPFTaskLabels = "PF_TASK_LABELS"
+	PFNodeLabels    = "resource-isolation-type"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
