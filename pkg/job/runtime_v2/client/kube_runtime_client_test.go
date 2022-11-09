@@ -149,6 +149,7 @@ func TestNodeTaskListener(t *testing.T) {
 	var nodeNameList = []string{"instance-0", "instance-1", "instance-2", "instance-3"}
 	var phaseList = []corev1.PodPhase{corev1.PodPending, corev1.PodRunning, corev1.PodSucceeded, corev1.PodFailed, corev1.PodUnknown}
 	var reqList = []corev1.ResourceList{
+		kubeutil.BuildResourceList("0", "0Gi"),
 		kubeutil.BuildResourceList("1", "2Gi"),
 		kubeutil.BuildResourceList("2", "4Gi"),
 		kubeutil.BuildResourceList("1", "5Gi"),
