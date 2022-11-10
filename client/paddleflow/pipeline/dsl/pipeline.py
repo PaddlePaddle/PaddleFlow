@@ -288,7 +288,7 @@ class Pipeline(object):
 
         self._init_client(config)
         
-        return self._client.update_pipeline(desc=desc, yaml_raw=pipeline, username=username)
+        return self._client.update_pipeline(pipeline_id=pipeline_id, desc=desc, yaml_raw=pipeline, username=username)
 
     def compile(
             self,

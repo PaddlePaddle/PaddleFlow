@@ -155,7 +155,7 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 func getPipelineYaml(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
 	if request.YamlRaw != "" {
 		if request.YamlPath != "" {
-			err := fmt.Errorf("you can only specify one of YamlPath[%s] and YamlRaw[%s]", request.YamlPath, request.YamlRaw)
+			err := fmt.Errorf("you can only specify one of YamlPath and YamlRaw")
 			return nil, err
 		}
 
