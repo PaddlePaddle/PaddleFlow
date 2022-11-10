@@ -46,7 +46,7 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
 		ClusterInfo: &schema.Cluster{
-			Name: uuid.GenerateID("default"),
+			Name: "default-cluster",
 			ID:   uuid.GenerateID("cluster"),
 			Type: "Kubernetes",
 		},

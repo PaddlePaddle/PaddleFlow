@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 
-	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -62,13 +62,13 @@ func (nr *NodeResourceSync) Initialize(runtimeClient framework.RuntimeClientInte
 	nr.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	// Register node listener
-	err := nr.runtimeClient.RegisterListener(pfschema.ListenerTypeNode, nr.nodeQueue)
+	err := nr.runtimeClient.RegisterListener(schema.ListenerTypeNode, nr.nodeQueue)
 	if err != nil {
 		log.Errorf("register node event listener for %s failed, err: %v", nr.Name(), err)
 		return err
 	}
 	// Register task listener
-	err = nr.runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, nr.taskQueue)
+	err = nr.runtimeClient.RegisterListener(schema.ListenerTypeNodeTask, nr.taskQueue)
 	if err != nil {
 		log.Errorf("register node task event listener for %s failed, err: %v", nr.Name(), err)
 		return err
@@ -78,12 +78,12 @@ func (nr *NodeResourceSync) Initialize(runtimeClient framework.RuntimeClientInte
 
 func (nr *NodeResourceSync) Run(stopCh <-chan struct{}) {
 	log.Infof("start %s successfully!", nr.Name())
-	err := nr.runtimeClient.StartListener(pfschema.ListenerTypeNode, stopCh)
+	err := nr.runtimeClient.StartListener(schema.ListenerTypeNode, stopCh)
 	if err != nil {
 		log.Errorf("start node listener failed, err: %v", err)
 		return
 	}
-	err = nr.runtimeClient.StartListener(pfschema.ListenerTypeNodeTask, stopCh)
+	err = nr.runtimeClient.StartListener(schema.ListenerTypeNodeTask, stopCh)
 	if err != nil {
 		log.Errorf("start node task listener failed, err: %v", err)
 		return
@@ -119,11 +119,11 @@ func (nr *NodeResourceSync) processNode() bool {
 		Capacity:  nodeSync.Capacity,
 	}
 	switch nodeSync.Action {
-	case pfschema.Create:
+	case schema.Create:
 		err = storage.NodeCache.AddNode(nodeInfo)
-	case pfschema.Update:
+	case schema.Update:
 		err = storage.NodeCache.UpdateNode(nodeInfo.ID, nodeInfo)
-	case pfschema.Delete:
+	case schema.Delete:
 		err = storage.NodeCache.DeleteNode(nodeInfo.ID)
 	default:
 		err = fmt.Errorf("action %s for node is not supported", nodeSync.Action)
@@ -169,11 +169,11 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 		Resources: taskSync.Resources,
 	}
 	switch taskSync.Action {
-	case pfschema.Create:
+	case schema.Create:
 		err = storage.PodCache.AddPod(taskInfo)
-	case pfschema.Update:
+	case schema.Update:
 		err = storage.PodCache.UpdatePod(taskSync.ID, taskInfo)
-	case pfschema.Delete:
+	case schema.Delete:
 		err = storage.PodCache.DeletePod(taskSync.ID)
 	default:
 		err = fmt.Errorf("action %s for task is not supported", taskSync.Action)
