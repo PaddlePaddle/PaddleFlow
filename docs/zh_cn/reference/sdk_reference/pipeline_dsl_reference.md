@@ -171,7 +171,6 @@ ppl.create()
 #### 接口入参说明
 字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-|fs_name| string | 共享存储名称 | 否 |  |
 |config | string|配置文件路径| 否 | 配置文件的内容请参考[这里][config_content] |
 |desc| string | 工作流模板的描述 | 否 | | 
 |username| string| 模板所属用户名称 | 否 | | 
@@ -191,7 +190,6 @@ ppl.update("123")
 字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
 |pipeline_id| string |工作流模板id | 是 | | 
-|fs_name| string | 共享存储名称 | 否 |  |
 |config | string|配置文件路径| 否 | 配置文件的内容请参考[这里][config_content] |
 |desc| string | 工作流模板的描述 | 否 | | 
 |username| string| 模板所属用户名称 | 否 | | 
