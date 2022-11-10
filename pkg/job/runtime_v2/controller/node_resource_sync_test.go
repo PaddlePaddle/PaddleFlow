@@ -17,17 +17,22 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -37,7 +42,7 @@ func newFakeNodeResourceCtrl() *NodeResourceSync {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	ctrl := &NodeResourceSync{}
+	ctrl := NewNodeResourceSync()
 	opt := client.NewFakeKubeRuntimeClient(server)
 	err := ctrl.Initialize(opt)
 	if err != nil {
@@ -80,7 +85,7 @@ func initPodData(client kubernetes.Interface, podCount int) error {
 	return kubeutil.CreatePods(client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
 }
 
-func TestNodeResourceSync_Run(t *testing.T) {
+func TestNodeResourceSync(t *testing.T) {
 	testCases := []struct {
 		caseName   string
 		nodeCount  int
@@ -153,15 +158,15 @@ func TestNodeResourceSync_Run(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	for _, test := range testCases {
-		test := test
-		t.Run(test.caseName, func(t *testing.T) {
+		tc := test
+		t.Run(tc.caseName, func(t *testing.T) {
 			t.Parallel()
 			ctrl := newFakeNodeResourceCtrl()
 			//  init data
 			client := ctrl.runtimeClient.(*client.KubeRuntimeClient)
-			err = initNodeData(client.Client, test.nodeCount)
+			err = initNodeData(client.Client, tc.nodeCount)
 			assert.Equal(t, nil, err)
-			err = initPodData(client.Client, test.nodeCount*test.podPerNode)
+			err = initPodData(client.Client, tc.nodeCount*tc.podPerNode)
 			assert.Equal(t, nil, err)
 			// Run worker
 			stopCh := make(chan struct{})
@@ -174,5 +179,148 @@ func TestNodeResourceSync_Run(t *testing.T) {
 			close(stopCh)
 		})
 	}
+}
 
+func TestNodeResourceSync_Initialize(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	// test client is null
+	t.Run("client is nil", func(t *testing.T) {
+		ctrl := NewNodeResourceSync()
+		err := ctrl.Initialize(nil)
+		assert.Equal(t, fmt.Errorf("init %s controller failed", NodeResourceControllerName), err)
+	})
+
+	// test register node listener failed
+	t.Run("register node listener failed", func(t *testing.T) {
+		expectErr := fmt.Errorf("init node listener failed")
+		client1 := client.NewFakeKubeRuntimeClient(server)
+		ctrl := NewNodeResourceSync()
+		var p1 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(client1), "RegisterListener", func(string, workqueue.RateLimitingInterface) error {
+			return expectErr
+		})
+		defer p1.Reset()
+		err := ctrl.Initialize(client1)
+		assert.Equal(t, expectErr, err)
+	})
+}
+
+func TestNodeResourceSync_Run(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	err := driver.InitCache("DEBUG")
+	assert.Equal(t, nil, err)
+
+	// test start node listener failed
+	t.Run("start node listener failed", func(t *testing.T) {
+		expectErr := fmt.Errorf("start node listener failed")
+		client1 := client.NewFakeKubeRuntimeClient(server)
+		var p1 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(client1), "StartListener", func(string, <-chan struct{}) error {
+			return expectErr
+		})
+		defer p1.Reset()
+
+		ctrl := NewNodeResourceSync()
+		err := ctrl.Initialize(client1)
+		assert.Equal(t, nil, err)
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		ctrl.Run(stopCh)
+	})
+
+	// test nodeQueue shutdown
+	t.Run("nodeQueue shutdown", func(t *testing.T) {
+		ctrl := newFakeNodeResourceCtrl()
+		ctrl.nodeQueue.ShutDown()
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		ctrl.Run(stopCh)
+		time.Sleep(100 * time.Microsecond)
+	})
+
+	// test processNode failed
+	nodeSyncList := []api.NodeSyncInfo{
+		{
+			Name:   "instance-1",
+			Status: "Ready",
+			Action: "xxx",
+		},
+		{
+			Name:   "instance-1",
+			Status: "Ready",
+			Action: schema.Create,
+		},
+		{
+			Name:   "instance-1",
+			Status: "NotReady",
+			Action: schema.Update,
+		},
+		{
+			Name:   "instance-1",
+			Status: "NotReady",
+			Action: schema.Delete,
+		},
+	}
+	t.Run("processNode failed", func(t *testing.T) {
+		ctrl := newFakeNodeResourceCtrl()
+		for idx := range nodeSyncList {
+			ctrl.nodeQueue.Add(&nodeSyncList[idx])
+		}
+		ctrl.taskQueue.ShutDown()
+
+		stopCh := make(chan struct{})
+		ctrl.Run(stopCh)
+		for ctrl.nodeQueue.Len() != 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		close(stopCh)
+	})
+
+	// test taskQueue shutdown
+	t.Run("taskQueue shutdown", func(t *testing.T) {
+		ctrl := newFakeNodeResourceCtrl()
+		ctrl.taskQueue.ShutDown()
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		ctrl.Run(stopCh)
+		time.Sleep(100 * time.Microsecond)
+	})
+
+	podSyncList := []api.NodeTaskSyncInfo{
+		{
+			ID:     "test-pod-id",
+			Action: "xxx",
+		},
+		{
+			ID:       "test-pod-id",
+			Name:     "test-pod-name",
+			NodeName: "test-node-id",
+			Status:   "Running",
+			Action:   schema.Create,
+		},
+		{
+			ID:     "test-pod-id",
+			Status: "Creating",
+			Action: schema.Update,
+		},
+		{
+			ID:     "test-pod-id",
+			Action: schema.Delete,
+		},
+	}
+	t.Run("processNodoTask failed", func(t *testing.T) {
+		ctrl := newFakeNodeResourceCtrl()
+		for idx := range podSyncList {
+			ctrl.taskQueue.Add(&podSyncList[idx])
+		}
+		ctrl.nodeQueue.ShutDown()
+
+		stopCh := make(chan struct{})
+		ctrl.Run(stopCh)
+		for ctrl.taskQueue.Len() != 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+		close(stopCh)
+	})
 }

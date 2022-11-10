@@ -52,7 +52,7 @@ func (nr *NodeResourceSync) Name() string {
 
 func (nr *NodeResourceSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
 	if runtimeClient == nil {
-		return fmt.Errorf("init %s failed", nr.Name())
+		return fmt.Errorf("init %s controller failed", NodeResourceControllerName)
 	}
 	nr.runtimeClient = runtimeClient
 	log.Infof("initialize %s!", nr.Name())
