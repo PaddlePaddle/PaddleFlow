@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -36,7 +37,8 @@ import (
 
 type CreatePipelineRequest struct {
 	FsName   string `json:"fsName"`
-	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	YamlPath string `json:"yamlPath"` // optional,  use "./run.yaml" if not specified, one of 2 sources of run
+	YamlRaw  string `json:"yamlRaw"`  // optional, one of 2 sources of run
 	UserName string `json:"username"` // optional, only for root user
 	Desc     string `json:"desc"`     // optional
 }
@@ -47,12 +49,7 @@ type CreatePipelineResponse struct {
 	Name              string `json:"name"`
 }
 
-type UpdatePipelineRequest struct {
-	FsName   string `json:"fsName"`
-	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName string `json:"username"` // optional, only for root user
-	Desc     string `json:"desc"`     // optional
-}
+type UpdatePipelineRequest = CreatePipelineRequest
 
 type UpdatePipelineResponse struct {
 	PipelineID        string `json:"pipelineID"`
@@ -119,6 +116,59 @@ func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion 
 	pdb.UpdateTime = pipelineVersion.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
+func getPipelineYamlFromYamlRaw(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
+	pipelineYaml, err := base64.StdEncoding.DecodeString(request.YamlRaw)
+	if err != nil {
+		err = fmt.Errorf("Decode raw yaml[%s] failed. err:%v", request.YamlRaw, err)
+		return nil, err
+	}
+
+	return pipelineYaml, nil
+}
+
+func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
+	if request.YamlPath == "" {
+		request.YamlPath = "./run.yaml"
+	}
+
+	if request.FsName == "" {
+		err := fmt.Errorf("cannot get pipeline: fsname shall not be empty while you specified YamlPath[%s]",
+			request.YamlPath)
+		return nil, err
+	}
+
+	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	if err != nil {
+		return nil, err
+	}
+
+	// read run.yaml
+	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
+	if err != nil {
+		err := fmt.Errorf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
+		return nil, err
+	}
+
+	return pipelineYaml, nil
+}
+
+func getPipelineYaml(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
+	if request.YamlRaw != "" {
+		if request.YamlPath != "" {
+			err := fmt.Errorf("you can only specify one of YamlPath and YamlRaw")
+			return nil, err
+		}
+
+		if request.FsName != "" {
+			err := fmt.Errorf("you cannot specify FsName while you specified YamlRaw")
+			return nil, err
+		}
+		return getPipelineYamlFromYamlRaw(ctx, request)
+	}
+
+	return getPipelineYamlFromYamlPath(ctx, request)
+}
+
 func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (CreatePipelineResponse, error) {
 	// 校验desc长度
 	if len(request.Desc) > util.MaxDescLength {
@@ -128,32 +178,12 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	// check user grant to fs
-	if request.FsName == "" {
-		ctx.ErrorCode = common.InvalidArguments
-		errMsg := "create pipeline failed. fsname shall not be empty"
-		ctx.Logging().Errorf(errMsg)
-		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
-	}
-
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	pipelineYaml, err := getPipelineYaml(ctx, &request)
 	if err != nil {
+		err = fmt.Errorf("create pipeline failed. err:%v", err)
 		ctx.ErrorCode = common.InvalidArguments
-		ctx.Logging().Errorf(err.Error())
+		ctx.Logging().Error(err.Error())
 		return CreatePipelineResponse{}, err
-	}
-
-	if request.YamlPath == "" {
-		request.YamlPath = "./run.yaml"
-	}
-
-	// read run.yaml
-	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
-	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprintf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
-		ctx.Logging().Errorf(errMsg)
-		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
 	// validate pipeline and get name of pipeline
@@ -190,6 +220,18 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
+
+	// 这里主要是为了获取fsID，写入数据库中
+	var fsID string
+	if request.FsName != "" {
+		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+		if err != nil {
+			ctx.ErrorCode = common.InvalidArguments
+			errMsg := fmt.Sprintf("Create Pipeline failed: %s", err)
+			ctx.Logging().Errorf(errMsg)
+		}
+	}
+
 	pplVersion := model.PipelineVersion{
 		FsID:         fsID,
 		FsName:       request.FsName,
@@ -225,32 +267,12 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	// check user grant to fs
-	if request.FsName == "" {
-		ctx.ErrorCode = common.InvalidArguments
-		errMsg := "update pipeline failed. fsname shall not be empty"
-		ctx.Logging().Errorf(errMsg)
-		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
-	}
-
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	pipelineYaml, err := getPipelineYaml(ctx, &request)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
-		ctx.Logging().Errorf(err.Error())
+		err = fmt.Errorf("update pipeline failed. err:%v", err)
+		ctx.Logging().Error(err.Error())
 		return UpdatePipelineResponse{}, err
-	}
-
-	if request.YamlPath == "" {
-		request.YamlPath = "./run.yaml"
-	}
-
-	// read run.yaml
-	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
-	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprintf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
-		ctx.Logging().Errorf(errMsg)
-		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
 	// validate pipeline and get name of pipeline
@@ -285,6 +307,18 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	ppl.Desc = request.Desc
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
+
+	// 这里主要是为了获取fsID，写入数据库中
+	var fsID string
+	if request.FsName != "" {
+		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			errMsg := fmt.Sprintf("CreatePipeline failed: %s", err)
+			ctx.Logging().Errorf(errMsg)
+		}
+	}
+
 	pplVersion := model.PipelineVersion{
 		PipelineID:   pipelineID,
 		FsID:         fsID,
