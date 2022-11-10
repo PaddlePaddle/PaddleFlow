@@ -92,6 +92,7 @@ class Pipeline(object):
         self.fs_options = fs_options
 
         self._client = None
+        self._client_config = None
 
         self._env = EnvDict(self)
         self.add_env(env)
@@ -111,10 +112,12 @@ class Pipeline(object):
             config (str): the path of config file
 
         Raises:
-            PaddleFlowSDKException: if cannot create run  
+            PaddleFlowSDKException: if cannot init client  
         """
-        if self._client is not None:
+        if self._client is not None and self._client_config == config:
             return
+        
+        self._client_config = config 
         
         from paddleflow.client import Client
         from paddleflow.cli.cli import DEFAULT_PADDLEFLOW_PORT
@@ -159,7 +162,6 @@ class Pipeline(object):
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + f"login failed: {msg}")
         
         self._client = client
-      
        
     def __call__(
             self,
@@ -227,8 +229,6 @@ class Pipeline(object):
         Raises:
             PaddleFlowSDKException: if cannot create run  
         """
-        # TODO: add validate logical
-
         # 1. compile
         pipeline = yaml.dump(self.compile())
         pipeline = pipeline.encode("utf-8")
@@ -238,6 +238,57 @@ class Pipeline(object):
             disabled = ",".join([disable.strip(ENTRY_POINT_NAME + ".") for disable in disabled])
         
         return self._client.create_run(fs_name, username, run_name, desc, run_yaml_raw=pipeline, disabled=disabled)
+
+    def create(
+            self,
+            config: str=None,
+            username: str=None,
+            desc: str=None,
+            ):
+        """ create a pipelint run
+
+        Args:
+            username (str): create the specified run by username, only useful for root.
+            config (str): the path of config file
+            desc (str): description of run 
+            
+        Raises:
+            PaddleFlowSDKException: if cannot create run  
+        """
+        # 1. compile
+        pipeline = yaml.dump(self.compile())
+        pipeline = pipeline.encode("utf-8")
+
+        self._init_client(config)
+        return self._client.create_pipeline(username=username, desc=desc, yaml_raw=pipeline)
+
+    def update(
+            self,
+            pipeline_id: str,
+            config: str=None,
+            username: str=None,
+            desc: str=None,
+            ):
+        """ create a pipelint run
+
+        Args:
+            pipeline_id (str): the id of pipeline
+            username (str): create the specified run by username, only useful for root.
+            config (str): the path of config file
+            desc (str): description of run 
+
+        Raises:
+            PaddleFlowSDKException: if cannot create run  
+        """
+        # TODO: add validate logical
+
+        # 1. compile
+        pipeline = yaml.dump(self.compile())
+        pipeline = pipeline.encode("utf-8")
+
+        self._init_client(config)
+        
+        return self._client.update_pipeline(pipeline_id=pipeline_id, desc=desc, yaml_raw=pipeline, username=username)
 
     def compile(
             self,
@@ -306,7 +357,7 @@ class Pipeline(object):
             PaddleFlowSDKException: if name is illegal 
         """
         if not validate_string_by_regex(name, PIPELINE_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"error occured in Pipeline[{name}]: " + \
                     f"the name of Pipeline[{name}] is is illegal" + \
                     f"the regex used for validation is {PIPELINE_NAME_REGEX}")
 
