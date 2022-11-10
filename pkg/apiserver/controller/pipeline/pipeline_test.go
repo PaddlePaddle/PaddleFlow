@@ -131,13 +131,26 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].ID, "1")
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].YamlPath, "./run.yaml")
 
+	// test error yaml path
+	patch3 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile("./not_exist.yaml")
+	})
+	defer patch3.Reset()
+	ctx = &logger.RequestContext{UserName: "another_user"}
+	createPplReq = CreatePipelineRequest{
+		YamlPath: "./not_exist.yaml",
+		FsName:   "ppl",
+	}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "readFileFromFs")
+
 	// test create pipelien from pipeline YamlRaw
 	ctx = &logger.RequestContext{UserName: "another_user"}
 
-	patch3 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+	patch4 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
 		return os.ReadFile("../../../../example/pipeline/base_pipeline/run.yaml")
 	})
-	defer patch3.Reset()
+	defer patch4.Reset()
 	pipelineYaml, err := handler.ReadFileFromFs("abc", "rum.yaml", &log.Entry{})
 	assert.Nil(t, err)
 
@@ -149,7 +162,20 @@ func TestCreatePipeline(t *testing.T) {
 		YamlPath: "../../../../example/pipeline/base_pipeline/run.yaml",
 	}
 	resp, err = CreatePipeline(ctx, createPplReq)
-	assert.Contains(t, err.Error(), "you can only specifie one of")
+	assert.Contains(t, err.Error(), "you can only specify one of")
+
+	// test create pipeline with YamlPath and FSName at the same time
+	createPplReq = CreatePipelineRequest{
+		YamlRaw: yamlRaw,
+		FsName:  "abc",
+	}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "you cannot specify FsName while you specified YamlRaw")
+
+	// yamlRaw in error format
+	createPplReq = CreatePipelineRequest{YamlRaw: "adeefe"}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "Decode raw yaml")
 
 	createPplReq = CreatePipelineRequest{YamlRaw: yamlRaw}
 	resp, err = CreatePipeline(ctx, createPplReq)
@@ -163,6 +189,7 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].ID, "1")
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].YamlPath, "")
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].PipelineYaml, string(pipelineYaml))
+
 }
 
 // 测试更新pipeline

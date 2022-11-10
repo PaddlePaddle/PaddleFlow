@@ -119,7 +119,7 @@ func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion 
 func getPipelineYamlFromYamlRaw(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
 	pipelineYaml, err := base64.StdEncoding.DecodeString(request.YamlRaw)
 	if err != nil {
-		err = fmt.Errorf("Decode raw yaml is [%s] failed. err:%v", request.YamlRaw, err)
+		err = fmt.Errorf("Decode raw yaml[%s] failed. err:%v", request.YamlRaw, err)
 		return nil, err
 	}
 
