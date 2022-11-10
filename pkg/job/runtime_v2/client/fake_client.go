@@ -20,12 +20,14 @@ import (
 	"net/http/httptest"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
 	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -47,6 +49,8 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 			ID:   "cluster-123",
 			Type: "Kubernetes",
 		},
-		Config: &rest.Config{Host: server.URL},
+		Config:           &rest.Config{Host: server.URL},
+		JobInformerMap:   make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
+		QueueInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
 	}
 }
