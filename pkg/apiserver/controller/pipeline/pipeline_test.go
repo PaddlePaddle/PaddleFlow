@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -86,7 +87,7 @@ func TestCreatePipeline(t *testing.T) {
 	createPplReq.FsName = ""
 	_, err = CreatePipeline(ctx, createPplReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create pipeline failed. fsname shall not be empty"), err)
+	assert.Contains(t, err.Error(), "create pipeline failed. err:cannot get pipeline: fsname shall not be empty")
 
 	// create 成功
 	createPplReq.FsName = MockFsName
@@ -129,6 +130,66 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].PipelineID, "ppl-000002")
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].ID, "1")
 	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].YamlPath, "./run.yaml")
+
+	// test error yaml path
+	patch3 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile("./not_exist.yaml")
+	})
+	defer patch3.Reset()
+	ctx = &logger.RequestContext{UserName: "another_user"}
+	createPplReq = CreatePipelineRequest{
+		YamlPath: "./not_exist.yaml",
+		FsName:   "ppl",
+	}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "readFileFromFs")
+
+	// test create pipelien from pipeline YamlRaw
+	ctx = &logger.RequestContext{UserName: "another_user"}
+
+	patch4 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile("../../../../example/pipeline/base_pipeline/run.yaml")
+	})
+	defer patch4.Reset()
+	pipelineYaml, err := handler.ReadFileFromFs("abc", "rum.yaml", &log.Entry{})
+	assert.Nil(t, err)
+
+	yamlRaw := base64.StdEncoding.EncodeToString(pipelineYaml)
+
+	// test create pipeline with YamlPath and YamlRaw at the same time
+	createPplReq = CreatePipelineRequest{
+		YamlRaw:  yamlRaw,
+		YamlPath: "../../../../example/pipeline/base_pipeline/run.yaml",
+	}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "you can only specify one of")
+
+	// test create pipeline with YamlPath and FSName at the same time
+	createPplReq = CreatePipelineRequest{
+		YamlRaw: yamlRaw,
+		FsName:  "abc",
+	}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "you cannot specify FsName while you specified YamlRaw")
+
+	// yamlRaw in error format
+	createPplReq = CreatePipelineRequest{YamlRaw: "adeefe"}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Contains(t, err.Error(), "Decode raw yaml")
+
+	createPplReq = CreatePipelineRequest{YamlRaw: yamlRaw}
+	resp, err = CreatePipeline(ctx, createPplReq)
+	assert.Nil(t, err)
+
+	getPplResp, err = GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
+	assert.Nil(t, err)
+	assert.Equal(t, getPplResp.Pipeline.Name, "base_pipeline")
+	assert.Equal(t, len(getPplResp.PipelineVersions.PipelineVersionList), 1)
+	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].PipelineID, "ppl-000003")
+	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].ID, "1")
+	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].YamlPath, "")
+	assert.Equal(t, getPplResp.PipelineVersions.PipelineVersionList[0].PipelineYaml, string(pipelineYaml))
+
 }
 
 // 测试更新pipeline
@@ -197,7 +258,7 @@ func TestUpdatePipeline(t *testing.T) {
 	updatePplReq.FsName = ""
 	_, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("update pipeline failed. fsname shall not be empty"), err)
+	assert.Contains(t, err.Error(), "update pipeline failed. err:cannot get pipeline: fsname shall not be empty")
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
 	updatePplReq.FsName = MockFsName
