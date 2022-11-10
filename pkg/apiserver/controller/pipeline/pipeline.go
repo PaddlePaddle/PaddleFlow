@@ -37,7 +37,7 @@ import (
 
 type CreatePipelineRequest struct {
 	FsName   string `json:"fsName"`
-	YamlPath string `json:"yamlPath"` // optional, one of 2 sources of run
+	YamlPath string `json:"yamlPath"` // optional,  use "./run.yaml" if not specified, one of 2 sources of run
 	YamlRaw  string `json:"yamlRaw"`  // optional, one of 2 sources of run
 	UserName string `json:"username"` // optional, only for root user
 	Desc     string `json:"desc"`     // optional
@@ -153,12 +153,16 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 }
 
 func getPipelineYaml(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
-	if request.YamlPath != "" && request.YamlRaw != "" {
-		err := fmt.Errorf("you can only specifie one of YamlPath[%s] and YamlRaw[%s]", request.YamlPath, request.YamlRaw)
-		return nil, err
-	}
-
 	if request.YamlRaw != "" {
+		if request.YamlPath != "" {
+			err := fmt.Errorf("you can only specify one of YamlPath[%s] and YamlRaw[%s]", request.YamlPath, request.YamlRaw)
+			return nil, err
+		}
+
+		if request.FsName != "" {
+			err := fmt.Errorf("you cannot specify FsName while you specified YamlRaw")
+			return nil, err
+		}
 		return getPipelineYamlFromYamlRaw(ctx, request)
 	}
 
@@ -217,6 +221,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 
+	// 这里主要是为了获取fsID，写入数据库中
 	var fsID string
 	if request.FsName != "" {
 		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
@@ -303,6 +308,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	ppl.Desc = request.Desc
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 
+	// 这里主要是为了获取fsID，写入数据库中
 	var fsID string
 	if request.FsName != "" {
 		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
