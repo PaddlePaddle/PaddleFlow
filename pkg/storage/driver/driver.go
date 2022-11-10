@@ -67,6 +67,39 @@ func InitStorage(conf *config.StorageConfig, logLevel string) error {
 	return nil
 }
 
+func InitCache(logLevel string) error {
+	gormConf := getGormConf(logLevel)
+	gormConf.Logger.LogMode(logger.Info)
+
+	db, err := gorm.Open(sqlite.Open("file::memory:"), gormConf)
+	if err != nil {
+		log.Fatalf("init sqlite open db error: %v", err)
+		return err
+	}
+	err = db.AutoMigrate(
+		&model.NodeInfo{},
+		&model.PodInfo{},
+		&model.ResourceInfo{},
+		&model.LabelInfo{},
+	)
+	if err != nil {
+		log.Fatalf("init sqlite create database tables failed, error: %v", err)
+		return err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Get DB.DB error: %s", err.Error())
+		return err
+	}
+	// Set max open connections to 1, because of no such table error.
+	// TODO: evaluate the write performance when max open connections is 1
+	sqlDB.SetMaxOpenConns(1)
+	log.Debugf("InitCache with conf: %v", gormConf)
+	storage.ClusterCache = db
+	storage.InitClusterCaches(storage.ClusterCache)
+	return nil
+}
+
 func getGormConf(logLevel string) *gorm.Config {
 	gormConf := &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
