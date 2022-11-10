@@ -141,15 +141,15 @@ class TestPipeline(object):
         mocker.patch("paddleflow.Client.create_pipeline", return_value=None)
         mocker.patch("paddleflow.Client.pre_check", return_value=None)
         
-        pipeline.create(pf_config, "xiaodu", "fs-test", "just for test")
+        pipeline.create(pf_config, "xiaodu", "just for test")
 
         pipeline._client = None
         mocker.patch("paddleflow.Client.login", return_value=(False, ""))
         with pytest.raises(PaddleFlowSDKException):
-            pipeline.run(pf_config, "xiaodu", "fs-test", "just for test")
+            pipeline.run(pf_config, "xiaodu", "just for test")
 
         with pytest.raises(PaddleFlowSDKException):
-            pipeline.run(pf_config, "xiaodu", "fs-test", "just for test")
+            pipeline.run(pf_config, "xiaodu", "just for test")
         
     
     @pytest.mark.update
@@ -163,7 +163,7 @@ class TestPipeline(object):
         mocker.patch("paddleflow.Client.update_pipeline", return_value=None)
         mocker.patch("paddleflow.Client.pre_check", return_value=None)
         
-        pipeline.update("0123", pf_config, "xiaodu", "fs-test", "just for test")
+        pipeline.update("0123", pf_config, "xiaodu", "just for test")
 
     @pytest.mark.post
     def test_post_process(self):

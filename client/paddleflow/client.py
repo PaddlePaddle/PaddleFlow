@@ -535,7 +535,7 @@ class Client(object):
         self.pre_check()
         return ClusterServiceApi.list_cluster_resource(self.paddleflow_server, clustername, self.header)
 
-    def create_pipeline(self, fs_name, yaml_path=None, desc=None, username=None, yaml_raw=None):
+    def create_pipeline(self, fs_name=None, yaml_path=None, desc=None, username=None, yaml_raw=None):
         """
         create pipeline
         """
@@ -569,7 +569,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPipelineID", "pipelineid should not be none or empty")
         return PipelineServiceApi.delete_pipeline(self.paddleflow_server, pipeline_id, self.header)
 
-    def update_pipeline(self, pipeline_id, fs_name, yaml_path=None, username=None, desc=None, yaml_raw=None):
+    def update_pipeline(self, pipeline_id, fs_name=None, yaml_path=None, username=None, desc=None, yaml_raw=None):
         """
             update pipeline
         """

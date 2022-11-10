@@ -243,7 +243,6 @@ class Pipeline(object):
             self,
             config: str=None,
             username: str=None,
-            fs_name: str=None,
             desc: str=None,
             ):
         """ create a pipelint run
@@ -251,7 +250,6 @@ class Pipeline(object):
         Args:
             username (str): create the specified run by username, only useful for root.
             config (str): the path of config file
-            fs_name (str): the fsname of paddleflow
             desc (str): description of run 
             
         Raises:
@@ -263,14 +261,13 @@ class Pipeline(object):
 
         self._init_client(config)
         
-        return self._client.create_pipeline(fs_name, username=username, desc=desc, yaml_raw=pipeline)
+        return self._client.create_pipeline(username=username, desc=desc, yaml_raw=pipeline)
     
     def update(
             self,
             pipeline_id: str,
             config: str=None,
             username: str=None,
-            fs_name: str=None,
             desc: str=None,
             ):
         """ create a pipelint run
@@ -279,7 +276,6 @@ class Pipeline(object):
             pipeline_id (str): the id of pipeline
             username (str): create the specified run by username, only useful for root.
             config (str): the path of config file
-            fs_name (str): the fsname of paddleflow
             desc (str): description of run 
 
         Raises:
@@ -293,7 +289,7 @@ class Pipeline(object):
 
         self._init_client(config)
         
-        return self._client.update_pipeline(pipeline_id, fs_name=fs_name, desc=desc, yaml_raw=pipeline, username=username)
+        return self._client.update_pipeline(desc=desc, yaml_raw=pipeline, username=username)
 
     def compile(
             self,

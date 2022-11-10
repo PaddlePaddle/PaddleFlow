@@ -32,7 +32,7 @@ class PipelineServiceApi(object):
         """
 
     @classmethod
-    def create_pipeline(self, host, fs_name, yaml_path=None, desc=None, username=None, header=None, yaml_raw=None):
+    def create_pipeline(self, host, fs_name=None, yaml_path=None, desc=None, username=None, header=None, yaml_raw=None):
         """
             create pipeline
             this method returns a pipeline brief info and a pipeline version brief list info
@@ -40,7 +40,9 @@ class PipelineServiceApi(object):
         if not header:
             raise PaddleFlowSDKException("InvalidRequest",
                                          "paddleflow should login first")
-        body = {"fsname": fs_name}
+        body = {}
+        if fs_name:
+            body["fsname"] = fs_name
         if yaml_path:
             body['yamlPath'] = yaml_path
         if desc:
@@ -167,16 +169,17 @@ class PipelineServiceApi(object):
             return True, None
 
     @classmethod
-    def update_pipeline(self, host, header, pipeline_id, fs_name, yaml_path, username=None, desc=None, yaml_raw=None):
+    def update_pipeline(self, host, header, pipeline_id, fs_name=None, yaml_path=None, username=None, desc=None, yaml_raw=None):
         """update pipeline (create pipeline version)
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest",
                                          "paddleflow should login first")
-        body = {
-            'fsName': fs_name,
-            'yamlPath': yaml_path,
-        }
+        body = {}
+        if fs_name is not None:
+            body['fsName'] = fs_name
+        if yaml_path is not None:
+            body['yamlPath'] = yaml_path
         if username:
             body['username'] = username
         if desc:
