@@ -246,6 +246,7 @@ type ResourceCacheInterface interface {
 	// TODO: update
 	AddResource(rInfo *model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
+	ListResouces([]string, string, string, int, int) ([]model.ResourceInfoResponse, error)
 }
 
 type LabelCacheInterface interface {

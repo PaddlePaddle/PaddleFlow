@@ -160,6 +160,26 @@ func InitMockDB() {
 	storage.InitStores(db)
 }
 
+func InitMockCache() {
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("InitMockDB open db error: %v", err)
+	}
+
+	if err = db.AutoMigrate(
+		&model.NodeInfo{},
+		&model.PodInfo{},
+		&model.ResourceInfo{},
+		&model.LabelInfo{},
+	); err != nil {
+		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+	}
+	storage.ClusterCache = db
+	storage.InitClusterCaches(db)
+}
+
 func initSQLiteDB(gormConf *gorm.Config) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), gormConf)
 	if err != nil {

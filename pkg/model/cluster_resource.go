@@ -34,6 +34,7 @@ type NodeInfo struct {
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
+	ClusterName  string            `gorm:"column:cluster_name" json:"-"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
 	Capacity     interface{}       `gorm:"-" json:"nodeCapacity"`
@@ -83,13 +84,24 @@ func (PodInfo) TableName() string {
 }
 
 type ResourceInfo struct {
-	Pk       int64  `gorm:"primaryKey;autoIncrement" json:"-"`
-	PodID    string `gorm:"column:pod_id;index:idx_pod_id" json:"podID"`
-	NodeID   string `gorm:"column:node_id;index:idx_node_id" json:"nodeID"`
-	NodeName string `gorm:"column:node_name" json:"nodeName"`
-	Name     string `gorm:"column:resource_name;index:idx_resource_name" json:"resourceName"`
-	Value    int64  `gorm:"column:resource_value" json:"resourceValue"`
-	IsShared int    `gorm:"column:is_shared" json:"-"`
+	Pk          int64  `gorm:"primaryKey;autoIncrement" json:"-"`
+	PodID       string `gorm:"column:pod_id;index:idx_pod_id" json:"podID"`
+	NodeID      string `gorm:"column:node_id;index:idx_node_id" json:"nodeID"`
+	NodeName    string `gorm:"column:node_name" json:"nodeName"`
+	Name        string `gorm:"column:resource_name;index:idx_resource_name;default:cpu;comment:资源名称" json:"resourceName"`
+	Value       int64  `gorm:"column:resource_value;default:0;comment:resource value" json:"resourceValue"`
+	IsShared    int    `gorm:"column:is_shared" json:"-"`
+	ClusterName string `gorm:"column:cluster_name;->" json:"clusterName"`
+}
+
+type ResourceInfoResponse struct {
+	//NodeID      string `gorm:"column:node_id;->;index:idx_node_id" json:"nodeID"`
+	NodeName     string `gorm:"column:node_name;->" json:"nodeName"`
+	ResourceName string `gorm:"column:resource_name;->;index:idx_resource_name;default:cpu;comment:资源名称" json:"resourceName"`
+	Value        int64  `gorm:"column:resource_value;->;default:0;comment:resource value" json:"resourceValue"`
+	CapacityJSON string `gorm:"column:capacity" json:"-"`
+	IsShared     int    `gorm:"column:is_shared;->" json:"-"`
+	ClusterName  string `gorm:"column:cluster_name;->" json:"clusterName"`
 }
 
 func (ResourceInfo) TableName() string {

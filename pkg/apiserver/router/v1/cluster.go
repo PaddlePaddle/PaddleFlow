@@ -47,6 +47,7 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Delete("/cluster/{clusterName}", cr.deleteCluster)
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
+	r.Post("/cluster/resource", cr.listClusterQuotaV2)
 
 	r.Post("/cluster/{clusterName}/k8s/object", func(w http.ResponseWriter, r *http.Request) {
 		ctx := common.GetRequestContext(r)
@@ -233,6 +234,50 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 		return
 	}
 	common.Render(w, http.StatusOK, quotaList)
+}
+
+// listClusterQuotaV2
+// @Summary 获取集群资源列表
+// @Description 获取集群资源列表,可按节点/pod标签进行过滤统计
+// @Id listClusterQuotaV2
+// @tags Resource
+// @Accept  json
+// @Produce json
+// @Param listClusterByLabelRequest body ListClusterByLabelRequest true  "获取集群资源列表"
+// @Request  ListClusterByLabelRequest
+// @Success 200 {object} []ClusterQuotaReponse "获取套餐列表的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /cluster/resource [POST]
+func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	var listClusterByLabelRequest cluster.ListClusterByLabelRequest
+	if err := common.BindJSON(r, &listClusterByLabelRequest); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	log.Debugf("list cluster by label request:%+v", listClusterByLabelRequest)
+
+	if err := validataListClusterRequest(listClusterByLabelRequest); err != nil {
+		ctx.ErrorCode = common.InvalidHTTPRequest
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+	}
+
+	quotaList, err := cluster.ListClusterQuotaByLabels(&ctx, listClusterByLabelRequest)
+	if err != nil {
+		ctx.Logging().Errorf("list cluster quota failed, error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, quotaList)
+}
+
+func validataListClusterRequest(request cluster.ListClusterByLabelRequest) error {
+	// todo to be completed
+	return nil
 }
 
 func (cr *ClusterRouter) createKubernetesObject(w http.ResponseWriter, r *http.Request) {
