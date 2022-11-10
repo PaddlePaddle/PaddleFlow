@@ -260,9 +260,8 @@ class Pipeline(object):
         pipeline = pipeline.encode("utf-8")
 
         self._init_client(config)
-        
         return self._client.create_pipeline(username=username, desc=desc, yaml_raw=pipeline)
-    
+
     def update(
             self,
             pipeline_id: str,

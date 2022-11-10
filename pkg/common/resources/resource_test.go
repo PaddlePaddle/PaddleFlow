@@ -230,3 +230,45 @@ func BenchmarkResource_UnmarshalJSON(b *testing.B) {
 		})
 	}
 }
+
+func TestResource_Op(t *testing.T) {
+	r1, err := NewResourceFromMap(map[string]string{
+		"cpu":    "1",
+		"memory": "2Gi",
+	})
+	assert.Equal(t, nil, err)
+
+	r2, err := NewResourceFromMap(map[string]string{
+		"cpu":    "4",
+		"memory": "8Gi",
+	})
+	assert.Equal(t, nil, err)
+
+	// test add
+	r3 := r1.Clone()
+	r3.Add(r2)
+	t.Logf("r1 add r2 is: %v", r3)
+
+	// test sub
+	r4 := r2.Clone()
+	r4.Sub(r1)
+	t.Logf("r2 sub r1 is: %v", r4)
+
+	// test multi
+	r5 := r1.Clone()
+	r5.Multi(2)
+	t.Logf("r1 multi 2 is: %v", r5)
+
+	// test zero
+	r6, err := NewResourceFromMap(map[string]string{
+		"cpu":    "0",
+		"memory": "0",
+	})
+	assert.Equal(t, nil, err)
+	assert.Equal(t, true, r6.IsZero())
+	assert.Equal(t, false, r5.IsZero())
+
+	// test negative
+	assert.Equal(t, false, r5.IsNegative())
+
+}
