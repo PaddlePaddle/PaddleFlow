@@ -29,11 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -53,27 +48,11 @@ var (
 )
 
 func newFakeQueueSyncController() *QueueSync {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
 
 	ctrl := &QueueSync{}
-	opt := &client.KubeRuntimeClient{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &pfschema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-			Type: "Kubernetes",
-		},
-		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-		Config:           &restclient.Config{Host: server.URL},
-	}
+	opt := client.NewFakeKubeRuntimeClient(server)
 	err := ctrl.Initialize(opt)
 	if err != nil {
 		log.Errorf("initialize controller failed: %v", err)

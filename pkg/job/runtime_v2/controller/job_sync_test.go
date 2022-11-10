@@ -29,11 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -65,26 +60,11 @@ func NewUnstructured(gvk k8sschema.GroupVersionKind, namespace, name string) *un
 }
 
 func newFakeJobSyncController() *JobSync {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
 
 	ctrl := &JobSync{}
-	opt := &client.KubeRuntimeClient{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-			Type: "Kubernetes",
-		},
-		JobInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
-		Config:         &restclient.Config{Host: server.URL},
-	}
+	opt := client.NewFakeKubeRuntimeClient(server)
 	err := ctrl.Initialize(opt)
 	if err != nil {
 		log.Errorf("initialize controller failed: %v", err)

@@ -120,7 +120,6 @@ func TestNodeTaskListener(t *testing.T) {
 	var podCount = 20000
 	var namespaceList = []string{"default", "test1", "test2", "test3", "test4"}
 	var nodeNameList = []string{"instance-0", "instance-1", "instance-2", "instance-3"}
-	var phaseList = []corev1.PodPhase{corev1.PodPending, corev1.PodRunning, corev1.PodSucceeded, corev1.PodFailed, corev1.PodUnknown}
 	var reqList = []corev1.ResourceList{
 		kubeutil.BuildResourceList("0", "0Gi"),
 		kubeutil.BuildResourceList("1", "2Gi"),
@@ -128,7 +127,7 @@ func TestNodeTaskListener(t *testing.T) {
 		kubeutil.BuildResourceList("1", "5Gi"),
 		kubeutil.BuildResourceList("1", "8Gi"),
 	}
-	err := kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, phaseList, reqList)
+	err := kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
 	assert.Equal(t, nil, err)
 
 	process := func(q workqueue.RateLimitingInterface) bool {
@@ -175,20 +174,6 @@ func TestNodeListener(t *testing.T) {
 		kubeutil.BuildResourceList("64", "512Gi"),
 		kubeutil.BuildResourceList("96", "768Gi"),
 	}
-	var condList = []corev1.NodeCondition{
-		{
-			Message: "kubelet is posting ready status",
-			Reason:  "KubeletReady",
-			Status:  "True",
-			Type:    "Ready",
-		},
-		{
-			Message: "kubelet is posting not ready status",
-			Reason:  "KubeletNotReady",
-			Status:  "False",
-			Type:    "NotReady",
-		},
-	}
 	var labelList = []map[string]string{
 		{
 			pfschema.PFNodeLabels: "cpu-1",
@@ -217,7 +202,7 @@ func TestNodeListener(t *testing.T) {
 	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2k nodes
 	var nodeCount = 2000
-	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, condList, labelList)
+	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList)
 	assert.Equal(t, nil, err)
 
 	nodeQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

@@ -31,6 +31,24 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
+var (
+	PhaseList    = []v1.PodPhase{v1.PodPending, v1.PodRunning, v1.PodSucceeded, v1.PodFailed, v1.PodUnknown}
+	NodeCondList = []v1.NodeCondition{
+		{
+			Message: "kubelet is posting ready status",
+			Reason:  "KubeletReady",
+			Status:  "True",
+			Type:    "Ready",
+		},
+		{
+			Message: "kubelet is posting not ready status",
+			Reason:  "KubeletNotReady",
+			Status:  "False",
+			Type:    "NotReady",
+		},
+	}
+)
+
 func BuildResourceList(cpu string, memory string) v1.ResourceList {
 	return v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse(cpu),
