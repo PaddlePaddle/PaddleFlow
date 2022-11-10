@@ -19,19 +19,21 @@ package api
 import "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 
 type NodeSyncInfo struct {
-	Name     string
-	Status   string
-	Capacity interface{}
-	Labels   map[string]string
-	Action   schema.ActionType
+	Name       string
+	Status     string
+	Capacity   interface{}
+	Labels     map[string]string
+	Action     schema.ActionType
+	RetryTimes int
 }
 
 type NodeTaskSyncInfo struct {
-	ID        string
-	Name      string
-	NodeName  string
-	Status    string
-	Resources map[string]int64
-	Labels    map[string]string
-	Action    schema.ActionType
+	ID         string
+	Name       string
+	NodeName   string
+	Status     string
+	Resources  map[string]int64
+	Labels     map[string]string
+	Action     schema.ActionType
+	RetryTimes int
 }

@@ -261,8 +261,15 @@ func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
+	nodeResourceController := controller.NewNodeResourceSync()
+	err = nodeResourceController.Initialize(kr.kubeClient)
+	if err != nil {
+		log.Errorf("init node resource controller on %s failed, err: %v", kr.String(), err)
+		return
+	}
 	go jobController.Run(stopCh)
 	go queueController.Run(stopCh)
+	go nodeResourceController.Run(stopCh)
 }
 
 func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
@@ -515,7 +522,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -558,7 +565,7 @@ func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data [
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

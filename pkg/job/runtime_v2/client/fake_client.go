@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
@@ -45,8 +46,8 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
 		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
+			Name: uuid.GenerateID("default"),
+			ID:   uuid.GenerateID("cluster"),
 			Type: "Kubernetes",
 		},
 		Config:           &rest.Config{Host: server.URL},
