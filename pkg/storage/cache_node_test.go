@@ -54,10 +54,11 @@ func TestNodeCache(t *testing.T) {
 	initMockCache()
 	mockNodeID := "test-node-id"
 	err := NodeCache.AddNode(&model.NodeInfo{
-		ID:        mockNodeID,
-		Name:      "test-instance",
-		ClusterID: "test-cluster-ID",
-		Status:    "Ready",
+		ID:          mockNodeID,
+		Name:        "test-instance",
+		ClusterID:   "test-cluster-ID",
+		ClusterName: "test-cluster-ID",
+		Status:      "Ready",
 		Capacity: map[string]string{
 			"cpu":    "20",
 			"memory": "20Gi",

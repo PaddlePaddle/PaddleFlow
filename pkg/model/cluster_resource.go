@@ -34,6 +34,7 @@ type NodeInfo struct {
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
+	ClusterName  string            `gorm:"column:cluster_name" json:"-"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
 	Capacity     interface{}       `gorm:"-" json:"nodeCapacity"`
@@ -90,6 +91,15 @@ type ResourceInfo struct {
 	Name     string `gorm:"column:resource_name;index:idx_resource_name" json:"resourceName"`
 	Value    int64  `gorm:"column:resource_value" json:"resourceValue"`
 	IsShared int    `gorm:"column:is_shared" json:"-"`
+}
+
+type ResourceInfoResponse struct {
+	NodeName     string `gorm:"column:node_name" json:"nodeName"`
+	ResourceName string `gorm:"column:resource_name;index:idx_resource_name;default:cpu;comment:resource name" json:"resourceName"`
+	Value        int64  `gorm:"column:resource_value;default:0;comment:sum of resource value" json:"resourceValue"`
+	CapacityJSON string `gorm:"column:capacity" json:"-"`
+	IsShared     int    `gorm:"column:is_shared" json:"-"`
+	ClusterName  string `gorm:"column:cluster_name" json:"clusterName"`
 }
 
 func (ResourceInfo) TableName() string {
