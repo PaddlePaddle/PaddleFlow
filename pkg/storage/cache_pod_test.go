@@ -161,9 +161,7 @@ func TestResourceList(t *testing.T) {
 			t.Logf("no.%d name=%s args=[%#v], wantError=%v", index, tt.name, tt.args, tt.wantErr)
 			response, err := ResourceCache.ListResouces(tt.args.ClusterNameList,
 				tt.args.labels,
-				tt.args.labelType,
-				tt.args.pageNo,
-				tt.args.pageSize)
+				tt.args.labelType)
 			t.Logf("case[%s] list cluster quota by labels, response=%+v", tt.name, response)
 			if tt.wantErr {
 				assert.Error(t, err)

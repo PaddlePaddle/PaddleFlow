@@ -177,7 +177,7 @@ func (nc *PodResourceCache) UpdateResource(podID string, rName string, podInfo *
 	return nil
 }
 
-func (nc *PodResourceCache) ListResouces(clusterNameList []string, labels, labelType string, pageNo, pageSize int) ([]model.ResourceInfoResponse, error) {
+func (nc *PodResourceCache) ListResouces(clusterNameList []string, labels, labelType string) ([]model.ResourceInfoResponse, error) {
 	log.Debugf("begin to list cluster resource.")
 
 	var result []model.ResourceInfoResponse

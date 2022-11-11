@@ -261,7 +261,7 @@ func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Reque
 	}
 	log.Debugf("list cluster by label request:%+v", listClusterByLabelRequest)
 
-	if err := validataListClusterRequest(listClusterByLabelRequest); err != nil {
+	if err := validataListClusterRequest(&listClusterByLabelRequest); err != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
 		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -276,7 +276,7 @@ func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Reque
 	common.Render(w, http.StatusOK, quotaList)
 }
 
-func validataListClusterRequest(request cluster.ListClusterResourcesRequest) error {
+func validataListClusterRequest(request *cluster.ListClusterResourcesRequest) error {
 	if request.Labels != "" && request.LabelType == "" {
 		err := fmt.Errorf("labelType is nill while labels specified")
 		log.Errorln(err)
