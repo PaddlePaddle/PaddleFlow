@@ -56,7 +56,7 @@ var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse",
+	FilePrefix:      "./pfs-fuse" + time.Now().Format("2006-01-02 15:04:05"),
 	Level:           "INFO",
 	MaxKeepDays:     90,
 	MaxFileNum:      100,

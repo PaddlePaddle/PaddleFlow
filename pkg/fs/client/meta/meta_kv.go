@@ -1518,8 +1518,9 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			m.parseInode(buf, updateInodeItem)
 			if !m.inodeItemExpired(*updateInodeItem) {
 				updateInodeItem.fileHandles -= 1
-				if updateInodeItem.fileHandles == -1 {
-					panic(updateInodeItem.fileHandles)
+				if updateInodeItem.fileHandles < 0 {
+					log.Errorf("close file handles not correct %v", updateInodeItem.fileHandles)
+					return nil
 				}
 				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
