@@ -1519,7 +1519,7 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			if !m.inodeItemExpired(*updateInodeItem) {
 				updateInodeItem.fileHandles -= 1
 				if updateInodeItem.fileHandles < 0 {
-					log.Errorf("close file handles not correct %v", updateInodeItem.fileHandles)
+					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v", inode, updateInodeItem.fileHandles, updateInodeItem)
 					return nil
 				}
 				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
