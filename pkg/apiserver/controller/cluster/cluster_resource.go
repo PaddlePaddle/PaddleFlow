@@ -35,11 +35,6 @@ type ClusterQuotaResponse struct {
 	ClusterName string                            `json:"clusterName"`
 }
 
-type ResourceInfo struct {
-	CPU    string `json:"cpu"`
-	Memory string `json:"memory"`
-}
-
 // ListClusterQuotaByLabels return the node resources in clusters, lists can be filtered by labels in pods or nodes
 func ListClusterQuotaByLabels(ctx *logger.RequestContext, req ListClusterResourcesRequest) (ListClusterByLabelResponse, error) {
 	log.Infof("clusterName list req: %v", req)
