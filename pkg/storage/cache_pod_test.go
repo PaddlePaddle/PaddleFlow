@@ -142,7 +142,7 @@ func TestResourceList(t *testing.T) {
 				pageNo:          1,
 				pageSize:        1,
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "filter by pod label",
