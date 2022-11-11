@@ -18,14 +18,10 @@ import (
 
 type ListClusterResourcesRequest struct {
 	ClusterNameList []string `json:"clusterNames"`
-	// 过滤标签，指定节点或Pod标签过滤。默认返回全部
-	Labels string `json:"labels"`
-	// 过滤标签的类型，取值是枚举类型，node、pod
-	LabelType string `json:"labelType"`
-	// 分页参数，页编号，默认1
-	PageNo int `json:"pageNo"`
-	// 分页参数，页大小，默认500
-	PageSize int `json:"pageSize"`
+	Labels          string   `json:"labels"`
+	LabelType       string   `json:"labelType"`
+	PageNo          int      `json:"pageNo"`
+	PageSize        int      `json:"pageSize"`
 }
 
 type ListClusterByLabelResponse struct {
@@ -44,8 +40,7 @@ type ResourceInfo struct {
 	Memory string `json:"memory"`
 }
 
-// 根据clusterNameList列出其对应的cluster quota信息
-// 如果clusterNameList为空，则返回所有集群的cluster quota信息
+// ListClusterQuotaByLabels return the node resources in clusters, lists can be filtered by labels in pods or nodes
 func ListClusterQuotaByLabels(ctx *logger.RequestContext, req ListClusterResourcesRequest) (ListClusterByLabelResponse, error) {
 	log.Infof("clusterName list req: %v", req)
 	var response ListClusterByLabelResponse

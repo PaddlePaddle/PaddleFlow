@@ -246,7 +246,7 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Param listClusterByLabelRequest body ListClusterResourcesRequest true  "获取集群资源列表"
 // @Request  ListClusterResourcesRequest
-// @Success 200 {object} []ClusterQuotaReponse "获取套餐列表的响应"
+// @Success 200 {object} []ClusterQuotaReponse "获取可筛选标签查询的集群资源的响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /cluster/resource [POST]
 func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Request) {
