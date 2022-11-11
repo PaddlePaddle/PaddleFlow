@@ -17,19 +17,16 @@ limitations under the License.
 package cluster
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -68,34 +65,6 @@ type ListClusterRequest struct {
 	MaxKeys         int      `json:"maxKeys"`
 	ClusterNameList []string `json:"clusterNameList"`
 	ClusterStatus   string   `json:"clusterStatus"`
-}
-
-type ListClusterByLabelRequest struct {
-	ClusterNameList []string `json:"clusterNames"`
-	// 过滤标签，指定节点或Pod标签过滤。默认返回全部
-	labels string `json:"labels"`
-	// 过滤标签的类型，取值是枚举类型，node、pod
-	labelType string `json:"labelType"`
-	// 分页参数，页编号，默认1
-	pageNo int `json:"pageNo"`
-	// 分页参数，页大小，默认500
-	pageSize int `json:"pageSize"`
-}
-
-type ListClusterByLabelResponse struct {
-	data []ClusterQuotaResponse `json:"data"`
-}
-
-type ClusterQuotaResponse struct {
-	Allocatable map[string]map[string]interface{} `json:"allocatable"`
-	Capacity    map[string]map[string]interface{} `json:"capacity"`
-	IsIsolation int                               `json:"isIsolation"`
-	ClusterName string                            `json:"clusterName"`
-}
-
-type ResourceInfo struct {
-	cpu    string `json:"cpu"`
-	memory string `json:"memory"`
 }
 
 type ListClusterResponse struct {
@@ -546,92 +515,4 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 		return response, fmt.Errorf("%s", strings.Join(failedClusterErrorMsgList, "\n"))
 	}
 	return response, nil
-}
-
-// 根据clusterNameList列出其对应的cluster quota信息
-// 如果clusterNameList为空，则返回所有集群的cluster quota信息
-func ListClusterQuotaByLabels(ctx *logger.RequestContext, req ListClusterByLabelRequest) (ListClusterByLabelResponse, error) {
-	log.Infof("clusterName list req: %v", req)
-	var response ListClusterByLabelResponse
-	var dataList []ClusterQuotaResponse
-
-	if !common.IsRootUser(ctx.UserName) {
-		ctx.ErrorCode = common.OnlyRootAllowed
-		ctx.Logging().Errorln("get cluster quota failed. error: admin is needed.")
-		return response, errors.New("get cluster failed")
-	}
-
-	var err error
-	var result []model.ResourceInfoResponse
-	if result, err = storage.ResourceCache.ListResouces(req.ClusterNameList, req.labels, req.labelType, req.pageSize, req.pageNo); err != nil {
-		err = fmt.Errorf("list resources from cache failed, err: %v", err.Error())
-		log.Errorln(err)
-		return response, err
-	}
-	clusterMap := map[string]ClusterQuotaResponse{}
-
-	log.Infof("result list: %v", result)
-	for _, resInfo := range result {
-		cName := resInfo.ClusterName
-		if _, exist := clusterMap[cName]; !exist {
-			clusterMap[cName] = ClusterQuotaResponse{
-				ClusterName: cName,
-				Allocatable: make(map[string]map[string]interface{}),
-				Capacity:    make(map[string]map[string]interface{}),
-			}
-		}
-		cluster := clusterMap[cName]
-
-		// todo  capacity结构未最终确定
-		if _, exist := cluster.Capacity[resInfo.NodeName]; !exist {
-			cluster.Capacity[resInfo.NodeName] = make(map[string]interface{})
-		}
-		nodeCapacityRes := cluster.Capacity[resInfo.NodeName]
-		var capacity interface{}
-		err = json.Unmarshal([]byte(resInfo.CapacityJSON), &capacity)
-		if err != nil {
-			log.Errorf("list cluster resources by label failed, unmarshal failed, err: %v", err)
-			return response, err
-		}
-		nodeCapacityRes[resInfo.ResourceName] = capacity
-		// todo allocatable 需要用capacity去做减法, 由于结构未最终确定,暂时展示为已使用资源量
-		// todo 单位换算,加上m或者kb
-		if _, exist := cluster.Allocatable[resInfo.NodeName]; !exist {
-			cluster.Allocatable[resInfo.NodeName] = make(map[string]interface{})
-		}
-		nodeAllocatableRes := cluster.Allocatable[resInfo.NodeName]
-		nodeAllocatableRes[resInfo.ResourceName] = resInfo.Value
-	}
-	for _, v := range clusterMap {
-		dataList = append(dataList, v)
-	}
-
-	return ListClusterByLabelResponse{data: dataList}, nil
-}
-
-// InitDefaultCluster init default cluster for single cluster environment
-func InitDefaultCluster() error {
-	log.Info("starting init data for single cluster: initDefaultCluster")
-	if clusterInfo, err := storage.Cluster.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
-		return err
-	} else if err == nil {
-		log.Infof("default cluster[%+v] has been created", clusterInfo)
-		return nil
-	}
-	// create default cluster
-	clusterInfo := &model.ClusterInfo{
-		Name:        config.DefaultClusterName,
-		Description: "default cluster",
-		Endpoint:    "127.0.0.1",
-		Source:      "",
-		ClusterType: schema.KubernetesType,
-		Version:     "1.16+",
-		Status:      model.ClusterStatusOnLine,
-	}
-	if err := storage.Cluster.CreateCluster(clusterInfo); err != nil {
-		log.Errorf("create default cluster failed, err: %v", err)
-		return err
-	}
-	return nil
 }

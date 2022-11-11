@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type ClusterRouter struct{}
@@ -276,7 +277,26 @@ func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Reque
 }
 
 func validataListClusterRequest(request cluster.ListClusterByLabelRequest) error {
-	// todo to be completed
+	if request.Labels != "" && request.LabelType == "" {
+		err := fmt.Errorf("labelType is nill while labels specified")
+		log.Errorln(err)
+		return err
+	}
+	if request.LabelType != "" {
+		if request.LabelType != model.ObjectTypeNode && request.LabelType != model.ObjectTypePod {
+			err := fmt.Errorf("illegal labelType %s", request.LabelType)
+			log.Errorln(err)
+			return err
+		}
+	}
+	if request.PageSize <= 0 {
+		log.Warningf("pageSize is %d, set to default value", request.PageSize)
+		request.PageSize = util.ListPageMax
+	}
+	if request.PageNo <= 0 {
+		log.Warningf("PageNo is %d, set to default value", request.PageSize)
+		request.PageNo = 1
+	}
 	return nil
 }
 

@@ -17,8 +17,6 @@ limitations under the License.
 package cluster
 
 import (
-	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -27,10 +25,8 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -127,139 +123,4 @@ func TestDeleteCluster(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	err := DeleteCluster(ctx, MockClusterName)
 	assert.Nil(t, err)
-}
-
-func TestListClusterQuotaByLabels(t *testing.T) {
-	driver.InitMockCache()
-	createMockClusters(t)
-	type args struct {
-		ctx *logger.RequestContext
-		req ListClusterByLabelRequest
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "nil request",
-			args: args{
-				ctx: &logger.RequestContext{
-					UserName: MockRootUser,
-				},
-				req: ListClusterByLabelRequest{},
-			},
-			wantErr: false,
-		},
-		{
-			name: "non root query",
-			args: args{
-				ctx: &logger.RequestContext{
-					UserName: MockNonRootUser,
-				},
-				req: ListClusterByLabelRequest{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "all clusters",
-			args: args{
-				ctx: &logger.RequestContext{
-					UserName: MockRootUser,
-				},
-				req: ListClusterByLabelRequest{
-					ClusterNameList: []string{MockClusterName},
-					labels:          "",
-					labelType:       "",
-					pageNo:          1,
-					pageSize:        2,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "filter by node label",
-			args: args{
-				ctx: &logger.RequestContext{
-					UserName: MockRootUser,
-				},
-				req: ListClusterByLabelRequest{
-					ClusterNameList: []string{MockClusterName},
-					labels:          "a=b",
-					labelType:       model.ObjectTypeNode,
-					pageNo:          1,
-					pageSize:        1,
-				},
-			},
-			wantErr: false,
-		},
-	}
-	for index, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("no.%d name=%s args=[%#v], wantError=%v", index, tt.name, tt.args, tt.wantErr)
-			response, err := ListClusterQuotaByLabels(tt.args.ctx, tt.args.req)
-			t.Logf("case[%s] list cluster quota by labels, response=%+v", tt.name, response)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				obj, err := json.Marshal(response)
-				assert.NoError(t, err)
-				fmt.Println(string(obj))
-				//t.Logf("response: %s", string(obj))
-			}
-		})
-	}
-}
-
-func createMockClusters(t *testing.T) {
-	mockNodeNum := 3
-	mockPodNum := 3
-	mockPodID := "mockPodID"
-	mockNodeID := "mockNodeID"
-	for i := 0; i < mockNodeNum; i++ {
-		randNodeID := uuid.GenerateIDWithLength("mock", 5)
-		randNodeName := fmt.Sprintf("%s-%s", mockNodeID, randNodeID)
-		nodeInfo := &model.NodeInfo{
-			ID:          randNodeID,
-			Name:        randNodeName,
-			ClusterID:   MockClusterName,
-			ClusterName: MockClusterName,
-			Status:      "Ready",
-			Capacity: map[string]string{
-				"cpu":    "20",
-				"memory": "20Gi",
-			},
-		}
-		if i%2 == 0 {
-			nodeInfo.Labels = map[string]string{
-				"a": "b",
-			}
-		}
-		err := storage.NodeCache.AddNode(nodeInfo)
-		assert.NoError(t, err)
-		for j := 0; j < mockPodNum; j++ {
-			randStr := uuid.GenerateIDWithLength("mock", 5)
-			podName := fmt.Sprintf("%s-%s", mockPodID, randStr)
-			resourceInfo := model.ResourceInfo{
-				PodID:    podName,
-				NodeID:   randNodeID,
-				NodeName: randNodeName,
-				Name:     "cpu",
-				Value:    1000,
-			}
-			err = storage.ResourceCache.AddResource(&resourceInfo)
-			assert.NoError(t, err)
-			resourceInfo2 := model.ResourceInfo{
-				PodID:    podName,
-				NodeID:   randNodeID,
-				NodeName: randNodeName,
-				Name:     "memory",
-				Value:    1024,
-			}
-			err = storage.ResourceCache.AddResource(&resourceInfo2)
-			assert.NoError(t, err)
-		}
-	}
-
 }
