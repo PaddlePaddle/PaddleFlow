@@ -16,7 +16,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-type ListClusterByLabelRequest struct {
+type ListClusterResourcesRequest struct {
 	ClusterNameList []string `json:"clusterNames"`
 	// 过滤标签，指定节点或Pod标签过滤。默认返回全部
 	Labels string `json:"labels"`
@@ -46,7 +46,7 @@ type ResourceInfo struct {
 
 // 根据clusterNameList列出其对应的cluster quota信息
 // 如果clusterNameList为空，则返回所有集群的cluster quota信息
-func ListClusterQuotaByLabels(ctx *logger.RequestContext, req ListClusterByLabelRequest) (ListClusterByLabelResponse, error) {
+func ListClusterQuotaByLabels(ctx *logger.RequestContext, req ListClusterResourcesRequest) (ListClusterByLabelResponse, error) {
 	log.Infof("clusterName list req: %v", req)
 	var response ListClusterByLabelResponse
 	var dataList []ClusterQuotaResponse

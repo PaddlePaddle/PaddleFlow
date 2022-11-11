@@ -19,7 +19,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 	createMockClusters(t, 10, 10, 10)
 	type args struct {
 		ctx *logger.RequestContext
-		req ListClusterByLabelRequest
+		req ListClusterResourcesRequest
 	}
 	tests := []struct {
 		name    string
@@ -32,7 +32,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					PageSize: 2,
 					PageNo:   1,
 				},
@@ -45,7 +45,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockNonRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					PageNo:   1,
 					PageSize: 2,
 				},
@@ -58,7 +58,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					ClusterNameList: []string{fmt.Sprintf("%s1", MockClusterName)},
 					Labels:          "",
 					LabelType:       "",
@@ -74,7 +74,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					ClusterNameList: []string{fmt.Sprintf("%s1", MockClusterName)},
 					Labels:          "",
 					LabelType:       "",
@@ -90,7 +90,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					ClusterNameList: []string{fmt.Sprintf("%s1", MockClusterName)},
 					Labels:          "",
 					LabelType:       "",
@@ -106,7 +106,7 @@ func TestListClusterQuotaByLabels(t *testing.T) {
 				ctx: &logger.RequestContext{
 					UserName: MockRootUser,
 				},
-				req: ListClusterByLabelRequest{
+				req: ListClusterResourcesRequest{
 					ClusterNameList: []string{fmt.Sprintf("%s1", MockClusterName)},
 					Labels:          "a=b",
 					LabelType:       model.ObjectTypeNode,

@@ -244,15 +244,15 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 // @tags Resource
 // @Accept  json
 // @Produce json
-// @Param listClusterByLabelRequest body ListClusterByLabelRequest true  "获取集群资源列表"
-// @Request  ListClusterByLabelRequest
+// @Param listClusterByLabelRequest body ListClusterResourcesRequest true  "获取集群资源列表"
+// @Request  ListClusterResourcesRequest
 // @Success 200 {object} []ClusterQuotaReponse "获取套餐列表的响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /cluster/resource [POST]
 func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
-	var listClusterByLabelRequest cluster.ListClusterByLabelRequest
+	var listClusterByLabelRequest cluster.ListClusterResourcesRequest
 	if err := common.BindJSON(r, &listClusterByLabelRequest); err != nil {
 		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
@@ -276,7 +276,7 @@ func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Reque
 	common.Render(w, http.StatusOK, quotaList)
 }
 
-func validataListClusterRequest(request cluster.ListClusterByLabelRequest) error {
+func validataListClusterRequest(request cluster.ListClusterResourcesRequest) error {
 	if request.Labels != "" && request.LabelType == "" {
 		err := fmt.Errorf("labelType is nill while labels specified")
 		log.Errorln(err)
