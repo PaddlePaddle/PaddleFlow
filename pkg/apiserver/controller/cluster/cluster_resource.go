@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -151,6 +152,10 @@ func updateAllocatable(dataList []ClusterQuotaResponse) ([]ClusterQuotaResponse,
 			capacity := cluster.Capacity[nodeName]
 			allocatable := cluster.Allocatable[nodeName]
 			cpuCapacity, err := resource.ParseQuantity(capacity[cpu])
+			if err != nil {
+				log.Errorln(err)
+				return dataList, err
+			}
 			memoryCapacity, err := resource.ParseQuantity(capacity[memory])
 			if err != nil {
 				log.Errorln(err)
