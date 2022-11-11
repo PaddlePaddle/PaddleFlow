@@ -161,16 +161,16 @@ func setup(c *cli.Context) error {
 		}
 	}
 	signalHandle(mountPoint)
-	statics()
+	processStatistics()
 	return nil
 }
 
-func statics() {
+func processStatistics() {
 	go func() {
 		for {
 			availableMem, memPercent := utils.GetMemPercent()
 			cpuPercent := utils.GetCpuPercent()
-			log.Infof("mem avaliable %v percent %v cpuPercent %v", availableMem, memPercent, cpuPercent)
+			log.Infof("mem avaliable %vM percent %v%% cpuPercent %v%%", availableMem, fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent))
 			time.Sleep(30 * time.Second)
 		}
 	}()
