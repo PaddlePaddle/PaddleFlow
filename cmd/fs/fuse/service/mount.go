@@ -171,7 +171,7 @@ func statics() {
 			availableMem, memPercent := utils.GetMemPercent()
 			cpuPercent := utils.GetCpuPercent()
 			log.Infof("mem avaliable %v percent %v cpuPercent %v", availableMem, memPercent, cpuPercent)
-			time.Sleep(10 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}()
 }
