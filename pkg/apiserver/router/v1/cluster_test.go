@@ -17,7 +17,7 @@ func TestListClusterQuotaV2(t *testing.T) {
 	driver.InitCache("debug")
 	type args struct {
 		ctx    *logger.RequestContext
-		req    *cluster.ListClusterResourcesRequest
+		req    interface{}
 		router *chi.Mux
 	}
 	ctx := &logger.RequestContext{UserName: "testusername"}
@@ -36,6 +36,16 @@ func TestListClusterQuotaV2(t *testing.T) {
 			},
 			wantErr:      false,
 			responseCode: 200,
+		},
+		{
+			name: "wrong request",
+			args: args{
+				ctx:    ctx,
+				router: router,
+				req:    "abc",
+			},
+			wantErr:      false,
+			responseCode: 400,
 		},
 		{
 			name: "routerNonRoot",
@@ -74,6 +84,21 @@ func TestListClusterQuotaV2(t *testing.T) {
 					ClusterNameList: []string{},
 					Labels:          "a=b",
 					LabelType:       model.ObjectTypeNode,
+				},
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "normal",
+			args: args{
+				ctx:    ctx,
+				router: router,
+				req: &cluster.ListClusterResourcesRequest{
+					PageSize:        1,
+					PageNo:          1,
+					ClusterNameList: []string{},
+					Labels:          "a=b",
 				},
 			},
 			wantErr:      false,
