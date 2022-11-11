@@ -52,13 +52,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
-const TimeFormat = "2006-01-02 15:04:05"
+const TimeFormat = "2006-01-02-15:04:05"
 
 var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse" + time.Now().Format(TimeFormat),
+	FilePrefix:      "./pfs-fuse-" + time.Now().Format(TimeFormat),
 	Level:           "INFO",
 	MaxKeepDays:     90,
 	MaxFileNum:      100,
