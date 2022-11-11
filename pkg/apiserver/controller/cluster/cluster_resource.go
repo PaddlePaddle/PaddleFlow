@@ -6,12 +6,9 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -120,31 +117,4 @@ func buildClusterResponse(result []model.ResourceInfoResponse) (map[string]Clust
 		nodeAllocatableRes[resInfo.ResourceName] = resInfo.Value
 	}
 	return clusterMap, nil
-}
-
-// InitDefaultCluster init default cluster for single cluster environment
-func InitDefaultCluster() error {
-	log.Info("starting init data for single cluster: initDefaultCluster")
-	if clusterInfo, err := storage.Cluster.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
-		return err
-	} else if err == nil {
-		log.Infof("default cluster[%+v] has been created", clusterInfo)
-		return nil
-	}
-	// create default cluster
-	clusterInfo := &model.ClusterInfo{
-		Name:        config.DefaultClusterName,
-		Description: "default cluster",
-		Endpoint:    "127.0.0.1",
-		Source:      "",
-		ClusterType: schema.KubernetesType,
-		Version:     "1.16+",
-		Status:      model.ClusterStatusOnLine,
-	}
-	if err := storage.Cluster.CreateCluster(clusterInfo); err != nil {
-		log.Errorf("create default cluster failed, err: %v", err)
-		return err
-	}
-	return nil
 }

@@ -133,6 +133,28 @@ func TestResourceList(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "filter by wrong label",
+			args: args{
+				ClusterNameList: []string{MockClusterName},
+				labels:          "a=b",
+				labelType:       "fake label",
+				pageNo:          1,
+				pageSize:        1,
+			},
+			wantErr: false,
+		},
+		{
+			name: "filter by pod label",
+			args: args{
+				ClusterNameList: []string{MockClusterName},
+				labels:          "a=b",
+				labelType:       model.ObjectTypePod,
+				pageNo:          1,
+				pageSize:        1,
+			},
+			wantErr: false,
+		},
 	}
 	for index, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

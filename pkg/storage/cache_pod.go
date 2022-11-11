@@ -190,7 +190,7 @@ func (nc *PodResourceCache) ListResouces(clusterNameList []string, labels, label
 		tx = tx.Joins("left join `label_info` as l on resource_info.node_id = `l`.object_id").
 			Where("`l`.object_type=?", labelType)
 	case model.ObjectTypePod:
-		tx = tx.Joins("left join `l` on resource_info.pod_id = `l`.object_id").
+		tx = tx.Joins("left join `label_info` as l on resource_info.pod_id = `l`.object_id").
 			Where("`l`.object_type=?", labelType)
 	case "":
 	default:
