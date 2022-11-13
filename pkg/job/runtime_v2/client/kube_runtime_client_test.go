@@ -131,12 +131,6 @@ func TestNodeTaskListener(t *testing.T) {
 		kubeutil.BuildResourceList("1", "8Gi"),
 		kubeutil.BuildResourceList("0", "0Gi"),
 	}
-	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
-	_, err := runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
-	assert.Equal(t, nil, err)
-
-	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
-	assert.Equal(t, nil, err)
 
 	process := func(q workqueue.RateLimitingInterface) bool {
 		obj, shutdown := q.Get()
@@ -154,13 +148,21 @@ func TestNodeTaskListener(t *testing.T) {
 
 	taskQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	// register pod listener
-	err = runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, taskQueue)
+	err := runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, taskQueue)
 	assert.Equal(t, nil, err)
 	// start pod listener
 	stopCh := make(chan struct{})
 	err = runtimeClient.StartListener(pfschema.ListenerTypeNodeTask, stopCh)
 	assert.Equal(t, nil, err)
 
+	go wait.Until(func() {
+		for process(taskQueue) {
+		}
+	}, 0, stopCh)
+
+	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
+	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
 	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
@@ -173,10 +175,8 @@ func TestNodeTaskListener(t *testing.T) {
 	err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Delete(context.TODO(), mockPodName, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
 
-	go wait.Until(func() {
-		for process(taskQueue) {
-		}
-	}, 0, stopCh)
+	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
+	assert.Equal(t, nil, err)
 
 	for taskQueue.Len() != 0 {
 		time.Sleep(10 * time.Millisecond)
