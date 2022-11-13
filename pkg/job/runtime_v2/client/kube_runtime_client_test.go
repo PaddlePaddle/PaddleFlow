@@ -121,7 +121,7 @@ func TestNodeTaskListener(t *testing.T) {
 	var mockPodName = "test-pod-name"
 	var mockPodNamespace = "default"
 	var mockDeletionGracePeriod int64 = 30
-	var podCount = 20000
+	var podCount = 2000
 	var namespaceList = []string{"default", "test1", "test2", "test3", "test4"}
 	var nodeNameList = []string{"instance-0", "instance-1", "instance-2", "instance-3"}
 	var reqList = []corev1.ResourceList{
