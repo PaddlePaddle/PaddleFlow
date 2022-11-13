@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -114,7 +115,6 @@ func TestExecutor(t *testing.T) {
 func TestNodeTaskListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	var fwVersion = KubeFrameworkVersion(k8s.PodGVK)
 
 	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2w pods
@@ -131,11 +131,11 @@ func TestNodeTaskListener(t *testing.T) {
 		kubeutil.BuildResourceList("1", "8Gi"),
 		kubeutil.BuildResourceList("0", "0Gi"),
 	}
-	err := kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
-	assert.Equal(t, nil, err)
 	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
-	fakePod.SetGroupVersionKind(k8s.PodGVK)
-	err = runtimeClient.Create(fakePod, fwVersion)
+	_, err := runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+
+	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
 	assert.Equal(t, nil, err)
 
 	process := func(q workqueue.RateLimitingInterface) bool {
@@ -163,14 +163,14 @@ func TestNodeTaskListener(t *testing.T) {
 
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
-	err = runtimeClient.Update(fakePod, fwVersion)
+	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
 	// update pod
 	fakePod.Status.Phase = corev1.PodSucceeded
-	err = runtimeClient.Update(fakePod, fwVersion)
+	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
 	// delete node task
-	err = runtimeClient.Delete(mockPodNamespace, mockPodName, fwVersion)
+	err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Delete(context.TODO(), mockPodName, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
 
 	go wait.Until(func() {
