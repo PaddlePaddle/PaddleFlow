@@ -53,6 +53,7 @@ import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var (
@@ -423,19 +424,18 @@ func convertPodResources(pod *corev1.Pod) map[string]int64 {
 	return podResources
 }
 
-func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, status string, labels map[string]string) {
+func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, status model.TaskAllocateStatus, labels map[string]string) {
 	// TODO: use multi workQueues
 	nodeTaskSync := &api.NodeTaskSyncInfo{
-		ID:       string(pod.UID),
-		Name:     pod.Name,
-		NodeName: pod.Spec.NodeName,
-		// TODO: split status into Creating、Running、Terminating
+		ID:        string(pod.UID),
+		Name:      pod.Name,
+		NodeName:  pod.Spec.NodeName,
 		Status:    status,
 		Resources: convertPodResources(pod),
 		Labels:    labels,
 		Action:    action,
 	}
-	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %s", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
+	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %v", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
 	n.workQueue.Add(nodeTaskSync)
 }
 
@@ -452,7 +452,7 @@ func (n *NodeTaskHandler) AddPod(obj interface{}) {
 
 	// TODO: check weather pod is exist or not
 	if isAllocatedPod(pod) {
-		n.addQueue(pod, pfschema.Create, "Running", getLabels(n.labelKeys, pod.Labels))
+		n.addQueue(pod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, pod.Labels))
 	}
 }
 
@@ -470,11 +470,11 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	oldPodAllocated := isAllocatedPod(oldPod)
 	newPodAllocated := isAllocatedPod(newPod)
 	if oldPodAllocated != newPodAllocated {
-		status := ""
+		var status model.TaskAllocateStatus
 		if newPodAllocated {
-			status = "Running"
+			status = model.TaskRunning
 		} else {
-			status = "Completed"
+			status = model.TaskCompleted
 		}
 		n.addQueue(newPod, pfschema.Update, status, nil)
 		return
@@ -482,16 +482,16 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	// 2. pod is allocated and is deleted
 	if newPodAllocated && oldPod.DeletionGracePeriodSeconds == nil && newPod.DeletionGracePeriodSeconds != nil {
 		if *newPod.DeletionGracePeriodSeconds == 0 {
-			n.addQueue(newPod, pfschema.Delete, "Deleted", nil)
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
 		} else {
-			n.addQueue(newPod, pfschema.Update, "Terminating", nil)
+			n.addQueue(newPod, pfschema.Update, model.TaskTerminating, nil)
 		}
 	}
 }
 
 func (n *NodeTaskHandler) DeletePod(obj interface{}) {
 	pod := obj.(*corev1.Pod)
-	n.addQueue(pod, pfschema.Delete, "Deleted", nil)
+	n.addQueue(pod, pfschema.Delete, model.TaskDeleted, nil)
 }
 
 func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan struct{}) error {

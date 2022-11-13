@@ -16,7 +16,10 @@ limitations under the License.
 
 package api
 
-import "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+)
 
 type NodeSyncInfo struct {
 	Name       string
@@ -31,7 +34,7 @@ type NodeTaskSyncInfo struct {
 	ID         string
 	Name       string
 	NodeName   string
-	Status     string
+	Status     model.TaskAllocateStatus
 	Resources  map[string]int64
 	Labels     map[string]string
 	Action     schema.ActionType

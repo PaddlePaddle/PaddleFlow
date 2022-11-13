@@ -164,7 +164,7 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 		Name:      taskSync.Name,
 		NodeID:    nr.generateNodeID(taskSync.NodeName),
 		NodeName:  taskSync.NodeName,
-		Status:    taskSync.Status,
+		Status:    int(taskSync.Status),
 		Labels:    taskSync.Labels,
 		Resources: taskSync.Resources,
 	}

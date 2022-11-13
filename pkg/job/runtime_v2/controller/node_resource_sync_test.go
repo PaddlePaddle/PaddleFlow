@@ -35,6 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -296,12 +297,12 @@ func TestNodeResourceSync_Run(t *testing.T) {
 			ID:       "test-pod-id",
 			Name:     "test-pod-name",
 			NodeName: "test-node-id",
-			Status:   "Running",
+			Status:   model.TaskRunning,
 			Action:   schema.Create,
 		},
 		{
 			ID:     "test-pod-id",
-			Status: "Creating",
+			Status: model.TaskCreating,
 			Action: schema.Update,
 		},
 		{
