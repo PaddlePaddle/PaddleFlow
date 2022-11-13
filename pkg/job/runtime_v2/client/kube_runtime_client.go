@@ -249,7 +249,7 @@ func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimi
 
 func (krc *KubeRuntimeClient) registerNodeListener(workQueue workqueue.RateLimitingInterface) error {
 	krc.nodeInformer = krc.InformerFactory.Core().V1().Nodes()
-	nodeHandler := NewNodeHandler(workQueue)
+	nodeHandler := NewNodeHandler(workQueue, krc.Cluster())
 	krc.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    nodeHandler.AddNode,
 		UpdateFunc: nodeHandler.UpdateNode,
@@ -261,7 +261,7 @@ func (krc *KubeRuntimeClient) registerNodeListener(workQueue workqueue.RateLimit
 func (krc *KubeRuntimeClient) registerNodeTaskListener(workQueue workqueue.RateLimitingInterface) error {
 	krc.nodeTaskInformer = krc.InformerFactory.Core().V1().Pods()
 
-	taskHandler := NewNodeTaskHandler(workQueue)
+	taskHandler := NewNodeTaskHandler(workQueue, krc.Cluster())
 	krc.nodeTaskInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			// TODO: evaluate the time of filter
@@ -297,9 +297,10 @@ func GetPodResource(pod *corev1.Pod) *resources.Resource {
 type NodeHandler struct {
 	workQueue workqueue.RateLimitingInterface
 	labelKeys []string
+	cluster   string
 }
 
-func NewNodeHandler(q workqueue.RateLimitingInterface) *NodeHandler {
+func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHandler {
 	var labelKeys []string
 	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFNodeLabels))
 	if len(nodeLabels) > 0 {
@@ -310,6 +311,7 @@ func NewNodeHandler(q workqueue.RateLimitingInterface) *NodeHandler {
 	return &NodeHandler{
 		workQueue: q,
 		labelKeys: labelKeys,
+		cluster:   cluster,
 	}
 }
 
@@ -321,8 +323,8 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 		Labels:   labels,
 		Action:   action,
 	}
+	log.Infof("WatchNodeSync: %s, watch %s event for node %s with status %s", n.cluster, action, node.Name, nodeSync.Status)
 	n.workQueue.Add(nodeSync)
-	log.Infof("watch %s event for node %s with status %s", action, node.Name, nodeSync.Status)
 }
 
 func (n *NodeHandler) AddNode(obj interface{}) {
@@ -385,9 +387,10 @@ func getLabels(labelKeys []string, totalLabels map[string]string) map[string]str
 type NodeTaskHandler struct {
 	workQueue workqueue.RateLimitingInterface
 	labelKeys []string
+	cluster   string
 }
 
-func NewNodeTaskHandler(q workqueue.RateLimitingInterface) *NodeTaskHandler {
+func NewNodeTaskHandler(q workqueue.RateLimitingInterface, cluster string) *NodeTaskHandler {
 	var labelKeys []string
 	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFTaskLabels))
 	if len(nodeLabels) > 0 {
@@ -398,6 +401,7 @@ func NewNodeTaskHandler(q workqueue.RateLimitingInterface) *NodeTaskHandler {
 	return &NodeTaskHandler{
 		workQueue: q,
 		labelKeys: labelKeys,
+		cluster:   cluster,
 	}
 }
 
@@ -431,8 +435,8 @@ func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, 
 		Labels:    labels,
 		Action:    action,
 	}
+	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %s", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
 	n.workQueue.Add(nodeTaskSync)
-	log.Infof("watch %s event for task %s/%s with status %s", action, pod.Namespace, pod.Name, nodeTaskSync.Status)
 }
 
 func isAllocatedPod(pod *corev1.Pod) bool {
@@ -455,27 +459,39 @@ func (n *NodeTaskHandler) AddPod(obj interface{}) {
 func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	oldPod := old.(*corev1.Pod)
 	newPod := new.(*corev1.Pod)
+	var deletionGracePeriodSeconds int64 = -1
+	if newPod.DeletionGracePeriodSeconds != nil {
+		deletionGracePeriodSeconds = *newPod.DeletionGracePeriodSeconds
+	}
+	log.Debugf("TaskSync: %s, update task %s/%s, deletionGracePeriodSeconds: %v, status: %v", n.cluster,
+		newPod.Namespace, newPod.Name, deletionGracePeriodSeconds, newPod.Status.Phase)
 
+	// 1. weather the allocated status of pod is changed or not
 	oldPodAllocated := isAllocatedPod(oldPod)
 	newPodAllocated := isAllocatedPod(newPod)
-
 	if oldPodAllocated != newPodAllocated {
 		status := ""
 		if newPodAllocated {
 			status = "Running"
+		} else {
+			status = "Completed"
 		}
 		n.addQueue(newPod, pfschema.Update, status, nil)
+		return
+	}
+	// 2. pod is allocated and is deleted
+	if newPodAllocated && oldPod.DeletionGracePeriodSeconds == nil && newPod.DeletionGracePeriodSeconds != nil {
+		if *newPod.DeletionGracePeriodSeconds == 0 {
+			n.addQueue(newPod, pfschema.Delete, "Deleted", nil)
+		} else {
+			n.addQueue(newPod, pfschema.Update, "Terminating", nil)
+		}
 	}
 }
 
 func (n *NodeTaskHandler) DeletePod(obj interface{}) {
 	pod := obj.(*corev1.Pod)
-	status := ""
-	if isAllocatedPod(pod) {
-		status = "Terminating"
-	}
-	// TODO: check terminating pod
-	n.addQueue(pod, pfschema.Delete, status, nil)
+	n.addQueue(pod, pfschema.Delete, "Deleted", nil)
 }
 
 func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan struct{}) error {
