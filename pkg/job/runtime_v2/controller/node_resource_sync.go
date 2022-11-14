@@ -111,12 +111,13 @@ func (nr *NodeResourceSync) processNode() bool {
 	log.Infof("ProcessNodeSync: %s, try to handle node sync: %v", nr.runtimeClient.Cluster(), nodeSync)
 	var err error
 	nodeInfo := &model.NodeInfo{
-		ID:        nr.generateNodeID(nodeSync.Name),
-		Name:      nodeSync.Name,
-		ClusterID: nr.runtimeClient.ClusterID(),
-		Status:    nodeSync.Status,
-		Labels:    nodeSync.Labels,
-		Capacity:  nodeSync.Capacity,
+		ID:          nr.generateNodeID(nodeSync.Name),
+		Name:        nodeSync.Name,
+		ClusterID:   nr.runtimeClient.ClusterID(),
+		ClusterName: nr.runtimeClient.ClusterName(),
+		Status:      nodeSync.Status,
+		Labels:      nodeSync.Labels,
+		Capacity:    nodeSync.Capacity,
 	}
 	switch nodeSync.Action {
 	case schema.Create:

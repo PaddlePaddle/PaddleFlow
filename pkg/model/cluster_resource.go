@@ -44,10 +44,10 @@ type NodeInfo struct {
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
-	ClusterName  string            `gorm:"column:cluster_name" json:"-"`
+	ClusterName  string            `gorm:"column:cluster_name" json:"clusterName"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
-	Capacity     interface{}       `gorm:"-" json:"nodeCapacity"`
+	Capacity     map[string]string `gorm:"-" json:"nodeCapacity"`
 	Labels       map[string]string `gorm:"-" json:"nodeLabels"`
 }
 
@@ -68,7 +68,7 @@ func (node *NodeInfo) BeforeSave(tx *gorm.DB) error {
 
 func (node *NodeInfo) AfterFind(tx *gorm.DB) error {
 	if node.CapacityJSON != "" {
-		var capacity interface{}
+		var capacity = make(map[string]string)
 		err := json.Unmarshal([]byte(node.CapacityJSON), &capacity)
 		if err != nil {
 			return err

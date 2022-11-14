@@ -273,7 +273,7 @@ func (krc *KubeRuntimeClient) registerNodeTaskListener(workQueue workqueue.RateL
 			// check weather pod resources is empty or not
 			podResource := GetPodResource(pod)
 			if podResource.IsZero() {
-				log.Infof("node task %s/%s request resources is empty, ignore it", pod.Namespace, pod.Name)
+				log.Debugf("node task %s/%s request resources is empty, ignore it", pod.Namespace, pod.Name)
 				return false
 			}
 			return true
@@ -317,10 +317,15 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 }
 
 func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
+	capacity := make(map[string]string)
+	for rName, rValue := range node.Status.Capacity {
+		// TODO: filter some resources
+		capacity[string(rName)] = rValue.String()
+	}
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
 		Status:   getNodeStatus(node),
-		Capacity: node.Status.Capacity,
+		Capacity: capacity,
 		Labels:   labels,
 		Action:   action,
 	}
@@ -547,6 +552,14 @@ func (krc *KubeRuntimeClient) Cluster() string {
 		msg = fmt.Sprintf("cluster %s with type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
 	}
 	return msg
+}
+
+func (krc *KubeRuntimeClient) ClusterName() string {
+	name := ""
+	if krc.ClusterInfo != nil {
+		name = krc.ClusterInfo.Name
+	}
+	return name
 }
 
 func (krc *KubeRuntimeClient) ClusterID() string {
