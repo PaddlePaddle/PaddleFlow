@@ -92,6 +92,9 @@ func NewS3FSForTest() (UnderFileStorage, error) {
 
 func TestS3DirOp(t *testing.T) {
 	fs, err := NewS3FSForTest()
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	assert.NotNil(t, fs)
 	assert.Nil(t, err)
 	//test create dir
@@ -118,6 +121,9 @@ func TestS3DirOp(t *testing.T) {
 
 func TestS3FileOp(t *testing.T) {
 	fs, err := NewS3FSForTest()
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	assert.NotNil(t, fs)
 	assert.Nil(t, err)
 	//test create
@@ -154,6 +160,9 @@ func TestS3FileOp(t *testing.T) {
 	assert.Equal(t, 0, len(entrys))
 }
 func TestS3Truncat(t *testing.T) {
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	fs, err := NewS3FSForTest()
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, fs)
