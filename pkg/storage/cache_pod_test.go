@@ -37,7 +37,7 @@ func TestPodCache(t *testing.T) {
 		ID:     mockPodID,
 		Name:   "test-pod-name",
 		NodeID: mockNodeID,
-		Status: "Running",
+		Status: int(model.TaskRunning),
 		Labels: map[string]string{
 			"xxx/queue-name": "test-queue",
 		},
@@ -50,7 +50,7 @@ func TestPodCache(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	updatedPod1 := &model.PodInfo{
-		Status: "Terminating",
+		Status: int(model.TaskTerminating),
 		Labels: map[string]string{
 			"xxx/queue-name": "default-queue",
 		},

@@ -29,6 +29,16 @@ const (
 	ObjectTypePod  = "pod"
 )
 
+type TaskAllocateStatus int
+
+const (
+	TaskCreating TaskAllocateStatus = iota
+	TaskRunning
+	TaskTerminating
+	TaskCompleted
+	TaskDeleted
+)
+
 type NodeInfo struct {
 	Pk           int64             `gorm:"primaryKey;autoIncrement" json:"-"`
 	ID           string            `gorm:"column:id" json:"nodeID"`
@@ -74,7 +84,7 @@ type PodInfo struct {
 	Name      string            `gorm:"column:name" json:"name"`
 	NodeID    string            `gorm:"column:node_id" json:"nodeID"`
 	NodeName  string            `gorm:"column:node_name" json:"nodeName"`
-	Status    string            `gorm:"column:status" json:"status"`
+	Status    int               `gorm:"column:status" json:"status"`
 	Labels    map[string]string `gorm:"-" json:"labels"`
 	Resources map[string]int64  `gorm:"-" json:"resources"`
 }

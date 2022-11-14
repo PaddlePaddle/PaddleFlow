@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -117,17 +118,21 @@ func TestNodeTaskListener(t *testing.T) {
 
 	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2w pods
-	var podCount = 20000
+	var err error
+	var mockPodName = "test-pod-name"
+	var mockPodNamespace = "default"
+	var mockDeletionGracePeriod int64 = 30
+	var podCount = 1000
 	var namespaceList = []string{"default", "test1", "test2", "test3", "test4"}
 	var nodeNameList = []string{"instance-0", "instance-1", "instance-2", "instance-3"}
 	var reqList = []corev1.ResourceList{
-		kubeutil.BuildResourceList("0", "0Gi"),
 		kubeutil.BuildResourceList("1", "2Gi"),
 		kubeutil.BuildResourceList("2", "4Gi"),
 		kubeutil.BuildResourceList("1", "5Gi"),
 		kubeutil.BuildResourceList("1", "8Gi"),
+		kubeutil.BuildResourceList("0", "0Gi"),
 	}
-	err := kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
+	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
 	assert.Equal(t, nil, err)
 
 	process := func(q workqueue.RateLimitingInterface) bool {
@@ -145,10 +150,10 @@ func TestNodeTaskListener(t *testing.T) {
 	}
 
 	taskQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	// register node task listener
+	// register pod listener
 	err = runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, taskQueue)
 	assert.Equal(t, nil, err)
-	// start node task listener
+	// start pod listener
 	stopCh := make(chan struct{})
 	err = runtimeClient.StartListener(pfschema.ListenerTypeNodeTask, stopCh)
 	assert.Equal(t, nil, err)
@@ -158,8 +163,23 @@ func TestNodeTaskListener(t *testing.T) {
 		}
 	}, 0, stopCh)
 
+	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
+	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// update pod DeletionGracePeriodSeconds
+	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
+	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
+	assert.Equal(t, nil, err)
+	// update pod
+	fakePod.Status.Phase = corev1.PodSucceeded
+	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
+	assert.Equal(t, nil, err)
+	// delete node task
+	err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Delete(context.TODO(), mockPodName, metav1.DeleteOptions{})
+	assert.Equal(t, nil, err)
+
 	for taskQueue.Len() != 0 {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	close(stopCh)
 }

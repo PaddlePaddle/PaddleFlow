@@ -101,14 +101,14 @@ func (nr *NodeResourceSync) runNodeWorker() {
 func (nr *NodeResourceSync) processNode() bool {
 	obj, shutdown := nr.nodeQueue.Get()
 	if shutdown {
-		log.Errorf("%s, fail to pop node sync item from queue", nr.runtimeClient.Cluster())
+		log.Errorf("FailedNodeSync: %s, fail to pop node sync item from queue", nr.runtimeClient.Cluster())
 		return false
 	}
 
 	nodeSync := obj.(*api.NodeSyncInfo)
 	defer nr.nodeQueue.Done(nodeSync)
 
-	log.Infof("%s, try to handle node sync: %v", nr.runtimeClient.Cluster(), nodeSync)
+	log.Infof("ProcessNodeSync: %s, try to handle node sync: %v", nr.runtimeClient.Cluster(), nodeSync)
 	var err error
 	nodeInfo := &model.NodeInfo{
 		ID:        nr.generateNodeID(nodeSync.Name),
@@ -129,7 +129,7 @@ func (nr *NodeResourceSync) processNode() bool {
 		err = fmt.Errorf("action %s for node is not supported", nodeSync.Action)
 	}
 	if err != nil {
-		log.Errorf("%s, update node cache failed, err: %v", nr.runtimeClient.Cluster(), err)
+		log.Errorf("FailedNodeSync: %s, update node cache failed, err: %v", nr.runtimeClient.Cluster(), err)
 		if nodeSync.RetryTimes < DefaultSyncRetryTimes {
 			nodeSync.RetryTimes += 1
 			nr.taskQueue.AddRateLimited(nodeSync)
@@ -149,14 +149,14 @@ func (nr *NodeResourceSync) runNodeTaskWorker() {
 func (nr *NodeResourceSync) processNodeTask() bool {
 	obj, shutdown := nr.taskQueue.Get()
 	if shutdown {
-		log.Errorf("%s, fail to pop node task sync item from queue", nr.runtimeClient.Cluster())
+		log.Errorf("FailedTaskSync: %s, fail to pop node task sync item from queue", nr.runtimeClient.Cluster())
 		return false
 	}
 
 	taskSync := obj.(*api.NodeTaskSyncInfo)
 	defer nr.taskQueue.Done(taskSync)
 
-	log.Infof("%s, try to handle node task sync: %v", nr.runtimeClient.Cluster(), taskSync)
+	log.Infof("ProcessTaskSync: %s, try to handle node task sync: %v", nr.runtimeClient.Cluster(), taskSync)
 
 	var err error
 	taskInfo := &model.PodInfo{
@@ -164,7 +164,7 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 		Name:      taskSync.Name,
 		NodeID:    nr.generateNodeID(taskSync.NodeName),
 		NodeName:  taskSync.NodeName,
-		Status:    taskSync.Status,
+		Status:    int(taskSync.Status),
 		Labels:    taskSync.Labels,
 		Resources: taskSync.Resources,
 	}
@@ -179,7 +179,7 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 		err = fmt.Errorf("action %s for task is not supported", taskSync.Action)
 	}
 	if err != nil {
-		log.Errorf("%s, update task cache failed, err: %v", nr.runtimeClient.Cluster(), err)
+		log.Errorf("FailedTaskSync: %s, update task cache failed, err: %v", nr.runtimeClient.Cluster(), err)
 		if taskSync.RetryTimes < DefaultSyncRetryTimes {
 			taskSync.RetryTimes += 1
 			nr.taskQueue.AddRateLimited(taskSync)
