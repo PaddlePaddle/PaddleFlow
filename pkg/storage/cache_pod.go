@@ -219,3 +219,25 @@ func (nc *PodResourceCache) ListResouces(clusterNameList []string, labels, label
 	}
 	return result, nil
 }
+
+func (nc *PodResourceCache) ListNodeResources(nodeIDList []string) ([]model.ResourceInfo, error) {
+	log.Debugf("begin to list node resources, nodeIDList: %v.", nodeIDList)
+
+	var result []model.ResourceInfo
+	tx := nc.dbCache.Debug().Model(&model.ResourceInfo{})
+	tx = tx.Select("`resource_info`.`node_id`, `resource_info`.`node_name`, `resource_info`.`resource_name`, "+
+		"sum(`resource_info`.`resource_value`) as resource_value ").Where("resource_info.node_id IN ?", nodeIDList)
+	// join pod_info
+	tx = tx.Joins("left join pod_info on pod_info.id == resource_info.pod_id AND pod_info.status <= ?", model.TaskTerminating)
+	// group by
+	tx.Group("`resource_info`.resource_name, resource_info.node_id")
+	// order by
+	tx.Order("resource_info.node_id")
+
+	// query
+	if tx.Find(&result); tx.Error != nil {
+		log.Errorf("list resource failed, error:%s", tx.Error)
+		return result, tx.Error
+	}
+	return result, nil
+}

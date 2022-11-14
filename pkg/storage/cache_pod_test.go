@@ -173,3 +173,75 @@ func TestResourceList(t *testing.T) {
 	}
 
 }
+
+func TestPodResourceCache_ListNodeResources(t *testing.T) {
+	initMockCache()
+
+	testCases := []struct {
+		name     string
+		nodeIDs  []string
+		podInfos []model.PodInfo
+		count    int
+		err      error
+	}{
+		{
+			name:    "2 nodes",
+			nodeIDs: []string{"node-instance-1", "node-instance-2"},
+			podInfos: []model.PodInfo{
+				{
+					ID:       "test-pod-1",
+					Name:     "test-pod-n-1",
+					NodeID:   "node-instance-1",
+					NodeName: "instance-1",
+					Status:   int(model.TaskCreating),
+					Resources: map[string]int64{
+						"cpu":            10000,
+						"memory":         3618635776,
+						"nvidia.com/gpu": 4,
+					},
+				},
+				{
+					ID:       "test-pod-2",
+					Name:     "test-pod-n-2",
+					NodeID:   "node-instance-2",
+					NodeName: "instance-2",
+					Status:   int(model.TaskRunning),
+					Resources: map[string]int64{
+						"cpu":            4000,
+						"memory":         1073741824,
+						"nvidia.com/gpu": 1,
+					},
+				},
+				{
+					ID:       "test-pod-3",
+					Name:     "test-pod-n-3",
+					NodeID:   "node-instance-1",
+					NodeName: "instance-1",
+					Status:   int(model.TaskTerminating),
+					Resources: map[string]int64{
+						"cpu":            20000,
+						"memory":         3618635776,
+						"nvidia.com/gpu": 4,
+					},
+				},
+			},
+			count: 6,
+			err:   nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var err error
+			var rs []model.ResourceInfo
+			for idx := range tc.podInfos {
+				err = PodCache.AddPod(&tc.podInfos[idx])
+				assert.Equal(t, nil, err)
+			}
+			rs, err = ResourceCache.ListNodeResources(tc.nodeIDs)
+			assert.Equal(t, tc.err, err)
+			assert.Equal(t, tc.count, len(rs))
+		})
+	}
+
+}

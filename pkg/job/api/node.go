@@ -24,7 +24,7 @@ import (
 type NodeSyncInfo struct {
 	Name       string
 	Status     string
-	Capacity   interface{}
+	Capacity   map[string]string
 	Labels     map[string]string
 	Action     schema.ActionType
 	RetryTimes int
