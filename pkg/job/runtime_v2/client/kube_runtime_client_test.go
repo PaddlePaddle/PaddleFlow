@@ -118,10 +118,11 @@ func TestNodeTaskListener(t *testing.T) {
 
 	runtimeClient := NewFakeKubeRuntimeClient(server)
 	// init 2w pods
+	var err error
 	var mockPodName = "test-pod-name"
 	var mockPodNamespace = "default"
 	var mockDeletionGracePeriod int64 = 30
-	var podCount = 2000
+	var podCount = 1000
 	var namespaceList = []string{"default", "test1", "test2", "test3", "test4"}
 	var nodeNameList = []string{"instance-0", "instance-1", "instance-2", "instance-3"}
 	var reqList = []corev1.ResourceList{
@@ -131,6 +132,8 @@ func TestNodeTaskListener(t *testing.T) {
 		kubeutil.BuildResourceList("1", "8Gi"),
 		kubeutil.BuildResourceList("0", "0Gi"),
 	}
+	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
+	assert.Equal(t, nil, err)
 
 	process := func(q workqueue.RateLimitingInterface) bool {
 		obj, shutdown := q.Get()
@@ -148,7 +151,7 @@ func TestNodeTaskListener(t *testing.T) {
 
 	taskQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	// register pod listener
-	err := runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, taskQueue)
+	err = runtimeClient.RegisterListener(pfschema.ListenerTypeNodeTask, taskQueue)
 	assert.Equal(t, nil, err)
 	// start pod listener
 	stopCh := make(chan struct{})
@@ -175,11 +178,8 @@ func TestNodeTaskListener(t *testing.T) {
 	err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Delete(context.TODO(), mockPodName, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
 
-	err = kubeutil.CreatePods(runtimeClient.Client, podCount, namespaceList, nodeNameList, kubeutil.PhaseList, reqList)
-	assert.Equal(t, nil, err)
-
 	for taskQueue.Len() != 0 {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	close(stopCh)
 }
