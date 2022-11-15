@@ -163,8 +163,13 @@ func TestNodeTaskListener(t *testing.T) {
 		}
 	}, 0, stopCh)
 
-	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
+	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "", corev1.PodPending, reqList[0])
 	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// update pod Running
+	fakePod.Spec.NodeName = "instance-01"
+	fakePod.Status.Phase = corev1.PodRunning
+	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
