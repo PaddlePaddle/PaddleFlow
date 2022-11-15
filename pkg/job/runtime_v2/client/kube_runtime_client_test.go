@@ -19,6 +19,8 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"os"
 	"testing"
 	"time"
 
@@ -191,11 +193,18 @@ func TestNodeListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
+	os.Setenv(pfschema.EnvPFResourceFilter, "test_,fuse")
+
 	var reqList = []corev1.ResourceList{
 		kubeutil.BuildResourceList("56", "256Gi"),
 		kubeutil.BuildResourceList("48", "128Gi"),
 		kubeutil.BuildResourceList("64", "512Gi"),
 		kubeutil.BuildResourceList("96", "768Gi"),
+		{
+			corev1.ResourceCPU:    resource.MustParse("24"),
+			corev1.ResourceMemory: resource.MustParse("256Gi"),
+			corev1.ResourcePods:   resource.MustParse("110"),
+		},
 	}
 	var labelList = []map[string]string{
 		{

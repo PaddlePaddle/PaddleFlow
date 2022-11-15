@@ -296,9 +296,10 @@ func GetPodResource(pod *corev1.Pod) *resources.Resource {
 }
 
 type NodeHandler struct {
-	workQueue workqueue.RateLimitingInterface
-	labelKeys []string
-	cluster   string
+	workQueue      workqueue.RateLimitingInterface
+	labelKeys      []string
+	cluster        string
+	resourceFilter []string
 }
 
 func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHandler {
@@ -309,18 +310,45 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 	} else {
 		labelKeys = []string{pfschema.PFNodeLabels}
 	}
-	return &NodeHandler{
-		workQueue: q,
-		labelKeys: labelKeys,
-		cluster:   cluster,
+	var rFilter = []string{
+		"pods",
+		"ephemeral-storage",
+		"hugepages-",
+		"rdma",
+		"cgpu_",
+		"_port",
 	}
+	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
+	if len(resourceFilters) > 0 {
+		filters := strings.Split(nodeLabels, ",")
+		rFilter = append(rFilter, filters...)
+	}
+	return &NodeHandler{
+		workQueue:      q,
+		labelKeys:      labelKeys,
+		cluster:        cluster,
+		resourceFilter: rFilter,
+	}
+}
+
+func (n *NodeHandler) isExpectedResources(rName string) bool {
+	var isExpected = true
+	for _, filter := range n.resourceFilter {
+		if strings.Contains(rName, filter) {
+			isExpected = false
+			break
+		}
+	}
+	return isExpected
 }
 
 func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
 	capacity := make(map[string]string)
 	for rName, rValue := range node.Status.Capacity {
-		// TODO: filter some resources
-		capacity[string(rName)] = rValue.String()
+		resourceName := string(rName)
+		if n.isExpectedResources(resourceName) {
+			capacity[resourceName] = rValue.String()
+		}
 	}
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
