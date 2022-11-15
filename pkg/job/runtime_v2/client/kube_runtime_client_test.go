@@ -19,6 +19,8 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"os"
 	"testing"
 	"time"
 
@@ -143,8 +145,6 @@ func TestNodeTaskListener(t *testing.T) {
 		}
 		taskSync := obj.(*api.NodeTaskSyncInfo)
 		defer q.Done(taskSync)
-
-		t.Logf("try to handle node task sync: %v", taskSync)
 		q.Forget(taskSync)
 		return true
 	}
@@ -163,8 +163,13 @@ func TestNodeTaskListener(t *testing.T) {
 		}
 	}, 0, stopCh)
 
-	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "instance-01", corev1.PodRunning, reqList[0])
+	fakePod := kubeutil.BuildFakePod(mockPodName, mockPodNamespace, "", corev1.PodPending, reqList[0])
 	_, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Create(context.TODO(), fakePod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// update pod Running
+	fakePod.Spec.NodeName = "instance-01"
+	fakePod.Status.Phase = corev1.PodRunning
+	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
@@ -188,11 +193,18 @@ func TestNodeListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
+	os.Setenv(pfschema.EnvPFResourceFilter, "test_,fuse")
+
 	var reqList = []corev1.ResourceList{
 		kubeutil.BuildResourceList("56", "256Gi"),
 		kubeutil.BuildResourceList("48", "128Gi"),
 		kubeutil.BuildResourceList("64", "512Gi"),
 		kubeutil.BuildResourceList("96", "768Gi"),
+		{
+			corev1.ResourceCPU:    resource.MustParse("24"),
+			corev1.ResourceMemory: resource.MustParse("256Gi"),
+			corev1.ResourcePods:   resource.MustParse("110"),
+		},
 	}
 	var labelList = []map[string]string{
 		{
