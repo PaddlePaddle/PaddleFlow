@@ -35,7 +35,6 @@ const (
 	TaskCreating TaskAllocateStatus = iota
 	TaskRunning
 	TaskTerminating
-	TaskCompleted
 	TaskDeleted
 )
 

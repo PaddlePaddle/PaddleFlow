@@ -468,20 +468,18 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	if newPod.DeletionGracePeriodSeconds != nil {
 		deletionGracePeriodSeconds = *newPod.DeletionGracePeriodSeconds
 	}
-	log.Debugf("TaskSync: %s, update task %s/%s, deletionGracePeriodSeconds: %v, status: %v", n.cluster,
-		newPod.Namespace, newPod.Name, deletionGracePeriodSeconds, newPod.Status.Phase)
+	log.Debugf("TaskSync: %s, update task %s/%s, deletionGracePeriodSeconds: %v, status: %v,  nodeName: %s",
+		n.cluster, newPod.Namespace, newPod.Name, deletionGracePeriodSeconds, newPod.Status.Phase, newPod.Spec.NodeName)
 
 	// 1. weather the allocated status of pod is changed or not
 	oldPodAllocated := isAllocatedPod(oldPod)
 	newPodAllocated := isAllocatedPod(newPod)
 	if oldPodAllocated != newPodAllocated {
-		var status model.TaskAllocateStatus
 		if newPodAllocated {
-			status = model.TaskRunning
+			n.addQueue(newPod, pfschema.Update, model.TaskRunning, nil)
 		} else {
-			status = model.TaskCompleted
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
 		}
-		n.addQueue(newPod, pfschema.Update, status, nil)
 		return
 	}
 	// 2. pod is allocated and is deleted
