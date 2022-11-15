@@ -143,8 +143,6 @@ func TestNodeTaskListener(t *testing.T) {
 		}
 		taskSync := obj.(*api.NodeTaskSyncInfo)
 		defer q.Done(taskSync)
-
-		t.Logf("try to handle node task sync: %v", taskSync)
 		q.Forget(taskSync)
 		return true
 	}
