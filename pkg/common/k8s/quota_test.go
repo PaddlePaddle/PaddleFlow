@@ -29,7 +29,7 @@ import (
 
 func TestGPUDeviceIDX(t *testing.T) {
 	t.Run("test gpu device idx", func(t *testing.T) {
-		for idx := 0; idx < MaxGPUIndex; idx++ {
+		for idx := 0; idx <= MaxGPUIndex; idx++ {
 			devIDX := GPUDeviceIDX(idx)
 			t.Logf("device idx for gpu %d is %d", idx, devIDX)
 		}
