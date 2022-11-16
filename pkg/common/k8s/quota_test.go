@@ -186,9 +186,10 @@ func TestSubWithGPUX(t *testing.T) {
 		{
 			name: "node has shared gpu task",
 			totalRes: map[string]string{
-				"cpu":       "20",
-				"memory":    "100Gi",
-				"/gpu_v100": "8",
+				"cpu":        "20",
+				"memory":     "100Gi",
+				"/v100_cgpu": "800",
+				"/gpu_v100":  "8",
 			},
 			usedRes: map[string]int64{
 				"cpu":             2000,

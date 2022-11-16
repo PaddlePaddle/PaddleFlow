@@ -96,7 +96,17 @@ func SharedGPUIDX(pod *v1.Pod) int64 {
 }
 
 func IsGPUX(rName string) bool {
-	return strings.Contains(rName, GPUXName)
+	return strings.HasSuffix(rName, GPUXName)
+}
+
+func IsSharedGPUX(rName string, rValue int64) (int64, bool) {
+	if strings.HasPrefix(rName, GPURNamePrefix) {
+		return rValue, true
+	}
+	if IsGPUX(rName) {
+		return rValue / 100, true
+	}
+	return 0, false
 }
 
 func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]interface{} {
@@ -123,11 +133,13 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 	// get gpu count and name
 	var gpuTotalCount int64
 	var gpuxName string
-	gpuxRes := total.ScalarResources(GPURNamePrefix)
-	for rName, rValue := range gpuxRes {
-		if strings.HasPrefix(rName, GPURNamePrefix) {
+	scalarResources := total.ScalarResources("")
+	for rName, rValue := range scalarResources {
+		value, ok := IsSharedGPUX(rName, int64(rValue))
+		if ok {
 			gpuxName = rName
-			gpuTotalCount = int64(rValue)
+			gpuTotalCount = value
+			break
 		}
 	}
 	// calculate idle gpu
