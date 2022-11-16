@@ -17,12 +17,14 @@ limitations under the License.
 package k8s
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
 func TestGPUDeviceIDX(t *testing.T) {
@@ -109,6 +111,18 @@ func TestSharedGPUIDX(t *testing.T) {
 			expectAns: -1,
 		},
 		{
+			name: "GPU_IDX is error",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"GPU_CORE_POD": "10",
+						"GPU_IDX":      "0a,1",
+					},
+				},
+			},
+			expectAns: -1,
+		},
+		{
 			name: "gpu is shared",
 			pod: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +157,57 @@ func TestSharedGPUIDX(t *testing.T) {
 }
 
 func TestIsGPUX(t *testing.T) {
-	os.Setenv("PF_GPU_CORE_POD_KEY", "xxx_COM_GPU_CORE_POD")
-	os.Setenv("PF_GPU_IDX_KEY", "XXX_COM_GPU_IDX")
+	os.Setenv("PF_GPU_CORE_POD", "xxx_COM_GPU_CORE_POD")
+	os.Setenv("PF_GPU_IDX", "XXX_COM_GPU_IDX")
+	os.Setenv("PF_GPU_NAME_PREFIX", "xxx/gpu")
 	assert.Equal(t, false, IsGPUX("nvidia.com/gpu"))
+}
+
+func TestSubWithGPUX(t *testing.T) {
+
+	testCases := []struct {
+		name     string
+		totalRes map[string]string
+		usedRes  map[string]int64
+	}{
+		{
+			name:     "usedRes is nil",
+			totalRes: map[string]string{},
+		},
+		{
+			name: "total res has gpux",
+			totalRes: map[string]string{
+				"cpu":       "20",
+				"memory":    "100Gi",
+				"/gpu_v100": "8",
+			},
+			usedRes: map[string]int64{},
+		},
+		{
+			name: "node has shared gpu task",
+			totalRes: map[string]string{
+				"cpu":       "20",
+				"memory":    "100Gi",
+				"/gpu_v100": "8",
+			},
+			usedRes: map[string]int64{
+				"cpu":             2000,
+				"memory":          10 * 1024 * 1024 * 1024,
+				"/gpu_cgpu":       5,
+				"/gpu_cgpu_core":  300,
+				GPUIndexResources: 73,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			total, err := resources.NewResourceFromMap(tc.totalRes)
+			assert.Equal(t, nil, err)
+
+			ans := SubWithGPUX(total, tc.usedRes)
+			t.Logf("SubWithGPUX: %v", ans)
+		})
+	}
+
 }
