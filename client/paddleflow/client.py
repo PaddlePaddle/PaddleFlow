@@ -427,7 +427,7 @@ class Client(object):
 
     def create_run(self, fs_name=None, username=None, run_name=None, desc=None,
                    run_yaml_path=None, run_yaml_raw=None, pipeline_id=None, pipeline_version_id=None, param=None,
-                   disabled=None, docker_env=None):
+                   disabled=None, docker_env=None, failure_options=None):
         """
         create run
         """
@@ -438,7 +438,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidRunName", "runname should not be none or empty")
         return RunServiceApi.add_run(self.paddleflow_server, fs_name, run_name, desc,
                                      param, username, run_yaml_path, run_yaml_raw, pipeline_id, pipeline_version_id, self.header, disabled,
-                                     docker_env)
+                                     docker_env, failure_options)
 
     def list_run(self, fs_name=None, username=None, run_id=None, run_name=None, status=None, maxsize=100, marker=None):
         """
