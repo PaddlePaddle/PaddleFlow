@@ -36,6 +36,7 @@ import (
 
 	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -426,4 +427,40 @@ func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
 	p.Reset()
 
 	assert.Equal(t, string(bufExpect[0:nExpect]), string(buf1)+string(buf2))
+}
+
+func TestReaname(t *testing.T) {
+	dc := cache.Config{
+		BlockSize:    20,
+		MaxReadAhead: 40,
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(dc)
+	m := meta.Config{
+		AttrCacheExpire:  100 * time.Second,
+		EntryCacheExpire: 100 * time.Second,
+		PathCacheExpire:  2 * time.Second,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+	SetMetaCache(m)
+	client := getS3TestFsClientFake(t)
+	assert.NotNil(t, client)
+	defer func() {
+		os.RemoveAll("./tmp")
+		os.RemoveAll("./mock-cache")
+	}()
+	_, err := client.Create("11.txt")
+	assert.Nil(t, err)
+	err = client.Rename("11.txt", "11.log")
+	assert.Nil(t, err)
+	dirEntry, err := client.ListDir("")
+	assert.Nil(t, err)
+	assert.Equal(t, "11.log", dirEntry[0].Name())
+
 }

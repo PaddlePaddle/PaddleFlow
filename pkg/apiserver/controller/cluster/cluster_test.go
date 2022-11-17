@@ -32,6 +32,7 @@ import (
 
 const (
 	MockRootUser    = "root"
+	MockNonRootUser = "notroot"
 	MockClusterName = "testCn"
 )
 

@@ -69,6 +69,8 @@ type RuntimeClientInterface interface {
 
 	ClusterID() string
 
+	ClusterName() string
+
 	Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error)
 
 	Create(resource interface{}, fv pfschema.FrameworkVersion) error

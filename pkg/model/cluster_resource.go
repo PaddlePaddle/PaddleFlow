@@ -29,14 +29,24 @@ const (
 	ObjectTypePod  = "pod"
 )
 
+type TaskAllocateStatus int
+
+const (
+	TaskCreating TaskAllocateStatus = iota
+	TaskRunning
+	TaskTerminating
+	TaskDeleted
+)
+
 type NodeInfo struct {
 	Pk           int64             `gorm:"primaryKey;autoIncrement" json:"-"`
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
+	ClusterName  string            `gorm:"column:cluster_name" json:"clusterName"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
-	Capacity     interface{}       `gorm:"-" json:"nodeCapacity"`
+	Capacity     map[string]string `gorm:"-" json:"nodeCapacity"`
 	Labels       map[string]string `gorm:"-" json:"nodeLabels"`
 }
 
@@ -57,7 +67,7 @@ func (node *NodeInfo) BeforeSave(tx *gorm.DB) error {
 
 func (node *NodeInfo) AfterFind(tx *gorm.DB) error {
 	if node.CapacityJSON != "" {
-		var capacity interface{}
+		var capacity = make(map[string]string)
 		err := json.Unmarshal([]byte(node.CapacityJSON), &capacity)
 		if err != nil {
 			return err
@@ -73,7 +83,7 @@ type PodInfo struct {
 	Name      string            `gorm:"column:name" json:"name"`
 	NodeID    string            `gorm:"column:node_id" json:"nodeID"`
 	NodeName  string            `gorm:"column:node_name" json:"nodeName"`
-	Status    string            `gorm:"column:status" json:"status"`
+	Status    int               `gorm:"column:status" json:"status"`
 	Labels    map[string]string `gorm:"-" json:"labels"`
 	Resources map[string]int64  `gorm:"-" json:"resources"`
 }
@@ -90,6 +100,15 @@ type ResourceInfo struct {
 	Name     string `gorm:"column:resource_name;index:idx_resource_name" json:"resourceName"`
 	Value    int64  `gorm:"column:resource_value" json:"resourceValue"`
 	IsShared int    `gorm:"column:is_shared" json:"-"`
+}
+
+type ResourceInfoResponse struct {
+	NodeName     string `gorm:"column:node_name" json:"nodeName"`
+	ResourceName string `gorm:"column:resource_name;index:idx_resource_name;default:cpu;comment:resource name" json:"resourceName"`
+	Value        int64  `gorm:"column:resource_value;default:0;comment:sum of resource value" json:"resourceValue"`
+	CapacityJSON string `gorm:"column:capacity" json:"-"`
+	IsShared     int    `gorm:"column:is_shared" json:"-"`
+	ClusterName  string `gorm:"column:cluster_name" json:"clusterName"`
 }
 
 func (ResourceInfo) TableName() string {

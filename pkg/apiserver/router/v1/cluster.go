@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type ClusterRouter struct{}
@@ -47,6 +48,7 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Delete("/cluster/{clusterName}", cr.deleteCluster)
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
+	r.Post("/cluster/resource", cr.listClusterQuotaV2)
 
 	r.Post("/cluster/{clusterName}/k8s/object", func(w http.ResponseWriter, r *http.Request) {
 		ctx := common.GetRequestContext(r)
@@ -233,6 +235,69 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 		return
 	}
 	common.Render(w, http.StatusOK, quotaList)
+}
+
+// listClusterQuotaV2
+// @Summary 获取集群资源列表
+// @Description 获取集群资源列表,可按节点/pod标签进行过滤统计
+// @Id listClusterQuotaV2
+// @tags Resource
+// @Accept  json
+// @Produce json
+// @Param listClusterByLabelRequest body ListClusterResourcesRequest true  "获取集群资源列表"
+// @Request  ListClusterResourcesRequest
+// @Success 200 {object} []ClusterQuotaReponse "获取可筛选标签查询的集群资源的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /cluster/resource [POST]
+func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	var listClusterByLabelRequest cluster.ListClusterResourcesRequest
+	if err := common.BindJSON(r, &listClusterByLabelRequest); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	log.Debugf("list cluster by label request:%+v", listClusterByLabelRequest)
+
+	if err := validataListClusterRequest(&listClusterByLabelRequest); err != nil {
+		ctx.ErrorCode = common.InvalidHTTPRequest
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+	}
+
+	quotaList, err := cluster.ListClusterQuotaByLabels(&ctx, listClusterByLabelRequest)
+	if err != nil {
+		ctx.Logging().Errorf("list cluster quota failed, error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, quotaList)
+}
+
+func validataListClusterRequest(request *cluster.ListClusterResourcesRequest) error {
+	if request.Labels != "" && request.LabelType == "" {
+		err := fmt.Errorf("labelType is nill while labels specified")
+		log.Errorln(err)
+		return err
+	}
+	if request.LabelType != "" {
+		if request.LabelType != model.ObjectTypeNode && request.LabelType != model.ObjectTypePod {
+			err := fmt.Errorf("illegal labelType %s", request.LabelType)
+			log.Errorln(err)
+			return err
+		}
+	}
+	if request.PageSize <= 0 {
+		log.Warningf("pageSize is %d, set to default value", request.PageSize)
+		request.PageSize = util.ListPageMax
+	}
+	if request.PageNo <= 0 {
+		log.Warningf("PageNo is %d, set to default value", request.PageSize)
+		request.PageNo = 1
+	}
+	return nil
 }
 
 func (cr *ClusterRouter) createKubernetesObject(w http.ResponseWriter, r *http.Request) {

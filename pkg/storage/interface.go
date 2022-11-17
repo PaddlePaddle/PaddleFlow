@@ -233,6 +233,7 @@ type NodeCacheInterface interface {
 	UpdateNode(nodeID string, nodeInfo *model.NodeInfo) error
 	DeleteNode(nodeID string) error
 	GetNode(nodeID string) (model.NodeInfo, error)
+	ListNode([]string, string, int, int) ([]model.NodeInfo, error)
 }
 
 type PodCacheInterface interface {
@@ -246,6 +247,8 @@ type ResourceCacheInterface interface {
 	// TODO: update
 	AddResource(rInfo *model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
+	ListResouces([]string, string, string) ([]model.ResourceInfoResponse, error)
+	ListNodeResources([]string) ([]model.ResourceInfo, error)
 }
 
 type LabelCacheInterface interface {
