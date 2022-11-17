@@ -30,11 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	fakedclient "k8s.io/client-go/kubernetes/fake"
-	restclient "k8s.io/client-go/rest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -71,25 +66,6 @@ status: {}
 `
 )
 
-func newFakeKubeRuntimeClient(server *httptest.Server) *client.KubeRuntimeClient {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
-
-	return &client.KubeRuntimeClient{
-		Client:          fakedclient.NewSimpleClientset(),
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-			Type: "Kubernetes",
-		},
-		Config: &restclient.Config{Host: server.URL},
-	}
-}
-
 // init trace logger
 func initTestTraceLogger() error {
 	tmpDir, err := os.MkdirTemp("", "")
@@ -118,7 +94,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -141,6 +117,17 @@ func TestKubeRuntimeJob(t *testing.T) {
 				},
 			},
 		},
+		Tasks: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "busybox:v1",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+				},
+			},
+		},
 	}
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
@@ -152,22 +139,23 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	})
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
 	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 	// stop kubernetes job
 	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
+	t.SkipNow()
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -252,7 +240,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 func TestKubeRuntimeObjectOperation(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -297,7 +285,7 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 func TestKubeRuntimeVCQueue(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -331,7 +319,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 func TestKubeRuntimeElasticQuota(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -372,7 +360,7 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 func TestKubeRuntimeNodeResource(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
