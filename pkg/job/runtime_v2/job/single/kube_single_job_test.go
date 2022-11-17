@@ -18,6 +18,7 @@ package single
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"testing"
@@ -84,7 +85,7 @@ metadata:
   creationTimestamp: null
   labels:
     volcano.sh/queue-name: mockQueueName
-  name: job-normal-0c272d0a
+  name: job-normal-0c272d0b
   namespace: default
 spec:
   priorityClassName: normal
@@ -97,7 +98,7 @@ status: {}
 `
 	mockSinglePod = api.PFJob{
 		ID:        "job-normal-0c272d0a",
-		Name:      "",
+		Name:      "job-normal-0c272d0a",
 		Namespace: "default",
 		JobType:   schema.TypeSingle,
 		UserName:  "root",
@@ -159,7 +160,12 @@ func TestSingleJob_Create(t *testing.T) {
 	// mock db
 	driver.InitMockDB()
 
-	mockSinglePodWrongFlavour := mockSinglePod
+	podBytes, err := json.Marshal(mockSinglePod)
+	assert.NoError(t, err)
+	var mockSinglePodWrongFlavour, mockSinglePodNilContainer api.PFJob
+	//mockSinglePodWrongFlavour
+	err = json.Unmarshal(podBytes, &mockSinglePodWrongFlavour)
+	assert.NoError(t, err)
 	mockSinglePodWrongFlavour.Tasks[0].Flavour = schema.Flavour{
 		Name: "mockFlavourName",
 		ResourceInfo: schema.ResourceInfo{
@@ -167,7 +173,10 @@ func TestSingleJob_Create(t *testing.T) {
 			Mem: "2",
 		},
 	}
-	mockSinglePodNilContainer := mockSinglePod
+	// mockSinglePodNilContainer
+	err = json.Unmarshal(podBytes, &mockSinglePodNilContainer)
+	assert.NoError(t, err)
+	mockSinglePodNilContainer.ID = "mockSinglePodNilContainer"
 	mockSinglePodNilContainer.ExtensionTemplate = []byte(extensionTemplateYamlNilContainer)
 	// create kubernetes resource with dynamic client
 	tests := []struct {
@@ -192,13 +201,13 @@ func TestSingleJob_Create(t *testing.T) {
 		},
 		{
 			caseName: "wrong flavour",
-			jobObj:   &mockSinglePod,
-			wantErr:  nil,
+			jobObj:   &mockSinglePodWrongFlavour,
+			wantErr:  fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
 			wantMsg:  "",
 		},
 		{
 			caseName: "nil container",
-			jobObj:   &mockSinglePod,
+			jobObj:   &mockSinglePodNilContainer,
 			wantErr:  nil,
 			wantMsg:  "",
 		},
@@ -215,12 +224,11 @@ func TestSingleJob_Create(t *testing.T) {
 		t.Run(test.caseName, func(t *testing.T) {
 			err := singleJob.Submit(context.TODO(), test.jobObj)
 			if test.wantErr == nil {
-				assert.Equal(t, test.wantErr, err)
+				assert.NoError(t, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
 				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
-				if !assert.NoError(t, err) {
-					t.Errorf(err.Error())
-				}
+				assert.NoError(t, err)
+
 				gettedPod := v1.Pod{}
 				unObj := obj.(*unstructured.Unstructured)
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, &gettedPod); err != nil {
