@@ -146,7 +146,7 @@ func TestGetPFJobLogs(t *testing.T) {
 		responseCode int
 	}{
 		{
-			name: "empty request, cluster type[] is not support",
+			name: "job framework unsupported",
 			args: args{
 				ctx: &logger.RequestContext{
 					UserName: mockRootUser,
@@ -156,7 +156,7 @@ func TestGetPFJobLogs(t *testing.T) {
 					Framework: "",
 				},
 			},
-			wantErr:      false,
+			wantErr:      true,
 			responseCode: 400,
 		},
 		{
