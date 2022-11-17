@@ -36,38 +36,34 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
 
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
+	minRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "10Gi",
+	})
+	assert.Equal(t, nil, err)
+
 	q := model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeElasticQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
-		MinResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 10 * 1000,
-				"mem": 10 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeElasticQuota,
+		MaxResources: maxRes,
+		MinResources: minRes,
 	}
 	queueInfo := api.NewQueueInfo(q)
 	eQuota := New(kubeRuntimeClient)
 	// create elastic quota
-	err := eQuota.Create(context.TODO(), queueInfo)
+	err = eQuota.Create(context.TODO(), queueInfo)
 	assert.Equal(t, nil, err)
 	// update elastic quota
-	q.MaxResources = &resources.Resource{
-		Resources: map[string]resources.Quantity{
-			"cpu": 30 * 1000,
-			"mem": 30 * 1024 * 1024 * 1024,
-		},
-	}
+	q.MaxResources.SetResources(resources.ResCPU, 30*1000)
 	queueInfo = api.NewQueueInfo(q)
 	err = eQuota.Update(context.TODO(), queueInfo)
 	assert.Equal(t, nil, err)

@@ -218,7 +218,7 @@ func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	if r == nil {
 		return resourceList
 	}
-	for resourceName, RQuant := range r.Resources {
+	for resourceName, RQuant := range r.Resource() {
 		rName := v1.ResourceName("")
 		var quantity *resource.Quantity
 		switch resourceName {

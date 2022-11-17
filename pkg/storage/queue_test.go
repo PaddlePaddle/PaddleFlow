@@ -54,16 +54,16 @@ func TestCreateQueue(t *testing.T) {
 	assert.NotEmpty(t, cluster1.ID)
 
 	r1, err := resources.NewResourceFromMap(map[string]string{
-		"cpu":            "10",
-		"mem":            "100G",
-		"nvidia.com/gpu": "500",
+		resources.ResCPU:    "10",
+		resources.ResMemory: "100G",
+		"nvidia.com/gpu":    "500",
 	})
 	assert.Equal(t, nil, err)
 
 	r2, err := resources.NewResourceFromMap(map[string]string{
-		"cpu":            "20",
-		"mem":            "200G",
-		"nvidia.com/gpu": "200",
+		resources.ResCPU:    "20",
+		resources.ResMemory: "200G",
+		"nvidia.com/gpu":    "200",
 	})
 	assert.Equal(t, nil, err)
 
@@ -115,23 +115,23 @@ func TestUpdateQueue(t *testing.T) {
 	assert.NotEmpty(t, cluster1.ID)
 
 	r1, err := resources.NewResourceFromMap(map[string]string{
-		"cpu":            "10",
-		"mem":            "100G",
-		"nvidia.com/gpu": "500",
+		resources.ResCPU:    "10",
+		resources.ResMemory: "100G",
+		"nvidia.com/gpu":    "500",
 	})
 	assert.Equal(t, nil, err)
 
 	r2, err := resources.NewResourceFromMap(map[string]string{
-		"cpu":            "1",
-		"mem":            "10G",
-		"nvidia.com/gpu": "500",
+		resources.ResCPU:    "1",
+		resources.ResMemory: "10G",
+		"nvidia.com/gpu":    "500",
 	})
 	assert.Equal(t, nil, err)
 
 	r3, err := resources.NewResourceFromMap(map[string]string{
-		"cpu":            "10",
-		"mem":            "100G",
-		"nvidia.com/gpu": "5",
+		resources.ResCPU:    "10",
+		resources.ResMemory: "100G",
+		"nvidia.com/gpu":    "5",
 	})
 	assert.Equal(t, nil, err)
 
