@@ -7,7 +7,7 @@ import (
 )
 
 func TestQuantity_AsInt64(t *testing.T) {
-	res := "100K"
+	res := "100k"
 	q, err := ParseQuantity(res)
 	assert.NoError(t, err)
 	t.Logf("q.AsInt64()=%d", q.AsInt64())
