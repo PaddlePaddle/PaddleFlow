@@ -15,6 +15,11 @@ limitations under the License.
 */
 package utils
 
+import (
+	"encoding/hex"
+	"math/rand"
+)
+
 func MaxUInt64(a, b uint64) uint64 {
 	if a > b {
 		return a
@@ -37,4 +42,10 @@ func MinUInt64(a, b uint64) uint64 {
 	} else {
 		return b
 	}
+}
+
+func GetRandID(randNum int) string {
+	b := make([]byte, randNum/2)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
