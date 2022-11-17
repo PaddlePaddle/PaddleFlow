@@ -216,6 +216,11 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("panic err: %v", err)
+		}
+	}()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
