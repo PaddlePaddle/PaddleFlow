@@ -187,3 +187,57 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCpuPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetCpuPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetCpuPercent() = %v and want %v", cpuP, tt.want)
+		}
+	}
+}
+
+func TestGetMemPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetCpuPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+		}
+	}
+}
+
+func TestGetDiskPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetDiskPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+		}
+	}
+}

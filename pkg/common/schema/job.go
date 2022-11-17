@@ -121,9 +121,10 @@ const (
 	ListenerTypeNode     = "node"
 	ListenerTypeNodeTask = "nodeTask"
 
-	EnvPFNodeLabels = "PF_NODE_LABELS"
-	EnvPFTaskLabels = "PF_TASK_LABELS"
-	PFNodeLabels    = "resource-isolation-type"
+	EnvPFNodeLabels     = "PF_NODE_LABELS"
+	EnvPFTaskLabels     = "PF_TASK_LABELS"
+	EnvPFResourceFilter = "PF_NODE_RESOURCES_FILTER"
+	PFNodeLabels        = "resource-isolation-type"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"

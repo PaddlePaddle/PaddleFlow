@@ -1096,6 +1096,7 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 }
 
 func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno) {
+	log.Debugf("kv meta rename parentSrc[%v]'s[%s] to parentDst[%v]'s[%s]", parentSrc, nameSrc, parentDst, nameDst)
 	var pathDst string
 	var pathSrc string
 	srcAttr := &inodeItem{}
@@ -1518,8 +1519,9 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			m.parseInode(buf, updateInodeItem)
 			if !m.inodeItemExpired(*updateInodeItem) {
 				updateInodeItem.fileHandles -= 1
-				if updateInodeItem.fileHandles == -1 {
-					panic(updateInodeItem.fileHandles)
+				if updateInodeItem.fileHandles < 0 {
+					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v", inode, updateInodeItem.fileHandles, updateInodeItem)
+					return nil
 				}
 				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
