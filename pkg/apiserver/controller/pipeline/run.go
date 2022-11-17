@@ -59,16 +59,17 @@ const (
 )
 
 type CreateRunRequest struct {
-	FsName      string                 `json:"fsName"`
-	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
-	Name        string                 `json:"name,omitempty"`       // optional
-	Description string                 `json:"desc,omitempty"`       // optional
-	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
-	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
+	FsName         string                 `json:"fsName"`
+	UserName       string                 `json:"username,omitempty"`       // optional, only for root user
+	Name           string                 `json:"name,omitempty"`           // optional
+	Description    string                 `json:"desc,omitempty"`           // optional
+	Parameters     map[string]interface{} `json:"parameters,omitempty"`     // optional
+	DockerEnv      string                 `json:"dockerEnv,omitempty"`      // optional
+	Disabled       string                 `json:"disabled,omitempty"`       // optional
+	FailureOptions *schema.FailureOptions `json:"failureOptions,omitempty"` // optional
 	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineVersionID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled          string `json:"disabled,omitempty"`          // optional
 	RunYamlRaw        string `json:"runYamlRaw,omitempty"`        // optional. one of 3 sources of run. high priority
 	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
 	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
@@ -470,12 +471,15 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	if req.Name != "" {
 		wfs.Name = req.Name
 	}
+
 	if req.DockerEnv != "" {
 		wfs.DockerEnv = req.DockerEnv
 	}
+
 	if req.Disabled != "" {
 		wfs.Disabled = req.Disabled
 	}
+
 	if req.FsName != "" {
 		if wfs.FsOptions.MainFS.Name == "" {
 			wfs.FsOptions.MainFS.Name = req.FsName
@@ -483,8 +487,12 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 			err := fmt.Errorf("[main_fs.name] should be same as fs_name in request")
 			return schema.WorkflowSource{}, err
 		}
-
 	}
+
+	if req.FailureOptions != nil {
+		wfs.FailureOptions = *req.FailureOptions
+	}
+
 	return wfs, nil
 }
 
@@ -561,6 +569,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		WorkflowSource: wfs,
 		DockerEnv:      wfs.DockerEnv,
 		Disabled:       request.Disabled,
+		FailureOptions: request.FailureOptions,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
 		RunOptions:     schema.RunOptions{FSUsername: userName},
@@ -1061,11 +1070,13 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	}
 
 	wfs, err := runYamlAndReqToWfs(run.RunYaml, CreateRunRequest{
-		FsName:    run.FsName,
-		DockerEnv: run.DockerEnv,
-		Name:      run.Name,
-		Disabled:  run.Disabled,
+		FsName:         run.FsName,
+		DockerEnv:      run.DockerEnv,
+		Name:           run.Name,
+		Disabled:       run.Disabled,
+		FailureOptions: run.FailureOptions,
 	})
+
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return "", err

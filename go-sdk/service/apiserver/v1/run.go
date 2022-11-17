@@ -33,16 +33,17 @@ const (
 )
 
 type CreateRunRequest struct {
-	FsName      string                 `json:"fsName"`
-	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
-	Name        string                 `json:"name,omitempty"`       // optional
-	Description string                 `json:"desc,omitempty"`       // optional
-	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
-	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
+	FsName         string                 `json:"fsName"`
+	UserName       string                 `json:"username,omitempty"`       // optional, only for root user
+	Name           string                 `json:"name,omitempty"`           // optional
+	Description    string                 `json:"desc,omitempty"`           // optional
+	Parameters     map[string]interface{} `json:"parameters,omitempty"`     // optional
+	DockerEnv      string                 `json:"dockerEnv,omitempty"`      // optional
+	Disabled       string                 `json:"disabled,omitempty"`       // optional
+	FailureOptions *schema.FailureOptions `json:"failureOptions,omitempty"` // optional
 	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineVersionID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled          string `json:"disabled,omitempty"`          // optional
 	RunYamlRaw        string `json:"runYamlRaw,omitempty"`        // optional. one of 3 sources of run. high priority
 	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
 	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
