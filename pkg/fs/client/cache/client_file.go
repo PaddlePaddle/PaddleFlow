@@ -158,7 +158,10 @@ func (c *fileDataCache) delete(key string) {
 		c.keys.Delete(key)
 	}
 	_ = deleteCachePool.Submit(func() {
-		_ = os.Remove(path)
+		err := os.Remove(path)
+		if err != nil {
+			log.Debugf("delete cache remove err: %v", err)
+		}
 	})
 }
 
