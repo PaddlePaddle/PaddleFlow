@@ -503,7 +503,7 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 	return jobLogInfo, nil
 }
 
-// GetEvents
+// GetEvents get events by name and namespace
 func (kr *KubeRuntime) GetEvents(namespace, name string) ([]corev1.Event, error) {
 	log.Infof("get %s/%s events info from Kubernetes", namespace, name)
 	var response []corev1.Event

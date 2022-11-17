@@ -32,11 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	fakedclient "k8s.io/client-go/kubernetes/fake"
-	restclient "k8s.io/client-go/rest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -78,25 +73,6 @@ status: {}
 	nodeName       = "node1"
 )
 
-func newFakeKubeRuntimeClient(server *httptest.Server) *client.KubeRuntimeClient {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
-
-	return &client.KubeRuntimeClient{
-		Client:          fakedclient.NewSimpleClientset(),
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-			Type: "Kubernetes",
-		},
-		Config: &restclient.Config{Host: server.URL},
-	}
-}
-
 // init trace logger
 func initTestTraceLogger() error {
 	tmpDir, err := os.MkdirTemp("", "")
@@ -125,7 +101,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -174,7 +150,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 func TestKubeRuntimePVAndPVC(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -259,7 +235,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 func TestKubeRuntimeObjectOperation(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -304,7 +280,7 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 func TestKubeRuntimeVCQueue(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -338,7 +314,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 func TestKubeRuntimeElasticQuota(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -378,7 +354,7 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 func TestKubeRuntimeNodeResource(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -444,7 +420,7 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	kubeClient := newFakeKubeRuntimeClient(server)
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -484,6 +460,21 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 			args: args{
 				req: schema.MixedLogRequest{
 					Name:           "",
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypePodJob),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: string(schema.TypePodJob),
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockPodName,
 					Namespace:      "default",
 					Framework:      "",
 					LineLimit:      "default",
@@ -594,6 +585,9 @@ func createMockLog(t *testing.T, kr *KubeRuntime) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mockPodName,
 			Namespace: mockNS,
+			Labels: map[string]string{
+				"app": mockPodName,
+			},
 		},
 		Spec: podSpec,
 		Status: corev1.PodStatus{
@@ -611,6 +605,9 @@ func createMockLog(t *testing.T, kr *KubeRuntime) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      mockPodName,
 					Namespace: mockNS,
+					Labels: map[string]string{
+						"app": mockPodName,
+					},
 				},
 				Spec: podSpec,
 			},
@@ -649,5 +646,76 @@ func createEvents(t *testing.T, kr *KubeRuntime, objectName, namespace string) {
 		}
 		_, err := kr.clientset().CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
 		assert.Equal(t, nil, err)
+	}
+}
+
+func TestKubeRuntime_GetEvents(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+	createMockLog(t, kubeRuntime)
+
+	type args struct {
+		name      string
+		namespace string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "empty request",
+			args:    args{},
+			wantErr: false,
+		},
+		{
+			name: "empty request, only name",
+			args: args{
+				name:      mockPodName,
+				namespace: "",
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty request, only namespace",
+			args: args{
+				name:      "",
+				namespace: mockNS,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success1",
+			args: args{
+				name:      mockPodName,
+				namespace: mockNS,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			res, err := kubeRuntime.GetEvents(tt.args.namespace, tt.args.name)
+			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					t.Logf("wantError: %s", err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+				t.Logf("name=%s, res=%#v", tt.name, res)
+			}
+		})
+
 	}
 }

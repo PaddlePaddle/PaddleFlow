@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/informers"
 	infov1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
@@ -845,7 +844,7 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils
 			return []pfschema.TaskLogInfo{}, err
 		}
 		finalContent := logpage.Paging(logContent, logContentLineNum)
-		log.Debugf("get log of pod %s/container %s, content length: %d", name, c.Name, len(finalContent))
+		log.Debugf("get log of pod/container: %s/%s, content length: %d", name, c.Name, len(finalContent))
 		taskLogInfo := pfschema.TaskLogInfo{
 			TaskID:  c.Name,
 			PodUID:  string(pod.GetUID()),
@@ -862,12 +861,7 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils
 }
 
 func (krc *KubeRuntimeClient) getContainerLog(namespace, name string, logOptions *corev1.PodLogOptions) (string, int, error) {
-	readCloser, err := krc.Client.CoreV1().RESTClient().Get().
-		Namespace(namespace).
-		Name(name).
-		Resource("pods").
-		SubResource("log").
-		VersionedParams(logOptions, scheme.ParameterCodec).Stream(context.TODO())
+	readCloser, err := krc.Client.CoreV1().Pods(namespace).GetLogs(name, logOptions).Stream(context.TODO())
 	if err != nil {
 		log.Errorf("pod[%s] get log stream failed. error: %s", name, err.Error())
 		return err.Error(), 0, nil
