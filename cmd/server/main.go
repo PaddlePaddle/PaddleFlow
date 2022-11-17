@@ -204,6 +204,11 @@ func setup() {
 		gracefullyExit(err)
 	}
 
+	if err = driver.InitCache(ServerConf.Log.Level); err != nil {
+		log.Errorf("init cache err: %v", err)
+		gracefullyExit(err)
+	}
+
 	if err := newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		gracefullyExit(err)

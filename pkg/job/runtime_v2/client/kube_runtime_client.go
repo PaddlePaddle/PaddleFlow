@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -36,6 +38,8 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
+	infov1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -45,8 +49,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var (
@@ -60,7 +67,8 @@ var (
 
 // KubeRuntimeClient for kubernetes client
 type KubeRuntimeClient struct {
-	Client kubernetes.Interface
+	Client          kubernetes.Interface
+	InformerFactory informers.SharedInformerFactory
 	// DynamicClient dynamic client
 	DynamicClient  dynamic.Interface
 	DynamicFactory dynamicinformer.DynamicSharedInformerFactory
@@ -72,6 +80,10 @@ type KubeRuntimeClient struct {
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 
+	// nodeInformer contains the informer of node
+	nodeInformer infov1.NodeInformer
+	// nodeTaskInformer contains the informer of node task
+	nodeTaskInformer infov1.PodInformer
 	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
 	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 	// podInformer contains the informer of task
@@ -105,6 +117,7 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}
 	return &KubeRuntimeClient{
 		Client:           k8sClient,
+		InformerFactory:  informers.NewSharedInformerFactory(k8sClient, 0),
 		DynamicClient:    dynamicClient,
 		DynamicFactory:   factory,
 		DiscoveryClient:  discoveryClient,
@@ -144,6 +157,10 @@ func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue wo
 		err = krc.registerTaskListener(workQueue)
 	case pfschema.ListenerTypeQueue:
 		err = krc.registerQueueListener(workQueue)
+	case pfschema.ListenerTypeNode:
+		err = krc.registerNodeListener(workQueue)
+	case pfschema.ListenerTypeNodeTask:
+		err = krc.registerNodeTaskListener(workQueue)
 	default:
 		err = fmt.Errorf("listener type %s is not supported", listenerType)
 	}
@@ -231,7 +248,306 @@ func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimi
 	return nil
 }
 
+func (krc *KubeRuntimeClient) registerNodeListener(workQueue workqueue.RateLimitingInterface) error {
+	krc.nodeInformer = krc.InformerFactory.Core().V1().Nodes()
+	nodeHandler := NewNodeHandler(workQueue, krc.Cluster())
+	krc.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    nodeHandler.AddNode,
+		UpdateFunc: nodeHandler.UpdateNode,
+		DeleteFunc: nodeHandler.DeleteNode,
+	})
+	return nil
+}
+
+func (krc *KubeRuntimeClient) registerNodeTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	krc.nodeTaskInformer = krc.InformerFactory.Core().V1().Pods()
+
+	taskHandler := NewNodeTaskHandler(workQueue, krc.Cluster())
+	krc.nodeTaskInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			// TODO: evaluate the time of filter
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				return false
+			}
+			// check weather pod resources is empty or not
+			podResource := GetPodResource(pod)
+			if podResource.IsZero() {
+				log.Debugf("node task %s/%s request resources is empty, ignore it", pod.Namespace, pod.Name)
+				return false
+			}
+			return true
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    taskHandler.AddPod,
+			UpdateFunc: taskHandler.UpdatePod,
+			DeleteFunc: taskHandler.DeletePod,
+		},
+	})
+	return nil
+}
+
+func GetPodResource(pod *corev1.Pod) *resources.Resource {
+	result := resources.EmptyResource()
+	for _, container := range pod.Spec.Containers {
+		result.Add(k8s.NewResource(container.Resources.Requests))
+	}
+	return result
+}
+
+type NodeHandler struct {
+	workQueue      workqueue.RateLimitingInterface
+	labelKeys      []string
+	cluster        string
+	resourceFilter []string
+}
+
+func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHandler {
+	var labelKeys []string
+	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFNodeLabels))
+	if len(nodeLabels) > 0 {
+		labelKeys = strings.Split(nodeLabels, ",")
+	} else {
+		labelKeys = []string{pfschema.PFNodeLabels}
+	}
+	var rFilter = []string{
+		"pods",
+		"ephemeral-storage",
+		"hugepages-",
+		"rdma",
+		"cgpu_",
+		"_port",
+	}
+	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
+	if len(resourceFilters) > 0 {
+		filters := strings.Split(nodeLabels, ",")
+		rFilter = append(rFilter, filters...)
+	}
+	return &NodeHandler{
+		workQueue:      q,
+		labelKeys:      labelKeys,
+		cluster:        cluster,
+		resourceFilter: rFilter,
+	}
+}
+
+func (n *NodeHandler) isExpectedResources(rName string) bool {
+	var isExpected = true
+	for _, filter := range n.resourceFilter {
+		if strings.Contains(rName, filter) {
+			isExpected = false
+			break
+		}
+	}
+	return isExpected
+}
+
+func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
+	capacity := make(map[string]string)
+	for rName, rValue := range node.Status.Allocatable {
+		resourceName := string(rName)
+		if n.isExpectedResources(resourceName) {
+			capacity[resourceName] = rValue.String()
+		}
+	}
+	nodeSync := &api.NodeSyncInfo{
+		Name:     node.Name,
+		Status:   getNodeStatus(node),
+		Capacity: capacity,
+		Labels:   labels,
+		Action:   action,
+	}
+	log.Infof("WatchNodeSync: %s, watch %s event for node %s with status %s", n.cluster, action, node.Name, nodeSync.Status)
+	n.workQueue.Add(nodeSync)
+}
+
+func (n *NodeHandler) AddNode(obj interface{}) {
+	node := obj.(*corev1.Node)
+	n.addQueue(node, pfschema.Create, getLabels(n.labelKeys, node.GetLabels()))
+}
+
+func (n *NodeHandler) UpdateNode(old, new interface{}) {
+	oldNode := old.(*corev1.Node)
+	newNode := new.(*corev1.Node)
+
+	oldStatus := getNodeStatus(oldNode)
+	newStatus := getNodeStatus(newNode)
+
+	oldLabels := getLabels(n.labelKeys, oldNode.Labels)
+	newLabels := getLabels(n.labelKeys, newNode.Labels)
+
+	if oldStatus == newStatus &&
+		reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) &&
+		reflect.DeepEqual(oldLabels, newLabels) {
+		return
+	}
+	if reflect.DeepEqual(oldLabels, newLabels) {
+		// In order to skip label update, set newLabels to nil
+		newLabels = nil
+	}
+	n.addQueue(newNode, pfschema.Update, newLabels)
+}
+
+func (n *NodeHandler) DeleteNode(obj interface{}) {
+	node := obj.(*corev1.Node)
+	n.addQueue(node, pfschema.Delete, nil)
+}
+
+func getNodeStatus(node *corev1.Node) string {
+	if node.Spec.Unschedulable {
+		return "Unschedulable"
+	}
+	nodeStatus := "NotReady"
+	condLen := len(node.Status.Conditions)
+	if condLen > 0 {
+		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
+			nodeStatus = "Ready"
+		}
+	}
+	return nodeStatus
+}
+
+func getLabels(labelKeys []string, totalLabels map[string]string) map[string]string {
+	labels := make(map[string]string)
+
+	for _, key := range labelKeys {
+		if value, find := totalLabels[key]; find {
+			labels[key] = value
+		}
+	}
+	return labels
+}
+
+type NodeTaskHandler struct {
+	workQueue workqueue.RateLimitingInterface
+	labelKeys []string
+	cluster   string
+}
+
+func NewNodeTaskHandler(q workqueue.RateLimitingInterface, cluster string) *NodeTaskHandler {
+	var labelKeys []string
+	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFTaskLabels))
+	if len(nodeLabels) > 0 {
+		labelKeys = strings.Split(nodeLabels, ",")
+	} else {
+		labelKeys = []string{pfschema.QueueLabelKey}
+	}
+	return &NodeTaskHandler{
+		workQueue: q,
+		labelKeys: labelKeys,
+		cluster:   cluster,
+	}
+}
+
+func convertPodResources(pod *corev1.Pod) map[string]int64 {
+	result := resources.EmptyResource()
+	for _, container := range pod.Spec.Containers {
+		result.Add(k8s.NewResource(container.Resources.Requests))
+	}
+	deviceIDX := k8s.SharedGPUIDX(pod)
+	if deviceIDX > 0 {
+		result.SetResources(k8s.GPUIndexResources, deviceIDX)
+	}
+
+	podResources := make(map[string]int64)
+	for rName, rValue := range result.Resource() {
+		switch rName {
+		case resources.ResMemory:
+			podResources[string(corev1.ResourceMemory)] = int64(rValue)
+		default:
+			podResources[rName] = int64(rValue)
+		}
+	}
+	return podResources
+}
+
+func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, status model.TaskAllocateStatus, labels map[string]string) {
+	// TODO: use multi workQueues
+	nodeTaskSync := &api.NodeTaskSyncInfo{
+		ID:        string(pod.UID),
+		Name:      pod.Name,
+		NodeName:  pod.Spec.NodeName,
+		Status:    status,
+		Resources: convertPodResources(pod),
+		Labels:    labels,
+		Action:    action,
+	}
+	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %v", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
+	n.workQueue.Add(nodeTaskSync)
+}
+
+func isAllocatedPod(pod *corev1.Pod) bool {
+	if pod.Spec.NodeName != "" &&
+		(pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning) {
+		return true
+	}
+	return false
+}
+
+func (n *NodeTaskHandler) AddPod(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+
+	// TODO: check weather pod is exist or not
+	if isAllocatedPod(pod) {
+		n.addQueue(pod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, pod.Labels))
+	}
+}
+
+func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
+	oldPod := old.(*corev1.Pod)
+	newPod := new.(*corev1.Pod)
+	var deletionGracePeriodSeconds int64 = -1
+	if newPod.DeletionGracePeriodSeconds != nil {
+		deletionGracePeriodSeconds = *newPod.DeletionGracePeriodSeconds
+	}
+	log.Debugf("TaskSync: %s, update task %s/%s, deletionGracePeriodSeconds: %v, status: %v,  nodeName: %s",
+		n.cluster, newPod.Namespace, newPod.Name, deletionGracePeriodSeconds, newPod.Status.Phase, newPod.Spec.NodeName)
+
+	// 1. weather the allocated status of pod is changed or not
+	oldPodAllocated := isAllocatedPod(oldPod)
+	newPodAllocated := isAllocatedPod(newPod)
+	if oldPodAllocated != newPodAllocated {
+		if newPodAllocated {
+			n.addQueue(newPod, pfschema.Update, model.TaskRunning, nil)
+		} else {
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
+		}
+		return
+	}
+	// 2. pod is allocated and is deleted
+	if newPodAllocated && oldPod.DeletionGracePeriodSeconds == nil && newPod.DeletionGracePeriodSeconds != nil {
+		if *newPod.DeletionGracePeriodSeconds == 0 {
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
+		} else {
+			n.addQueue(newPod, pfschema.Update, model.TaskTerminating, nil)
+		}
+	}
+}
+
+func (n *NodeTaskHandler) DeletePod(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+	n.addQueue(pod, pfschema.Delete, model.TaskDeleted, nil)
+}
+
 func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan struct{}) error {
+	var err error
+	switch listenerType {
+	case pfschema.ListenerTypeNode, pfschema.ListenerTypeNodeTask:
+		krc.InformerFactory.Start(stopCh)
+		for _, synced := range krc.InformerFactory.WaitForCacheSync(stopCh) {
+			if !synced {
+				err = fmt.Errorf("timed out waiting for caches to %s", listenerType)
+				log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
+				break
+			}
+		}
+	default:
+		err = krc.startDynamicListener(listenerType, stopCh)
+	}
+	return err
+}
+
+func (krc *KubeRuntimeClient) startDynamicListener(listenerType string, stopCh <-chan struct{}) error {
 	var err error
 	var informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
 	switch listenerType {
@@ -249,7 +565,7 @@ func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan s
 		return err
 	}
 	// start dynamic factory and wait for cache sync
-	go krc.DynamicFactory.Start(stopCh)
+	krc.DynamicFactory.Start(stopCh)
 	for _, informer := range informerMap {
 		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
 			err = fmt.Errorf("timed out waiting for caches to %s", krc.Cluster())
@@ -266,6 +582,14 @@ func (krc *KubeRuntimeClient) Cluster() string {
 		msg = fmt.Sprintf("cluster %s with type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
 	}
 	return msg
+}
+
+func (krc *KubeRuntimeClient) ClusterName() string {
+	name := ""
+	if krc.ClusterInfo != nil {
+		name = krc.ClusterInfo.Name
+	}
+	return name
 }
 
 func (krc *KubeRuntimeClient) ClusterID() string {

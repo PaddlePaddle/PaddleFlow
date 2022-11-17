@@ -17,6 +17,12 @@ limitations under the License.
 package k8s
 
 import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -26,7 +32,145 @@ import (
 const (
 	DefaultCpuRequest = 1
 	DefaultMemRequest = 1073741824 // 1Gi=1024*1024*1024B=1073741824B
+
+	MaxGPUIndex       = 16
+	GPUIndexResources = "gpuDeviceIDX"
 )
+
+var (
+	GPUCorePodKey = "GPU_CORE_POD"
+	GPUIdxKey     = "GPU_IDX"
+
+	GPURNamePrefix = "/gpu"
+	GPUXName       = "cgpu"
+	GPUXCoreName   = fmt.Sprintf("%s_core", GPUXName)
+)
+
+func init() {
+	gpuCorePod := os.Getenv("PF_GPU_CORE_POD")
+	if gpuCorePod != "" {
+		GPUCorePodKey = gpuCorePod
+	}
+	gpuIDX := os.Getenv("PF_GPU_IDX")
+	if gpuIDX != "" {
+		GPUIdxKey = gpuIDX
+	}
+	gpuNamePrefix := os.Getenv("PF_GPU_NAME_PREFIX")
+	if gpuNamePrefix != "" {
+		GPURNamePrefix = gpuNamePrefix
+	}
+	fmt.Printf("CORE_POD key: %s, IDX key: %s, GPU Name prefix: %s", GPUCorePodKey, GPUIdxKey, GPURNamePrefix)
+}
+
+func SharedGPUIDX(pod *v1.Pod) int64 {
+	var deviceIDX int64 = -1
+	annotations := pod.Annotations
+	if annotations == nil {
+		return deviceIDX
+	}
+
+	corePodStr, findCore := annotations[GPUCorePodKey]
+	idxStr, find := annotations[GPUIdxKey]
+	if !findCore || !find {
+		return deviceIDX
+	}
+	corePodNum, err := strconv.Atoi(corePodStr)
+	if err != nil {
+		return deviceIDX
+	}
+
+	idxs := strings.Split(idxStr, ",")
+	if corePodNum/50 == len(idxs) {
+		// is shared gpu
+		deviceIDX = 0
+		var deviceID int
+		for _, idx := range idxs {
+			deviceID, err = strconv.Atoi(idx)
+			if err != nil {
+				return -1
+			}
+			deviceIDX += GPUDeviceIDX(deviceID)
+		}
+	}
+	return deviceIDX
+}
+
+func IsGPUX(rName string) bool {
+	return strings.HasSuffix(rName, GPUXName)
+}
+
+func IsSharedGPUX(rName string, rValue int64) (int64, bool) {
+	if strings.HasPrefix(rName, GPURNamePrefix) {
+		return rValue, true
+	}
+	if IsGPUX(rName) {
+		return rValue / 100, true
+	}
+	return 0, false
+}
+
+func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]interface{} {
+	if total == nil || rr == nil {
+		return make(map[string]interface{})
+	}
+	var isShared = false
+	var sharedDevices []int
+	gpuIDX, find := rr[GPUIndexResources]
+	if find {
+		isShared = true
+		sharedDevices = GPUSharedDevices(gpuIDX)
+	}
+	// get used gpu and gpu core
+	var gpux, gpuxCore int64
+	for rName, rValue := range rr {
+		if strings.HasSuffix(rName, GPUXName) {
+			gpux = rValue
+		}
+		if strings.HasSuffix(rName, GPUXCoreName) {
+			gpuxCore = rValue
+		}
+	}
+	// get gpu count and name
+	var gpuTotalCount int64
+	var gpuxName string
+	scalarResources := total.ScalarResources("")
+	for rName, rValue := range scalarResources {
+		value, ok := IsSharedGPUX(rName, int64(rValue))
+		if ok {
+			gpuxName = rName
+			gpuTotalCount = value
+			break
+		}
+	}
+	// calculate idle gpu
+	var idlegpux, idleSharedGPUX int64
+	gpuxResource := map[string]interface{}{}
+	if isShared {
+		totalShared := int64(len(sharedDevices))
+		totalUsed := gpuxCore/50 - gpux
+		sharedUsed := 2*gpux - gpuxCore/50
+
+		idlegpux = gpuTotalCount - totalShared - totalUsed
+		idleSharedGPUX = totalShared*2 - sharedUsed
+
+		gpuxResource = map[string]interface{}{
+			"100": idlegpux,
+			"50":  idleSharedGPUX,
+		}
+		log.Debugf("%s gpu %d, shared gpu %d", gpuxName, idlegpux, idleSharedGPUX)
+	} else {
+		idlegpux = gpuTotalCount - gpux
+		gpuxResource["100"] = idlegpux
+	}
+
+	cpu := resource.NewMilliQuantity(int64(total.CPU())-rr[pfResources.ResCPU], resource.DecimalSI)
+	memory := resource.NewQuantity(int64(total.Memory())-rr[pfResources.ResMemory], resource.BinarySI)
+	return map[string]interface{}{
+		pfResources.ResCPU:    cpu.String(),
+		pfResources.ResMemory: memory.String(),
+		gpuxName:              gpuxResource,
+	}
+}
 
 func SubQuota(r *pfResources.Resource, pod *v1.Pod) error {
 	for _, container := range pod.Spec.Containers {
@@ -74,7 +218,7 @@ func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	if r == nil {
 		return resourceList
 	}
-	for resourceName, RQuant := range r.Resources {
+	for resourceName, RQuant := range r.Resource() {
 		rName := v1.ResourceName("")
 		var quantity *resource.Quantity
 		switch resourceName {
@@ -98,4 +242,25 @@ func NewMinResourceList() v1.ResourceList {
 	resourceList[v1.ResourceCPU] = *resource.NewQuantity(DefaultCpuRequest, resource.DecimalSI)
 	resourceList[v1.ResourceMemory] = *resource.NewQuantity(DefaultMemRequest, resource.BinarySI)
 	return resourceList
+}
+
+// GPUDeviceIDX process virtual gpu
+func GPUDeviceIDX(idx int) int64 {
+	if idx < 0 || idx > MaxGPUIndex {
+		return 0
+	}
+	return 1 << (idx * 2)
+}
+
+// GPUSharedDevices get shared gpu device index
+func GPUSharedDevices(deviceIDX int64) []int {
+	var result []int
+	for idx := 0; idx <= MaxGPUIndex; idx++ {
+		value := deviceIDX & 0b11
+		if value > 0 {
+			result = append(result, idx)
+		}
+		deviceIDX = deviceIDX >> 2
+	}
+	return result
 }

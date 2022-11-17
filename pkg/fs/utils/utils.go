@@ -26,6 +26,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -271,4 +276,20 @@ func ProcessCacheConfig(fsCacheBase64 string) (model.FSCacheConfig, error) {
 		return model.FSCacheConfig{}, err
 	}
 	return cacheConfig, nil
+}
+
+func GetCpuPercent() float64 {
+	percent, _ := cpu.Percent(time.Second, false)
+	return percent[0]
+}
+
+func GetMemPercent() (uint64, float64) {
+	memInfo, _ := mem.VirtualMemory()
+	return memInfo.Available / 1024 / 1024, memInfo.UsedPercent
+}
+
+func GetDiskPercent() float64 {
+	parts, _ := disk.Partitions(true)
+	diskInfo, _ := disk.Usage(parts[0].Mountpoint)
+	return diskInfo.UsedPercent
 }

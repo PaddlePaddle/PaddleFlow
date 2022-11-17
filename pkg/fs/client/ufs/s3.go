@@ -495,6 +495,7 @@ func (fs *s3FileSystem) isEmptyDir(name string) (isDir bool, err error) {
 	if !strings.HasSuffix(fullPath, Delimiter) {
 		fullPath = fullPath + "/"
 	}
+
 	maxKey := int64(2)
 	listInput := &s3.ListObjectsV2Input{
 		Bucket:    &fs.bucket,
@@ -507,6 +508,7 @@ func (fs *s3FileSystem) isEmptyDir(name string) (isDir bool, err error) {
 		log.Errorf("s3 isEmptyDir: name[%s] s3.ListObjectsV2 failed: %v", name, err)
 		return false, err
 	}
+
 	if len(resp.CommonPrefixes) > 0 || len(resp.Contents) > 1 {
 		err = syscall.ENOTEMPTY
 		isDir = true
@@ -814,6 +816,8 @@ func (fs *s3FileSystem) Create(name string, flags, mode uint32) (fd FileHandle, 
 			fs:     fs,
 			flags:  flags,
 			size:   0,
+			// for upload new empty file, or the file will disappear after entry-cache expired, rename op will also generate bugs
+			writeDirty: true,
 		}
 		err = fs.openForWrite(fh)
 		if err != nil {
@@ -826,7 +830,7 @@ func (fs *s3FileSystem) Create(name string, flags, mode uint32) (fd FileHandle, 
 }
 
 func (fs *s3FileSystem) openForWrite(fh *s3FileHandle) error {
-	log.Tracef("s3 openForWrite: fh.name[%s]", fh.name)
+	log.Tracef("s3 openForWrite: fh.name[%s], fh.size[%d]", fh.name, fh.size)
 	filename := uuid.New().String()
 	os.MkdirAll(TmpPath, 0755)
 	tmpfile, err := ioutil.TempFile(TmpPath, filename)
@@ -1174,6 +1178,7 @@ func (fh *s3FileHandle) Flush() error {
 }
 
 func (fh *s3FileHandle) uploadWriteTmpFile() error {
+	log.Tracef("s3 uploadWriteTmpFile: fh.name[%s], fh.size[%d]", fh.name, fh.size)
 	if !fh.writeDirty {
 		log.Tracef("s3 uploadWriteTmpFile: fh.name[%s] writeDirty=false, no need to upload", fh.name)
 		return nil

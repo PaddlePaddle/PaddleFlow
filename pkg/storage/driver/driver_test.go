@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,39 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package utils
+
+package driver
 
 import (
-	"encoding/hex"
-	"math/rand"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func MaxUInt64(a, b uint64) uint64 {
-	if a > b {
-		return a
-	} else {
-		return b
-	}
-}
-
-func MinUInt32(a, b uint32) uint32 {
-	if a < b {
-		return a
-	} else {
-		return b
-	}
-}
-
-func MinUInt64(a, b uint64) uint64 {
-	if a < b {
-		return a
-	} else {
-		return b
-	}
-}
-
-func GetRandID(randNum int) string {
-	b := make([]byte, randNum/2)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+func TestInitCache(t *testing.T) {
+	err := InitCache("DEBUG")
+	assert.Equal(t, nil, err)
 }

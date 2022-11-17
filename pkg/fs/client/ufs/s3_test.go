@@ -80,7 +80,7 @@ func NewS3FSForTest() (UnderFileStorage, error) {
 	endPoint := newS3Service()
 	properties := make(map[string]interface{})
 	properties[common.Endpoint] = endPoint
-	properties[common.Region] = TESTBUCKETNAME
+	properties[common.Region] = TESTREGION
 	properties[common.Bucket] = TESTBUCKETNAME
 	properties[common.AccessKey] = TESTACCESSKEY
 	properties[common.SecretKey] = TESTSECRETKEY
@@ -92,6 +92,9 @@ func NewS3FSForTest() (UnderFileStorage, error) {
 
 func TestS3DirOp(t *testing.T) {
 	fs, err := NewS3FSForTest()
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	assert.NotNil(t, fs)
 	assert.Nil(t, err)
 	//test create dir
@@ -105,19 +108,36 @@ func TestS3DirOp(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, true, info.IsDir)
 
-	err = fs.Mkdir("dir1/dir1-1", 755)
+	err = fs.Mkdir("dir1/dir1-1/", 755)
 	assert.Nil(t, err)
-	err = fs.Mkdir("dir1/dir1-2", 755)
+	err = fs.Mkdir("dir1/dir1-2/", 755)
 	assert.Nil(t, err)
 
 	//test read dir
 	dirEntry, err := fs.ReadDir("dir1")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(dirEntry))
+	for _, entry := range dirEntry {
+		println(entry.Name)
+	}
+
+	//test rm dir
+	err = fs.Rmdir("dir1/dir1-1")
+	assert.Nil(t, err)
+	entrys, err := fs.ReadDir("dir1")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(entrys))
+
+	err = fs.Rmdir("dir1/dir1-2")
+	assert.Nil(t, err)
+
 }
 
 func TestS3FileOp(t *testing.T) {
 	fs, err := NewS3FSForTest()
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	assert.NotNil(t, fs)
 	assert.Nil(t, err)
 	//test create
@@ -154,6 +174,9 @@ func TestS3FileOp(t *testing.T) {
 	assert.Equal(t, 0, len(entrys))
 }
 func TestS3Truncat(t *testing.T) {
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
 	fs, err := NewS3FSForTest()
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, fs)
