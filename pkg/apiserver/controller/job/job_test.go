@@ -15,22 +15,23 @@ import (
 )
 
 func TestDeleteJob(t *testing.T) {
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "20Gi",
+		"nvidia.com/gpu":    "500",
+	})
+	assert.Equal(t, nil, err)
+
 	mockQueue := model.Queue{
 		Name: MockQueueName,
 		Model: model.Model{
 			ID: MockQueueID,
 		},
-		Namespace:   "paddleflow",
-		ClusterId:   "MockClusterID",
-		ClusterName: "MockClusterName",
-		QuotaType:   schema.TypeVolcanoCapabilityQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu":            10 * 1000,
-				"mem":            1000,
-				"nvidia.com/gpu": 500,
-			},
-		},
+		Namespace:        "paddleflow",
+		ClusterId:        "MockClusterID",
+		ClusterName:      "MockClusterName",
+		QuotaType:        schema.TypeVolcanoCapabilityQuota,
+		MaxResources:     maxRes,
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueOpen,
 	}

@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type ClusterRouter struct{}
@@ -239,35 +238,36 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 
 // listClusterQuotaV2
 // @Summary 获取集群资源列表
-// @Description 获取集群资源列表,可按节点/pod标签进行过滤统计
+// @Description 获取集群资源列表,可按标签进行过滤统计
 // @Id listClusterQuotaV2
 // @tags Resource
 // @Accept  json
 // @Produce json
-// @Param listClusterByLabelRequest body ListClusterResourcesRequest true  "获取集群资源列表"
+// @Param listClusterResourcesRequest body ListClusterResourcesRequest true  "获取集群资源列表"
 // @Request  ListClusterResourcesRequest
-// @Success 200 {object} []ClusterQuotaReponse "获取可筛选标签查询的集群资源的响应"
+// @Success 200 {object} []ClusterQuotaResponse "获取可筛选标签查询的集群资源的响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /cluster/resource [POST]
 func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
-	var listClusterByLabelRequest cluster.ListClusterResourcesRequest
-	if err := common.BindJSON(r, &listClusterByLabelRequest); err != nil {
+	var listClusterResourcesRequest cluster.ListClusterResourcesRequest
+	if err := common.BindJSON(r, &listClusterResourcesRequest); err != nil {
 		ctx.ErrorCode = common.MalformedJSON
-		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		ctx.Logging().Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	log.Debugf("list cluster by label request:%+v", listClusterByLabelRequest)
+	log.Debugf("list cluster resources request:%+v", listClusterResourcesRequest)
 
-	if err := validataListClusterRequest(&listClusterByLabelRequest); err != nil {
+	if err := validateListClusterRequest(&listClusterResourcesRequest); err != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
-		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		ctx.Logging().Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
 	}
 
-	quotaList, err := cluster.ListClusterQuotaByLabels(&ctx, listClusterByLabelRequest)
+	quotaList, err := cluster.ListClusterResources(&ctx, listClusterResourcesRequest)
 	if err != nil {
 		ctx.Logging().Errorf("list cluster quota failed, error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -276,19 +276,7 @@ func (cr *ClusterRouter) listClusterQuotaV2(w http.ResponseWriter, r *http.Reque
 	common.Render(w, http.StatusOK, quotaList)
 }
 
-func validataListClusterRequest(request *cluster.ListClusterResourcesRequest) error {
-	if request.Labels != "" && request.LabelType == "" {
-		err := fmt.Errorf("labelType is nill while labels specified")
-		log.Errorln(err)
-		return err
-	}
-	if request.LabelType != "" {
-		if request.LabelType != model.ObjectTypeNode && request.LabelType != model.ObjectTypePod {
-			err := fmt.Errorf("illegal labelType %s", request.LabelType)
-			log.Errorln(err)
-			return err
-		}
-	}
+func validateListClusterRequest(request *cluster.ListClusterResourcesRequest) error {
 	if request.PageSize <= 0 {
 		log.Warningf("pageSize is %d, set to default value", request.PageSize)
 		request.PageSize = util.ListPageMax
