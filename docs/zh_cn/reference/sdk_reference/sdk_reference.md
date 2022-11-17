@@ -1351,3 +1351,4 @@ class TaskInfo:
 
 
 
+[FailureOpitons]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md
