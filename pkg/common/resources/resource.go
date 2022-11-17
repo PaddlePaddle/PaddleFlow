@@ -204,6 +204,14 @@ func (r *Resource) ScalarResources(prefix string) map[string]Quantity {
 	return quans
 }
 
+// Resource return all resources
+func (r *Resource) Resource() map[string]Quantity {
+	if r.Resources == nil {
+		return make(map[string]Quantity)
+	}
+	return r.Resources
+}
+
 func (r *Resource) IsNegative() bool {
 	isNegative := false
 	if r != nil {

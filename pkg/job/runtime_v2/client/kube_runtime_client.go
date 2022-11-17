@@ -446,7 +446,7 @@ func convertPodResources(pod *corev1.Pod) map[string]int64 {
 	}
 
 	podResources := make(map[string]int64)
-	for rName, rValue := range result.Resources {
+	for rName, rValue := range result.Resource() {
 		switch rName {
 		case resources.ResMemory:
 			podResources[string(corev1.ResourceMemory)] = int64(rValue)
