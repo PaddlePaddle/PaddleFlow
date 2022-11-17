@@ -348,10 +348,7 @@ func TestCreateRun(t *testing.T) {
 	defer patch2.Reset()
 
 	_, err := CreateRun(ctx, &createRunRequest, map[string]string{})
-	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 	assert.Nil(t, err)
-	fmt.Println(err)
-	fmt.Println("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
 	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)

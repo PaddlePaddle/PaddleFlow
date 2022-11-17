@@ -123,7 +123,7 @@ func (r *Run) decode() error {
 	r.WorkflowSource = workflowSource
 
 	if err := r.decodeFailureOptions(); err != nil {
-		logger.Logger().Errorf("decodeFailureOptions in run decode failed, error: %s", err.Error())
+		err = fmt.Errorf("decodeFailureOptions in run decode failed, error: %s", err.Error())
 		return err
 	}
 
