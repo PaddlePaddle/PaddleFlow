@@ -90,9 +90,6 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	if len(job.Tasks) != 1 {
 		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(jobName))
 	}
-	if job.Tasks[0].Name == "" {
-		job.Tasks[0].Name = job.ID
-	}
 
 	// build job spec field
 	if job.IsCustomYaml {
@@ -132,7 +129,6 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	if jobPod == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
-	// TODO: add more patch
 	podSpec := &jobPod.Spec
 	task := job.Tasks[0]
 	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
@@ -140,10 +136,6 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 		podSpec.Containers = []v1.Container{{}}
 	}
 	container := podSpec.Containers[0]
-	// only fill the first container
-	if task.Name != "" {
-		container.Name = task.Name
-	}
 	// fill image
 	if task.Image != "" {
 		container.Image = task.Image
@@ -161,6 +153,9 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
+	if job.Tasks[0].Name == "" {
+		job.Tasks[0].Name = job.ID
+	}
 	return kuberuntime.BuildPod(jobPod, job.Tasks[0])
 }
 
