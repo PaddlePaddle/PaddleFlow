@@ -1,12 +1,16 @@
 package log
 
 import (
+	"fmt"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	log "github.com/sirupsen/logrus"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // GetMixedLogRequest can request job log or k8s pod/deploy events and log
@@ -19,6 +23,7 @@ type GetMixedLogRequest struct {
 	LineLimit      string
 	SizeLimit      int64
 	IsReadFromTail bool
+	ClusterName    string
 	ClusterInfo    model.ClusterInfo
 }
 
@@ -30,27 +35,37 @@ type GetMixedLogResponse struct {
 	Events       []string             `json:"eventList"`
 }
 
-// GetK8sLog return mixed log by events and logs
-func GetK8sLog(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.MixedLogResponse, error) {
+// GetPFJobLogs return mixed log by events and logs
+func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.MixedLogResponse, error) {
 	log.Debugf("Get k8s logs by request: %v", request)
-	if request.Framework != "" {
-		log.Debugf("Get %s job logs by request: %v", request.Framework, request)
+	switch schema.Framework(request.Framework) {
+	case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
+		schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
 		// todo call runtimeSvc.GetJobLog()
+		log.Errorf("todo")
+	default:
 		ctx.ErrorCode = common.InvalidArguments
-		//common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
-		ctx.Logging().Errorf("job framework %s unsupport show log %s.", request.Framework, request.Name)
+		ctx.Logging().Errorf("job %s framework %s unsupport", request.Name, request.Framework)
 		return schema.MixedLogResponse{}, nil
 	}
-	return GetMixedLogs(ctx, request)
+	return schema.MixedLogResponse{}, nil
 }
 
-// GetMixedLogs return mixed logs
-func GetMixedLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.MixedLogResponse, error) {
+// GetKubernetesResourceLogs return mixed logs
+func GetKubernetesResourceLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.MixedLogResponse, error) {
 	log.Debugf("Get mixed logs by request: %v", request)
-	runtimeSvc, err := runtime.GetOrCreateRuntime(request.ClusterInfo)
+	clusterInfo, err := storage.Cluster.GetClusterByName(request.ClusterName)
 	if err != nil {
+		err = fmt.Errorf("get cluster %s failed. err:%v", request.ClusterName, err)
+		ctx.ErrorMessage = err.Error()
+		ctx.Logging().Errorln(err)
+		return schema.MixedLogResponse{}, err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		err = fmt.Errorf("get cluster client failed. error:%s", err.Error())
 		ctx.ErrorCode = common.ClusterNotFound
-		ctx.Logging().Errorf("get cluster client failed. error:%s.", err.Error())
+		ctx.Logging().Errorln(err)
 		return schema.MixedLogResponse{}, err
 	}
 	schemaReq := schema.MixedLogRequest{
@@ -64,9 +79,12 @@ func GetMixedLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schem
 	}
 	response, err := runtimeSvc.GetMixedLog(schemaReq)
 	if err != nil {
+		err = fmt.Errorf("get mixed logs failed. error: %v", err)
 		ctx.ErrorCode = common.InvalidArguments
-		ctx.Logging().Errorf("get mixed logs failed. error:%s.", err.Error())
+		ctx.Logging().Errorln(err)
 		return schema.MixedLogResponse{}, err
 	}
+	response.Resourcetype = request.ResourceType
+	response.ResourceName = fmt.Sprintf("%s/%s", request.Namespace, request.Name)
 	return response, nil
 }

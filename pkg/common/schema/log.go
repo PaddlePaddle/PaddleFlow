@@ -28,8 +28,11 @@ type JobLogInfo struct {
 }
 
 type TaskLogInfo struct {
-	TaskID string  `json:"taskID"`
-	Info   LogInfo `json:"logInfo"`
+	// container name
+	TaskID  string  `json:"taskID"`
+	PodName string  `json:"podName"`
+	PodUID  string  `json:"podUID"`
+	Info    LogInfo `json:"logInfo"`
 }
 
 type JobLogRequest struct {
@@ -55,6 +58,8 @@ type MixedLogRequest struct {
 }
 
 type MixedLogResponse struct {
+	IsSuccess    bool          `json:"isSuccess"`
+	ErrorMessage bool          `json:"errorMessage"`
 	ResourceName string        `json:"name"`
 	Resourcetype string        `json:"type"`
 	TaskList     []TaskLogInfo `json:"taskList"`

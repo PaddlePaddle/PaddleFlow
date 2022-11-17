@@ -18,8 +18,11 @@ package v1
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"net/http"
 	"strconv"
 
@@ -143,28 +146,53 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 // @Router /log/job [GET]
 func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request) {
 	ctx := common.GetRequestContext(request)
+	jobID := request.URL.Query().Get(util.ParamKeyJobID)
+	if jobID == "" {
+		log.Debugf("jobID is nil, validate name and namespace")
+		getKubernetesResourceLogs(writer, request, ctx)
+	} else {
+		log.Debugf("jobID is nil, validate name and namespace")
+		getPFJobLogs(writer, request)
+	}
+}
+
+func getPFJobLogs(writer http.ResponseWriter, request *http.Request) {
+	log.Debugf("getPFJobLogs")
+	ctx := common.GetRequestContext(request)
+	response := schema.MixedLogResponse{}
 	var err error
-	// get query param, name
-	name := request.URL.Query().Get(util.QueryKeyName)
-	// check clusterName
-	clusterName := request.URL.Query().Get(util.QueryKeyClusterName)
-	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
+	jobID := request.URL.Query().Get(util.ParamKeyJobID)
+	// validate jobID
+	job, err := job.GetJob(&ctx, jobID)
 	if err != nil {
-		err = fmt.Errorf("get cluster %s failed. err:%v", clusterName, err)
-		ctx.ErrorMessage = err.Error()
+		err = fmt.Errorf("get job by jobID %s failed. err:%v", jobID, err)
 		ctx.Logging().Errorln(err)
-		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	// namespace, todo whether be checked or not
-	namespace := request.URL.Query().Get(util.QueryKeyNamespace)
+	queue, err := queue.GetQueueByName(&ctx, job.SchedulingPolicy.Queue)
+	if err != nil {
+		err = fmt.Errorf("get queue by job %s queue failed. err:%v", jobID, err)
+		ctx.Logging().Errorln(err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	// check clusterName
+	clusterName := request.URL.Query().Get(util.QueryKeyClusterName)
+	if queue.ClusterName != clusterName {
+		err = fmt.Errorf("job %s not in cluster %s", jobID, clusterName)
+		ctx.ErrorMessage = err.Error()
+		ctx.Logging().Errorln(err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
 	// readFromTail
 	readFromTail := request.URL.Query().Get(util.QueryKeyReadFromTail)
 	isReadFromTail := false
 	if readFromTail != "" {
 		isReadFromTail, err = strconv.ParseBool(readFromTail)
 		if err != nil {
-			err = fmt.Errorf("resource[%s/%s] request param isReadFromTail value failed, error:%s.", namespace, name, err.Error())
+			err = fmt.Errorf("job[%s] request param isReadFromTail value failed, error:%s", jobID, err.Error())
 			ctx.Logging().Errorln(err)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 			return
@@ -174,21 +202,86 @@ func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request
 	lineLimit := request.URL.Query().Get(util.QueryKeyLineLimit)
 	_, err = strconv.Atoi(lineLimit)
 	if err != nil {
-		err = fmt.Errorf("resource[%s/%s] request param lineLimit value failed, error:%s.", namespace, name, err.Error())
+		err = fmt.Errorf("resource[%s] request param lineLimit value failed, error:%s", jobID, err.Error())
 		ctx.Logging().Errorln(err)
 		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 		return
 	}
 	// todo check lineLimit 0~200
-	//if strings.Contains(lineLimit, ",") {
-	//	if strings.Split("")
-	//}
 	sizeLimit := request.URL.Query().Get(util.QueryKeySizeLimit)
 	var memory resources.Quantity
 	if sizeLimit != "" {
 		memory, err = resources.ParseQuantity(sizeLimit)
 		if err != nil {
-			err = fmt.Errorf("resource[%s/%s] request param sizelimit %s. error:%s.", namespace, name, sizeLimit, err.Error())
+			err = fmt.Errorf("resource[%s] request param sizelimit %s. error:%s", jobID, sizeLimit, err.Error())
+			ctx.Logging().Errorln(err)
+			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	} else {
+		memory, _ = resources.ParseQuantity(defaultMemory)
+	}
+	resourceType := request.URL.Query().Get(util.QueryKeyType)
+	framework := request.URL.Query().Get(util.QueryKeyFramework)
+	runLogRequest := runLog.GetMixedLogRequest{
+		Name:           job.ID,
+		Namespace:      queue.Namespace,
+		ClusterName:    queue.ClusterName,
+		LineLimit:      lineLimit,
+		SizeLimit:      memory.AsInt64(),
+		IsReadFromTail: isReadFromTail,
+		ResourceType:   resourceType,
+		Framework:      framework,
+	}
+
+	response, err = runLog.GetPFJobLogs(&ctx, runLogRequest)
+	if err != nil {
+		err = fmt.Errorf("get k8s logs %s failed. err:%v", clusterName, err)
+		ctx.Logging().Errorln(err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	response.IsSuccess = true
+	common.Render(writer, http.StatusOK, response)
+}
+
+func getKubernetesResourceLogs(writer http.ResponseWriter, request *http.Request, ctx logger.RequestContext) {
+	log.Debugf("getKubernetesResourceLogs")
+	// get query param, name
+	name := request.URL.Query().Get(util.QueryKeyName)
+	// check clusterName
+	clusterName := request.URL.Query().Get(util.QueryKeyClusterName)
+	// namespace, todo whether be checked or not
+	namespace := request.URL.Query().Get(util.QueryKeyNamespace)
+	// readFromTail
+	readFromTail := request.URL.Query().Get(util.QueryKeyReadFromTail)
+	isReadFromTail := false
+	var err error
+	if readFromTail != "" {
+		isReadFromTail, err = strconv.ParseBool(readFromTail)
+		if err != nil {
+			err = fmt.Errorf("resource[%s/%s] request param isReadFromTail value failed, error:%s", namespace, name, err.Error())
+			ctx.Logging().Errorln(err)
+			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	}
+	// sizeLimit, check by resource
+	lineLimit := request.URL.Query().Get(util.QueryKeyLineLimit)
+	_, err = strconv.Atoi(lineLimit)
+	if err != nil {
+		err = fmt.Errorf("resource[%s/%s] request param lineLimit value failed, error:%s", namespace, name, err.Error())
+		ctx.Logging().Errorln(err)
+		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+	// todo check lineLimit 0~200
+	sizeLimit := request.URL.Query().Get(util.QueryKeySizeLimit)
+	var memory resources.Quantity
+	if sizeLimit != "" {
+		memory, err = resources.ParseQuantity(sizeLimit)
+		if err != nil {
+			err = fmt.Errorf("resource[%s/%s] request param sizelimit %s. error:%s", namespace, name, sizeLimit, err.Error())
 			ctx.Logging().Errorln(err)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 			return
@@ -202,20 +295,20 @@ func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request
 	runLogRequest := runLog.GetMixedLogRequest{
 		Name:           name,
 		Namespace:      namespace,
-		ClusterInfo:    clusterInfo,
+		ClusterName:    clusterName,
 		LineLimit:      lineLimit,
 		SizeLimit:      memory.AsInt64(),
 		IsReadFromTail: isReadFromTail,
 		ResourceType:   resourceType,
 		Framework:      framework,
 	}
-
-	response, err := runLog.GetK8sLog(&ctx, runLogRequest)
+	response, err := runLog.GetKubernetesResourceLogs(&ctx, runLogRequest)
 	if err != nil {
 		err = fmt.Errorf("get k8s logs %s failed. err:%v", clusterName, err)
 		ctx.Logging().Errorln(err)
 		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+	response.IsSuccess = true
 	common.Render(writer, http.StatusOK, response)
 }

@@ -14,7 +14,7 @@ import (
 
 func TestLogRouter_GetJobLog(t *testing.T) {
 	mockResponse := pfschema.MixedLogResponse{}
-	patch5 := gomonkey.ApplyFuncReturn(log.GetK8sLog, mockResponse, nil)
+	patch5 := gomonkey.ApplyFuncReturn(log.GetKubernetesResourceLogs, mockResponse, nil)
 	defer patch5.Reset()
 
 	type Req struct {

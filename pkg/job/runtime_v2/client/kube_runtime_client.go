@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -52,6 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -826,8 +826,8 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 
 }
 
-func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name, logFilePosition, lineLimit string, sizeLimit int64) ([]pfschema.TaskLogInfo, error) {
-	log.Infof("Get mixed logs for %s/%s, logFilePosition %s, lineLimit %s, sizeLimit %d", namespace, name, logFilePosition, lineLimit, sizeLimit)
+func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
+	log.Infof("Get mixed logs for %s/%s, paging info: %#v", namespace, name, logpage)
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
 	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
@@ -835,56 +835,25 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name, logFilePosition, lin
 	} else if err != nil {
 		return []pfschema.TaskLogInfo{}, err
 	}
-	lineNumber, err := strconv.Atoi(lineLimit)
-	if err != nil {
-		return nil, err
-	}
+
+	// traverse Containers
 	for _, c := range pod.Spec.Containers {
 		log.Debugf("traverse pod %s-container %s", name, c.Name)
-		podLogOptions := mapToLogOptions(c.Name, logFilePosition)
-		logContent, length, err := krc.getContainerLog(namespace, name, podLogOptions)
+		podLogOptions := mapToLogOptions(c.Name, logpage.LogFilePosition)
+		logContent, logContentLineNum, err := krc.getContainerLog(namespace, name, podLogOptions)
 		if err != nil {
 			return []pfschema.TaskLogInfo{}, err
 		}
-		startIndex := -1
-		endIndex := -1
-		hasNextPage := false
-		truncated := false
-		limitFlag := isReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
-		overFlag := false
-		// 判断开始位置是否已超过日志总行数，若超过overFlag为true；
-		// 如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
-		// 如果是logFilePPosition为begin，则判断末尾index是否超过总长度，若超过endIndex为-1（直到末尾），并检查日志是否被截断
-		switch logFilePosition {
-		case common.EndFilePosition:
-			startIndex = length - lineNumber
-			endIndex = -1
-			if startIndex <= 0 {
-				startIndex = -1
-				truncated = limitFlag
-			} else {
-				hasNextPage = true
-			}
-			if endIndex == length {
-				endIndex = -1
-			}
-		case common.BeginFilePosition:
-			startIndex = 0
-			if lineNumber < length {
-				endIndex = lineNumber
-				hasNextPage = true
-			} else {
-				truncated = limitFlag
-			}
-		}
-		finalContent := splitLog(logContent, startIndex, endIndex, overFlag)
-		log.Debugf("get log of pod %s-container %s, content length: %d", name, c.Name, len(finalContent))
+		finalContent := logpage.Paging(logContent, logContentLineNum)
+		log.Debugf("get log of pod %s/container %s, content length: %d", name, c.Name, len(finalContent))
 		taskLogInfo := pfschema.TaskLogInfo{
-			TaskID: fmt.Sprintf("%s_%s", pod.GetUID(), c.Name),
+			TaskID:  c.Name,
+			PodUID:  string(pod.GetUID()),
+			PodName: pod.Name,
 			Info: pfschema.LogInfo{
 				LogContent:  finalContent,
-				HasNextPage: hasNextPage,
-				Truncated:   truncated,
+				HasNextPage: logpage.HasNextPage,
+				Truncated:   logpage.Truncated,
 			},
 		}
 		taskLogInfoList = append(taskLogInfoList, taskLogInfo)
