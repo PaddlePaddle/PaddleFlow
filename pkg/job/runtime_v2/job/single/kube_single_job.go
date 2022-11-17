@@ -155,6 +155,7 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
+	jobName := job.NamespacedName()
 	if len(job.Tasks) != 1 {
 		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(jobName))
 	}
