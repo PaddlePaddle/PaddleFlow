@@ -87,9 +87,6 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		log.Errorf("build scheduling policy for %s failed, err: %v", sp.String(jobName), err)
 		return err
 	}
-	if singlePod == nil || job == nil {
-		return fmt.Errorf("jobSpec or PFJob is nil")
-	}
 	if len(job.Tasks) != 1 {
 		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(jobName))
 	}
@@ -136,16 +133,8 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
 	// TODO: add more patch
-
-	if err := sp.setImageAndResource(&jobPod.Spec, job.Tasks[0]); err != nil {
-		log.Errorf("set image and resource failed, err: %s", err)
-		return err
-	}
-	return nil
-
-}
-
-func (sp *KubeSingleJob) setImageAndResource(podSpec *v1.PodSpec, task pfschema.Member) error {
+	podSpec := &jobPod.Spec
+	task := job.Tasks[0]
 	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
 		log.Warningf("singleJob without any container")
 		podSpec.Containers = []v1.Container{{}}
@@ -168,6 +157,7 @@ func (sp *KubeSingleJob) setImageAndResource(podSpec *v1.PodSpec, task pfschema.
 	}
 	podSpec.Containers[0] = container
 	return nil
+
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {

@@ -77,6 +77,24 @@ spec:
       claimName: pfs-fs-name_1-pvc
 status: {}
 `
+	extensionTemplateYamlNilContainer = `
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    volcano.sh/queue-name: mockQueueName
+  name: job-normal-0c272d0a
+  namespace: default
+spec:
+  priorityClassName: normal
+  schedulerName: testSchedulerName
+  volumes:
+  - name: fs-name_1
+    persistentVolumeClaim:
+      claimName: pfs-fs-name_1-pvc
+status: {}
+`
 	mockSinglePod = api.PFJob{
 		ID:        "job-normal-0c272d0a",
 		Name:      "",
@@ -141,6 +159,16 @@ func TestSingleJob_Create(t *testing.T) {
 	// mock db
 	driver.InitMockDB()
 
+	mockSinglePodWrongFlavour := mockSinglePod
+	mockSinglePodWrongFlavour.Tasks[0].Flavour = schema.Flavour{
+		Name: "mockFlavourName",
+		ResourceInfo: schema.ResourceInfo{
+			CPU: "a",
+			Mem: "2",
+		},
+	}
+	mockSinglePodNilContainer := mockSinglePod
+	mockSinglePodNilContainer.ExtensionTemplate = []byte(extensionTemplateYamlNilContainer)
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string
@@ -158,6 +186,18 @@ func TestSingleJob_Create(t *testing.T) {
 		},
 		{
 			caseName: "pod_test2",
+			jobObj:   &mockSinglePod,
+			wantErr:  nil,
+			wantMsg:  "",
+		},
+		{
+			caseName: "wrong flavour",
+			jobObj:   &mockSinglePod,
+			wantErr:  nil,
+			wantMsg:  "",
+		},
+		{
+			caseName: "nil container",
 			jobObj:   &mockSinglePod,
 			wantErr:  nil,
 			wantMsg:  "",
