@@ -204,6 +204,7 @@ func TestNodeListener(t *testing.T) {
 			corev1.ResourceCPU:    resource.MustParse("24"),
 			corev1.ResourceMemory: resource.MustParse("256Gi"),
 			corev1.ResourcePods:   resource.MustParse("110"),
+			"nvidia.com/gpu":      resource.MustParse("8"),
 		},
 	}
 	var labelList = []map[string]string{

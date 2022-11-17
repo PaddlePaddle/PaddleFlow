@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
@@ -37,6 +38,7 @@ const (
 )
 
 var _ DataCacheClient = &fileDataCache{}
+var deleteCachePool, _ = ants.NewPool(5)
 
 type cacheItem struct {
 	size    int64
@@ -70,7 +72,7 @@ func newFileClient(config Config) DataCacheClient {
 	go func() {
 		for {
 			d.clean()
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 
@@ -111,14 +113,9 @@ func (c *fileDataCache) save(key string, buf []byte) {
 	}
 	cacheSize := int64(len(buf))
 	if c.used+cacheSize >= c.capacity {
-		// todo：clean支持带参数，释放多少容量。
-		c.clean()
-	}
-
-	// 清理之后还是没有足够的容量，则跳过
-	if c.used+cacheSize >= c.capacity {
 		return
 	}
+
 	path := c.cachePath(key)
 	c.createDir(filepath.Dir(path))
 	tmp := path + ".tmp"
@@ -160,9 +157,12 @@ func (c *fileDataCache) delete(key string) {
 	if ok {
 		c.keys.Delete(key)
 	}
-	if path != "" {
-		go os.Remove(path)
-	}
+	_ = deleteCachePool.Submit(func() {
+		err := os.Remove(path)
+		if err != nil {
+			log.Debugf("delete cache remove err: %v", err)
+		}
+	})
 }
 
 func (c *fileDataCache) clean() {

@@ -244,10 +244,8 @@ type PodCacheInterface interface {
 }
 
 type ResourceCacheInterface interface {
-	// TODO: update
 	AddResource(rInfo *model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
-	ListResouces([]string, string, string) ([]model.ResourceInfoResponse, error)
 	ListNodeResources([]string) ([]model.ResourceInfo, error)
 }
 
