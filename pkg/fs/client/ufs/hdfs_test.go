@@ -18,9 +18,12 @@ package ufs
 
 import (
 	"encoding/base64"
+	"errors"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -91,4 +94,26 @@ func TestHdfsWithKerberos(t *testing.T) {
 	fs, err := NewHdfsWithKerberosFileSystem(properties)
 	assert.NoError(t, err)
 	testFsOp(t, fs)
+}
+
+func TestHdfsTurncate(t *testing.T) {
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Create", func(_ *hdfsFileSystem, name string, flags, mode uint32) (fd FileHandle, err error) {
+		return &hdfsFileHandle{}, nil
+	})
+	defer p2.Reset()
+	fs := &hdfsFileSystem{}
+	err := fs.Truncate("test", 0)
+	assert.Nil(t, err)
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return errors.New("Unlink failed")
+	})
+	defer p1.Reset()
+	err = fs.Truncate("test", 0)
+	assert.NotNil(t, err)
+
 }
