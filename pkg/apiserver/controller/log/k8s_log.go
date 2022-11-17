@@ -9,7 +9,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -24,7 +23,6 @@ type GetMixedLogRequest struct {
 	SizeLimit      int64
 	IsReadFromTail bool
 	ClusterName    string
-	ClusterInfo    model.ClusterInfo
 }
 
 // GetMixedLogResponse return mixed logs
@@ -39,14 +37,15 @@ type GetMixedLogResponse struct {
 func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.MixedLogResponse, error) {
 	log.Debugf("Get k8s logs by request: %v", request)
 	switch schema.Framework(request.Framework) {
-	case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
+	case schema.FrameworkStandalone, schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
 		schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
 		// todo call runtimeSvc.GetJobLog()
 		log.Errorf("todo")
 	default:
+		err := fmt.Errorf("job %s framework %s unsupport", request.Name, request.Framework)
 		ctx.ErrorCode = common.InvalidArguments
-		ctx.Logging().Errorf("job %s framework %s unsupport", request.Name, request.Framework)
-		return schema.MixedLogResponse{}, nil
+		ctx.Logging().Errorln(err)
+		return schema.MixedLogResponse{}, err
 	}
 	return schema.MixedLogResponse{}, nil
 }

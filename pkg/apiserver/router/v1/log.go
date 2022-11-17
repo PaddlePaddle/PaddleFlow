@@ -200,6 +200,7 @@ func getPFJobLogs(writer http.ResponseWriter, request *http.Request) {
 	}
 	// sizeLimit, check by resource
 	lineLimit := request.URL.Query().Get(util.QueryKeyLineLimit)
+	// todo set maxLimit if oversize
 	_, err = strconv.Atoi(lineLimit)
 	if err != nil {
 		err = fmt.Errorf("resource[%s] request param lineLimit value failed, error:%s", jobID, err.Error())
@@ -207,7 +208,9 @@ func getPFJobLogs(writer http.ResponseWriter, request *http.Request) {
 		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 		return
 	}
+
 	// todo check lineLimit 0~200
+	// todo set maxLimit if oversize
 	sizeLimit := request.URL.Query().Get(util.QueryKeySizeLimit)
 	var memory resources.Quantity
 	if sizeLimit != "" {
