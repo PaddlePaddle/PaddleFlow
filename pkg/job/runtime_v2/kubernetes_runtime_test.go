@@ -303,22 +303,22 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		kubeClient: kubeClient,
 	}
 
+	maxResources, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
 	q := api.NewQueueInfo(model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		MaxResources: maxResources,
 	})
 	// create vc queue
-	err := kubeRuntime.CreateQueue(q)
+	err = kubeRuntime.CreateQueue(q)
 	assert.Equal(t, nil, err)
 	// update vc queue
 	err = kubeRuntime.UpdateQueue(q)
@@ -337,28 +337,29 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		kubeClient: kubeClient,
 	}
 
+	maxResources, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
+	minResources, err1 := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "10Gi",
+	})
+	assert.Equal(t, nil, err1)
+
 	q := api.NewQueueInfo(model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeElasticQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
-		MinResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 10 * 1000,
-				"mem": 10 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeElasticQuota,
+		MaxResources: maxResources,
+		MinResources: minResources,
 	})
 	// create elastic quota
-	err := kubeRuntime.CreateQueue(q)
+	err = kubeRuntime.CreateQueue(q)
 	assert.Equal(t, nil, err)
 	// update elastic quota
 	err = kubeRuntime.UpdateQueue(q)
