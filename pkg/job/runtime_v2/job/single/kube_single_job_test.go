@@ -23,6 +23,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -33,6 +36,9 @@ import (
 )
 
 var (
+	taskImage             = "busybox:v1"
+	taskCPU               = "2"
+	taskMemory            = "2"
 	extensionTemplateYaml = `
 apiVersion: v1
 kind: Pod
@@ -94,7 +100,7 @@ status: {}
 				schema.EnvJobType:   string(schema.TypePodJob),
 				"PF_USER_NAME":      "root",
 			},
-			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
+			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: taskCPU, Mem: taskMemory}},
 		},
 		Tasks: []schema.Member{
 			{
@@ -102,7 +108,7 @@ status: {}
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
-					Image:   "mockImage",
+					Image:   taskImage,
 					Env: map[string]string{
 						"PF_FS_ID":          "fs-name_1",
 						"PF_JOB_CLUSTER_ID": "testClusterID",
@@ -115,7 +121,7 @@ status: {}
 						schema.EnvJobType:   string(schema.TypePodJob),
 						"PF_USER_NAME":      "root",
 					},
-					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
 				},
 			},
 		},
@@ -134,6 +140,7 @@ func TestSingleJob_Create(t *testing.T) {
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
 	// mock db
 	driver.InitMockDB()
+
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string
@@ -155,6 +162,12 @@ func TestSingleJob_Create(t *testing.T) {
 			wantErr:  nil,
 			wantMsg:  "",
 		},
+		{
+			caseName: "nil jobObj",
+			jobObj:   nil,
+			wantErr:  fmt.Errorf("job is nil"),
+			wantMsg:  "job is nil",
+		},
 	}
 
 	singleJob := New(kubeRuntimeClient)
@@ -164,10 +177,19 @@ func TestSingleJob_Create(t *testing.T) {
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				_, err = kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}
+				gettedPod := v1.Pod{}
+				unObj := obj.(*unstructured.Unstructured)
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, &gettedPod); err != nil {
+					t.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, test.jobObj.ID, err)
+				}
+				t.Logf("gettedPod.Spec is %+v", gettedPod.Spec)
+				assert.Equal(t, taskImage, gettedPod.Spec.Containers[0].Image)
+				assert.Equal(t, taskCPU, gettedPod.Spec.Containers[0].Resources.Requests.Cpu().String())
+				assert.Equal(t, taskMemory, gettedPod.Spec.Containers[0].Resources.Requests.Memory().String())
 			} else {
 				assert.NotNil(t, err)
 				assert.Equal(t, test.wantErr.Error(), err.Error())
