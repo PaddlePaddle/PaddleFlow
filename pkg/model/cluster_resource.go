@@ -47,6 +47,7 @@ type NodeInfo struct {
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
 	Capacity     map[string]string `gorm:"-" json:"nodeCapacity"`
+	LabelsJSON   string            `gorm:"labels" json:"-"`
 	Labels       map[string]string `gorm:"-" json:"nodeLabels"`
 }
 
@@ -62,6 +63,13 @@ func (node *NodeInfo) BeforeSave(tx *gorm.DB) error {
 		}
 		node.CapacityJSON = string(infoJson)
 	}
+	if node.Labels != nil {
+		infoJson, err := json.Marshal(node.Labels)
+		if err != nil {
+			return err
+		}
+		node.LabelsJSON = string(infoJson)
+	}
 	return nil
 }
 
@@ -73,6 +81,14 @@ func (node *NodeInfo) AfterFind(tx *gorm.DB) error {
 			return err
 		}
 		node.Capacity = capacity
+	}
+	if node.LabelsJSON != "" {
+		var labels = make(map[string]string)
+		err := json.Unmarshal([]byte(node.LabelsJSON), &labels)
+		if err != nil {
+			return err
+		}
+		node.Labels = labels
 	}
 	return nil
 }
