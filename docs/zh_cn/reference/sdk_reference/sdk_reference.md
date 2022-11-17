@@ -501,6 +501,7 @@ ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 |param| dict (optional)|工作流运行参数 如{"epoch":100}
 |disabled| string (optional) |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
 |docker_env| string (optional) |镜像的url或镜像tar包在fs的路径
+|failure_options| dict (optional)| [FailureOpitons], 示例： {"strategy": "fail_fast"}  
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -1350,3 +1351,4 @@ class TaskInfo:
 
 
 
+[FailureOpitons]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md

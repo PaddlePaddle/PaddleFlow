@@ -32,6 +32,7 @@ const (
 // Pilepline
 type CreatePipelineRequest struct {
 	FsName   string `json:"fsName"`
+	YamlRaw  string `json:"yamlRaw"`  // optional, one of 2 sources of run
 	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
 	UserName string `json:"username"` // optional, only for root user
 	Desc     string `json:"desc"`     // optional
@@ -92,12 +93,7 @@ type ListPipelineResponse struct {
 	PipelineList []PipelineBrief `json:"pipelineList"`
 }
 
-type UpdatePipelineRequest struct {
-	FsName   string `json:"fsName"`
-	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName string `json:"username"` // optional, only for root user
-	Desc     string `json:"desc"`     // optional
-}
+type UpdatePipelineRequest = CreatePipelineRequest
 
 type UpdatePipelineResponse struct {
 	PipelineID        string `json:"pipelineID"`
@@ -139,7 +135,7 @@ func (p *pipeline) Create(ctx context.Context, request *CreatePipelineRequest, t
 func (p *pipeline) Get(ctx context.Context, request *GetPipelineRequest, token string) (result *GetPipelineResponse, err error) {
 	result = &GetPipelineResponse{}
 	err = newRequestBuilderWithTokenHeader(p.client, token).
-		WithURL(pipelineApi + "/" + request.PipelineID).
+		WithURL(pipelineApi+"/"+request.PipelineID).
 		WithMethod(http.GET).
 		WithResult(result).
 		WithQueryParam("fsFilter", strings.Join(request.FsFilter, ",")).

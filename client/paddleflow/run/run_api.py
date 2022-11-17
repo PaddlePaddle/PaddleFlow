@@ -35,7 +35,7 @@ class RunServiceApi(object):
     @classmethod
     def add_run(self, host, fs_name=None, name=None, desc=None,
                 param=None, username=None, run_yaml_path=None, run_yaml_raw_b64=None, pipeline_id=None, pipeline_version_id=None,
-                header=None, disabled=None, docker_env=None):
+                header=None, disabled=None, docker_env=None, failure_options=None):
         """ add run 
         """
         if not header:
@@ -66,6 +66,9 @@ class RunServiceApi(object):
             body["disabled"] = disabled
         if docker_env:
             body["dockerEnv"] = docker_env
+        if failure_options:
+            body['failureOptions'] = failure_options
+            
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
