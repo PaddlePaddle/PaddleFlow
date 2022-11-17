@@ -48,7 +48,8 @@ func NewDataCache(config Config) DataCacheClient {
 	if config.CachePath == "" || config.CachePath == "/" || config.Expire == 0 {
 		return nil
 	}
-	config.CachePath = filepath.Join(config.CachePath, config.FsID)
+	config.CachePath = filepath.Join(config.CachePath, config.FsID, utils.GetRandID(5)+
+		"_"+time.Now().Format("2006-01-02-15:04:05"))
 	// currently, supports file client only
 	return newFileClient(config)
 }
