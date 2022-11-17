@@ -87,9 +87,6 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		log.Errorf("build scheduling policy for %s failed, err: %v", sp.String(jobName), err)
 		return err
 	}
-	if len(job.Tasks) != 1 {
-		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(jobName))
-	}
 
 	// build job spec field
 	if job.IsCustomYaml {
@@ -130,6 +127,11 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
 	podSpec := &jobPod.Spec
+	if len(job.Tasks) == 0 {
+		log.Debugf("custom singleJob has no tasks")
+		return nil
+	}
+
 	task := job.Tasks[0]
 	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
 		log.Warningf("singleJob without any container")
@@ -153,6 +155,9 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
+	if len(job.Tasks) != 1 {
+		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(jobName))
+	}
 	if job.Tasks[0].Name == "" {
 		job.Tasks[0].Name = job.ID
 	}
