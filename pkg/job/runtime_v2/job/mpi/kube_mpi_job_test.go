@@ -18,9 +18,12 @@ package mpi
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	mpiv1 "github.com/kubeflow/training-operator/pkg/apis/mpi/v1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,10 +32,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -163,11 +168,12 @@ func TestMPIJob_CreateJob(t *testing.T) {
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
-		caseName  string
-		jobObj    *api.PFJob
-		expectErr string
-		wantErr   bool
-		wantMsg   string
+		caseName         string
+		jobObj           *api.PFJob
+		expectErr        string
+		mockCreateFailed bool
+		wantErr          bool
+		wantMsg          string
 	}{
 		{
 			caseName: "create job successfully",
@@ -175,27 +181,27 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi1",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 					{
 						Replicas: 2,
-						Role:     schema.RoleWorker,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 				},
@@ -204,25 +210,60 @@ func TestMPIJob_CreateJob(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			caseName: "client create failed",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []pfschema.Member{
+					{
+						Replicas: 1,
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			mockCreateFailed: true,
+			expectErr:        "err",
+			wantErr:          false,
+		},
+		{
 			caseName: "Member absent",
 			jobObj: &api.PFJob{
 				Name:      "test-mpi-job",
 				ID:        uuid.GenerateIDWithLength("job", 5),
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "-1", Mem: "4Gi"}},
 						},
 					},
 				},
@@ -236,20 +277,20 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        uuid.GenerateIDWithLength("job", 5),
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4a", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4a", Mem: "4Gi"}},
 						},
 					},
 				},
@@ -263,10 +304,10 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi2",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
@@ -282,10 +323,10 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi3",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
@@ -301,6 +342,18 @@ func TestMPIJob_CreateJob(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
+			if test.mockCreateFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Create", func(resource interface{}, fv pfschema.FrameworkVersion) error {
+					return fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				err := MPIJob.Submit(context.TODO(), test.jobObj)
+				assert.Error(t, err)
+				t.Logf("create job failed, err: %v", err)
+				assert.Equal(t, err.Error(), test.expectErr)
+				t.SkipNow()
+			}
+
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			if test.wantErr {
 				assert.Error(t, err)
@@ -308,7 +361,7 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				assert.Equal(t, err.Error(), test.expectErr)
 			} else {
 				// get log
-				jobLogRequest := schema.JobLogRequest{
+				jobLogRequest := pfschema.JobLogRequest{
 					JobID:       test.jobObj.ID,
 					JobType:     string(test.jobObj.JobType),
 					Namespace:   test.jobObj.Namespace,
@@ -341,11 +394,12 @@ func TestKubeMPIJob_Update(t *testing.T) {
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
-		caseName  string
-		jobObj    *api.PFJob
-		expectErr string
-		wantErr   bool
-		wantMsg   string
+		caseName          string
+		jobObj            *api.PFJob
+		mockRuntimeFailed bool
+		expectErr         string
+		wantErr           bool
+		wantMsg           string
 	}{
 		{
 			caseName: "create job successfully",
@@ -353,33 +407,68 @@ func TestKubeMPIJob_Update(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi1",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 					{
 						Replicas: 2,
-						Role:     schema.RoleWorker,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 				},
 			},
 			expectErr: "",
 			wantErr:   false,
+		},
+		{
+			caseName: "update job failed",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []pfschema.Member{
+					{
+						Replicas: 1,
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			mockRuntimeFailed: true,
+			expectErr:         "err",
+			wantErr:           true,
 		},
 	}
 
@@ -388,6 +477,19 @@ func TestKubeMPIJob_Update(t *testing.T) {
 		t.Run(test.caseName, func(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
+			if test.mockRuntimeFailed {
+				patch := gomonkey.ApplyFunc(kuberuntime.UpdateKubeJob, func(job *api.PFJob,
+					runtimeClient framework.RuntimeClientInterface, fv pfschema.FrameworkVersion) error {
+					return fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				// update
+				test.jobObj.Tasks[0].Priority = pfschema.PriorityClassLow
+				test.jobObj.Tasks[1].Priority = pfschema.PriorityClassLow
+				err = MPIJob.Update(context.TODO(), test.jobObj)
+				assert.Error(t, err)
+				t.SkipNow()
+			}
 			// update
 			err = MPIJob.Update(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
@@ -408,11 +510,12 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
-		caseName  string
-		jobObj    *api.PFJob
-		expectErr string
-		wantErr   bool
-		wantMsg   string
+		caseName          string
+		jobObj            *api.PFJob
+		mockRuntimeFailed bool
+		expectErr         string
+		wantErr           bool
+		wantMsg           string
 	}{
 		{
 			caseName: "create job successfully",
@@ -420,33 +523,68 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi1",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 					{
 						Replicas: 2,
-						Role:     schema.RoleWorker,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 				},
 			},
 			expectErr: "",
 			wantErr:   false,
+		},
+		{
+			caseName: "create job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []pfschema.Member{
+					{
+						Replicas: 1,
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			mockRuntimeFailed: true,
+			expectErr:         "",
+			wantErr:           false,
 		},
 	}
 
@@ -456,6 +594,18 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
+
+			if test.mockRuntimeFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.FrameworkVersion) error {
+					return fmt.Errorf("err")
+				})
+				defer patch.Reset()
+
+				err = MPIJob.Stop(context.TODO(), test.jobObj)
+				assert.Error(t, err)
+				t.Logf("err: %v", err)
+				t.SkipNow()
+			}
 			err = MPIJob.Stop(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
 		})
@@ -475,11 +625,12 @@ func TestKubeMPIJob_Delete(t *testing.T) {
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
-		caseName  string
-		jobObj    *api.PFJob
-		expectErr string
-		wantErr   bool
-		wantMsg   string
+		caseName          string
+		jobObj            *api.PFJob
+		expectErr         string
+		wantErr           bool
+		mockRuntimeFailed bool
+		wantMsg           string
 	}{
 		{
 			caseName: "create job successfully",
@@ -487,33 +638,69 @@ func TestKubeMPIJob_Delete(t *testing.T) {
 				Name:      "test-mpi-job",
 				ID:        "job-test-mpi1",
 				Namespace: "default",
-				JobType:   schema.TypeDistributed,
-				JobMode:   schema.EnvJobModePS,
-				Framework: schema.FrameworkMPI,
-				Conf: schema.Conf{
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
 					Image:   "mockImage",
 				},
-				Tasks: []schema.Member{
+				Tasks: []pfschema.Member{
 					{
 						Replicas: 1,
-						Role:     schema.RoleMaster,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 					{
 						Replicas: 2,
-						Role:     schema.RoleWorker,
-						Conf: schema.Conf{
-							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
 						},
 					},
 				},
 			},
+
 			expectErr: "",
 			wantErr:   false,
+		},
+		{
+			caseName: "create job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   pfschema.TypeDistributed,
+				JobMode:   pfschema.EnvJobModePS,
+				Framework: pfschema.FrameworkMPI,
+				Conf: pfschema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []pfschema.Member{
+					{
+						Replicas: 1,
+						Role:     pfschema.RoleMaster,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     pfschema.RoleWorker,
+						Conf: pfschema.Conf{
+							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			mockRuntimeFailed: true,
+			expectErr:         "",
+			wantErr:           false,
 		},
 	}
 
@@ -523,6 +710,17 @@ func TestKubeMPIJob_Delete(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
+			if test.mockRuntimeFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.FrameworkVersion) error {
+					return fmt.Errorf("err")
+				})
+				defer patch.Reset()
+
+				err = MPIJob.Delete(context.TODO(), test.jobObj)
+				assert.Error(t, err)
+				t.Logf("err: %v", err)
+				t.SkipNow()
+			}
 			// Delete
 			err = MPIJob.Delete(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
@@ -568,7 +766,7 @@ func TestMPIJobListener(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
-			err := mpiJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, informer)
+			err := mpiJob.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, informer)
 			assert.Equal(t, test.expectErr, err)
 
 			err = kubeRuntimeClient.Create(test.job, KubeMPIFwVersion)
