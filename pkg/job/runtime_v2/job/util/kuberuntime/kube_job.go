@@ -380,7 +380,7 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	// container.Args would be passed
 	// fill resource
 	var err error
-	container.Resources, err = generateResourceRequirements(task.Flavour)
+	container.Resources, err = GenerateResourceRequirements(task.Flavour)
 	if err != nil {
 		log.Errorf("generate resource requirements failed, err: %v", err)
 		return err
@@ -439,12 +439,12 @@ func generateContainerCommand(command string, workdir string) []string {
 	return commands
 }
 
-func generateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
-	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
+func GenerateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
+	log.Infof("GenerateResourceRequirements by flavour:[%+v]", flavour)
 
 	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
 	if err != nil {
-		log.Errorf("generateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
+		log.Errorf("GenerateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
 		return corev1.ResourceRequirements{}, err
 	}
 	resources := corev1.ResourceRequirements{
