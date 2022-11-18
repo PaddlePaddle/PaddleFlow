@@ -251,7 +251,7 @@ func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.Queu
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	log.Infof("start job/queue controller on %s", kr.String())
 	var err error
-	jobQueueSync := os.Getenv("PF_JOB_QUEUE_SYNC")
+	jobQueueSync := os.Getenv(pfschema.EnvEnableJobQueueSync)
 	if jobQueueSync == "false" {
 		log.Warnf("skip job and queue syn controller on %s", kr.String())
 	} else {

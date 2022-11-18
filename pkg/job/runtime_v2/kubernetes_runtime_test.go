@@ -158,6 +158,21 @@ func TestKubeRuntimeJob(t *testing.T) {
 		kubeRuntime.SyncController(stopCh)
 		time.Sleep(100 * time.Microsecond)
 	})
+
+	t.Run("test skip job and queue sync controller", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		os.Setenv(schema.EnvEnableJobQueueSync, "false")
+		kubeRuntime.SyncController(stopCh)
+		time.Sleep(100 * time.Microsecond)
+	})
+
+	t.Run("test run job sync controller failed", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		kubeRuntime.kubeClient = nil
+		kubeRuntime.SyncController(stopCh)
+	})
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {
