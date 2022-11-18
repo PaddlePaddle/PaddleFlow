@@ -17,8 +17,10 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"fmt"
 	"testing"
 
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,6 +146,137 @@ func TestBuildPodSpec(t *testing.T) {
 			})
 			err := BuildPodSpec(testCase.podSpec, testCase.task)
 			assert.Equal(t, testCase.err, err)
+		})
+	}
+}
+
+func TestKubeflowReplicaSpec(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+
+	testCases := []struct {
+		testName    string
+		jobID       string
+		replicaSpec *kubeflowv1.ReplicaSpec
+		task        schema.Member
+		err         error
+	}{
+		{
+			testName:    "pod affinity is nil",
+			replicaSpec: &kubeflowv1.ReplicaSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			testName:    "replicaSpec is nil",
+			replicaSpec: nil,
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil"),
+		},
+	}
+
+	driver.InitMockDB()
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			err := KubeflowReplicaSpec(tt.replicaSpec, tt.jobID, &tt.task)
+			assert.Equal(t, tt.err, err)
+		})
+	}
+}
+
+func TestBuildPodTemplateSpec(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+
+	testCases := []struct {
+		testName string
+		jobID    string
+		podSpec  *corev1.PodTemplateSpec
+		task     schema.Member
+		err      error
+	}{
+		{
+			testName: "pod affinity is nil",
+			podSpec:  &corev1.PodTemplateSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "wrong flavour nil",
+			podSpec:  &corev1.PodTemplateSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					Flavour:   schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4a", Mem: "4Gi"}},
+				},
+			},
+			err: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+		},
+		{
+			testName: "replicaSpec is nil",
+			podSpec:  nil,
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: fmt.Errorf("podTemplateSpec or task is nil"),
+		},
+	}
+
+	driver.InitMockDB()
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			err := BuildPodTemplateSpec(tt.podSpec, tt.jobID, &tt.task)
+			assert.Equal(t, tt.err, err)
 		})
 	}
 }
