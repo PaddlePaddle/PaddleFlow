@@ -312,11 +312,6 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 	}
 	var rFilter = []string{
 		"pods",
-		"ephemeral-storage",
-		"hugepages-",
-		"rdma",
-		"cgpu_",
-		"_port",
 	}
 	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
 	if len(resourceFilters) > 0 {
@@ -344,7 +339,7 @@ func (n *NodeHandler) isExpectedResources(rName string) bool {
 
 func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
 	capacity := make(map[string]string)
-	for rName, rValue := range node.Status.Capacity {
+	for rName, rValue := range node.Status.Allocatable {
 		resourceName := string(rName)
 		if n.isExpectedResources(resourceName) {
 			capacity[resourceName] = rValue.String()
@@ -377,7 +372,7 @@ func (n *NodeHandler) UpdateNode(old, new interface{}) {
 	newLabels := getLabels(n.labelKeys, newNode.Labels)
 
 	if oldStatus == newStatus &&
-		reflect.DeepEqual(oldNode.Status.Capacity, newNode.Status.Capacity) &&
+		reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) &&
 		reflect.DeepEqual(oldLabels, newLabels) {
 		return
 	}
@@ -444,9 +439,13 @@ func convertPodResources(pod *corev1.Pod) map[string]int64 {
 	for _, container := range pod.Spec.Containers {
 		result.Add(k8s.NewResource(container.Resources.Requests))
 	}
+	deviceIDX := k8s.SharedGPUIDX(pod)
+	if deviceIDX > 0 {
+		result.SetResources(k8s.GPUIndexResources, deviceIDX)
+	}
 
 	podResources := make(map[string]int64)
-	for rName, rValue := range result.Resources {
+	for rName, rValue := range result.Resource() {
 		switch rName {
 		case resources.ResMemory:
 			podResources[string(corev1.ResourceMemory)] = int64(rValue)
@@ -504,7 +503,7 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	newPodAllocated := isAllocatedPod(newPod)
 	if oldPodAllocated != newPodAllocated {
 		if newPodAllocated {
-			n.addQueue(newPod, pfschema.Update, model.TaskRunning, nil)
+			n.addQueue(newPod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, newPod.Labels))
 		} else {
 			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
 		}

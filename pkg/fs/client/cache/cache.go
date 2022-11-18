@@ -35,6 +35,7 @@ import (
 const (
 	maxReadAheadSize = 200 * 1024 * 1024
 	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
+	TimeFormat       = "2006-01-02-15:04:05"
 )
 
 type DataCacheClient interface {
@@ -48,7 +49,8 @@ func NewDataCache(config Config) DataCacheClient {
 	if config.CachePath == "" || config.CachePath == "/" || config.Expire == 0 {
 		return nil
 	}
-	config.CachePath = filepath.Join(config.CachePath, config.FsID)
+	config.CachePath = filepath.Join(config.CachePath, config.FsID, utils.GetRandID(5)+
+		"_"+time.Now().Format(TimeFormat))
 	// currently, supports file client only
 	return newFileClient(config)
 }

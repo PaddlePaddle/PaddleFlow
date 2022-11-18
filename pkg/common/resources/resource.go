@@ -24,7 +24,7 @@ import (
 
 const (
 	ResCPU     = "cpu"
-	ResMemory  = "mem"
+	ResMemory  = "memory"
 	ResStorage = "storage"
 )
 
@@ -65,7 +65,7 @@ func NewResourceFromMap(resourceInfo map[string]string) (*Resource, error) {
 func (r Resource) MarshalJSON() ([]byte, error) {
 	res := &struct {
 		CPU             string            `json:"cpu"`
-		Mem             string            `json:"mem"`
+		Mem             string            `json:"memory"`
 		Storage         string            `json:"storage,omitempty"`
 		ScalarResources map[string]string `json:"scalarResources,omitempty"`
 	}{
@@ -91,7 +91,8 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 func (r *Resource) UnmarshalJSON(value []byte) error {
 	res := &struct {
 		CPU             string            `json:"cpu,omitempty"`
-		Mem             string            `json:"mem,omitempty"`
+		Mem             string            `json:"mem,omitempty"` // deprecated
+		Memory          string            `json:"memory,omitempty"`
 		Storage         string            `json:"storage,omitempty"`
 		ScalarResources map[string]string `json:"scalarResources,omitempty"`
 	}{
@@ -103,7 +104,12 @@ func (r *Resource) UnmarshalJSON(value []byte) error {
 		return err
 	}
 	res.ScalarResources[ResCPU] = res.CPU
-	res.ScalarResources[ResMemory] = res.Mem
+	if res.Mem != "" {
+		res.ScalarResources[ResMemory] = res.Mem
+	} else {
+		res.ScalarResources[ResMemory] = res.Memory
+	}
+
 	if res.Storage != "" {
 		res.ScalarResources[ResStorage] = res.Storage
 	}
@@ -113,6 +119,23 @@ func (r *Resource) UnmarshalJSON(value []byte) error {
 	}
 	*r = *rr
 	return nil
+}
+
+func (r *Resource) ToMap() map[string]interface{} {
+	res := make(map[string]interface{})
+	for key, val := range r.Resources {
+		switch key {
+		case ResCPU:
+			res[ResCPU] = val.MilliString()
+		case ResMemory:
+			res[ResMemory] = val.MemString()
+		case ResStorage:
+			res[ResStorage] = val.MemString()
+		default:
+			res[key] = val.String()
+		}
+	}
+	return res
 }
 
 func (r Resource) String() string {
@@ -179,6 +202,14 @@ func (r *Resource) ScalarResources(prefix string) map[string]Quantity {
 		}
 	}
 	return quans
+}
+
+// Resource return all resources
+func (r *Resource) Resource() map[string]Quantity {
+	if r.Resources == nil {
+		return make(map[string]Quantity)
+	}
+	return r.Resources
 }
 
 func (r *Resource) IsNegative() bool {

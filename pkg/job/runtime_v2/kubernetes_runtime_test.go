@@ -19,12 +19,21 @@ package runtime_v2
 import (
 	"context"
 	"fmt"
-	"github.com/agiledragon/gomonkey/v2"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -39,14 +48,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
-	"github.com/stretchr/testify/assert"
-	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -125,6 +126,17 @@ func TestKubeRuntimeJob(t *testing.T) {
 				},
 			},
 		},
+		Tasks: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "busybox:v1",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+				},
+			},
+		},
 	}
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
@@ -136,16 +148,17 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	})
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
 	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 	// stop kubernetes job
 	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
+	t.SkipNow()
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {
@@ -287,22 +300,22 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		kubeClient: kubeClient,
 	}
 
+	maxResources, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
 	q := api.NewQueueInfo(model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		MaxResources: maxResources,
 	})
 	// create vc queue
-	err := kubeRuntime.CreateQueue(q)
+	err = kubeRuntime.CreateQueue(q)
 	assert.Equal(t, nil, err)
 	// update vc queue
 	err = kubeRuntime.UpdateQueue(q)
@@ -321,28 +334,29 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		kubeClient: kubeClient,
 	}
 
+	maxResources, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
+	minResources, err1 := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "10Gi",
+	})
+	assert.Equal(t, nil, err1)
+
 	q := api.NewQueueInfo(model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeElasticQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
-		MinResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 10 * 1000,
-				"mem": 10 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeElasticQuota,
+		MaxResources: maxResources,
+		MinResources: minResources,
 	})
 	// create elastic quota
-	err := kubeRuntime.CreateQueue(q)
+	err = kubeRuntime.CreateQueue(q)
 	assert.Equal(t, nil, err)
 	// update elastic quota
 	err = kubeRuntime.UpdateQueue(q)
