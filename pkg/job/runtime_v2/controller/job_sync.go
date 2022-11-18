@@ -62,7 +62,7 @@ func (j *JobSync) Name() string {
 
 func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
 	if runtimeClient == nil {
-		return fmt.Errorf("init %s failed", j.Name())
+		return fmt.Errorf("init %s failed", JobSyncControllerName)
 	}
 	j.runtimeClient = runtimeClient
 	log.Infof("initialize %s!", j.Name())

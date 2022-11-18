@@ -48,6 +48,8 @@ const (
 
 	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
 
+	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
+
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
 	EnvJobPSPort          = "PF_JOB_PS_PORT"

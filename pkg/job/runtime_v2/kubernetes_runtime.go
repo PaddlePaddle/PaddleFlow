@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -249,26 +250,33 @@ func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.Queu
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	log.Infof("start job/queue controller on %s", kr.String())
-	jobController := controller.NewJobSync()
-	err := jobController.Initialize(kr.kubeClient)
-	if err != nil {
-		log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
-		return
+	var err error
+	jobQueueSync := os.Getenv(pfschema.EnvEnableJobQueueSync)
+	if jobQueueSync == "false" {
+		log.Warnf("skip job and queue syn controller on %s", kr.String())
+	} else {
+		jobController := controller.NewJobSync()
+		err = jobController.Initialize(kr.kubeClient)
+		if err != nil {
+			log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
+			return
+		}
+		queueController := controller.NewQueueSync()
+		err = queueController.Initialize(kr.kubeClient)
+		if err != nil {
+			log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
+			return
+		}
+		go jobController.Run(stopCh)
+		go queueController.Run(stopCh)
 	}
-	queueController := controller.NewQueueSync()
-	err = queueController.Initialize(kr.kubeClient)
-	if err != nil {
-		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
-		return
-	}
+
 	nodeResourceController := controller.NewNodeResourceSync()
 	err = nodeResourceController.Initialize(kr.kubeClient)
 	if err != nil {
 		log.Errorf("init node resource controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
-	go jobController.Run(stopCh)
-	go queueController.Run(stopCh)
 	go nodeResourceController.Run(stopCh)
 }
 

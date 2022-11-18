@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -140,16 +141,38 @@ func TestKubeRuntimeJob(t *testing.T) {
 		},
 	})
 	assert.NoError(t, err)
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
-	// create kubernetes job
-	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
-	assert.NoError(t, err)
-	// stop kubernetes job
-	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
-	assert.NoError(t, err)
-	t.SkipNow()
+
+	t.Run("test job submit and stop", func(t *testing.T) {
+		fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
+		// create kubernetes job
+		err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
+		assert.NoError(t, err)
+		// stop kubernetes job
+		err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
+		assert.NoError(t, err)
+	})
+
+	t.Run("test sync controller", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		kubeRuntime.SyncController(stopCh)
+		time.Sleep(100 * time.Microsecond)
+	})
+
+	t.Run("test run job sync controller failed", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		kubeRuntime.kubeClient = nil
+		kubeRuntime.SyncController(stopCh)
+	})
+
+	t.Run("test skip job and queue sync controller", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		os.Setenv(schema.EnvEnableJobQueueSync, "false")
+		kubeRuntime.SyncController(stopCh)
+		time.Sleep(100 * time.Microsecond)
+	})
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {
