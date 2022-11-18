@@ -65,29 +65,29 @@ func (mj *KubeMPIJob) String(name string) string {
 
 func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 	jobName := job.NamespacedName()
-	pdj := &mpiv1.MPIJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(pdj, mj.GVK, job); err != nil {
+	mpiJob := &mpiv1.MPIJob{}
+	if err := kuberuntime.CreateKubeJobFromYaml(mpiJob, mj.GVK, job); err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
 	}
 
 	var err error
 	// set metadata field
-	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
+	kuberuntime.BuildJobMetadata(&mpiJob.ObjectMeta, job)
 	// set spec field
 	if job.IsCustomYaml {
 		// set custom MPIJob Spec from user
-		err = mj.customMPIJobSpec(&pdj.Spec, job)
+		err = mj.customMPIJobSpec(&mpiJob.Spec, job)
 	} else {
 		// set builtin MPIJob Spec
-		err = mj.builtinMPIJobSpec(&pdj.Spec, job)
+		err = mj.builtinMPIJobSpec(&mpiJob.Spec, job)
 	}
 	if err != nil {
 		log.Errorf("build %s spec failed, err %v", mj.String(jobName), err)
 		return err
 	}
-	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), pdj)
-	err = mj.runtimeClient.Create(pdj, mj.frameworkVersion)
+	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), mpiJob)
+	err = mj.runtimeClient.Create(mpiJob, mj.frameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
@@ -117,11 +117,7 @@ func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 			return err
 		}
 		// calculate job minResources
-		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
-		if err != nil {
-			log.Errorf("parse resources for %s task failed, err: %v", mj.String(jobName), err)
-			return err
-		}
+		taskResources, _ := resources.NewResourceFromMap(task.Flavour.ToMap())
 		taskResources.Multi(task.Replicas)
 		minResources.Add(taskResources)
 	}

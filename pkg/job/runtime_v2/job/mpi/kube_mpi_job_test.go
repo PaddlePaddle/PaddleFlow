@@ -18,15 +18,19 @@ package mpi
 
 import (
 	"context"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"net/http/httptest"
 	"testing"
 
+	mpiv1 "github.com/kubeflow/training-operator/pkg/apis/mpi/v1"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -199,34 +203,33 @@ func TestMPIJob_CreateJob(t *testing.T) {
 			expectErr: "",
 			wantErr:   false,
 		},
-		//{
-		//	caseName: "Member absent",
-		//	jobObj: &api.PFJob{
-		//		Name:      "test-mpi-job",
-		//		ID:        uuid.GenerateIDWithLength("job", 5),
-		//		Namespace: "default",
-		//		JobType:   schema.TypeDistributed,
-		//		JobMode:   schema.EnvJobModePS,
-		//		Framework: schema.FrameworkMPI,
-		//		Conf: schema.Conf{
-		//			Name:    "normal",
-		//			Command: "sleep 200",
-		//			Image:   "mockImage",
-		//		},
-		//		Tasks: []schema.Member{
-		//			{
-		//				Replicas: 1,
-		//				Role:     schema.RoleMaster,
-		//				Conf: schema.Conf{
-		//					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
-		//				},
-		//			},
-		//
-		//		},
-		//	},
-		//	expectErr: "",
-		//	wantErr:   true,
-		//},
+		{
+			caseName: "Member absent",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        uuid.GenerateIDWithLength("job", 5),
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkMPI,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: "negative resources not permitted: map[cpu:-1 memory:4Gi]",
+			wantErr:   true,
+		},
 		{
 			caseName: "flavour wrong",
 			jobObj: &api.PFJob{
@@ -304,6 +307,16 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				t.Logf("create job failed, err: %v", err)
 				assert.Equal(t, err.Error(), test.expectErr)
 			} else {
+				// get log
+				jobLogRequest := schema.JobLogRequest{
+					JobID:       test.jobObj.ID,
+					JobType:     string(test.jobObj.JobType),
+					Namespace:   test.jobObj.Namespace,
+					LogPageSize: 1,
+					LogPageNo:   1,
+				}
+				_, err := MPIJob.GetLog(context.TODO(), jobLogRequest)
+				assert.NoError(t, err)
 				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeMPIFwVersion)
 				if err != nil {
 					t.Errorf(err.Error())
@@ -311,6 +324,259 @@ func TestMPIJob_CreateJob(t *testing.T) {
 					t.Logf("obj=%#v", jobObj)
 				}
 			}
+		})
+	}
+}
+
+func TestKubeMPIJob_Update(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	// mock db
+	driver.InitMockDB()
+	// create kubernetes resource with dynamic client
+	tests := []struct {
+		caseName  string
+		jobObj    *api.PFJob
+		expectErr string
+		wantErr   bool
+		wantMsg   string
+	}{
+		{
+			caseName: "create job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkMPI,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: "",
+			wantErr:   false,
+		},
+	}
+
+	MPIJob := New(kubeRuntimeClient)
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("case[%s]", test.caseName)
+			err := MPIJob.Submit(context.TODO(), test.jobObj)
+			// update
+			err = MPIJob.Update(context.TODO(), test.jobObj)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestKubeMPIJob_Stop(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	// mock db
+	driver.InitMockDB()
+	// create kubernetes resource with dynamic client
+	tests := []struct {
+		caseName  string
+		jobObj    *api.PFJob
+		expectErr string
+		wantErr   bool
+		wantMsg   string
+	}{
+		{
+			caseName: "create job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkMPI,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: "",
+			wantErr:   false,
+		},
+	}
+
+	MPIJob := New(kubeRuntimeClient)
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("case[%s]", test.caseName)
+			err := MPIJob.Submit(context.TODO(), test.jobObj)
+			assert.NoError(t, err)
+			//// Stop
+			err = MPIJob.Stop(context.TODO(), test.jobObj)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestKubeMPIJob_Delete(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	// mock db
+	driver.InitMockDB()
+	// create kubernetes resource with dynamic client
+	tests := []struct {
+		caseName  string
+		jobObj    *api.PFJob
+		expectErr string
+		wantErr   bool
+		wantMsg   string
+	}{
+		{
+			caseName: "create job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-mpi-job",
+				ID:        "job-test-mpi1",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkMPI,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: "",
+			wantErr:   false,
+		},
+	}
+
+	MPIJob := New(kubeRuntimeClient)
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("case[%s]", test.caseName)
+			err := MPIJob.Submit(context.TODO(), test.jobObj)
+			assert.NoError(t, err)
+			// Delete
+			err = MPIJob.Delete(context.TODO(), test.jobObj)
+			assert.NoError(t, err)
+
+		})
+	}
+}
+
+func TestMPIJobListener(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(JobGVK)
+	assert.Equal(t, nil, gvrErr)
+	// mock db
+	driver.InitMockDB()
+	// create kubernetes resource with dynamic client
+	tests := []struct {
+		caseName  string
+		job       *mpiv1.MPIJob
+		expectErr error
+	}{
+		{
+			caseName: "register ray job listener",
+			job: &mpiv1.MPIJob{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "ray-job-1",
+					Namespace: "default",
+				},
+			},
+			expectErr: nil,
+		},
+	}
+
+	mpiJob := New(kubeRuntimeClient)
+	workQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	informer := kubeRuntimeClient.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go kubeRuntimeClient.DynamicFactory.Start(stopCh)
+	ok := cache.WaitForCacheSync(stopCh, informer.HasSynced)
+	assert.Equal(t, true, ok)
+
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			err := mpiJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, informer)
+			assert.Equal(t, test.expectErr, err)
+
+			err = kubeRuntimeClient.Create(test.job, KubeMPIFwVersion)
+			assert.Equal(t, nil, err)
+
+			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, KubeMPIFwVersion)
+			assert.Equal(t, nil, err)
 		})
 	}
 }
