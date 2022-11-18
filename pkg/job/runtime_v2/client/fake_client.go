@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/dynamic/fake"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -34,6 +35,7 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&rest.Config{Host: server.URL})
 
 	return &KubeRuntimeClient{
+		Client:          fakedclient.NewSimpleClientset(),
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
