@@ -443,7 +443,9 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 	createMockLog(t, kubeRuntime)
 
 	type args struct {
-		req schema.MixedLogRequest
+		req              schema.MixedLogRequest
+		mockListFailed   bool
+		mockGetPodFailed bool
 	}
 	tests := []struct {
 		name    string
@@ -501,6 +503,22 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "get pod failed",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockPodName,
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypePodJob),
+				},
+				mockGetPodFailed: true,
+			},
+			wantErr: true,
+		},
+		{
 			name: "name or ns is nil",
 			args: args{
 				req: schema.MixedLogRequest{
@@ -531,7 +549,7 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "",
+			name: "deploy",
 			args: args{
 				req: schema.MixedLogRequest{
 					Name:           mockDeployName,
@@ -545,11 +563,51 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "deploy",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockDeployName,
+					Namespace:      mockNS,
+					Framework:      "",
+					LineLimit:      "5",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypeDeployment),
+				},
+				mockListFailed: true,
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			if tt.args.mockListFailed || tt.args.mockGetPodFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Pods("")), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Pod, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				patch2 := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Pods("")), "List", func(ctx context.Context, opts metav1.ListOptions) (*corev1.PodList, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch2.Reset()
+
+				res, err := kubeRuntime.GetMixedLog(tt.args.req)
+				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+				if tt.wantErr {
+					assert.Error(t, err)
+					if err != nil {
+						t.Logf("wantError: %s", err.Error())
+					}
+				} else {
+					assert.NoError(t, err)
+					t.Logf("name=%s, res=%#v", tt.name, res)
+				}
+				t.SkipNow()
+			}
+
 			res, err := kubeRuntime.GetMixedLog(tt.args.req)
 			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
 			if tt.wantErr {
@@ -724,6 +782,16 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 			name: "nil kubeRuntime",
 			args: args{
 				name:         mockPodName,
+				namespace:    mockNS,
+				kr:           kubeRuntime,
+				getPodFailed: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil kubeRuntime for deploy",
+			args: args{
+				name:         mockDeployName,
 				namespace:    mockNS,
 				kr:           kubeRuntime,
 				getPodFailed: true,
