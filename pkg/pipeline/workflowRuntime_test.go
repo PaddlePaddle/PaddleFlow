@@ -248,7 +248,7 @@ func TestRestartEntry(t *testing.T) {
 
 	go wfr.Restart(dagView, map[string]*schema.JobView{})
 	go wfr.Listen()
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 1000)
 
 	assert.Equal(t, common.StatusRunSucceeded, wfr.status)
 	assert.Equal(t, StatusRuntimeSucceeded, wfr.entryPoints.status)

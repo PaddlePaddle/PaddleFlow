@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `run_yaml` text NOT NULL,
     `docker_env` varchar(128) NOT NULL,
     `disabled` text NOT NULL,
+    `failure_options_json` text NOT NULL,
     `schedule_id` varchar(60) NOT NULL,
     `message` text NOT NULL,
     `status` varchar(32) DEFAULT NULL,

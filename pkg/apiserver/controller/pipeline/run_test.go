@@ -17,10 +17,12 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,6 +83,26 @@ func getMockRun2() models.Run {
 		FsID:     MockFsID2,
 		Status:   common.StatusRunPending,
 		RunYaml:  string(loadCase(runYamlPath)),
+	}
+	run2.Encode()
+	return run2
+}
+
+func getMockRun3() models.Run {
+	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyContinue}
+	failureOptionsRaw, err := json.Marshal(failureOptions)
+	if err != nil {
+		panic(err)
+	}
+
+	run2 := models.Run{
+		ID:                 MockRunID2,
+		Name:               MockRunName2,
+		UserName:           MockUserID2,
+		FsID:               MockFsID2,
+		Status:             common.StatusRunPending,
+		FailureOptionsJson: string(failureOptionsRaw),
+		RunYaml:            string(loadCase(runYamlPath)),
 	}
 	run2.Encode()
 	return run2
@@ -160,6 +182,13 @@ func TestGetRunSuccess(t *testing.T) {
 	assert.Equal(t, run1.ID, runRsp.ID)
 	assert.Equal(t, run1.Name, runRsp.Name)
 	assert.Equal(t, run1.Status, runRsp.Status)
+
+	run3 := getMockRun3()
+	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
+	assert.Nil(t, err)
+	runRsp, err = GetRunByID(ctx.Logging(), ctx.UserName, run3.ID)
+	assert.Nil(t, err)
+	assert.Equal(t, runRsp.FailureOptions.Strategy, schema.FailureStrategyContinue)
 }
 
 func TestGetRunFail(t *testing.T) {
@@ -294,4 +323,45 @@ func TestCreateRunByJson(t *testing.T) {
 	wfPtr, err := newMockWorkflowByRun(run)
 	assert.Nil(t, err)
 	fmt.Println(wfPtr.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
+}
+
+func TestCreateRun(t *testing.T) {
+	driver.InitMockDB()
+	ctx := logger.RequestContext{UserName: MockRootUser}
+
+	patch1 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+	defer patch1.Reset()
+
+	runYaml := string(loadCase(runYamlPath))
+	yamlRaw := base64.StdEncoding.EncodeToString([]byte(runYaml))
+	createRunRequest := CreateRunRequest{
+		RunYamlRaw: yamlRaw,
+	}
+
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+		assert.Nil(t, run.FailureOptions)
+		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
+		return CreateRunResponse{}, nil
+	})
+	defer patch2.Reset()
+
+	_, err := CreateRun(ctx, &createRunRequest, map[string]string{})
+	assert.Nil(t, err)
+
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
+		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
+		return CreateRunResponse{}, nil
+	})
+	defer patch3.Reset()
+
+	createRunRequest = CreateRunRequest{
+		RunYamlRaw:     yamlRaw,
+		FailureOptions: &schema.FailureOptions{Strategy: schema.FailureStrategyContinue},
+	}
+	_, err = CreateRun(ctx, &createRunRequest, map[string]string{})
+	assert.Nil(t, err)
+
 }
