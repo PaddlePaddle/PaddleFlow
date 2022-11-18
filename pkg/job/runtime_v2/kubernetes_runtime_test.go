@@ -19,19 +19,12 @@ package runtime_v2
 import (
 	"context"
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -46,6 +39,14 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
+	"github.com/stretchr/testify/assert"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 const (
@@ -654,6 +655,7 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 	defer server.Close()
 
 	kubeClient := client.NewFakeKubeRuntimeClient(server)
+
 	kubeRuntime := &KubeRuntime{
 		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
@@ -661,8 +663,10 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 	createMockLog(t, kubeRuntime)
 
 	type args struct {
-		name      string
-		namespace string
+		name         string
+		namespace    string
+		kr           *KubeRuntime
+		getPodFailed bool
 	}
 	tests := []struct {
 		name    string
@@ -680,6 +684,7 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 			args: args{
 				name:      mockPodName,
 				namespace: "",
+				kr:        kubeRuntime,
 			},
 			wantErr: false,
 		},
@@ -688,6 +693,7 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 			args: args{
 				name:      "",
 				namespace: mockNS,
+				kr:        kubeRuntime,
 			},
 			wantErr: false,
 		},
@@ -696,14 +702,38 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 			args: args{
 				name:      mockPodName,
 				namespace: mockNS,
+				kr:        kubeRuntime,
 			},
 			wantErr: false,
+		},
+		{
+			name: "nil kubeRuntime",
+			args: args{
+				name:         mockPodName,
+				namespace:    mockNS,
+				kr:           kubeRuntime,
+				getPodFailed: true,
+			},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+
+			if tt.args.getPodFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Events("")), "List", func(ctx context.Context, opts metav1.ListOptions) (*corev1.EventList, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				_, err := kubeRuntime.GetEvents(tt.args.namespace, tt.args.name)
+				assert.Error(t, err)
+				if err != nil {
+					t.Logf("wantError: %s", err.Error())
+				}
+				t.SkipNow()
+			}
 			res, err := kubeRuntime.GetEvents(tt.args.namespace, tt.args.name)
 			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
 			if tt.wantErr {
