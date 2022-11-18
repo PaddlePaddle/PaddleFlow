@@ -106,7 +106,7 @@ status: {}
 		Conf: schema.Conf{
 			Name:    "normal",
 			Command: "sleep 200",
-			Image:   "mockImage",
+			Image:   taskImage,
 			Env: map[string]string{
 				"PF_FS_ID":          "fs-name_1",
 				"PF_JOB_CLUSTER_ID": "testClusterID",
@@ -127,7 +127,7 @@ status: {}
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
-					Image:   taskImage,
+
 					Env: map[string]string{
 						"PF_FS_ID":          "fs-name_1",
 						"PF_JOB_CLUSTER_ID": "testClusterID",
@@ -166,7 +166,7 @@ func TestSingleJob_Create(t *testing.T) {
 	//mockSinglePodWrongFlavour
 	err = json.Unmarshal(podBytes, &mockSinglePodWrongFlavour)
 	assert.NoError(t, err)
-	mockSinglePodWrongFlavour.Tasks[0].Flavour = schema.Flavour{
+	mockSinglePodWrongFlavour.Conf.Flavour = schema.Flavour{
 		Name: "mockFlavourName",
 		ResourceInfo: schema.ResourceInfo{
 			CPU: "a",
