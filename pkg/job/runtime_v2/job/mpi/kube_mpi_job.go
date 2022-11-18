@@ -64,9 +64,6 @@ func (pj *KubeMPIJob) String(name string) string {
 }
 
 func (pj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
 	jobName := job.NamespacedName()
 	pdj := &mpiv1.MPIJob{}
 	if err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.GVK, job); err != nil {
@@ -100,9 +97,6 @@ func (pj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 // builtinMPIJobSpec set build-in MPIJob spec
 func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), mpiJobSpec)
 	// TODO: set ElasticPolicy for MPIJob
@@ -116,7 +110,7 @@ func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 		}
 		replicaSpec, ok := mpiJobSpec.MPIReplicaSpecs[replicaType]
 		if !ok {
-			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
+			return fmt.Errorf("replica by type %s for %s is not found", replicaType, pj.String(jobName))
 		}
 		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
 			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
@@ -138,9 +132,6 @@ func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 
 // customMPIJobSpec set custom MPIJob Spec
 func (pj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
-	if job == nil || mpiJobSpec == nil {
-		return fmt.Errorf("job or mpiJobSpec is nil")
-	}
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), mpiJobSpec)
 	// patch metadata
