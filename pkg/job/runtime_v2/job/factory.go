@@ -33,8 +33,8 @@ func init() {
 	// Plugins for Jobs
 	framework.RegisterJobPlugin(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, paddle.KubePaddleFwVersion, paddle.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, mpi.KubeMPIFwVersion, pytorch.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, mpi.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, mpi.KubeMPIFwVersion, mpi.New)
+	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, tensorflow.KubeTFFwVersion, tensorflow.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, spark.KubeSparkFwVersion, spark.New)
 	framework.RegisterJobPlugin(pfschema.KubernetesType, ray.KubeRayFwVersion, ray.New)

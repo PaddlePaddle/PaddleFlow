@@ -59,15 +59,15 @@ func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	}
 }
 
-func (pj *KubeMPIJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.runtimeClient.Cluster())
+func (mj *KubeMPIJob) String(name string) string {
+	return fmt.Sprintf("%s job %s on %s", mj.GVK.String(), name, mj.runtimeClient.Cluster())
 }
 
-func (pj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
+func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 	jobName := job.NamespacedName()
 	pdj := &mpiv1.MPIJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.GVK, job); err != nil {
-		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
+	if err := kuberuntime.CreateKubeJobFromYaml(pdj, mj.GVK, job); err != nil {
+		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
 	}
 
@@ -77,28 +77,28 @@ func (pj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 	// set spec field
 	if job.IsCustomYaml {
 		// set custom MPIJob Spec from user
-		err = pj.customMPIJobSpec(&pdj.Spec, job)
+		err = mj.customMPIJobSpec(&pdj.Spec, job)
 	} else {
 		// set builtin MPIJob Spec
-		err = pj.builtinMPIJobSpec(&pdj.Spec, job)
+		err = mj.builtinMPIJobSpec(&pdj.Spec, job)
 	}
 	if err != nil {
-		log.Errorf("build %s spec failed, err %v", pj.String(jobName), err)
+		log.Errorf("build %s spec failed, err %v", mj.String(jobName), err)
 		return err
 	}
-	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), pdj)
-	err = pj.runtimeClient.Create(pdj, pj.frameworkVersion)
+	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), pdj)
+	err = mj.runtimeClient.Create(pdj, mj.frameworkVersion)
 	if err != nil {
-		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
+		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
 // builtinMPIJobSpec set build-in MPIJob spec
-func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
+func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
 	jobName := job.NamespacedName()
-	log.Debugf("patch %s spec:%#v", pj.String(jobName), mpiJobSpec)
+	log.Debugf("patch %s spec:%#v", mj.String(jobName), mpiJobSpec)
 	// TODO: set ElasticPolicy for MPIJob
 	// set MPIReplicaSpecs
 	minResources := resources.EmptyResource()
@@ -110,16 +110,16 @@ func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 		}
 		replicaSpec, ok := mpiJobSpec.MPIReplicaSpecs[replicaType]
 		if !ok {
-			return fmt.Errorf("replica by type %s for %s is not found", replicaType, pj.String(jobName))
+			return fmt.Errorf("replica by type %s for %s is not found", replicaType, mj.String(jobName))
 		}
 		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
+			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, mj.String(jobName), err)
 			return err
 		}
 		// calculate job minResources
 		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
 		if err != nil {
-			log.Errorf("parse resources for %s task failed, err: %v", pj.String(jobName), err)
+			log.Errorf("parse resources for %s task failed, err: %v", mj.String(jobName), err)
 			return err
 		}
 		taskResources.Multi(task.Replicas)
@@ -131,9 +131,9 @@ func (pj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 }
 
 // customMPIJobSpec set custom MPIJob Spec
-func (pj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
+func (mj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PFJob) error {
 	jobName := job.NamespacedName()
-	log.Debugf("patch %s spec:%#v", pj.String(jobName), mpiJobSpec)
+	log.Debugf("patch %s spec:%#v", mj.String(jobName), mpiJobSpec)
 	// patch metadata
 	ps, find := mpiJobSpec.MPIReplicaSpecs[mpiv1.MPIReplicaTypeLauncher]
 	if find && ps != nil {
@@ -148,109 +148,109 @@ func (pj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PF
 	return kuberuntime.KubeflowRunPolicy(&mpiJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
-func (pj *KubeMPIJob) Stop(ctx context.Context, job *api.PFJob) error {
+func (mj *KubeMPIJob) Stop(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
+	log.Infof("begin to stop %s", mj.String(jobName))
+	if err := mj.runtimeClient.Delete(job.Namespace, job.ID, mj.frameworkVersion); err != nil {
+		log.Errorf("stop %s failed, err: %v", mj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeMPIJob) Update(ctx context.Context, job *api.PFJob) error {
+func (mj *KubeMPIJob) Update(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", pj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, pj.runtimeClient, pj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
+	log.Infof("begin to update %s", mj.String(jobName))
+	if err := kuberuntime.UpdateKubeJob(job, mj.runtimeClient, mj.frameworkVersion); err != nil {
+		log.Errorf("update %s failed, err: %v", mj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeMPIJob) Delete(ctx context.Context, job *api.PFJob) error {
+func (mj *KubeMPIJob) Delete(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
+	log.Infof("begin to delete %s ", mj.String(jobName))
+	if err := mj.runtimeClient.Delete(job.Namespace, job.ID, mj.frameworkVersion); err != nil {
+		log.Errorf("delete %s failed, err %v", mj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeMPIJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
+func (mj *KubeMPIJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
 	// TODO: add get log logic
 	return pfschema.JobLogInfo{}, nil
 }
 
-func (pj *KubeMPIJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
+func (mj *KubeMPIJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = pj.addJobEventListener(ctx, jobQueue, listener)
+		err = mj.addJobEventListener(ctx, jobQueue, listener)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
 }
 
-func (pj *KubeMPIJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
+func (mj *KubeMPIJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	if jobQueue == nil || listener == nil {
 		return fmt.Errorf("add job event listener failed, err: listener is nil")
 	}
-	pj.jobQueue = jobQueue
+	mj.jobQueue = jobQueue
 	informer := listener.(cache.SharedIndexInformer)
 	informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: kuberuntime.ResponsibleForJob,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    pj.addJob,
-			UpdateFunc: pj.updateJob,
-			DeleteFunc: pj.deleteJob,
+			AddFunc:    mj.addJob,
+			UpdateFunc: mj.updateJob,
+			DeleteFunc: mj.deleteJob,
 		},
 	})
 	return nil
 }
 
-func (pj *KubeMPIJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, pj.JobStatus)
+func (mj *KubeMPIJob) addJob(obj interface{}) {
+	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, mj.JobStatus)
 	if err != nil {
 		return
 	}
-	pj.jobQueue.Add(jobSyncInfo)
+	mj.jobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubeMPIJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, pj.JobStatus)
+func (mj *KubeMPIJob) updateJob(old, new interface{}) {
+	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, mj.JobStatus)
 	if err != nil {
 		return
 	}
-	pj.jobQueue.Add(jobSyncInfo)
+	mj.jobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubeMPIJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, pj.JobStatus)
+func (mj *KubeMPIJob) deleteJob(obj interface{}) {
+	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, mj.JobStatus)
 	if err != nil {
 		return
 	}
-	pj.jobQueue.Add(jobSyncInfo)
+	mj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of mpi job, including origin status, pf status and message
-func (pj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
+func (mj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	unObj := obj.(*unstructured.Unstructured)
 	// convert to MPIJob struct
 	job := &mpiv1.MPIJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, mj.GVK.String(), err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status
@@ -259,7 +259,7 @@ func (pj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	if condLen >= 1 {
 		jobCond = job.Status.Conditions[condLen-1]
 	}
-	state, msg, err := pj.getJobStatus(jobCond)
+	state, msg, err := mj.getJobStatus(jobCond)
 	if err != nil {
 		log.Errorf("get mpi status failed, err: %v", err)
 		return api.StatusInfo{}, err
@@ -272,6 +272,6 @@ func (pj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	}, nil
 }
 
-func (pj *KubeMPIJob) getJobStatus(jobCond kubeflowv1.JobCondition) (pfschema.JobStatus, string, error) {
+func (mj *KubeMPIJob) getJobStatus(jobCond kubeflowv1.JobCondition) (pfschema.JobStatus, string, error) {
 	return kuberuntime.GetKubeflowJobStatus(jobCond)
 }
