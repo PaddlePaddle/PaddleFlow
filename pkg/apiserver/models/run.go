@@ -33,38 +33,39 @@ import (
 )
 
 type Run struct {
-	Pk             int64                  `gorm:"primaryKey;autoIncrement;not null" json:"-"`
-	ID             string                 `gorm:"type:varchar(60);not null"         json:"runID"`
-	Name           string                 `gorm:"type:varchar(128);not null"         json:"name"`
-	Source         string                 `gorm:"type:varchar(256);not null"        json:"source"` // pipelineID or yamlPath
-	UserName       string                 `gorm:"type:varchar(60);not null"         json:"username"`
-	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
-	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsName"`
-	FsOptions      schema.FsOptions       `gorm:"-"                                 json:"fsOptions"`
-	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
-	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
-	RunYaml        string                 `gorm:"type:text;size:65535;not null"     json:"runYaml"`
-	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
-	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
-	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
-	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
-	DockerEnv      string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
-	Disabled       string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
-	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
-	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
-	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
-	RunOptions     schema.RunOptions      `gorm:"-"                                 json:"-"`
-	RunOptionsJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
-	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
-	ScheduledAt    sql.NullTime           `                                         json:"-"`
-	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
-	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
-	UpdateTime     string                 `gorm:"-"                                 json:"updateTime"`
-	CreatedAt      time.Time              `                                         json:"-"`
-	ActivatedAt    sql.NullTime           `                                         json:"-"`
-	UpdatedAt      time.Time              `                                         json:"-"`
-	DeletedAt      gorm.DeletedAt         `                                         json:"-"`
+	Pk                 int64                  `gorm:"primaryKey;autoIncrement;not null" json:"-"`
+	ID                 string                 `gorm:"type:varchar(60);not null"         json:"runID"`
+	Name               string                 `gorm:"type:varchar(128);not null"         json:"name"`
+	Source             string                 `gorm:"type:varchar(256);not null"        json:"source"` // pipelineID or yamlPath
+	UserName           string                 `gorm:"type:varchar(60);not null"         json:"username"`
+	FsID               string                 `gorm:"type:varchar(60);not null"         json:"-"`
+	FsName             string                 `gorm:"type:varchar(60);not null"         json:"fsName"`
+	FsOptions          schema.FsOptions       `gorm:"-"                                 json:"fsOptions"`
+	Description        string                 `gorm:"type:text;size:65535;not null"     json:"description"`
+	ParametersJson     string                 `gorm:"type:text;size:65535;not null"     json:"-"`
+	Parameters         map[string]interface{} `gorm:"-"                                 json:"parameters"`
+	RunYaml            string                 `gorm:"type:text;size:65535;not null"     json:"runYaml"`
+	WorkflowSource     schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
+	Runtime            schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
+	PostProcess        schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
+	FailureOptions     *schema.FailureOptions `gorm:"-"                                 json:"failureOptions"`
+	FailureOptionsJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
+	DockerEnv          string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
+	Disabled           string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
+	ScheduleID         string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
+	Message            string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
+	Status             string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
+	RunOptions         schema.RunOptions      `gorm:"-"                                 json:"-"`
+	RunOptionsJson     string                 `gorm:"type:text;size:65535;not null"     json:"-"`
+	RunCachedIDs       string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
+	ScheduledAt        sql.NullTime           `                                         json:"-"`
+	CreateTime         string                 `gorm:"-"                                 json:"createTime"`
+	ActivateTime       string                 `gorm:"-"                                 json:"activateTime"`
+	UpdateTime         string                 `gorm:"-"                                 json:"updateTime"`
+	CreatedAt          time.Time              `                                         json:"-"`
+	ActivatedAt        sql.NullTime           `                                         json:"-"`
+	UpdatedAt          time.Time              `                                         json:"-"`
+	DeletedAt          gorm.DeletedAt         `                                         json:"-"`
 }
 
 func (Run) TableName() string {
@@ -100,6 +101,16 @@ func (r *Run) Encode() error {
 		return err
 	}
 	r.RunOptionsJson = string(optionsJson)
+
+	if r.FailureOptions != nil {
+		failureOptionsRaw, err := json.Marshal(r.FailureOptions)
+		if err != nil {
+			logger.LoggerForRun(r.ID).Errorf("encode run FailureOptions failed. error:%v", err)
+			return err
+		}
+		r.FailureOptionsJson = string(failureOptionsRaw)
+	}
+
 	return nil
 }
 
@@ -111,7 +122,10 @@ func (r *Run) decode() error {
 	}
 	r.WorkflowSource = workflowSource
 
-	r.validateFailureOptions()
+	if err := r.decodeFailureOptions(); err != nil {
+		err = fmt.Errorf("decodeFailureOptions in run decode failed, error: %s", err.Error())
+		return err
+	}
 
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
@@ -147,13 +161,27 @@ func (r *Run) decode() error {
 	return nil
 }
 
-func (r *Run) validateFailureOptions() {
-	logger.Logger().Debugf("Strategy is %v", r.WorkflowSource.FailureOptions.Strategy)
-	if r.WorkflowSource.FailureOptions.Strategy == "" {
-		r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+func (r *Run) decodeFailureOptions() error {
+	logger.Logger().Debug("begin to decode failureOptions")
+
+	// 避免空下面的逻辑引用空指针
+	r.FailureOptions = &schema.FailureOptions{}
+
+	if len(r.FailureOptionsJson) == 0 {
+		logger.Logger().Debugf("Strategy is %v", r.WorkflowSource.FailureOptions.Strategy)
+		if r.WorkflowSource.FailureOptions.Strategy == "" {
+			r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+		} else {
+			r.FailureOptions.Strategy = r.WorkflowSource.FailureOptions.Strategy
+		}
 	} else {
-		r.FailureOptions.Strategy = r.WorkflowSource.FailureOptions.Strategy
+		err := json.Unmarshal([]byte(r.FailureOptionsJson), &r.FailureOptions)
+		if err != nil {
+			err = fmt.Errorf("json unmarshal failureOptions failed. error:%v", err)
+			return err
+		}
 	}
+	return nil
 }
 
 // validate runtime and postProcess

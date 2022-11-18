@@ -312,11 +312,6 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 	}
 	var rFilter = []string{
 		"pods",
-		"ephemeral-storage",
-		"hugepages-",
-		"rdma",
-		"cgpu_",
-		"_port",
 	}
 	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
 	if len(resourceFilters) > 0 {
@@ -508,7 +503,7 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 	newPodAllocated := isAllocatedPod(newPod)
 	if oldPodAllocated != newPodAllocated {
 		if newPodAllocated {
-			n.addQueue(newPod, pfschema.Update, model.TaskRunning, nil)
+			n.addQueue(newPod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, newPod.Labels))
 		} else {
 			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
 		}
