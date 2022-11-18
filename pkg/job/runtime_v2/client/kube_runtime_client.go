@@ -312,8 +312,6 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 	}
 	var rFilter = []string{
 		"pods",
-		"ephemeral-storage",
-		"hugepages-",
 	}
 	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
 	if len(resourceFilters) > 0 {
