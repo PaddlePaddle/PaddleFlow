@@ -456,7 +456,6 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
-			//// Stop
 			err = MPIJob.Stop(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
 		})
