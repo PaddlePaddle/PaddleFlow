@@ -108,10 +108,7 @@ func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 			// mpi worker
 			replicaType = mpiv1.MPIReplicaTypeWorker
 		}
-		replicaSpec, ok := mpiJobSpec.MPIReplicaSpecs[replicaType]
-		if !ok {
-			return fmt.Errorf("replica by type %s for %s is not found", replicaType, mj.String(jobName))
-		}
+		replicaSpec := mpiJobSpec.MPIReplicaSpecs[replicaType]
 		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
 			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, mj.String(jobName), err)
 			return err
@@ -219,6 +216,7 @@ func (mj *KubeMPIJob) addJobEventListener(ctx context.Context, jobQueue workqueu
 func (mj *KubeMPIJob) addJob(obj interface{}) {
 	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, mj.JobStatus)
 	if err != nil {
+		log.Errorf("add job failed, err: %v", err)
 		return
 	}
 	mj.jobQueue.Add(jobSyncInfo)
@@ -227,6 +225,7 @@ func (mj *KubeMPIJob) addJob(obj interface{}) {
 func (mj *KubeMPIJob) updateJob(old, new interface{}) {
 	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, mj.JobStatus)
 	if err != nil {
+		log.Errorf("update job failed, err: %v", err)
 		return
 	}
 	mj.jobQueue.Add(jobSyncInfo)
@@ -235,6 +234,7 @@ func (mj *KubeMPIJob) updateJob(old, new interface{}) {
 func (mj *KubeMPIJob) deleteJob(obj interface{}) {
 	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, mj.JobStatus)
 	if err != nil {
+		log.Errorf("delete job failed, err: %v", err)
 		return
 	}
 	mj.jobQueue.Add(jobSyncInfo)

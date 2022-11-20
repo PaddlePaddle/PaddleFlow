@@ -19,6 +19,8 @@ package mpi
 import (
 	"context"
 	"fmt"
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http/httptest"
 	"reflect"
 	"testing"
@@ -152,6 +154,28 @@ spec2:
               limits:
                 cpu: 2
                 memory: 4Gi
+`
+
+	createdPodJson = `
+{"apiVersion":"kubeflow.org/v1","kind":"MPIJob","metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"},"name":"job-test-mpi1","namespace":"default"},"spec":{"mpiReplicaSpecs":{"Launcher":{"replicas":1,"restartPolicy":"Never","template":{"metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"}},"spec":{"containers":[{"args":["-np","2","--allow-run-as-root","-bind-to","none","-map-by","slot","-x","LD_LIBRARY_PATH","-x","PATH","-mca","pml","ob1","-mca","btl","^openib","python","/examples/tensorflow2_mnist.py"],"command":["sh","-c",""],"name":"mpi","resources":{"limits":{"cpu":"4","memory":"4Gi"},"requests":{"cpu":"4","memory":"4Gi"}}}],"priorityClassName":"normal","restartPolicy":"Never","schedulerName":"testSchedulerName"}}},"Worker":{"replicas":2,"restartPolicy":"Never","template":{"metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"}},"spec":{"containers":[{"command":["sh","-c",""],"name":"mpi","resources":{"limits":{"cpu":"4","memory":"4Gi"},"requests":{"cpu":"4","memory":"4Gi"}}}],"priorityClassName":"normal","restartPolicy":"Never","schedulerName":"testSchedulerName"}}}},"runPolicy":{"cleanPodPolicy":"Running","schedulingPolicy":{"minResources":{"cpu":"12","memory":"12Gi"},"priorityClass":"normal"}},"slotsPerWorker":1},
+"status":{
+  "conditions":[
+	{
+       "type": "Created",
+       "status": "True"
+    }
+  ],
+  "replicaStatuses":null
+}
+}
+`
+	createdPodJsonNilStatus = `
+{"apiVersion":"kubeflow.org/v1","kind":"MPIJob","metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"},"name":"job-test-mpi1","namespace":"default"},"spec":{"mpiReplicaSpecs":{"Launcher":{"replicas":1,"restartPolicy":"Never","template":{"metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"}},"spec":{"containers":[{"args":["-np","2","--allow-run-as-root","-bind-to","none","-map-by","slot","-x","LD_LIBRARY_PATH","-x","PATH","-mca","pml","ob1","-mca","btl","^openib","python","/examples/tensorflow2_mnist.py"],"command":["sh","-c",""],"name":"mpi","resources":{"limits":{"cpu":"4","memory":"4Gi"},"requests":{"cpu":"4","memory":"4Gi"}}}],"priorityClassName":"normal","restartPolicy":"Never","schedulerName":"testSchedulerName"}}},"Worker":{"replicas":2,"restartPolicy":"Never","template":{"metadata":{"creationTimestamp":null,"labels":{"owner":"paddleflow","paddleflow-job-id":"job-test-mpi1"}},"spec":{"containers":[{"command":["sh","-c",""],"name":"mpi","resources":{"limits":{"cpu":"4","memory":"4Gi"},"requests":{"cpu":"4","memory":"4Gi"}}}],"priorityClassName":"normal","restartPolicy":"Never","schedulerName":"testSchedulerName"}}}},"runPolicy":{"cleanPodPolicy":"Running","schedulingPolicy":{"minResources":{"cpu":"12","memory":"12Gi"},"priorityClass":"normal"}},"slotsPerWorker":1},
+"status":{
+  "conditions":null,
+  "replicaStatuses":null
+}
+}
 `
 )
 
@@ -491,6 +515,8 @@ func TestKubeMPIJob_Update(t *testing.T) {
 				t.SkipNow()
 			}
 			// update
+			err = MPIJob.Update(context.TODO(), nil)
+			assert.Error(t, err)
 			err = MPIJob.Update(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
 		})
@@ -600,8 +626,10 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 					return fmt.Errorf("err")
 				})
 				defer patch.Reset()
-
+				err = MPIJob.Stop(context.TODO(), nil)
+				assert.Error(t, err)
 				err = MPIJob.Stop(context.TODO(), test.jobObj)
+
 				assert.Error(t, err)
 				t.Logf("err: %v", err)
 				t.SkipNow()
@@ -771,9 +799,82 @@ func TestMPIJobListener(t *testing.T) {
 
 			err = kubeRuntimeClient.Create(test.job, KubeMPIFwVersion)
 			assert.Equal(t, nil, err)
+			if len(test.job.Labels) == 0 {
+				test.job.Labels = make(map[string]string)
+			}
+			test.job.Labels["a"] = "a"
+			err = kubeRuntimeClient.Update(test.job, KubeMPIFwVersion)
+			assert.Equal(t, nil, err)
 
 			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, KubeMPIFwVersion)
 			assert.Equal(t, nil, err)
 		})
 	}
+}
+
+func TestMPIJobStatus(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
+	config.InitJobTemplate(defaultJobYamlPath)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+	MPIJob := New(kubeRuntimeClient)
+
+	mj := MPIJob.(*KubeMPIJob)
+
+	bodyUnstructured := unstructured.Unstructured{}
+	if err := bodyUnstructured.UnmarshalJSON([]byte(createdPodJson)); err != nil {
+		t.Logf("err: %v", err)
+	}
+	nilStatus := unstructured.Unstructured{}
+	if err := nilStatus.UnmarshalJSON([]byte(createdPodJsonNilStatus)); err != nil {
+		t.Logf("err: %v", err)
+	}
+
+	case1 := bodyUnstructured.DeepCopy()
+	cond := []v1.Condition{
+		{
+			Type:    string(kubeflowv1.JobCreated),
+			Message: "success",
+		},
+	}
+	status := case1.Object["status"]
+	statusMap := status.(map[string]interface{})
+	statusMap["conditions"] = cond
+	tests := []struct {
+		caseName  string
+		jobObj    *unstructured.Unstructured
+		expectErr error
+	}{
+		{
+			caseName:  "create job successfully",
+			jobObj:    &bodyUnstructured,
+			expectErr: nil,
+		},
+		{
+			caseName:  "create job failed",
+			jobObj:    &nilStatus,
+			expectErr: fmt.Errorf("unexpected job status: "),
+		},
+		{
+			caseName:  "create job failed2",
+			jobObj:    case1,
+			expectErr: fmt.Errorf("cannot restore struct from: struct"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("case[%s]", test.caseName)
+
+			status, err := mj.JobStatus(test.jobObj)
+			assert.Equal(t, test.expectErr, err)
+			t.Logf("status: %v", status)
+
+		})
+	}
+
 }
