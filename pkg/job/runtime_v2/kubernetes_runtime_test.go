@@ -430,19 +430,6 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	t.Logf("node  quota info: %v", nodeQuotaInfos)
 }
 
-func TestKubeRuntime_SyncController(t *testing.T) {
-	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
-	defer server.Close()
-
-	kubeClient := client.NewFakeKubeRuntimeClient(server)
-	kubeRuntime := &KubeRuntime{
-		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
-		kubeClient: kubeClient,
-	}
-	ch := make(chan struct{})
-	kubeRuntime.SyncController(ch)
-}
-
 func TestKubeRuntime_GetMixedLog(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
