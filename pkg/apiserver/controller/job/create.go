@@ -428,7 +428,7 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 	var err error
 	var jobMode string
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkMPI:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
 		if roles[schema.RolePServer] > 0 {
 			// parameter server mode
 			jobMode = schema.EnvJobModePS
@@ -447,9 +447,9 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 		if roles[schema.RoleDriver] < 1 {
 			err = fmt.Errorf("spark application must be set role driver")
 		}
-	case schema.FrameworkRay:
+	case schema.FrameworkRay, schema.FrameworkMPI:
 		if roles[schema.RoleMaster] < 1 || roles[schema.RoleWorker] < 1 {
-			err = fmt.Errorf("ray job must be set a master role and a worker role")
+			err = fmt.Errorf("%s job must be set a master role and a worker role", framework)
 		}
 	case schema.FrameworkStandalone:
 		if roles[schema.RoleWorker] != 1 {
