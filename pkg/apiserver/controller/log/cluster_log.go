@@ -72,7 +72,7 @@ func GetLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.Job
 	response, err := runtimeSvc.GetLog(schema.JobLogRequest{}, schemaReq)
 	if err != nil {
 		err = fmt.Errorf("get mixed logs failed. error: %v", err)
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorln(err)
 		return schema.JobLogInfo{}, err
 	}
