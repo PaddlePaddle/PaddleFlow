@@ -101,10 +101,10 @@ func TestS3lient_base_1(t *testing.T) {
 	}()
 
 	newPath := "createFile"
-	newDir1 := "/mock/Dir1"
+	newDir1 := "mock/Dir1"
 	newDir2 := "mock/Dir2/Dir1"
-	newDir3 := "/mock/Dir3"
-	newDir4 := "/mock/Renamedir"
+	newDir3 := "mock/Dir3"
+	newDir4 := "mock/Renamedir"
 
 	err := client.MkdirAll(newDir2, 0755)
 	assert.Equal(t, nil, err)
@@ -152,31 +152,11 @@ func TestS3lient_base_1(t *testing.T) {
 	err = client.RemoveAll(newDir1)
 	assert.Equal(t, nil, err)
 
-	//下面注释掉的测试都涉及readdir 有点问题，之后再修复
-	// dirs, err := client.Readdirnames("/mock", -1)
-	// assert.Equal(t, nil, err)
-	// fmt.Printf("======: %+v", dirs)
-	// assert.Equal(t, 4, len(dirs))
 	_, err = client.IsDir(newDir4)
 	assert.Equal(t, nil, err)
 	dirInfos, err := client.ListDir("/mock")
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 4, len(dirInfos))
-
-	//由fake-s3 exist造成的错误
-	// err = client.Remove(newDir3)
-	// assert.Equal(t, nil, err)
-	// exist, err := client.Exist(newDir3)
-	// assert.Equal(t, nil, err)
-	// assert.Equal(t, false, exist)
-	// size, err := client.Size(newPath)
-	// assert.Equal(t, nil, err)
-	// assert.Equal(t, int64(23), size)
-	// copyDir := "/mock1"
-	// err = client.Mkdir(copyDir, 0755)
-	// assert.Equal(t, nil, err)
-	// err = client.Copy("/mock", copyDir)
-	// assert.Equal(t, nil, err)
 
 	srcbuffer := strings.NewReader("test save file")
 	err = client.SaveFile(srcbuffer, "/mock", "test2")
@@ -185,6 +165,45 @@ func TestS3lient_base_1(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, n, 23)
 
+}
+
+func TestReadBigDir(t *testing.T) {
+
+	client := getS3TestFsClientFake(t)
+	assert.NotNil(t, client)
+
+	defer func() {
+		os.RemoveAll("./tmp")
+	}()
+
+	m := meta.Config{
+		AttrCacheExpire:  10 * time.Minute,
+		EntryCacheExpire: 10 * time.Minute,
+		PathCacheExpire:  10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.DiskType,
+			CachePath: "./mock-meta",
+		},
+	}
+	SetMetaCache(m)
+	entryCnt := 10000
+	var err error
+	for i := 0; i < entryCnt/2; i++ {
+		_, err = client.Create(fmt.Sprintf("entry-file-%d", i))
+		assert.Nil(t, err)
+		if err != nil {
+			fmt.Print(err.Error())
+			time.Sleep(10 * time.Second)
+		}
+	}
+	for i := entryCnt / 2; i < entryCnt; i++ {
+		err := client.Mkdir(fmt.Sprintf("entry-dir-%d", i), 0755)
+		assert.Nil(t, err)
+	}
+	entries, err := client.ListDir("/")
+	assert.Nil(t, err)
+	//有个.stats目录
+	assert.Equal(t, entryCnt, len(entries)-1)
 }
 
 func TestS3Client_read(t *testing.T) {
