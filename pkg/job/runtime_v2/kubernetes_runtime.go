@@ -22,6 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"sort"
+	"strconv"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -451,6 +454,15 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	return nil
 }
 
+func (kr *KubeRuntime) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	// todo GetJobLog will be merged into getLog
+	if jobLogRequest.JobID != "" {
+		return kr.GetJobLog(jobLogRequest)
+	} else {
+		return kr.getLog(mixedLogRequest)
+	}
+}
+
 func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
 	jobLogInfo := pfschema.JobLogInfo{
 		JobID: jobLogRequest.JobID,
@@ -493,6 +505,144 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 	return jobLogInfo, nil
 }
 
+// GetEvents get events by name and namespace
+func (kr *KubeRuntime) GetEvents(namespace, name string) ([]corev1.Event, error) {
+	log.Infof("get %s/%s events info from Kubernetes", namespace, name)
+	var response []corev1.Event
+	listOptions := metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s", name),
+	}
+	// current k8s unsupported 'sort by time'
+	events, err := kr.clientset().CoreV1().Events(namespace).List(context.TODO(), listOptions)
+	if err != nil {
+		log.Errorf("list events for resource %s/%s failed, err: %v", namespace, name, err)
+		return response, err
+	}
+	return events.Items, nil
+}
+
+// GetPod get pod by namespace and name
+func (kr *KubeRuntime) GetPod(namespace, name string) (*corev1.Pod, error) {
+	log.Debugf("get kubernetes pod: %s/%s", namespace, name)
+	return kr.clientset().CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+}
+
+// GetPodsByDeployName return pod list of a deployments
+func (kr *KubeRuntime) GetPodsByDeployName(mixedLogRequest pfschema.MixedLogRequest) ([]corev1.Pod, error) {
+	name := mixedLogRequest.Name
+	namespace := mixedLogRequest.Namespace
+	log.Debugf("get kubernetes deploy: %s/%s", namespace, name)
+	label := fmt.Sprintf("app=%s", name)
+	podList, err := kr.clientset().CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		log.Errorf("get kubernetes pods for deploy %s/%s failed, err: %v", namespace, name, err.Error())
+		return nil, err
+	}
+	return podList.Items, nil
+}
+
+// GetMixedLog query logs for deployments/daemonsets and its pods
+func (kr *KubeRuntime) getLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	var mixedRes pfschema.JobLogInfo
+	if mixedLogRequest.Name == "" || mixedLogRequest.Namespace == "" {
+		err := fmt.Errorf("name or namespace is absent, cannot find resource")
+		log.Errorln(err)
+		return mixedRes, err
+	}
+	var err error
+	// get pods list
+	var pods []corev1.Pod
+	switch mixedLogRequest.ResourceType {
+	case string(pfschema.TypePodJob):
+		// resourceType is pod and framework is nil
+		pod, err := kr.GetPod(mixedLogRequest.Namespace, mixedLogRequest.Name)
+		if err != nil {
+			log.Errorf("failed to get pods %s/%s. err: %s", mixedLogRequest.Namespace, mixedLogRequest.Name, err.Error())
+			return mixedRes, err
+		}
+		pods = append(pods, *pod)
+	case string(pfschema.TypeDeployment):
+		// get pods of deployment
+		pods, err = kr.GetPodsByDeployName(mixedLogRequest)
+		if err != nil {
+			log.Errorf("failed to get pods by deployment %s/%s. err: %s",
+				mixedLogRequest.Namespace, mixedLogRequest.Name, err.Error())
+			return mixedRes, err
+		}
+	default:
+		err = fmt.Errorf("unknown jobtype %s, only support {%s, %s}",
+			mixedLogRequest.ResourceType, pfschema.TypeDeployment, pfschema.TypePodJob)
+		log.Errorln(err)
+		return mixedRes, err
+	}
+
+	// get pods logs
+	logFilePosition := common.BeginFilePosition
+	if mixedLogRequest.IsReadFromTail {
+		logFilePosition = common.EndFilePosition
+	}
+	lineLimitInt, err := strconv.Atoi(mixedLogRequest.LineLimit)
+	if err != nil {
+		log.Errorf("parse linelimit %s faild, err: %v", mixedLogRequest.LineLimit, err)
+		return mixedRes, err
+	}
+	logPage := utils.LogPage{
+		LogFilePosition: logFilePosition,
+		LineLimit:       lineLimitInt,
+		SizeLimit:       mixedLogRequest.SizeLimit,
+	}
+
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	eventsList := make([]corev1.Event, 0)
+	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
+	for _, pod := range pods {
+		itemLogInfoList, err := kubeClient.GetTaskLogV2(mixedLogRequest.Namespace, pod.Name, logPage)
+		if err != nil {
+			log.Errorf("%s construct %s task log failed, err: %v", mixedLogRequest.ResourceType, pod.Name, err)
+			return mixedRes, err
+		}
+		taskLogInfoList = append(taskLogInfoList, itemLogInfoList...)
+		// TODO it can be divided into go routine
+		events, err := kr.GetEvents(pod.Namespace, pod.Name)
+		if err != nil {
+			log.Errorf("failed to get events for %s/%s. err: %v", mixedLogRequest.Namespace, mixedLogRequest.Name, err)
+			return mixedRes, err
+		}
+		eventsList = append(eventsList, events...)
+	}
+	// events
+	events, err := kr.GetEvents(mixedLogRequest.Namespace, mixedLogRequest.Name)
+	if err != nil {
+		log.Errorf("failed to get events for %s/%s. err: %v", mixedLogRequest.Namespace, mixedLogRequest.Name, err)
+		return mixedRes, err
+	}
+	eventsList = append(eventsList, events...)
+
+	mixedRes.Events = formatAllEventLogs(eventsList, logPage)
+	mixedRes.TaskList = taskLogInfoList
+	return mixedRes, nil
+}
+
+func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
+	log.Debugf("formatAllEventLogs, events: %v", events)
+	sort.Slice(events, func(i, j int) bool {
+		// sort by name first, and EventTime second
+		if events[i].InvolvedObject.Name != events[j].InvolvedObject.Name {
+			return events[i].InvolvedObject.Name < events[j].InvolvedObject.Name
+		}
+		return events[i].EventTime.Before(&events[j].EventTime)
+	})
+	var formatedEvents []string
+	for _, event := range events {
+		//Type-Reason-Timestamp-Message
+		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
+			event.Type, event.Reason, event.EventTime, event.Message)
+		formatedEvents = append(formatedEvents, str)
+	}
+	formatedEvents = logPage.SlicePaging(formatedEvents)
+	return formatedEvents
+}
+
 func (kr *KubeRuntime) clientset() kubernetes.Interface {
 	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
 	return kubeClient.Client
@@ -515,7 +665,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -558,7 +708,7 @@ func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data [
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

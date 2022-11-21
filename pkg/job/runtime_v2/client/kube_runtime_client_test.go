@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,6 +51,13 @@ func newFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 		Config: &restclient.Config{Host: server.URL},
 	}
 }
+
+const (
+	mockNS         = "default"
+	mockPodName    = "fakePod"
+	mockDeployName = "fakeDeployName"
+	nodeName       = "node1"
+)
 
 func TestExecutor(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
