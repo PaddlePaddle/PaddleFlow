@@ -407,10 +407,8 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 	case schema.TypeDistributed:
 		switch framework {
 		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
+			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay, schema.FrameworkMPI:
 			err = nil
-		case schema.FrameworkMPI:
-			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
 		default:
 			err = fmt.Errorf("invalid framework %s for distributed job", framework)
 		}
@@ -430,7 +428,7 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 	var err error
 	var jobMode string
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkMPI:
 		if roles[schema.RolePServer] > 0 {
 			// parameter server mode
 			jobMode = schema.EnvJobModePS
@@ -448,10 +446,6 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 		jobMode = schema.EnvJobModePS
 		if roles[schema.RoleDriver] < 1 {
 			err = fmt.Errorf("spark application must be set role driver")
-		}
-	case schema.FrameworkMPI:
-		if roles[schema.RoleMaster] < 1 {
-			err = fmt.Errorf("mpi job must be set role master")
 		}
 	case schema.FrameworkRay:
 		if roles[schema.RoleMaster] < 1 || roles[schema.RoleWorker] < 1 {
