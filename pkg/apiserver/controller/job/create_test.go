@@ -1,6 +1,8 @@
 package job
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,11 +16,10 @@ import (
 )
 
 const (
-	mockRootUser       = "root"
-	mockCreatedJobName = "job-xxxx1"
-	MockQueueName      = "default-queue"
-	MockQueueID        = "default-queue"
-	MockClusterName    = "default-cluster"
+	mockRootUser    = "root"
+	MockQueueName   = "default-queue"
+	MockQueueID     = "default-queue"
+	MockClusterName = "default-cluster"
 )
 
 var clusterInfo = model.ClusterInfo{
@@ -46,16 +47,24 @@ func TestCreatePFJob(t *testing.T) {
 		ClusterType: schema.KubernetesType,
 	})
 	assert.Equal(t, nil, err)
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "20Gi",
+		"nvidia.com/gpu":    "500",
+	})
+	assert.Equal(t, nil, err)
 	queueInfo := model.Queue{
 		Model: model.Model{
 			ID: MockQueueID,
 		},
-		Name:        MockQueueName,
-		Namespace:   "default",
-		QuotaType:   schema.TypeVolcanoCapabilityQuota,
-		ClusterId:   MockClusterName,
-		ClusterName: MockClusterName,
-		Status:      "open",
+		Name:         MockQueueName,
+		Namespace:    "default",
+		MaxResources: maxRes,
+		MinResources: maxRes,
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		ClusterId:    MockClusterName,
+		ClusterName:  MockClusterName,
+		Status:       "open",
 	}
 	err = storage.Queue.CreateQueue(&queueInfo)
 	assert.NoError(t, err)
@@ -89,7 +98,7 @@ func TestCreatePFJob(t *testing.T) {
 				},
 				req: &CreateJobInfo{
 					CommonJobInfo: CommonJobInfo{
-						ID:          mockCreatedJobName,
+						ID:          uuid.GenerateIDWithLength("job", 5),
 						Name:        "normal",
 						Labels:      map[string]string{},
 						Annotations: map[string]string{},
@@ -111,7 +120,7 @@ func TestCreatePFJob(t *testing.T) {
 				},
 				req: &CreateJobInfo{
 					CommonJobInfo: CommonJobInfo{
-						ID:          mockCreatedJobName,
+						ID:          uuid.GenerateIDWithLength("job", 5),
 						Name:        "normal",
 						Labels:      map[string]string{},
 						Annotations: map[string]string{},
@@ -119,6 +128,7 @@ func TestCreatePFJob(t *testing.T) {
 							Queue: MockQueueName,
 						},
 					},
+					Type:      schema.TypeDistributed,
 					Framework: schema.FrameworkMPI,
 					Members: []MemberSpec{
 						{
@@ -167,7 +177,7 @@ func TestCreatePFJob(t *testing.T) {
 				},
 				req: &CreateJobInfo{
 					CommonJobInfo: CommonJobInfo{
-						ID:          mockCreatedJobName,
+						ID:          uuid.GenerateIDWithLength("job", 5),
 						Name:        "normal",
 						Labels:      map[string]string{},
 						Annotations: map[string]string{},
@@ -216,6 +226,63 @@ func TestCreatePFJob(t *testing.T) {
 			wantErr:      true,
 			responseCode: 400,
 		},
+		{
+			name: "mpi job must be set a master role and a worker role",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkMPI,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,7 +292,7 @@ func TestCreatePFJob(t *testing.T) {
 			t.Logf("case[%s] create job, response=%+v", tt.name, res)
 			if tt.wantErr {
 				assert.Error(t, err)
-				t.Logf("err: %v", err)
+				t.Logf("name=%s err: %v", tt.name, err)
 			} else {
 				t.Logf("response: %+v", res)
 			}
