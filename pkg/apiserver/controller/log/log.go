@@ -144,7 +144,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 			LogPageSize:     request.PageSize,
 			LogPageNo:       request.PageNo,
 		}
-		jobLogInfo, err := runtimeSvc.GetJobLog(jobLogRequest)
+		jobLogInfo, err := runtimeSvc.GetLog(jobLogRequest, schema.MixedLogRequest{})
 		if err != nil {
 			ctx.Logging().Errorf("jobID[%s] get queue[%s] failed. error:%s.", job.ID, job.QueueID, err.Error())
 			return nil, err

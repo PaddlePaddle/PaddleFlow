@@ -43,8 +43,8 @@ type RuntimeService interface {
 	UpdateJob(job *api.PFJob) error
 	// DeleteJob delete job from cluster
 	DeleteJob(job *api.PFJob) error
-	// GetJobLog get log for job
-	GetJobLog(jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error)
+	// GetLog get log for job
+	GetLog(jobLogRequest schema.JobLogRequest, request schema.MixedLogRequest) (schema.JobLogInfo, error)
 
 	// CreateQueue create a queue on cluster
 	CreateQueue(q *api.QueueInfo) error
