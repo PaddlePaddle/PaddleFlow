@@ -41,7 +41,6 @@ import (
 	"k8s.io/client-go/informers"
 	infov1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
@@ -51,6 +50,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -824,13 +824,43 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 
 }
 
+func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
+	log.Infof("Get mixed logs for %s/%s, paging info: %#v", namespace, name, logpage)
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []pfschema.TaskLogInfo{}, nil
+	} else if err != nil {
+		return []pfschema.TaskLogInfo{}, err
+	}
+
+	// traverse Containers
+	for _, c := range pod.Spec.Containers {
+		log.Debugf("traverse pod %s-container %s", name, c.Name)
+		podLogOptions := mapToLogOptions(c.Name, logpage.LogFilePosition)
+		logContent, logContentLineNum, err := krc.getContainerLog(namespace, name, podLogOptions)
+		if err != nil {
+			return []pfschema.TaskLogInfo{}, err
+		}
+		finalContent := logpage.Paging(logContent, logContentLineNum)
+		log.Debugf("get log of pod/container: %s/%s, content length: %d", name, c.Name, len(finalContent))
+		taskLogInfo := pfschema.TaskLogInfo{
+			TaskID:  c.Name,
+			PodUID:  string(pod.GetUID()),
+			PodName: pod.Name,
+			Info: pfschema.LogInfo{
+				LogContent:  finalContent,
+				HasNextPage: logpage.HasNextPage,
+				Truncated:   logpage.Truncated,
+			},
+		}
+		taskLogInfoList = append(taskLogInfoList, taskLogInfo)
+	}
+	return taskLogInfoList, nil
+}
+
 func (krc *KubeRuntimeClient) getContainerLog(namespace, name string, logOptions *corev1.PodLogOptions) (string, int, error) {
-	readCloser, err := krc.Client.CoreV1().RESTClient().Get().
-		Namespace(namespace).
-		Name(name).
-		Resource("pods").
-		SubResource("log").
-		VersionedParams(logOptions, scheme.ParameterCodec).Stream(context.TODO())
+	readCloser, err := krc.Client.CoreV1().Pods(namespace).GetLogs(name, logOptions).Stream(context.TODO())
 	if err != nil {
 		log.Errorf("pod[%s] get log stream failed. error: %s", name, err.Error())
 		return err.Error(), 0, nil

@@ -28,8 +28,11 @@ type JobLogInfo struct {
 }
 
 type TaskLogInfo struct {
-	TaskID string  `json:"taskID"`
-	Info   LogInfo `json:"logInfo"`
+	// container name
+	TaskID  string  `json:"taskID"`
+	PodName string  `json:"podName"`
+	PodUID  string  `json:"podUID"`
+	Info    LogInfo `json:"logInfo"`
 }
 
 type JobLogRequest struct {
@@ -39,4 +42,26 @@ type JobLogRequest struct {
 	LogFilePosition string `json:"logFilePosition"`
 	LogPageSize     int    `json:"logPageSize"`
 	LogPageNo       int    `json:"logPageNo"`
+}
+
+// MixedLogRequest can request job log or k8s pod/deploy events and log
+type MixedLogRequest struct {
+	Name         string
+	Namespace    string
+	ResourceType string
+	Framework    string
+
+	LineLimit      string
+	SizeLimit      int64
+	IsReadFromTail bool
+	//ClusterInfo    model.ClusterInfo
+}
+
+type MixedLogResponse struct {
+	IsSuccess    bool          `json:"isSuccess"`
+	ErrorMessage bool          `json:"errorMessage"`
+	ResourceName string        `json:"name"`
+	Resourcetype string        `json:"type"`
+	TaskList     []TaskLogInfo `json:"taskList"`
+	Events       []string      `json:"eventList"`
 }
