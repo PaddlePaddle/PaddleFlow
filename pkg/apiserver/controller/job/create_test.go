@@ -160,7 +160,7 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
-			name: "job type  does not supported",
+			name: "the role[pserver] for framework mpi is not supported",
 			args: args{
 				ctx: &logger.RequestContext{
 					UserName: mockRootUser,
@@ -175,7 +175,7 @@ func TestCreatePFJob(t *testing.T) {
 							Queue: MockQueueName,
 						},
 					},
-					Type:      "the role[pserver] for framework mpi is not supported",
+					Type:      schema.TypeDistributed,
 					Framework: schema.FrameworkMPI,
 					Members: []MemberSpec{
 						{
