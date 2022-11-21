@@ -175,6 +175,7 @@ func TestCreatePFJob(t *testing.T) {
 							Queue: MockQueueName,
 						},
 					},
+					Type:      "the role[pserver] for framework mpi is not supported",
 					Framework: schema.FrameworkMPI,
 					Members: []MemberSpec{
 						{
