@@ -248,6 +248,7 @@ func TestJobGC(t *testing.T) {
 }
 
 func TestJobSyncAndGC(t *testing.T) {
+	t.SkipNow()
 	tests := []struct {
 		name             string
 		namespace        string
