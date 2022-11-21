@@ -431,6 +431,19 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	t.Logf("node  quota info: %v", nodeQuotaInfos)
 }
 
+func TestKubeRuntime_SyncController(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+	ch := make(chan struct{})
+	kubeRuntime.SyncController(ch)
+}
+
 func TestKubeRuntime_GetMixedLog(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -606,19 +619,20 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 					t.Logf("name=%s, res=%#v", tt.name, res)
 				}
 				t.SkipNow()
+			} else {
+				res, err := kubeRuntime.GetMixedLog(tt.args.req)
+				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+				if tt.wantErr {
+					assert.Error(t, err)
+					if err != nil {
+						t.Logf("wantError: %s", err.Error())
+					}
+				} else {
+					assert.NoError(t, err)
+					t.Logf("name=%s, res=%#v", tt.name, res)
+				}
 			}
 
-			res, err := kubeRuntime.GetMixedLog(tt.args.req)
-			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
-			if tt.wantErr {
-				assert.Error(t, err)
-				if err != nil {
-					t.Logf("wantError: %s", err.Error())
-				}
-			} else {
-				assert.NoError(t, err)
-				t.Logf("name=%s, res=%#v", tt.name, res)
-			}
 		})
 	}
 
@@ -659,7 +673,7 @@ func createMockLog(t *testing.T, kr *KubeRuntime) {
 			Name:      mockPodName,
 			Namespace: mockNS,
 			Labels: map[string]string{
-				"app": mockPodName,
+				"app": mockDeployName,
 			},
 		},
 		Spec: podSpec,
@@ -690,8 +704,13 @@ func createMockLog(t *testing.T, kr *KubeRuntime) {
 	_, err := kr.clientset().CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 	assert.Equal(t, nil, err)
 	// create pod
-	_, err = kr.clientset().CoreV1().Pods(mockNS).Create(context.TODO(), pod, metav1.CreateOptions{})
-	assert.Equal(t, nil, err)
+	for i := 0; i < 10; i++ {
+		t.Logf("create pod %s", pod.Name)
+		_, err = kr.clientset().CoreV1().Pods(mockNS).Create(context.TODO(), pod, metav1.CreateOptions{})
+		assert.NoError(t, err)
+		pod.Name = uuid.GenerateIDWithLength("pod", 5)
+	}
+
 	// create deployment
 	_, err = kr.clientset().AppsV1().Deployments(mockNS).Create(context.TODO(), deploy, metav1.CreateOptions{})
 	assert.Equal(t, nil, err)

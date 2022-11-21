@@ -597,6 +597,7 @@ func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pf
 	eventsList := make([]corev1.Event, 0)
 	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
 	for _, pod := range pods {
+		log.Infof("ttttttttttttttttttt")
 		itemLogInfoList, err := kubeClient.GetTaskLogV2(mixedLogRequest.Namespace, pod.Name, logPage)
 		if err != nil {
 			log.Errorf("%s construct %s task log failed, err: %v", mixedLogRequest.ResourceType, pod.Name, err)
