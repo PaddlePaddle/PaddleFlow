@@ -3,8 +3,6 @@ package log
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -54,7 +52,7 @@ func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schem
 
 // GetLogs return mixed logs
 func GetLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
-	log.Debugf("Get mixed logs by request: %v", request)
+	ctx.Logging().Debugf("Get mixed logs by request: %v", request)
 	runtimeSvc, err := runtime.GetOrCreateRuntime(request.ClusterInfo)
 	if err != nil {
 		err = fmt.Errorf("get cluster client failed. error:%s", err.Error())
