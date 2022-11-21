@@ -51,7 +51,7 @@ func newFakeQueueSyncController() *QueueSync {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	ctrl := &QueueSync{}
+	ctrl := NewQueueSync()
 	opt := client.NewFakeKubeRuntimeClient(server)
 	err := ctrl.Initialize(opt)
 	if err != nil {
@@ -143,13 +143,13 @@ func TestQueueSync(t *testing.T) {
 			Reclaim: config.ReclaimConfig{
 				CleanJob: true,
 			},
+			SyncClusterQueue: true,
 		},
 	}
 
 	driver.InitMockDB()
 	c := newFakeQueueSyncController()
 	stopCh := make(chan struct{})
-	defer close(stopCh)
 	c.Run(stopCh)
 
 	for _, test := range tests {
@@ -179,5 +179,16 @@ func TestQueueSync(t *testing.T) {
 			assert.Equal(t, nil, err)
 		})
 	}
-	time.Sleep(2 * time.Second)
+	for c.workQueue.Len() > 0 {
+		time.Sleep(100 * time.Millisecond)
+		close(stopCh)
+	}
+}
+
+func TestQueueSync_Initialize(t *testing.T) {
+	t.Run("runtime client is nil", func(t *testing.T) {
+		ctrl := NewQueueSync()
+		err := ctrl.Initialize(nil)
+		assert.NotNil(t, err)
+	})
 }
