@@ -760,6 +760,7 @@ func (krc *KubeRuntimeClient) Update(resource interface{}, fv pfschema.Framework
 	return err
 }
 
+// GetTaskLog using pageSize and pageNo to paging logs
 func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string, pageSize, pageNo int) ([]pfschema.TaskLogInfo, error) {
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
 	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
@@ -778,7 +779,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 		endIndex := -1
 		hasNextPage := false
 		truncated := false
-		limitFlag := isReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
+		limitFlag := utils.IsReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
 		overFlag := false
 		// 判断开始位置是否已超过日志总行数，若超过overFlag为true；
 		// 如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
@@ -813,7 +814,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 		taskLogInfo := pfschema.TaskLogInfo{
 			TaskID: fmt.Sprintf("%s_%s", pod.GetUID(), c.Name),
 			Info: pfschema.LogInfo{
-				LogContent:  splitLog(logContent, startIndex, endIndex, overFlag),
+				LogContent:  utils.SplitLog(logContent, startIndex, endIndex, overFlag),
 				HasNextPage: hasNextPage,
 				Truncated:   truncated,
 			},
@@ -824,6 +825,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 
 }
 
+// GetTaskLogV2 using lineLimit and sizeLimit to paging logs
 func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
 	log.Infof("Get mixed logs for %s/%s, paging info: %#v", namespace, name, logpage)
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
@@ -845,9 +847,7 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils
 		finalContent := logpage.Paging(logContent, logContentLineNum)
 		log.Debugf("get log of pod/container: %s/%s, content length: %d", name, c.Name, len(finalContent))
 		taskLogInfo := pfschema.TaskLogInfo{
-			TaskID:  c.Name,
-			PodUID:  string(pod.GetUID()),
-			PodName: pod.Name,
+			TaskID: fmt.Sprintf("%s_%s/%s", pod.Name, pod.GetUID(), c.Name),
 			Info: pfschema.LogInfo{
 				LogContent:  finalContent,
 				HasNextPage: logpage.HasNextPage,
@@ -892,27 +892,4 @@ func mapToLogOptions(container, logFilePosition string) *corev1.PodLogOptions {
 	}
 
 	return logOptions
-}
-
-func splitLog(logContent string, startIndex, endIndex int, overFlag bool) string {
-	if overFlag || logContent == "" {
-		return ""
-	}
-	logContent = strings.TrimRight(logContent, "\n")
-	var logLines []string
-	if startIndex == -1 && endIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[:]
-	} else if startIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[:endIndex]
-	} else if endIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[startIndex:]
-	} else {
-		logLines = strings.Split(logContent, "\n")[startIndex:endIndex]
-	}
-	return strings.Join(logLines, "\n") + "\n"
-}
-
-func isReadLimitReached(bytesLoaded int64, linesLoaded int64, logFilePosition string) bool {
-	return (logFilePosition == common.BeginFilePosition && bytesLoaded >= byteReadLimit) ||
-		(logFilePosition == common.EndFilePosition && linesLoaded >= lineReadLimit)
 }

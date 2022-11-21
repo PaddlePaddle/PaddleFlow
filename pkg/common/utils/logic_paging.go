@@ -39,7 +39,7 @@ func (l *LogPage) Paging(content string, logContentLineNum int) string {
 		int64(contentLength), logContentLineNum, l.LogFilePosition)
 	startIndex, endIndex := l.Dividing(logContentLineNum, contentLength)
 	// split log
-	finalContent := splitLog(content, startIndex, endIndex, false)
+	finalContent := SplitLog(content, startIndex, endIndex, false)
 	return finalContent
 }
 
@@ -75,7 +75,7 @@ func (l *LogPage) Dividing(contentLineNum, contentByteLength int) (int, int) {
 	hasNextPage := false
 	// truncated means oversize content been truncated
 	truncated := false
-	limitFlag := isReadLimitReached(int64(contentByteLength), int64(contentLineNum), l.LogFilePosition)
+	limitFlag := IsReadLimitReached(int64(contentByteLength), int64(contentLineNum), l.LogFilePosition)
 
 	lineLimit := l.LineLimit
 	if int64(contentByteLength) > l.SizeLimit {
@@ -114,7 +114,7 @@ func (l *LogPage) Dividing(contentLineNum, contentByteLength int) (int, int) {
 	return startIndex, endIndex
 }
 
-func splitLog(logContent string, startIndex, endIndex int, overFlag bool) string {
+func SplitLog(logContent string, startIndex, endIndex int, overFlag bool) string {
 	if overFlag || logContent == "" {
 		return ""
 	}
@@ -132,7 +132,8 @@ func splitLog(logContent string, startIndex, endIndex int, overFlag bool) string
 	return strings.Join(logLines, "\n") + "\n"
 }
 
-func isReadLimitReached(bytesLoaded int64, linesLoaded int64, logFilePosition string) bool {
+// IsReadLimitReached checks logs if truncated by apiServer
+func IsReadLimitReached(bytesLoaded int64, linesLoaded int64, logFilePosition string) bool {
 	return (logFilePosition == common.BeginFilePosition && bytesLoaded >= byteReadLimit) ||
 		(logFilePosition == common.EndFilePosition && linesLoaded >= lineReadLimit)
 }

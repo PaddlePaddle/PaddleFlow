@@ -25,14 +25,16 @@ type LogInfo struct {
 type JobLogInfo struct {
 	JobID    string        `json:"jobID"`
 	TaskList []TaskLogInfo `json:"taskList"`
+
+	ResourceName string   `json:"name"`
+	Resourcetype string   `json:"type"`
+	Events       []string `json:"eventList"`
 }
 
 type TaskLogInfo struct {
 	// container name
-	TaskID  string  `json:"taskID"`
-	PodName string  `json:"podName"`
-	PodUID  string  `json:"podUID"`
-	Info    LogInfo `json:"logInfo"`
+	TaskID string  `json:"taskID"`
+	Info   LogInfo `json:"logInfo"`
 }
 
 type JobLogRequest struct {
@@ -54,14 +56,4 @@ type MixedLogRequest struct {
 	LineLimit      string
 	SizeLimit      int64
 	IsReadFromTail bool
-	//ClusterInfo    model.ClusterInfo
-}
-
-type MixedLogResponse struct {
-	IsSuccess    bool          `json:"isSuccess"`
-	ErrorMessage bool          `json:"errorMessage"`
-	ResourceName string        `json:"name"`
-	Resourcetype string        `json:"type"`
-	TaskList     []TaskLogInfo `json:"taskList"`
-	Events       []string      `json:"eventList"`
 }

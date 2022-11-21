@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 
@@ -252,26 +253,33 @@ func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.Queu
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	log.Infof("start job/queue controller on %s", kr.String())
-	jobController := controller.NewJobSync()
-	err := jobController.Initialize(kr.kubeClient)
-	if err != nil {
-		log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
-		return
+	var err error
+	jobQueueSync := os.Getenv(pfschema.EnvEnableJobQueueSync)
+	if jobQueueSync == "false" {
+		log.Warnf("skip job and queue syn controller on %s", kr.String())
+	} else {
+		jobController := controller.NewJobSync()
+		err = jobController.Initialize(kr.kubeClient)
+		if err != nil {
+			log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
+			return
+		}
+		queueController := controller.NewQueueSync()
+		err = queueController.Initialize(kr.kubeClient)
+		if err != nil {
+			log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
+			return
+		}
+		go jobController.Run(stopCh)
+		go queueController.Run(stopCh)
 	}
-	queueController := controller.NewQueueSync()
-	err = queueController.Initialize(kr.kubeClient)
-	if err != nil {
-		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
-		return
-	}
+
 	nodeResourceController := controller.NewNodeResourceSync()
 	err = nodeResourceController.Initialize(kr.kubeClient)
 	if err != nil {
 		log.Errorf("init node resource controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
-	go jobController.Run(stopCh)
-	go queueController.Run(stopCh)
 	go nodeResourceController.Run(stopCh)
 }
 
@@ -461,6 +469,14 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	return nil
 }
 
+func (kr *KubeRuntime) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest *pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	if mixedLogRequest == nil {
+		return kr.GetJobLog(jobLogRequest)
+	} else {
+		return kr.GetMixedLog(*mixedLogRequest)
+	}
+}
+
 func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
 	jobLogInfo := pfschema.JobLogInfo{
 		JobID: jobLogRequest.JobID,
@@ -520,14 +536,9 @@ func (kr *KubeRuntime) GetEvents(namespace, name string) ([]corev1.Event, error)
 }
 
 // GetPod get pod by namespace and name
-func (kr *KubeRuntime) GetPod(namespace, name string) (corev1.Pod, error) {
+func (kr *KubeRuntime) GetPod(namespace, name string) (*corev1.Pod, error) {
 	log.Debugf("get kubernetes pod: %s/%s", namespace, name)
-	pod, err := kr.clientset().CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("get kubernetes pod %s/%s failed, err: %v", namespace, name, err.Error())
-		return corev1.Pod{}, err
-	}
-	return *pod, nil
+	return kr.clientset().CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 }
 
 // GetPodsByDeployName return pod list of a deployments
@@ -544,8 +555,9 @@ func (kr *KubeRuntime) GetPodsByDeployName(mixedLogRequest pfschema.MixedLogRequ
 	return podList.Items, nil
 }
 
-func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.MixedLogResponse, error) {
-	var mixedRes pfschema.MixedLogResponse
+// GetMixedLog query logs for deployments/daemonsets and its pods
+func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	var mixedRes pfschema.JobLogInfo
 	if mixedLogRequest.Name == "" || mixedLogRequest.Namespace == "" {
 		err := fmt.Errorf("name or namespace is absent, cannot find resource")
 		log.Errorln(err)
@@ -562,7 +574,7 @@ func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pf
 			log.Errorf("failed to get pods %s/%s. err: %s", mixedLogRequest.Namespace, mixedLogRequest.Name, err.Error())
 			return mixedRes, err
 		}
-		pods = append(pods, pod)
+		pods = append(pods, *pod)
 	case string(pfschema.TypeDeployment):
 		pods, err = kr.GetPodsByDeployName(mixedLogRequest)
 		if err != nil {
@@ -597,7 +609,6 @@ func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pf
 	eventsList := make([]corev1.Event, 0)
 	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
 	for _, pod := range pods {
-		log.Infof("ttttttttttttttttttt")
 		itemLogInfoList, err := kubeClient.GetTaskLogV2(mixedLogRequest.Namespace, pod.Name, logPage)
 		if err != nil {
 			log.Errorf("%s construct %s task log failed, err: %v", mixedLogRequest.ResourceType, pod.Name, err)
