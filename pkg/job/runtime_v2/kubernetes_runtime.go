@@ -469,9 +469,9 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest *pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+func (kr *KubeRuntime) GetLog(jobLogRequest *pfschema.JobLogRequest, mixedLogRequest *pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
 	if mixedLogRequest == nil {
-		return kr.GetJobLog(jobLogRequest)
+		return kr.GetJobLog(*jobLogRequest)
 	} else {
 		return kr.GetMixedLog(*mixedLogRequest)
 	}
