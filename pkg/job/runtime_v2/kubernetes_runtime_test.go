@@ -607,7 +607,7 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 				})
 				defer patch2.Reset()
 
-				res, err := kubeRuntime.GetMixedLog(tt.args.req)
+				res, err := kubeRuntime.getLog(tt.args.req)
 				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
 				if tt.wantErr {
 					assert.Error(t, err)
@@ -620,7 +620,7 @@ func TestKubeRuntime_GetMixedLog(t *testing.T) {
 				}
 				t.SkipNow()
 			} else {
-				res, err := kubeRuntime.GetMixedLog(tt.args.req)
+				res, err := kubeRuntime.getLog(tt.args.req)
 				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
 				if tt.wantErr {
 					assert.Error(t, err)
