@@ -469,11 +469,12 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetLog(jobLogRequest *pfschema.JobLogRequest, mixedLogRequest *pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
-	if mixedLogRequest == nil {
-		return kr.GetJobLog(*jobLogRequest)
+func (kr *KubeRuntime) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	// todo GetJobLog will be merged into getLog
+	if jobLogRequest.JobID != "" {
+		return kr.GetJobLog(jobLogRequest)
 	} else {
-		return kr.GetMixedLog(*mixedLogRequest)
+		return kr.getLog(mixedLogRequest)
 	}
 }
 
@@ -556,7 +557,7 @@ func (kr *KubeRuntime) GetPodsByDeployName(mixedLogRequest pfschema.MixedLogRequ
 }
 
 // GetMixedLog query logs for deployments/daemonsets and its pods
-func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+func (kr *KubeRuntime) getLog(mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
 	var mixedRes pfschema.JobLogInfo
 	if mixedLogRequest.Name == "" || mixedLogRequest.Namespace == "" {
 		err := fmt.Errorf("name or namespace is absent, cannot find resource")
@@ -564,7 +565,7 @@ func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pf
 		return mixedRes, err
 	}
 	var err error
-	// get pods
+	// get pods list
 	var pods []corev1.Pod
 	switch mixedLogRequest.ResourceType {
 	case string(pfschema.TypePodJob):
@@ -576,6 +577,7 @@ func (kr *KubeRuntime) GetMixedLog(mixedLogRequest pfschema.MixedLogRequest) (pf
 		}
 		pods = append(pods, *pod)
 	case string(pfschema.TypeDeployment):
+		// get pods of deployment
 		pods, err = kr.GetPodsByDeployName(mixedLogRequest)
 		if err != nil {
 			log.Errorf("failed to get pods by deployment %s/%s. err: %s",
