@@ -16,8 +16,10 @@ limitations under the License.
 
 package schema
 
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type JobType string
 type ActionType string
@@ -77,10 +79,11 @@ const (
 	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
 
 	// TODO move to framework
-	TypeVcJob     JobType = "vcjob"
-	TypeSparkJob  JobType = "spark"
-	TypePaddleJob JobType = "paddlejob"
-	TypePodJob    JobType = "pod"
+	TypeVcJob      JobType = "vcjob"
+	TypeSparkJob   JobType = "spark"
+	TypePaddleJob  JobType = "paddlejob"
+	TypePodJob     JobType = "pod"
+	TypeDeployment JobType = "deployment"
 
 	StatusJobInit        JobStatus = "init"
 	StatusJobPending     JobStatus = "pending"
