@@ -292,7 +292,7 @@ func TestMPIJob_CreateJob(t *testing.T) {
 					},
 				},
 			},
-			expectErr: "negative resources not permitted: map[cpu:-1 memory:4Gi]",
+			expectErr: "negative resources not permitted: map[cpu:-1 mem:4Gi]",
 			wantErr:   true,
 		},
 		{
