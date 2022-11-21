@@ -66,6 +66,62 @@ func TestCreatePFJob(t *testing.T) {
 			wantErr:      false,
 			responseCode: 400,
 		},
+		{
+			name: "create success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          mockCreatedJobName,
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Framework: schema.FrameworkMPI,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleMaster),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+				},
+			},
+			wantErr:      false,
+			responseCode: 400,
+		},
 	}
 
 	for _, tt := range tests {

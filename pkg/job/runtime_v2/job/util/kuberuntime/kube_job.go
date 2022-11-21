@@ -76,7 +76,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	case schema.TypeSingle, schema.TypeWorkflow:
 		jobTemplateName = fmt.Sprintf("%s-job", jobType)
 	case schema.TypeDistributed:
-		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay {
+		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
 			jobTemplateName = fmt.Sprintf("%s-job", framework)
 		} else {
 			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(jobMode))
