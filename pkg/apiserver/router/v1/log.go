@@ -151,10 +151,10 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 // @Router /log/job [GET]
 func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request) {
 	ctx := common.GetRequestContext(request)
-	log.Infof("get resource logs")
+	ctx.Logging().Infof("get resource logs")
 	logRequest, err := constructJobLogRequest(&ctx, request)
 	if err != nil {
-		log.Errorf("parse job log request failed, err: %v", err)
+		ctx.Logging().Errorf("parse job log request failed, err: %v", err)
 		ctx.ErrorCode = common.InvalidURI
 		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -163,10 +163,10 @@ func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request
 	var response schema.JobLogInfo
 	jobID := request.URL.Query().Get(util.ParamKeyJobID)
 	if jobID == "" {
-		log.Debugf("get kubernetes resource logs")
-		response, err = runLog.GetKubernetesResourceLogs(&ctx, logRequest)
+		ctx.Logging().Debugf("get kubernetes resource logs")
+		response, err = runLog.GetLogs(&ctx, logRequest)
 	} else {
-		log.Debugf("get paddleflow job %s logs", jobID)
+		ctx.Logging().Debugf("get paddleflow job %s logs", jobID)
 		response, err = runLog.GetPFJobLogs(&ctx, logRequest)
 	}
 	if err != nil {
@@ -179,7 +179,7 @@ func (lr *LogRouter) getJobLog(writer http.ResponseWriter, request *http.Request
 }
 
 func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (runLog.GetMixedLogRequest, error) {
-	log.Infof("constructJobLogRequest, request: %v", request)
+	ctx.Logging().Infof("constructJobLogRequest, request: %v", request)
 	logRequest := runLog.GetMixedLogRequest{
 		Namespace: request.URL.Query().Get(util.QueryKeyNamespace),
 		Name:      request.URL.Query().Get(util.QueryKeyName),
@@ -199,8 +199,7 @@ func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (
 	// validate jobID
 	jobID := request.URL.Query().Get(util.ParamKeyJobID)
 	if jobID != "" {
-		err := validateJobInfo(ctx, request, jobID)
-		if err != nil {
+		if err = validateJobInfo(ctx, request, jobID); err != nil {
 			return logRequest, err
 		}
 		logRequest.Name = jobID
@@ -254,6 +253,7 @@ func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (
 }
 
 func validateJobInfo(ctx *logger.RequestContext, request *http.Request, jobID string) error {
+	ctx.Logging().Debugf("validateJobInfo for jobID: %s", jobID)
 	job, err := job.GetJob(ctx, jobID)
 	if err != nil {
 		err = fmt.Errorf("get job by jobID %s failed. err:%v", jobID, err)

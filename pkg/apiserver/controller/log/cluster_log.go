@@ -34,15 +34,15 @@ type GetMixedLogResponse struct {
 	Events       []string             `json:"eventList"`
 }
 
-// GetPFJobLogs todo to be merged with GetKubernetesResourceLogs
+// GetPFJobLogs todo to be merged with GetLogs
 // return mixed log by events and logs
 func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
-	log.Debugf("Get k8s logs by request: %v", request)
+	ctx.Logging().Debugf("Get k8s logs by request: %v", request)
 	switch schema.Framework(request.Framework) {
 	case schema.FrameworkStandalone, schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
 		schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
 		// todo call runtimeSvc.GetJobLog()
-		log.Errorf("todo")
+		ctx.Logging().Warnf("todo")
 	default:
 		err := fmt.Errorf("job %s framework %s unsupport", request.Name, request.Framework)
 		ctx.ErrorCode = common.InvalidArguments
@@ -52,8 +52,8 @@ func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schem
 	return schema.JobLogInfo{}, nil
 }
 
-// GetKubernetesResourceLogs return mixed logs
-func GetKubernetesResourceLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
+// GetLogs return mixed logs
+func GetLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
 	log.Debugf("Get mixed logs by request: %v", request)
 	runtimeSvc, err := runtime.GetOrCreateRuntime(request.ClusterInfo)
 	if err != nil {

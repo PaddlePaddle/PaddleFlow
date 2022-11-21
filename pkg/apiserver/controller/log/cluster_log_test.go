@@ -380,7 +380,7 @@ func TestGetKubernetesResourceLogs(t *testing.T) {
 			}
 
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
-			res, err := GetKubernetesResourceLogs(tt.args.ctx, tt.args.req)
+			res, err := GetLogs(tt.args.ctx, tt.args.req)
 			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
 			if tt.wantErr {
 				assert.Error(t, err)

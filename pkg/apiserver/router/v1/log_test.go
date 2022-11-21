@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/go-chi/chi"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	kuberuntime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
-	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 )
 
