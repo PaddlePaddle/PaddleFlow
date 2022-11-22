@@ -130,7 +130,7 @@ func (nc *ClusterNodeCache) UpdateNode(nodeID string, nodeInfo *model.NodeInfo) 
 	log.Debugf("begin to update node. node id:%s", nodeID)
 
 	return WithTransaction(nc.dbCache, func(tx *gorm.DB) error {
-		err := tx.Model(&model.NodeInfo{}).Where("id = ?", nodeID).Updates(nodeInfo).Error
+		err := tx.Model(nodeInfo).Where("id = ?", nodeID).Updates(nodeInfo).Error
 		if err != nil {
 			log.Errorf("update node failed. node id:%s, error:%s", nodeID, err)
 			return err

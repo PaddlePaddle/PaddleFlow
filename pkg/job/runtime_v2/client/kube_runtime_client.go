@@ -315,7 +315,7 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 	}
 	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
 	if len(resourceFilters) > 0 {
-		filters := strings.Split(nodeLabels, ",")
+		filters := strings.Split(resourceFilters, ",")
 		rFilter = append(rFilter, filters...)
 	}
 	return &NodeHandler{

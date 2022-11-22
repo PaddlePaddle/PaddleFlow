@@ -100,7 +100,7 @@ func (cpc *ClusterPodCache) DeletePod(podID string) error {
 func (cpc *ClusterPodCache) UpdatePod(podID string, podInfo *model.PodInfo) error {
 	log.Debugf("begin to update pod. pod id:%s", podID)
 	return WithTransaction(cpc.dbCache, func(tx *gorm.DB) error {
-		err := tx.Model(&model.PodInfo{}).Where("id = ?", podID).Updates(podInfo).Error
+		err := tx.Model(podInfo).Where("id = ?", podID).Updates(podInfo).Error
 		if err != nil {
 			log.Errorf("update pod failed. pod id:%s, error:%s", podID, err)
 			return err

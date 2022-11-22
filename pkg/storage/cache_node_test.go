@@ -149,6 +149,7 @@ func TestNodeCache(t *testing.T) {
 		assert.Equal(t, nil, err)
 
 		updatedNode := &model.NodeInfo{
+			ID:     mockNodeID,
 			Status: "NotReady",
 			Labels: map[string]string{
 				"xxx/queue-name": "test-queue",
