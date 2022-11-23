@@ -49,6 +49,13 @@ spec:
         containers:
           - name: paddle
             image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
   ps:
     replicas: 2
     template:
@@ -56,6 +63,13 @@ spec:
         containers:
           - name: paddle
             image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
 `
 	mockPaddleJob = api.PFJob{
 		ID:        "job-normal-0c272d0a",
@@ -188,7 +202,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			wantMsg:  "",
 		},
 		{
-			caseName: "job test3",
+			caseName: "job test ps mode",
 			jobObj:   &mockPaddlePSJob,
 			wantErr:  nil,
 			wantMsg:  "",
@@ -198,6 +212,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 	paddleJob := New(kubeRuntimeClient)
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("run case[%s]", test.caseName)
 			err := paddleJob.Submit(context.TODO(), test.jobObj)
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
