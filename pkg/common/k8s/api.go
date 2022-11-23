@@ -46,17 +46,16 @@ var (
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
-	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
-		VCJobGVK:        VCJobStatus,
-		SparkAppGVK:     SparkAppStatus,
-		PaddleJobGVK:    PaddleJobStatus,
-		PodGVK:          SingleJobStatus,
-		ArgoWorkflowGVK: ArgoWorkflowStatus,
-		PyTorchJobGVK:   PytorchJobStatus,
-		TFJobGVK:        TFJobStatus,
-		MXNetJobGVK:     MXNetJobStatus,
-		MPIJobGVK:       MPIJobStatus,
-		RayJobGVK:       RayJobStatus,
+	GVKJobStatusMap = map[schema.GroupVersionKind]bool{
+		SparkAppGVK:     true,
+		PaddleJobGVK:    true,
+		PodGVK:          true,
+		ArgoWorkflowGVK: true,
+		PyTorchJobGVK:   true,
+		TFJobGVK:        true,
+		MXNetJobGVK:     true,
+		MPIJobGVK:       true,
+		RayJobGVK:       true,
 	}
 )
 
@@ -115,8 +114,6 @@ type StatusInfo struct {
 	Status       commomschema.JobStatus
 	Message      string
 }
-
-type GetStatusFunc func(interface{}) (StatusInfo, error)
 
 type PodStatusMessage struct {
 	Phase             v1.PodPhase              `json:"phase,omitempty"`
