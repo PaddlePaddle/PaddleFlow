@@ -220,9 +220,6 @@ func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *Com
 
 func validateMembersRole(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	log.Infof("validate job %s MembersRole", request.Name)
-	if len(request.Members) == 0 {
-		log.Debugf("Members in request is nil")
-	}
 	frameworkRoles := getFrameworkRoles(request.Framework)
 	for _, member := range request.Members {
 		memberRole := schema.MemberRole(member.Role)

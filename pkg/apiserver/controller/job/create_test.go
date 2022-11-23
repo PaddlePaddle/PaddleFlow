@@ -213,6 +213,152 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
+			name: "schedulingPolicy.Queue should be the same",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: "a",
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "the role[master] for framework paddle is not supported",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleMaster),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "create paddleJob success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      false,
+			responseCode: 400,
+		},
+		{
 			name: "create mpijob success request",
 			args: args{
 				ctx: &logger.RequestContext{
