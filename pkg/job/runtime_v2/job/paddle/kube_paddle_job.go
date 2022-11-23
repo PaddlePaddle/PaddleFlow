@@ -242,7 +242,7 @@ func (pj *KubePaddleJob) patchPaddleTask(resourceSpec *paddlejobv1.ResourceSpec,
 	return kuberuntime.BuildPodSpec(&resourceSpec.Template.Spec, task)
 }
 
-func (pj *KubePaddleJob) Stop(cctx context.Context, job *api.PFJob) error {
+func (pj *KubePaddleJob) Stop(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}

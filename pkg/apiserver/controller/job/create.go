@@ -219,6 +219,7 @@ func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *Com
 }
 
 func validateMembersRole(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	log.Infof("validate job %s MembersRole", request.Name)
 	if len(request.Members) == 0 {
 		log.Debugf("Members in request is nil")
 	}
@@ -231,6 +232,7 @@ func validateMembersRole(ctx *logger.RequestContext, request *CreateJobInfo) err
 			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
 			return err
 		}
+		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
 	}
 	var err error
 	request.Mode, err = checkMemberRole(request.Framework, frameworkRoles)
@@ -592,16 +594,6 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 			return nil, err
 		}
 	}
-
-	//if len(request.ExtensionTemplate) == 0 {
-	//	members = buildMembers(request)
-	//} else {
-	//	templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
-	//	if err != nil {
-	//		log.Errorf("parse extension template failed, err: %v", err)
-	//		return nil, err
-	//	}
-	//}
 
 	jobInfo := &model.Job{
 		ID:                request.ID,
