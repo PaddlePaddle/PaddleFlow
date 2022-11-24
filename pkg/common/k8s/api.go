@@ -18,18 +18,10 @@ package k8s
 
 import (
 	"fmt"
-	"sync"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 
 	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -54,22 +46,16 @@ var (
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
-	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
-		VCJobGVK:        VCJobStatus,
-		SparkAppGVK:     SparkAppStatus,
-		PaddleJobGVK:    PaddleJobStatus,
-		PodGVK:          SingleJobStatus,
-		ArgoWorkflowGVK: ArgoWorkflowStatus,
-		PyTorchJobGVK:   PytorchJobStatus,
-		TFJobGVK:        TFJobStatus,
-		MXNetJobGVK:     MXNetJobStatus,
-		MPIJobGVK:       MPIJobStatus,
-		RayJobGVK:       RayJobStatus,
-	}
-	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
-	GVKToQuotaType = []schema.GroupVersionKind{
-		VCQueueGVK,
-		EQuotaGVK,
+	GVKJobStatusMap = map[schema.GroupVersionKind]bool{
+		SparkAppGVK:     true,
+		PaddleJobGVK:    true,
+		PodGVK:          true,
+		ArgoWorkflowGVK: true,
+		PyTorchJobGVK:   true,
+		TFJobGVK:        true,
+		MXNetJobGVK:     true,
+		MPIJobGVK:       true,
+		RayJobGVK:       true,
 	}
 )
 
@@ -127,67 +113,6 @@ type StatusInfo struct {
 	OriginStatus string
 	Status       commomschema.JobStatus
 	Message      string
-}
-
-type GetStatusFunc func(interface{}) (StatusInfo, error)
-
-// DynamicClientOption for kubernetes dynamic client
-type DynamicClientOption struct {
-	DynamicClient   dynamic.Interface
-	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
-	DiscoveryClient discovery.DiscoveryInterface
-	Config          *rest.Config
-	ClusterInfo     *commomschema.Cluster
-	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
-	GVKToGVR sync.Map
-}
-
-func CreateDynamicClientOpt(config *rest.Config, cluster *commomschema.Cluster) (*DynamicClientOption, error) {
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		log.Errorf("init dynamic client failed. error:%s", err)
-		return nil, err
-	}
-	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0)
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		log.Errorf("create discovery client failed: %v", err)
-		return nil, err
-	}
-	if cluster == nil {
-		log.Errorf("cluster info is nil")
-		return nil, fmt.Errorf("cluster info is nil")
-	}
-	return &DynamicClientOption{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  factory,
-		DiscoveryClient: discoveryClient,
-		Config:          config,
-		ClusterInfo:     cluster,
-	}, nil
-}
-
-func (dc *DynamicClientOption) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
-	gvr, ok := dc.GVKToGVR.Load(gvk.String())
-	if ok {
-		return gvr.(meta.RESTMapping), nil
-	}
-	return dc.findGVR(&gvk)
-}
-
-func (dc *DynamicClientOption) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMapping, error) {
-	// DiscoveryClient queries API server about the resources
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc.DiscoveryClient))
-	// Find GVR
-	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		log.Warningf("find GVR with restMapping failed: %v", err)
-		return meta.RESTMapping{}, err
-	}
-	// Store GVR
-	log.Debugf("The GVR of GVK[%s] is [%s]", gvk.String(), mapping.Resource.String())
-	dc.GVKToGVR.Store(gvk.String(), *mapping)
-	return *mapping, nil
 }
 
 type PodStatusMessage struct {
@@ -273,44 +198,4 @@ func GetTaskMessage(podStatus *v1.PodStatus) string {
 		})
 	}
 	return statusMessage.String()
-}
-
-func GetJobGVK(jobType commomschema.JobType, framework commomschema.Framework) (schema.GroupVersionKind, error) {
-	var gvk schema.GroupVersionKind
-	var err error
-	switch jobType {
-	case commomschema.TypeSingle:
-		gvk = PodGVK
-	case commomschema.TypeDistributed:
-		gvk, err = getDistributedJobGVK(framework)
-	case commomschema.TypeWorkflow:
-		gvk = ArgoWorkflowGVK
-	default:
-		err = fmt.Errorf("job type %s is not supported", jobType)
-	}
-	return gvk, err
-}
-
-func getDistributedJobGVK(framework commomschema.Framework) (schema.GroupVersionKind, error) {
-	var gvk schema.GroupVersionKind
-	var err error
-	switch framework {
-	case commomschema.FrameworkPaddle:
-		gvk = PaddleJobGVK
-	case commomschema.FrameworkSpark:
-		gvk = SparkAppGVK
-	case commomschema.FrameworkPytorch:
-		gvk = PyTorchJobGVK
-	case commomschema.FrameworkTF:
-		gvk = TFJobGVK
-	case commomschema.FrameworkMXNet:
-		gvk = MXNetJobGVK
-	case commomschema.FrameworkRay:
-		gvk = RayJobGVK
-	case commomschema.FrameworkMPI:
-		err = fmt.Errorf("framework %s is not implemented", framework)
-	default:
-		err = fmt.Errorf("framework %s is not supported", framework)
-	}
-	return gvk, err
 }

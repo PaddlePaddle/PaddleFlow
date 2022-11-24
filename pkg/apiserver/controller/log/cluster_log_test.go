@@ -8,21 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	kuberuntime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -50,28 +44,16 @@ var clusterInfo = model.ClusterInfo{
 	NamespaceList: []string{"default", "n2", MockNamespace},
 }
 
-func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&rest.Config{Host: server.URL})
-	return &k8s.DynamicClientOption{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo:     &pfschema.Cluster{Name: "test-cluster"},
-	}
-}
-
 func TestGetPFJobLogs(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	dynamicClient := newFakeDynamicClient(server)
+	krc := client.NewFakeKubeRuntimeClient(server)
 	clientset := fakedclient.NewSimpleClientset()
 
 	//CreateRuntime
-	e1 := &kuberuntime.KubeRuntime{}
+	e1 := &runtime.KubeRuntime{}
 	patch4 := gomonkey.ApplyPrivateMethod(e1, "BuildConfig", func() (*rest.Config, error) {
-		return dynamicClient.Config, nil
+		return krc.Config, nil
 	})
 	defer patch4.Reset()
 
@@ -80,18 +62,8 @@ func TestGetPFJobLogs(t *testing.T) {
 	})
 	defer patch2.Reset()
 
-	krc := client.KubeRuntimeClient{
-		Client:           clientset,
-		DynamicClient:    dynamicClient.DynamicClient,
-		DynamicFactory:   dynamicClient.DynamicFactory,
-		DiscoveryClient:  dynamicClient.DiscoveryClient,
-		Config:           dynamicClient.Config,
-		ClusterInfo:      dynamicClient.ClusterInfo,
-		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-	}
 	patch3 := gomonkey.ApplyFunc(client.CreateKubeRuntimeClient, func(_ *rest.Config, _ *pfschema.Cluster) (framework.RuntimeClientInterface, error) {
-		return &krc, nil
+		return krc, nil
 	})
 	defer patch3.Reset()
 
@@ -189,14 +161,14 @@ func TestGetPFJobLogs(t *testing.T) {
 func TestGetKubernetesResourceLogs(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	dynamicClient := newFakeDynamicClient(server)
+	krc := client.NewFakeKubeRuntimeClient(server)
 	clientset := fakedclient.NewSimpleClientset()
 
 	//CreateRuntime
-	e1 := &kuberuntime.KubeRuntime{}
+	e1 := &runtime.KubeRuntime{}
 
 	patch4 := gomonkey.ApplyPrivateMethod(e1, "BuildConfig", func() (*rest.Config, error) {
-		return dynamicClient.Config, nil
+		return krc.Config, nil
 	})
 	defer patch4.Reset()
 
@@ -209,17 +181,6 @@ func TestGetKubernetesResourceLogs(t *testing.T) {
 		return clientset
 	})
 	defer patch3.Reset()
-
-	krc := client.KubeRuntimeClient{
-		Client:           clientset,
-		DynamicClient:    dynamicClient.DynamicClient,
-		DynamicFactory:   dynamicClient.DynamicFactory,
-		DiscoveryClient:  dynamicClient.DiscoveryClient,
-		Config:           dynamicClient.Config,
-		ClusterInfo:      dynamicClient.ClusterInfo,
-		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
-	}
 
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
@@ -374,7 +335,7 @@ func TestGetKubernetesResourceLogs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.args.clientEnable {
 				patch3 := gomonkey.ApplyFunc(client.CreateKubeRuntimeClient, func(_ *rest.Config, _ *pfschema.Cluster) (framework.RuntimeClientInterface, error) {
-					return &krc, nil
+					return krc, nil
 				})
 				defer patch3.Reset()
 			}
