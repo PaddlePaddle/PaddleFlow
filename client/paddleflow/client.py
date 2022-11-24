@@ -714,6 +714,19 @@ class Client(object):
         return LogServiceApi.get_log_info(self.paddleflow_server, run_id, job_id, page_size, page_no, log_file_position,
                                           self.header)
 
+    def show_log_by_limit(self, job_id=None, name=None, namespace=None, cluster_name=None, read_from_tail=None,
+                          line_limit=None, size_limit=None,
+                          type=None, framework=None):
+        """
+        show job logs or kubernetes logs or others
+        """
+        self.pre_check()
+        return LogServiceApi.get_log_info_by_limit(self.paddleflow_server, job_id=job_id, name=name, namespace=namespace,
+                               cluster_name=cluster_name, read_from_tail=read_from_tail, line_limit=line_limit, size_limit=size_limit,
+                                                   type=type, framework=framework, header=self.header
+                                                   # job_id=job_id,
+                                                   )
+
     def create_job(self, job_type, job_request):
         """
         create_job
