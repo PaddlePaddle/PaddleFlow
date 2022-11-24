@@ -18,7 +18,12 @@ package ufs
 
 import (
 	"encoding/base64"
+	"errors"
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/colinmarc/hdfs/v2"
 	"os"
+	"reflect"
+	"sync"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -91,4 +96,66 @@ func TestHdfsWithKerberos(t *testing.T) {
 	fs, err := NewHdfsWithKerberosFileSystem(properties)
 	assert.NoError(t, err)
 	testFsOp(t, fs)
+}
+
+func TestHdfsTurncate(t *testing.T) {
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Create", func(_ *hdfsFileSystem, name string, flags, mode uint32) (fd FileHandle, err error) {
+		return &hdfsFileHandle{}, nil
+	})
+	defer p2.Reset()
+	fs := &hdfsFileSystem{}
+	err := fs.Truncate("test", 0)
+	assert.Nil(t, err)
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return errors.New("Unlink failed")
+	})
+	defer p1.Reset()
+	err = fs.Truncate("test", 0)
+	assert.NotNil(t, err)
+
+}
+
+func Test_hdfsFileSystem_shouldRetry(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		err error
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name:   "has err",
+			fields: fields{},
+			args: args{
+				err: errors.New("append call failed with ERROR_APPLICATION (org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"),
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			assert.Equalf(t, tt.want, fs.shouldRetry(tt.args.err), "shouldRetry(%v)", tt.args.err)
+		})
+	}
 }
