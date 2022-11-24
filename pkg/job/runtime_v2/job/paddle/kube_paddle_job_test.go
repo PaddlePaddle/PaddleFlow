@@ -65,11 +65,11 @@ spec:
             image: nginx
             resources:
               limits:
-                cpu: "1"
-                memory: 1Gi
+                cpu: "2"
+                memory: 2Gi
               requests:
-                cpu: "1"
-                memory: 1Gi
+                cpu: "2"
+                memory: 2Gi
 `
 	nilWorkerContainerYaml = `
 apiVersion: batch.paddlepaddle.org/v1
@@ -512,6 +512,38 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			wantErr: errors.New("container is required in paddleJob"),
 		},
 		{
+			caseName: "extensionTemplate member has no flavour",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0c",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYaml),
+			},
+			wantErr: nil,
+		},
+		{
 			caseName: "create paddle job with Collective mode",
 			jobObj:   &mockPaddleJob,
 			wantErr:  nil,
@@ -533,10 +565,11 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				_, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}
+				t.Logf("result: %v", obj)
 			} else {
 				if assert.Error(t, err) {
 					assert.Equal(t, test.wantErr.Error(), err.Error())

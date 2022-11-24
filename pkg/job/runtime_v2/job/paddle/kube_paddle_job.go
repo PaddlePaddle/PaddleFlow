@@ -397,12 +397,16 @@ func (pj *KubePaddleJob) patchResource(pdj *paddlejobv1.PaddleJob, job *api.PFJo
 	log.Infof("patch resource in paddlejob")
 	if len(job.Tasks) == 0 {
 		log.Debugf("no resources to be configured")
+		return nil
 	}
 
 	// fill resource
 	var minAvailable int32
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
+		if pfschema.IsEmptyResource(task.Flavour.ResourceInfo) {
+			continue
+		}
 		resourceRequirements, err := kuberuntime.GenerateResourceRequirements(task.Flavour)
 		if err != nil {
 			log.Errorf("generate resource requirements failed, err: %v", err)
