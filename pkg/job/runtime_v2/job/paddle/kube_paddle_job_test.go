@@ -374,7 +374,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 				},
 				ExtensionTemplate: []byte(extensionPaddleYaml),
 			},
-			wantErr: errors.New("negative resources not permitted: map[cpu:-2 memory:2]"),
+			wantErr: errors.New("negative resources not permitted: map[cpu:-2 mem:2]"),
 		},
 		{
 			caseName: "extensionTemplate NilPS",
