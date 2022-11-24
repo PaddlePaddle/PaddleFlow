@@ -163,7 +163,6 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 			return err
 		}
 		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
-		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
 		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
 		if err != nil {
 			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
