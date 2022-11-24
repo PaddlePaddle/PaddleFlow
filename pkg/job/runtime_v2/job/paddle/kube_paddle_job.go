@@ -76,7 +76,7 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
-	if err := pj.validatePodContainers(pdj); err != nil {
+	if err := pj.validatePaddleContainers(pdj, job); err != nil {
 		log.Errorf("validate paddlejob %s failed, err: %v", pj.String(jobName), err)
 		return err
 	}
@@ -111,6 +111,7 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 }
 
 func (pj *KubePaddleJob) customPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PFJob) error {
+	log.Infof("customPaddleJob fill resource")
 	if pdj == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
@@ -438,8 +439,13 @@ func (pj *KubePaddleJob) patchResource(pdj *paddlejobv1.PaddleJob, job *api.PFJo
 	return nil
 }
 
-func (pj *KubePaddleJob) validatePodContainers(pdj *paddlejobv1.PaddleJob) error {
-	nilContainerErr := fmt.Errorf("worker is required in paddleJob")
+func (pj *KubePaddleJob) validatePaddleContainers(pdj *paddlejobv1.PaddleJob, job *api.PFJob) error {
+	nilContainerErr := fmt.Errorf("container is required in paddleJob")
+	if pdj.Spec.PS == nil && job.JobMode == pfschema.EnvJobModePS {
+		err := fmt.Errorf("PS mode required spec.PS")
+		log.Errorln(err)
+		return err
+	}
 	if pdj.Spec.PS != nil {
 		psContainers := pdj.Spec.PS.Template.Spec.Containers
 		if len(psContainers) == 0 {
