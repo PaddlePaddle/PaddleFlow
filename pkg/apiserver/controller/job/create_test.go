@@ -91,7 +91,69 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
-			name: "create success request",
+			name: "create pod success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image: "busybox",
+							},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      false,
+			responseCode: 400,
+		},
+		{
+			name: "create pod failed, image absent",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec:  JobSpec{},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "create paddleJob success request",
 			args: args{
 				ctx: &logger.RequestContext{
 					UserName: mockRootUser,
@@ -106,7 +168,378 @@ func TestCreatePFJob(t *testing.T) {
 							Queue: MockQueueName,
 						},
 					},
-					Framework: schema.FrameworkStandalone,
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      false,
+			responseCode: 400,
+		},
+		{
+			name: "paddleJob flavour validate cpu failed,err: cpu cannot be negative",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "paddleJob flavour validate cpu failed,err: cpu cannot be 0",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "0", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "priority 0 err: invalid job priority",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue:    MockQueueName,
+									Priority: "a",
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "schedulingPolicy.Queue should be the same",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: "a",
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "the role[master] for framework paddle is not supported",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RoleMaster),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "create paddleJob success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					ExtensionTemplate: map[string]interface{}{
+						"a": "b",
+					},
 				},
 			},
 			wantErr:      false,
@@ -294,6 +727,7 @@ func TestCreatePFJob(t *testing.T) {
 				assert.Error(t, err)
 				t.Logf("name=%s err: %v", tt.name, err)
 			} else {
+				assert.Equal(t, nil, err)
 				t.Logf("response: %+v", res)
 			}
 		})
