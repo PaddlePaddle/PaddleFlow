@@ -50,10 +50,10 @@ func (l *LogPage) SlicePaging(content []string) []string {
 		contentByteLength += len(c)
 	}
 	logContentLineNum := len(content)
-	log.Debugf("get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s",
+	log.Debugf("slicePaging: get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s",
 		contentByteLength, logContentLineNum, l.LogFilePosition)
 	startIndex, endIndex := l.Dividing(logContentLineNum, contentByteLength)
-
+	log.Debugf("startIndex %d, endIndex %d", startIndex, endIndex)
 	var finalContent []string
 	if startIndex == -1 && endIndex == -1 {
 		finalContent = content[:]
