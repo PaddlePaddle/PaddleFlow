@@ -343,6 +343,40 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			wantErr: errors.New("worker is required in paddleJob"),
 		},
 		{
+			caseName: "extensionTemplate NilWorker",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0b",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
+				},
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 3,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "-2", Mem: "2"}},
+						},
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYaml),
+			},
+			wantErr: errors.New("negative resources not permitted: map[cpu:-2 memory:2]"),
+		},
+		{
 			caseName: "extensionTemplate NilPS",
 			jobObj: &api.PFJob{
 				ID:        "job-normal-0c272d0c",
