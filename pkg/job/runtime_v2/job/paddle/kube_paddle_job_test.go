@@ -49,6 +49,13 @@ spec:
         containers:
           - name: paddle
             image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
   ps:
     replicas: 2
     template:
@@ -56,6 +63,114 @@ spec:
         containers:
           - name: paddle
             image: nginx
+            resources:
+              limits:
+                cpu: "2"
+                memory: 2Gi
+              requests:
+                cpu: "2"
+                memory: 2Gi
+`
+	nilWorkerContainerYaml = `
+apiVersion: batch.paddlepaddle.org/v1
+kind: PaddleJob
+metadata:
+  name: default-name
+spec:
+  withGloo: 1
+  intranet: PodIP
+  cleanPodPolicy: OnCompletion
+  worker:
+    replicas: 2
+
+  ps:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: paddle
+            image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
+`
+	nilPSContainerYaml = `
+apiVersion: batch.paddlepaddle.org/v1
+kind: PaddleJob
+metadata:
+  name: default-name
+spec:
+  withGloo: 1
+  intranet: PodIP
+  cleanPodPolicy: OnCompletion
+  worker:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: paddle
+            image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
+  ps:
+    replicas: 2
+`
+	extensionPaddleYamlNilPS = `
+apiVersion: batch.paddlepaddle.org/v1
+kind: PaddleJob
+metadata:
+  name: default-name
+spec:
+  withGloo: 1
+  intranet: PodIP
+  cleanPodPolicy: OnCompletion
+  worker:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: paddle
+            image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
+`
+	extensionPaddleYamlNilWorker = `
+apiVersion: batch.paddlepaddle.org/v1
+kind: PaddleJob
+metadata:
+  name: default-name
+spec:
+  withGloo: 1
+  intranet: PodIP
+  cleanPodPolicy: OnCompletion
+  ps:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: paddle
+            image: nginx
+            resources:
+              limits:
+                cpu: "1"
+                memory: 1Gi
+              requests:
+                cpu: "1"
+                memory: 1Gi
 `
 	mockPaddleJob = api.PFJob{
 		ID:        "job-normal-0c272d0a",
@@ -182,13 +297,260 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			wantMsg: "namespace is empty",
 		},
 		{
+			caseName: "extensionTemplate NilWorker",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0b",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
+				},
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 3,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Env: map[string]string{
+								"PF_FS_ID":          "fs-name_1",
+								"PF_JOB_CLUSTER_ID": "testClusterID",
+								"PF_JOB_FLAVOUR":    "cpu",
+								"PF_JOB_ID":         "",
+								"PF_JOB_NAMESPACE":  "paddleflow",
+								"PF_JOB_PRIORITY":   "NORMAL",
+								"PF_JOB_QUEUE_ID":   "mockQueueID",
+								"PF_JOB_QUEUE_NAME": "mockQueueName",
+								schema.EnvJobType:   string(schema.TypePaddleJob),
+								"PF_USER_NAME":      "root",
+							},
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+						},
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYamlNilWorker),
+			},
+			wantErr: errors.New("worker is required in paddleJob"),
+		},
+		{
+			caseName: "extensionTemplate NilWorker",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0b",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
+				},
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 3,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "-2", Mem: "2"}},
+						},
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYaml),
+			},
+			wantErr: errors.New("negative resources not permitted: map[cpu:-2 memory:2]"),
+		},
+		{
+			caseName: "extensionTemplate NilPS",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0c",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Env: map[string]string{
+								"PF_FS_ID":          "fs-name_1",
+								"PF_JOB_CLUSTER_ID": "testClusterID",
+								"PF_JOB_FLAVOUR":    "cpu",
+								"PF_JOB_ID":         "",
+								"PF_JOB_NAMESPACE":  "paddleflow",
+								"PF_JOB_PRIORITY":   "NORMAL",
+								"PF_JOB_QUEUE_ID":   "mockQueueID",
+								"PF_JOB_QUEUE_NAME": "mockQueueName",
+								schema.EnvJobType:   string(schema.TypePaddleJob),
+								"PF_USER_NAME":      "root",
+							},
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+						},
+					},
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYamlNilPS),
+			},
+			wantErr: errors.New("PS mode required spec.PS"),
+		},
+		{
+			caseName: "extensionTemplate NilWorkerContainer",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0c",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Env: map[string]string{
+								"PF_FS_ID":          "fs-name_1",
+								"PF_JOB_CLUSTER_ID": "testClusterID",
+								"PF_JOB_FLAVOUR":    "cpu",
+								"PF_JOB_ID":         "",
+								"PF_JOB_NAMESPACE":  "paddleflow",
+								"PF_JOB_PRIORITY":   "NORMAL",
+								"PF_JOB_QUEUE_ID":   "mockQueueID",
+								"PF_JOB_QUEUE_NAME": "mockQueueName",
+								schema.EnvJobType:   string(schema.TypePaddleJob),
+								"PF_USER_NAME":      "root",
+							},
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+						},
+					},
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+					},
+				},
+				ExtensionTemplate: []byte(nilWorkerContainerYaml),
+			},
+			wantErr: errors.New("container is required in paddleJob"),
+		},
+		{
+			caseName: "extensionTemplate NilWorkerContainer",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0c",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+							Env: map[string]string{
+								"PF_FS_ID":          "fs-name_1",
+								"PF_JOB_CLUSTER_ID": "testClusterID",
+								"PF_JOB_FLAVOUR":    "cpu",
+								"PF_JOB_ID":         "",
+								"PF_JOB_NAMESPACE":  "paddleflow",
+								"PF_JOB_PRIORITY":   "NORMAL",
+								"PF_JOB_QUEUE_ID":   "mockQueueID",
+								"PF_JOB_QUEUE_NAME": "mockQueueName",
+								schema.EnvJobType:   string(schema.TypePaddleJob),
+								"PF_USER_NAME":      "root",
+							},
+							Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+						},
+					},
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+					},
+				},
+				ExtensionTemplate: []byte(nilPSContainerYaml),
+			},
+			wantErr: errors.New("container is required in paddleJob"),
+		},
+		{
+			caseName: "extensionTemplate member has no flavour",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0c",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+					},
+				},
+				ExtensionTemplate: []byte(extensionPaddleYaml),
+			},
+			wantErr: nil,
+		},
+		{
 			caseName: "create paddle job with Collective mode",
 			jobObj:   &mockPaddleJob,
 			wantErr:  nil,
 			wantMsg:  "",
 		},
 		{
-			caseName: "job test3",
+			caseName: "job test ps mode",
 			jobObj:   &mockPaddlePSJob,
 			wantErr:  nil,
 			wantMsg:  "",
@@ -198,17 +560,20 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 	paddleJob := New(kubeRuntimeClient)
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
+			t.Logf("run case[%s]", test.caseName)
 			err := paddleJob.Submit(context.TODO(), test.jobObj)
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				_, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}
+				t.Logf("result: %v", obj)
 			} else {
-				assert.NotNil(t, err)
-				assert.Equal(t, test.wantErr.Error(), err.Error())
+				if assert.Error(t, err) {
+					assert.Equal(t, test.wantErr.Error(), err.Error())
+				}
 			}
 		})
 	}
