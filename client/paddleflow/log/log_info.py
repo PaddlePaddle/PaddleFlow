@@ -46,7 +46,7 @@ class LogInfoByLimit(object):
     """the class of log info"""
     def __init__(self, job_id="", task_id="", name="", has_next_page=False, truncated=False, line_limit=0, size_limit="", log_content=""):
         """init """
-        # run下子job的id
+        # job id
         self.job_id = job_id
         # job下子task的id
         self.task_id = task_id

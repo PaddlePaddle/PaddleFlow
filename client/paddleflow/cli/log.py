@@ -124,17 +124,15 @@ def _print_run_log(loginfo, out_format):
 
 def _print_log_by_limit(loginfo, out_format):
     """print run log by limit """
-    # {'events': data['eventsList'], 'logs': loginfo_list}
-    # click.echo("loginfo="+ str(loginfo))
     eventList = loginfo['eventList']
     logs = loginfo['logs']
 
     if eventList is None or len(eventList) == 0:
         click.echo(click.style('eventList is None', fg='green'))
     else:
-        # click.echo("eventList:")
         click.echo(click.style('eventList:', fg='green'))
-        print_output([eventList], [], out_format)
+        for index, item in enumerate(eventList):
+            click.echo(item)
 
     click.echo(click.style('logs:', fg='green'))
 
@@ -147,7 +145,7 @@ def _print_log_by_limit(loginfo, out_format):
                     "truncated:" + str(item.truncated)]
         else:
             line = ["name:" + item.name, "taskid:" + item.task_id, "has_next_page:" + str(item.has_next_page),
-                    "truncated:" + str(item.truncated)]
+                    "line_limit:" + str(item.line_limit), "size_limit:" + str(item.size_limit), "truncated:" + str(item.truncated)]
         line_log = []
         line_log.append(item.log_content)
         data.append(line)
