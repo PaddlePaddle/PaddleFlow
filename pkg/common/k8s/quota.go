@@ -59,10 +59,11 @@ func init() {
 	if gpuNamePrefix != "" {
 		GPURNamePrefix = gpuNamePrefix
 	}
-	fmt.Printf("CORE_POD key: %s, IDX key: %s, GPU Name prefix: %s", GPUCorePodKey, GPUIdxKey, GPURNamePrefix)
+	fmt.Printf("CORE_POD key: %s, IDX key: %s, GPU Name prefix: %s\n", GPUCorePodKey, GPUIdxKey, GPURNamePrefix)
 }
 
 func SharedGPUIDX(pod *v1.Pod) int64 {
+	log.Debugf("pod %s/%s shared gpu idx: %v", pod.Namespace, pod.Name, pod.Annotations)
 	var deviceIDX int64 = -1
 	annotations := pod.Annotations
 	if annotations == nil {
@@ -80,6 +81,7 @@ func SharedGPUIDX(pod *v1.Pod) int64 {
 	}
 
 	idxs := strings.Split(idxStr, ",")
+	log.Debugf("split idxs: %v", idxs)
 	if corePodNum/50 == len(idxs) {
 		// is shared gpu
 		deviceIDX = 0
@@ -87,6 +89,7 @@ func SharedGPUIDX(pod *v1.Pod) int64 {
 		for _, idx := range idxs {
 			deviceID, err = strconv.Atoi(idx)
 			if err != nil {
+				log.Warnf("convert str[%s] to int failed, err: %v", idx, err)
 				return -1
 			}
 			deviceIDX += GPUDeviceIDX(deviceID)
@@ -113,6 +116,7 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 	if total == nil || rr == nil {
 		return make(map[string]interface{})
 	}
+	log.Debugf("total: %v， used: %v", total, rr)
 	var isShared = false
 	var sharedDevices []int
 	gpuIDX, find := rr[GPUIndexResources]
@@ -120,6 +124,7 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 		isShared = true
 		sharedDevices = GPUSharedDevices(gpuIDX)
 	}
+	log.Debugf("gpuIDX: %v， shared devices: %v", gpuIDX, sharedDevices)
 	// get used gpu and gpu core
 	var gpux, gpuxCore int64
 	for rName, rValue := range rr {
@@ -130,6 +135,7 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 			gpuxCore = rValue
 		}
 	}
+	log.Debugf("gpuIDX: %v， used gpu %d, and used gpu core %d", gpuIDX, gpux, gpuxCore)
 	// get gpu count and name
 	var gpuTotalCount int64
 	var gpuxName string
@@ -157,7 +163,7 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 			"100": idlegpux,
 			"50":  idleSharedGPUX,
 		}
-		log.Debugf("%s gpu %d, shared gpu %d", gpuxName, idlegpux, idleSharedGPUX)
+		log.Debugf("%s, idle gpu %d, idle shared gpu %d", gpuxName, idlegpux, idleSharedGPUX)
 	} else {
 		idlegpux = gpuTotalCount - gpux
 		gpuxResource["100"] = idlegpux
