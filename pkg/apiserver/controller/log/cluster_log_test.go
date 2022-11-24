@@ -4,16 +4,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	kuberuntime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -21,6 +11,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -50,7 +51,7 @@ func TestGetPFJobLogs(t *testing.T) {
 	clientset := fakedclient.NewSimpleClientset()
 
 	//CreateRuntime
-	e1 := &kuberuntime.KubeRuntime{}
+	e1 := &runtime.KubeRuntime{}
 	patch4 := gomonkey.ApplyPrivateMethod(e1, "BuildConfig", func() (*rest.Config, error) {
 		return krc.Config, nil
 	})
@@ -164,7 +165,7 @@ func TestGetKubernetesResourceLogs(t *testing.T) {
 	clientset := fakedclient.NewSimpleClientset()
 
 	//CreateRuntime
-	e1 := &kuberuntime.KubeRuntime{}
+	e1 := &runtime.KubeRuntime{}
 
 	patch4 := gomonkey.ApplyPrivateMethod(e1, "BuildConfig", func() (*rest.Config, error) {
 		return krc.Config, nil
