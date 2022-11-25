@@ -34,9 +34,8 @@ func (l *LogPage) Paging(content string, logContentLineNum int) string {
 		logContentLineNum = len(strings.Split(strings.TrimRight(content, "\n"), "\n"))
 	}
 	contentLength := len(content)
-
-	log.Debugf("get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s",
-		int64(contentLength), logContentLineNum, l.LogFilePosition)
+	log.Debugf("Paging: get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s, "+
+		"lineLimit %d, sizeLimit %d", int64(contentLength), logContentLineNum, l.LogFilePosition, l.LineLimit, l.SizeLimit)
 	startIndex, endIndex := l.Dividing(logContentLineNum, contentLength)
 	// split log
 	finalContent := SplitLog(content, startIndex, endIndex, false)
@@ -50,10 +49,10 @@ func (l *LogPage) SlicePaging(content []string) []string {
 		contentByteLength += len(c)
 	}
 	logContentLineNum := len(content)
-	log.Debugf("get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s",
-		contentByteLength, logContentLineNum, l.LogFilePosition)
+	log.Debugf("slicePaging: get logs index, bytesLoaded %d, lineNumber %d, LogFilePosition %s, "+
+		"lineLimit %d, sizeLimit %d", contentByteLength, logContentLineNum, l.LogFilePosition, l.LineLimit, l.SizeLimit)
 	startIndex, endIndex := l.Dividing(logContentLineNum, contentByteLength)
-
+	log.Debugf("startIndex %d, endIndex %d", startIndex, endIndex)
 	var finalContent []string
 	if startIndex == -1 && endIndex == -1 {
 		finalContent = content[:]

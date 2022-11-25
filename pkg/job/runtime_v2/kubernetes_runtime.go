@@ -645,13 +645,13 @@ func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
 		if events[i].InvolvedObject.Name != events[j].InvolvedObject.Name {
 			return events[i].InvolvedObject.Name < events[j].InvolvedObject.Name
 		}
-		return events[i].EventTime.Before(&events[j].EventTime)
+		return events[i].CreationTimestamp.Before(&events[j].CreationTimestamp)
 	})
 	var formatedEvents []string
 	for _, event := range events {
 		//Type-Reason-Timestamp-Message
 		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
-			event.Type, event.Reason, event.EventTime, event.Message)
+			event.Type, event.Reason, event.CreationTimestamp.Format("2006-01-02 15:04:05"), event.Message)
 		formatedEvents = append(formatedEvents, str)
 	}
 	formatedEvents = logPage.SlicePaging(formatedEvents)
