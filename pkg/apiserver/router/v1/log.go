@@ -36,8 +36,10 @@ import (
 )
 
 const (
-	defaultMemory    = "100MB"
+	defaultMemory    = "100M"
 	defaultLineLimit = "1000"
+	maxLineLimit     = 1000000
+	maxSizeLimit     = "1G"
 )
 
 type LogRouter struct {
@@ -221,7 +223,11 @@ func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (
 	// lineLimit, check by resource
 	lineLimit := request.URL.Query().Get(util.QueryKeyLineLimit)
 	if lineLimit != "" {
-		_, err = strconv.Atoi(lineLimit)
+		lineLimitInt, err := strconv.Atoi(lineLimit)
+		if lineLimitInt <= 0 || lineLimitInt > maxLineLimit {
+			log.Warnf("lineLimit is out of range")
+			lineLimit = defaultLineLimit
+		}
 		if err != nil {
 			err = fmt.Errorf("resource[%s] request param lineLimit value failed, error:%s", logRequest.Name, err.Error())
 			ctx.Logging().Errorln(err)
@@ -234,6 +240,7 @@ func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (
 
 	// SizeLimit
 	sizeLimit := request.URL.Query().Get(util.QueryKeySizeLimit)
+	defaultSizeLimit, _ := resources.ParseQuantity(defaultMemory)
 	var memory resources.Quantity
 	if sizeLimit != "" {
 		memory, err = resources.ParseQuantity(sizeLimit)
@@ -242,10 +249,15 @@ func constructJobLogRequest(ctx *logger.RequestContext, request *http.Request) (
 			ctx.Logging().Errorln(err)
 			return logRequest, err
 		}
+		maxSizeLimitRes, _ := resources.ParseQuantity(maxSizeLimit)
+		if memory.AsInt64() <= 0 || memory.AsInt64() > maxSizeLimitRes.AsInt64() {
+			memory = defaultSizeLimit
+		}
 	} else {
-		memory, _ = resources.ParseQuantity(defaultMemory)
+		memory = defaultSizeLimit
 	}
-	logRequest.SizeLimit = memory.AsInt64()
+	sizeLimitInt := memory.AsInt64()
+	logRequest.SizeLimit = sizeLimitInt
 	logRequest.ResourceType = request.URL.Query().Get(util.QueryKeyType)
 	logRequest.Framework = request.URL.Query().Get(util.QueryKeyFramework)
 

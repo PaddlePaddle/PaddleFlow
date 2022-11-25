@@ -91,6 +91,26 @@ func TestLogRouter_GetJobLog(t *testing.T) {
 			responseCode: 400,
 		},
 		{
+			name: "wrong sizelimit negative",
+			args: args{
+				ctx: &logger.RequestContext{UserName: mockUserName},
+				req: &Req{
+					Name:         MockJobID,
+					Namespace:    "default",
+					ClusterName:  MockClusterName,
+					ResourceType: string(pfschema.TypePodJob),
+					Framework:    "",
+					LineLimit:    "-200",
+					SizeLimit:    "-100k",
+					readFromTail: true,
+				},
+				router:       router,
+				getMixedMock: true,
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
 			name: "normal",
 			args: args{
 				ctx: &logger.RequestContext{UserName: mockUserName},
