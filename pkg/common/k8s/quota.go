@@ -99,14 +99,14 @@ func SharedGPUIDX(pod *v1.Pod) int64 {
 }
 
 func IsGPUX(rName string) bool {
-	return strings.HasSuffix(rName, GPUXName)
+	return strings.HasSuffix(rName, GPUXName) || strings.HasPrefix(rName, GPURNamePrefix)
 }
 
-func IsSharedGPUX(rName string, rValue int64) (int64, bool) {
+func getGPUX(rName string, rValue int64) (int64, bool) {
 	if strings.HasPrefix(rName, GPURNamePrefix) {
 		return rValue, true
 	}
-	if IsGPUX(rName) {
+	if strings.HasSuffix(rName, GPUXName) {
 		return rValue / 100, true
 	}
 	return 0, false
@@ -125,29 +125,37 @@ func SubWithGPUX(total *pfResources.Resource, rr map[string]int64) map[string]in
 		sharedDevices = GPUSharedDevices(gpuIDX)
 	}
 	log.Debugf("gpuIDX: %v， shared devices: %v", gpuIDX, sharedDevices)
-	// get used gpu and gpu core
-	var gpux, gpuxCore int64
-	for rName, rValue := range rr {
-		if strings.HasSuffix(rName, GPUXName) {
-			gpux = rValue
-		}
-		if strings.HasSuffix(rName, GPUXCoreName) {
-			gpuxCore = rValue
-		}
-	}
-	log.Debugf("gpuIDX: %v， used gpu %d, and used gpu core %d", gpuIDX, gpux, gpuxCore)
+
 	// get gpu count and name
 	var gpuTotalCount int64
 	var gpuxName string
 	scalarResources := total.ScalarResources("")
 	for rName, rValue := range scalarResources {
-		value, ok := IsSharedGPUX(rName, int64(rValue))
+		value, ok := getGPUX(rName, int64(rValue))
 		if ok {
 			gpuxName = rName
 			gpuTotalCount = value
 			break
 		}
 	}
+	// get used gpu and gpu core
+	var gpux, gpuxCore int64
+	for rName, rValue := range rr {
+		// check used shared gpu
+		if strings.HasSuffix(rName, GPUXName) {
+			gpux = rValue
+		}
+		if strings.HasSuffix(rName, GPUXCoreName) {
+			gpuxCore = rValue
+		}
+		// check used gpu
+		if strings.HasPrefix(rName, GPURNamePrefix) {
+			log.Debugf("used %s , value: %v", rName, rValue)
+			gpuTotalCount -= rValue
+		}
+	}
+	log.Debugf("gpuIDX: %v， used gpu %d, and used gpu core %d", gpuIDX, gpux, gpuxCore)
+
 	// calculate idle gpu
 	var idlegpux, idleSharedGPUX int64
 	gpuxResource := map[string]interface{}{}
