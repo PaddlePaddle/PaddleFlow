@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -30,7 +31,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -190,7 +190,7 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 			},
 			args: args{
 				name:  "test",
-				flags: mode,
+				flags: uint32(1),
 			},
 			want: nil,
 			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
@@ -208,10 +208,10 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetAttr", func(_ *hdfsFileSystem, name string) (*base.FileInfo, error) {
-		return nil, nil
+	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+		return syscall.O_WRONLY | syscall.O_APPEND
 	})
-	defer p3.Reset()
+	defer p4.Reset()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

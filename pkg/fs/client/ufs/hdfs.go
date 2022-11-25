@@ -288,7 +288,7 @@ func (fs *hdfsFileSystem) SetXAttr(name string, attr string, data []byte, flags 
 	return syscall.ENOSYS
 }
 
-func (fs *hdfsFileSystem) getOpenFlags(name string, flags uint32) int {
+func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 
 	if flags&syscall.O_ACCMODE == syscall.O_RDONLY {
 		return syscall.O_RDONLY
@@ -348,7 +348,7 @@ func (fs *hdfsFileSystem) Put(name string, reader io.Reader) error {
 // should be updated too.
 func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	log.Tracef("hdfs open: name[%s], flags[%d]", name, flags)
-	flag := fs.getOpenFlags(name, flags)
+	flag := fs.GetOpenFlags(name, flags)
 
 	if flag < 0 {
 		log.Debugf("hdfs open flag<0")
@@ -376,7 +376,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 
 	if flag&syscall.O_APPEND != 0 {
 		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 5; i++ {
 			writer, err := fs.client.Append(fs.GetPath(name))
 			if err != nil {
 				if fs.shouldRetry(err) {
