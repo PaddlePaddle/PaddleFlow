@@ -21,6 +21,7 @@ import (
 	"io"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -49,8 +50,8 @@ func NewDataCache(config Config) DataCacheClient {
 	if config.CachePath == "" || config.CachePath == "/" || config.Expire == 0 {
 		return nil
 	}
-	config.CachePath = filepath.Join(config.CachePath, config.FsID, utils.GetRandID(5)+
-		"_"+time.Now().Format(TimeFormat))
+	config.CachePath = filepath.Join(config.CachePath, config.FsID,
+		strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
 	// currently, supports file client only
 	return newFileClient(config)
 }

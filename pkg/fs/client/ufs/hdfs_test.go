@@ -18,9 +18,16 @@ package ufs
 
 import (
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"os"
+	"reflect"
+	"sync"
+	"syscall"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/colinmarc/hdfs/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -91,4 +98,135 @@ func TestHdfsWithKerberos(t *testing.T) {
 	fs, err := NewHdfsWithKerberosFileSystem(properties)
 	assert.NoError(t, err)
 	testFsOp(t, fs)
+}
+
+func TestHdfsTurncate(t *testing.T) {
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Create", func(_ *hdfsFileSystem, name string, flags, mode uint32) (fd FileHandle, err error) {
+		return &hdfsFileHandle{}, nil
+	})
+	defer p2.Reset()
+	fs := &hdfsFileSystem{}
+	err := fs.Truncate("test", 0)
+	assert.Nil(t, err)
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "Unlink", func(_ *hdfsFileSystem, name string) error {
+		return errors.New("Unlink failed")
+	})
+	defer p1.Reset()
+	err = fs.Truncate("test", 0)
+	assert.NotNil(t, err)
+
+}
+
+func Test_hdfsFileSystem_shouldRetry(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		err error
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{
+			name:   "has err",
+			fields: fields{},
+			args: args{
+				err: errors.New("append call failed with ERROR_APPLICATION (org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"),
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			assert.Equalf(t, tt.want, fs.shouldRetry(tt.args.err), "shouldRetry(%v)", tt.args.err)
+		})
+	}
+}
+
+func Test_hdfsFileSystem_Open(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name  string
+		flags uint32
+		size  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    FileHandle
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "want retry err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(1),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+		return nil, fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")
+	})
+	defer p2.Reset()
+
+	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+		return syscall.O_WRONLY | syscall.O_APPEND
+	})
+	defer p4.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			got, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
+			if !tt.wantErr(t, err, fmt.Sprintf("Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)
+		})
+	}
 }

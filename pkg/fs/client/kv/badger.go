@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -51,8 +52,7 @@ func NewBadgerClient(config Config) (KvClient, error) {
 		log.Infof("meta disk cache path %v", cachePath)
 		os.RemoveAll(cachePath)
 		if config.FsID == "" {
-			cachePath = filepath.Join(config.CachePath, utils.GetRandID(5)+
-				"_"+time.Now().Format("2006-01-02 15:04:05")+".db")
+			cachePath = filepath.Join(config.CachePath, strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
 		}
 		db, err = badger.Open(badger.DefaultOptions(cachePath))
 	} else {
