@@ -114,20 +114,15 @@ func getAllocatable(nodeCapacity map[string]string, usedResources map[string]int
 	}
 	isGPUX := false
 	used := resources.EmptyResource()
-	if len(usedResources) == 0 {
-		for rName := range nodeCapacity {
-			if k8s.IsGPUX(rName) {
-				isGPUX = true
-			}
-		}
-	} else {
-		for rName, rValue := range usedResources {
-			if k8s.IsGPUX(rName) {
-				isGPUX = true
-			}
-			used.SetResources(rName, rValue)
+	for rName := range nodeCapacity {
+		if k8s.IsGPUX(rName) {
+			isGPUX = true
 		}
 	}
+	for rName, rValue := range usedResources {
+		used.SetResources(rName, rValue)
+	}
+
 	log.Debugf("resource total: %v, used: %v, isGPUX: %v", nodeCapacity, usedResources, isGPUX)
 	if isGPUX {
 		return k8s.SubWithGPUX(capacity, usedResources), nil
