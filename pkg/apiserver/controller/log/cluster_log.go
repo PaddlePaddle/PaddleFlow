@@ -52,7 +52,7 @@ func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schem
 
 // GetLogs return mixed logs
 func GetLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
-	ctx.Logging().Debugf("Get mixed logs by request: %v", request)
+	ctx.Logging().Debugf("Get mixed logs by request: %+v", request)
 	runtimeSvc, err := runtime.GetOrCreateRuntime(request.ClusterInfo)
 	if err != nil {
 		err = fmt.Errorf("get cluster client failed. error:%s", err.Error())
