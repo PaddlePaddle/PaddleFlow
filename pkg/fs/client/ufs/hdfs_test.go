@@ -19,16 +19,18 @@ package ufs
 import (
 	"encoding/base64"
 	"errors"
-	"github.com/agiledragon/gomonkey/v2"
-	"github.com/colinmarc/hdfs/v2"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/colinmarc/hdfs/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -156,6 +158,75 @@ func Test_hdfsFileSystem_shouldRetry(t *testing.T) {
 				Mutex:       tt.fields.Mutex,
 			}
 			assert.Equalf(t, tt.want, fs.shouldRetry(tt.args.err), "shouldRetry(%v)", tt.args.err)
+		})
+	}
+}
+
+func Test_hdfsFileSystem_Open(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name  string
+		flags uint32
+		size  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    FileHandle
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "want retry err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: mode,
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+		return nil, fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")
+	})
+	defer p2.Reset()
+
+	var p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetAttr", func(_ *hdfsFileSystem, name string) (*base.FileInfo, error) {
+		return nil, nil
+	})
+	defer p3.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			got, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
+			if !tt.wantErr(t, err, fmt.Sprintf("Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)
 		})
 	}
 }
