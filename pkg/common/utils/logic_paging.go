@@ -66,7 +66,6 @@ func (l *LogPage) SlicePaging(content []string) []string {
 	return finalContent
 }
 
-//2138 14
 // Dividing get startIndex and endIndex of contents, by
 func (l *LogPage) Dividing(contentLineNum, contentByteLength int) (int, int) {
 	startIndex := -1
