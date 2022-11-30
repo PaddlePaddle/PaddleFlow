@@ -30,6 +30,7 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
@@ -795,12 +796,6 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		}
 	}
 
-	if set&FATTR_SIZE != 0 {
-		if err = ufs_.Truncate(path, attr.Size); err != nil {
-			return "", utils.ToSyscallErrno(err)
-		}
-	}
-
 	if err != nil {
 		return "", utils.ToSyscallErrno(err)
 	}
@@ -1183,6 +1178,54 @@ func (m *kvMeta) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Att
 	return syscall.ENOSYS
 }
 
+//badger do not allow a Tnx which is too big
+type entrySliceItem struct {
+	name string
+	et   *entryItem
+}
+
+type inodeSliceItem struct {
+	ino Ino
+	it  *inodeItem
+}
+
+func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeSlice []inodeSliceItem) error {
+	g := new(errgroup.Group)
+	for begin := 0; begin < len(entrySlice); begin += 1000 {
+		begin_ := begin
+		g.Go(func() error {
+			err := m.txn(func(tx kv.KvTxn) error {
+				for i := begin_; i < begin_+1000 && i < len(entrySlice); i++ {
+					if badgerErr := tx.Set(m.entryKey(parent, entrySlice[i].name), m.marshalEntry(entrySlice[i].et)); badgerErr != nil {
+						return badgerErr
+					}
+				}
+				return nil
+			})
+			return err
+		})
+	}
+	for begin := 0; begin < len(inodeSlice); begin += 1000 {
+		begin_ := begin
+		g.Go(func() error {
+			err := m.txn(func(tx kv.KvTxn) error {
+				for i := begin_; i < begin_+1000 && i < len(inodeSlice); i++ {
+					if badgerErr := tx.Set(m.inodeKey(inodeSlice[i].ino), m.marshalInode(inodeSlice[i].it)); badgerErr != nil {
+						return badgerErr
+					}
+				}
+				return nil
+			})
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		log.Errorf("kv-meta update entries, errgroup wait err: %s", err.Error())
+		return err
+	}
+	return nil
+}
+
 func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
 	log.Debugf("kv meta readdir inode[%v]", inode)
 	*entries = []*Entry{}
@@ -1225,7 +1268,9 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 			return syscall.F_OK
 		}
 	}
-
+	entrySlice := make([]entrySliceItem, 0)
+	inodeSlice := make([]inodeSliceItem, 0)
+	now := time.Now()
 	err = m.txn(func(tx kv.KvTxn) error {
 		absolutePath := m.absolutePath(inode, tx)
 		ufs_, isLink, _, path := m.GetUFS(absolutePath)
@@ -1233,7 +1278,6 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 		if err != nil {
 			return err
 		}
-		now := time.Now()
 
 		// 不存在link嵌套，因此只有非link情况下才需要填充link文件
 		if !isLink {
@@ -1267,12 +1311,13 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				return true
 			})
 		}
-		log.Debugf("dirs is [%+v]", dirs)
+		log.Debugf("meta-kv got [%d]dirEntrys from ufs ", len(dirs))
 
 		var childEntryItem *Entry
 		var expire int64
 		var childEntryBuf []byte
 		var insertChildInode *inodeItem
+
 		for _, dir := range dirs {
 			childEntryItem = &Entry{
 				Name: dir.Name,
@@ -1315,10 +1360,10 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					ino:  newInode,
 					mode: dir.Attr.Mode,
 				}
-				err = tx.Set(m.entryKey(inode, dir.Name), m.marshalEntry(insertChildEntry))
-				if err != nil {
-					return err
-				}
+				entrySlice = append(entrySlice, entrySliceItem{
+					dir.Name,
+					insertChildEntry,
+				})
 			}
 			expire = now.Add(m.attrTimeOut).Unix()
 			insertChildInode = &inodeItem{
@@ -1336,19 +1381,32 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					insertChildInode.attr.Size = newInodeItem.attr.Size
 				}
 			}
-			err = tx.Set(m.inodeKey(newInode), m.marshalInode(insertChildInode))
-			if err != nil {
-				return err
-			}
+
+			inodeSlice = append(inodeSlice, inodeSliceItem{
+				newInode,
+				insertChildInode,
+			})
 			childEntryItem.Ino = newInode
 			*entries = append(*entries, childEntryItem)
 		}
-		insertDirEntry := &entryItem{
-			ino:    inode,
-			mode:   dirInodeItem.attr.Mode,
-			expire: now.Add(m.entryTimeOut).Unix(),
-			done:   entryDone,
-		}
+		return nil
+	})
+	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	err = m.updateDirentrys(inode, entrySlice, inodeSlice)
+	if err != nil {
+		log.Errorf("meta-kv read dir from ufs succeed, but update entries err: %s", err.Error())
+		return utils.ToSyscallErrno(err)
+	}
+	//update dir
+	insertDirEntry := &entryItem{
+		ino:    inode,
+		mode:   dirInodeItem.attr.Mode,
+		expire: now.Add(m.entryTimeOut).Unix(),
+		done:   entryDone,
+	}
+	err = m.txn(func(tx kv.KvTxn) error {
 		err = tx.Set(m.entryKey(parentIno, string(dirInodeItem.name)), m.marshalEntry(insertDirEntry))
 		return err
 	})

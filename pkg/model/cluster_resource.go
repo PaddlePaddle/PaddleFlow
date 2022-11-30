@@ -47,7 +47,7 @@ type NodeInfo struct {
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
 	CapacityJSON string            `gorm:"column:capacity" json:"-"`
 	Capacity     map[string]string `gorm:"-" json:"nodeCapacity"`
-	LabelsJSON   string            `gorm:"labels" json:"-"`
+	LabelsJSON   string            `gorm:"column:labels" json:"-"`
 	Labels       map[string]string `gorm:"-" json:"nodeLabels"`
 }
 

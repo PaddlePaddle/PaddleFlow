@@ -62,7 +62,7 @@ func (j *JobSync) Name() string {
 
 func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
 	if runtimeClient == nil {
-		return fmt.Errorf("init %s failed", j.Name())
+		return fmt.Errorf("init %s failed", JobSyncControllerName)
 	}
 	j.runtimeClient = runtimeClient
 	log.Infof("initialize %s!", j.Name())
@@ -134,19 +134,20 @@ func (j *JobSync) processJobWorkItem() bool {
 
 func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("begin syncJobStatus jobID: %s, action: %s", jobSyncInfo.ID, jobSyncInfo.Action)
+	var err error
 	switch jobSyncInfo.Action {
 	case pfschema.Create:
 		j.gcFinishedJob(jobSyncInfo)
-		return j.doCreateAction(jobSyncInfo)
+		err = j.doCreateAction(jobSyncInfo)
 	case pfschema.Delete:
-		return j.doDeleteAction(jobSyncInfo)
+		err = j.doDeleteAction(jobSyncInfo)
 	case pfschema.Update:
 		j.gcFinishedJob(jobSyncInfo)
-		return j.doUpdateAction(jobSyncInfo)
+		err = j.doUpdateAction(jobSyncInfo)
 	case pfschema.Terminate:
-		return j.doTerminateAction(jobSyncInfo)
+		err = j.doTerminateAction(jobSyncInfo)
 	}
-	return nil
+	return err
 }
 
 func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {

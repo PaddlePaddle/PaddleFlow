@@ -51,7 +51,7 @@ func (qs *QueueSync) Name() string {
 
 func (qs *QueueSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
 	if runtimeClient == nil {
-		return fmt.Errorf("init %s failed, err: runtimeClient is nil", qs.Name())
+		return fmt.Errorf("init %s failed, err: runtimeClient is nil", QueueSyncControllerName)
 	}
 	qs.runtimeClient = runtimeClient
 	qs.workQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())

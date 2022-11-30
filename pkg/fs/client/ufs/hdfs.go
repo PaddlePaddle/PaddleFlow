@@ -207,6 +207,18 @@ func (fs *hdfsFileSystem) Utimens(name string, atime, mtime *time.Time) error {
 
 func (fs *hdfsFileSystem) Truncate(name string, size uint64) error {
 	log.Tracef("hdfs truncate: name[%s], size[%d]", name, size)
+	if size == 0 {
+		if err := fs.Unlink(name); err != nil {
+			return err
+		}
+		flags := syscall.O_CREAT | syscall.O_EXCL
+		fh, err := fs.Create(name, uint32(flags), 0644)
+		if err != nil {
+			return err
+		}
+		fh.Release()
+		return nil
+	}
 	return nil
 
 }
@@ -276,7 +288,7 @@ func (fs *hdfsFileSystem) SetXAttr(name string, attr string, data []byte, flags 
 	return syscall.ENOSYS
 }
 
-func (fs *hdfsFileSystem) getOpenFlags(name string, flags uint32) int {
+func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 
 	if flags&syscall.O_ACCMODE == syscall.O_RDONLY {
 		return syscall.O_RDONLY
@@ -336,7 +348,7 @@ func (fs *hdfsFileSystem) Put(name string, reader io.Reader) error {
 // should be updated too.
 func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	log.Tracef("hdfs open: name[%s], flags[%d]", name, flags)
-	flag := fs.getOpenFlags(name, flags)
+	flag := fs.GetOpenFlags(name, flags)
 
 	if flag < 0 {
 		log.Debugf("hdfs open flag<0")
@@ -362,19 +374,25 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 		}, nil
 	}
 
-	// append only
 	if flag&syscall.O_APPEND != 0 {
-		writer, err := fs.client.Append(fs.GetPath(name))
-		if err != nil {
-			log.Debugf("hdfs client append err: %v", err)
-			return nil, err
+		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
+		for i := 0; i < 5; i++ {
+			writer, err := fs.client.Append(fs.GetPath(name))
+			if err != nil {
+				if fs.shouldRetry(err) {
+					time.Sleep(100 * time.Millisecond * time.Duration(i*i))
+					continue
+				}
+				log.Debugf("hdfs client append err: %v", err)
+				return nil, err
+			}
+			return &hdfsFileHandle{
+				name:   name,
+				reader: nil,
+				fs:     fs,
+				writer: writer,
+			}, nil
 		}
-		return &hdfsFileHandle{
-			name:   name,
-			reader: nil,
-			fs:     fs,
-			writer: writer,
-		}, nil
 	}
 
 	return nil, syscall.ENOSYS
@@ -448,6 +466,10 @@ func (fs *hdfsFileSystem) StatFs(name string) *base.StatfsOut {
 		NameLen: 1023,
 		Frsize:  uint32(fs.blockSize),
 	}
+}
+
+func (fs *hdfsFileSystem) shouldRetry(err error) bool {
+	return strings.Contains(err.Error(), "AlreadyBeingCreatedException")
 }
 
 type hdfsFileHandle struct {

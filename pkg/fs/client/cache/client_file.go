@@ -60,7 +60,7 @@ func newFileClient(config Config) DataCacheClient {
 		expire: config.Expire,
 	}
 
-	if err := os.MkdirAll(config.CachePath, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(d.dir, CacheDir), 0755); err != nil {
 		log.Errorf("newFileClient os.MkdirAll [%s] err: %v", config.CachePath, err)
 		return nil
 	}

@@ -19,13 +19,14 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,8 +35,17 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
+)
+
+const (
+	mockNS         = "default"
+	mockPodName    = "fakePod"
+	mockDeployName = "fakeDeployName"
+	nodeName       = "node1"
 )
 
 func TestExecutor(t *testing.T) {
@@ -256,4 +266,186 @@ func TestNodeListener(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	close(stopCh)
+}
+
+func TestGetTaskLogV2(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	runtimeClient := NewFakeKubeRuntimeClient(server)
+	createMockLog(t, runtimeClient)
+	type args struct {
+		namespace     string
+		name          string
+		logpage       utils.LogPage
+		RuntimeClient *KubeRuntimeClient
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "nil name",
+			args: args{
+				name:          "",
+				namespace:     "default",
+				logpage:       utils.LogPage{},
+				RuntimeClient: runtimeClient,
+			},
+			wantErr: false,
+			errMsg:  "",
+		},
+		{
+			name: "nil namespace",
+			args: args{
+				name:          "abc",
+				namespace:     "",
+				logpage:       utils.LogPage{},
+				RuntimeClient: runtimeClient,
+			},
+			wantErr: false,
+			errMsg:  "",
+		},
+		{
+			name: "test nil runtimeClient",
+			args: args{
+				name:          "test",
+				namespace:     "default",
+				logpage:       utils.LogPage{},
+				RuntimeClient: &KubeRuntimeClient{},
+			},
+			wantErr: false,
+			errMsg:  "",
+		},
+		{
+			name: "test runtimeClient",
+			args: args{
+				name:          mockPodName,
+				namespace:     mockNS,
+				logpage:       utils.LogPage{},
+				RuntimeClient: runtimeClient,
+			},
+			wantErr: false,
+			errMsg:  "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+
+			res, err := runtimeClient.GetTaskLogV2(tt.args.namespace, tt.args.name, tt.args.logpage)
+			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					t.Logf("wantError: %s", err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+				t.Logf("name=%s, res=%#v", tt.name, res)
+			}
+		})
+	}
+}
+
+func createMockLog(t *testing.T, krc *KubeRuntimeClient) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
+				"cpu":    resource.MustParse("22"),
+				"memory": resource.MustParse("22Gi"),
+			},
+			Allocatable: corev1.ResourceList{
+				"cpu":    resource.MustParse("20"),
+				"memory": resource.MustParse("20Gi"),
+			},
+		},
+	}
+	podSpec := corev1.PodSpec{
+		NodeName: nodeName,
+		Containers: []corev1.Container{
+			{
+				Name: "c1",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"cpu":    resource.MustParse("2"),
+						"memory": resource.MustParse("2Gi"),
+					},
+				},
+				Image:   "busybox",
+				Command: []string{"/bin/sh", "-c", "for i in {1..10};do;echo 'helloworld\n';done;"},
+			},
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mockPodName,
+			Namespace: mockNS,
+			Labels: map[string]string{
+				"app": mockPodName,
+			},
+		},
+		Spec: podSpec,
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
+
+	deploy := &appv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mockDeployName,
+			Namespace: mockNS,
+		},
+		Spec: appv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      mockPodName,
+					Namespace: mockNS,
+					Labels: map[string]string{
+						"app": mockPodName,
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	// create node
+	_, err := krc.Client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// create pod
+	_, err = krc.Client.CoreV1().Pods(mockNS).Create(context.TODO(), pod, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// create deployment
+	_, err = krc.Client.AppsV1().Deployments(mockNS).Create(context.TODO(), deploy, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// create random events
+	createEvents(t, krc, mockPodName, mockNS)
+	createEvents(t, krc, mockDeployName, mockNS)
+}
+
+func createEvents(t *testing.T, krc *KubeRuntimeClient, objectName, namespace string) {
+	for i := 0; i < 10; i++ {
+		mockEventName := uuid.GenerateIDWithLength("randomName", 5)
+		event := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mockEventName,
+				Namespace: namespace,
+			},
+			InvolvedObject: corev1.ObjectReference{
+				Name:      objectName,
+				Namespace: namespace,
+			},
+			Reason:         "start",
+			Message:        "end msg",
+			FirstTimestamp: metav1.NewTime(time.Now()),
+			LastTimestamp:  metav1.NewTime(time.Now()),
+		}
+		_, err := krc.Client.CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
+		assert.Equal(t, nil, err)
+	}
 }

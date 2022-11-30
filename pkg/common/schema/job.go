@@ -16,8 +16,10 @@ limitations under the License.
 
 package schema
 
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type JobType string
 type ActionType string
@@ -48,6 +50,8 @@ const (
 
 	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
 
+	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
+
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
 	EnvJobPSPort          = "PF_JOB_PS_PORT"
@@ -75,10 +79,11 @@ const (
 	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
 
 	// TODO move to framework
-	TypeVcJob     JobType = "vcjob"
-	TypeSparkJob  JobType = "spark"
-	TypePaddleJob JobType = "paddlejob"
-	TypePodJob    JobType = "pod"
+	TypeVcJob      JobType = "vcjob"
+	TypeSparkJob   JobType = "spark"
+	TypePaddleJob  JobType = "paddlejob"
+	TypePodJob     JobType = "pod"
+	TypeDeployment JobType = "deployment"
 
 	StatusJobInit        JobStatus = "init"
 	StatusJobPending     JobStatus = "pending"
@@ -222,18 +227,8 @@ type PFJobConf interface {
 	GetQueueID() string
 	GetClusterID() string
 	GetUserName() string
-
-	// Deprecated
-	GetFS() string
-	SetFS(string)
-
-	GetYamlPath() string
 	GetNamespace() string
-	GetJobMode() string
-
 	GetFlavour() string
-	GetPSFlavour() string
-	GetWorkerFlavour() string
 
 	SetQueueID(string)
 	SetClusterID(string)
@@ -323,16 +318,6 @@ func (c *Conf) GetRestartPolicy() string {
 	return c.Env[EnvJobRestartPolicy]
 }
 
-func (c *Conf) GetWorkerCommand() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerCommand]
-}
-
-func (c *Conf) GetPSCommand() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerCommand]
-}
-
 func (c *Conf) GetImage() string {
 	return c.Image
 }
@@ -357,29 +342,6 @@ func (c *Conf) SetQueueName(queueName string) {
 func (c *Conf) GetUserName() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobUserName]
-}
-
-func (c *Conf) SetUserName(userName string) {
-	c.preCheckEnv()
-	c.Env[EnvJobUserName] = userName
-}
-
-// Deprecated
-func (c *Conf) GetFS() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobFsID]
-}
-
-// SetFS sets the filesystem id
-// Deprecated
-func (c *Conf) SetFS(fsID string) {
-	c.preCheckEnv()
-	c.Env[EnvJobFsID] = fsID
-}
-
-func (c *Conf) GetYamlPath() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobYamlPath]
 }
 
 func (c *Conf) GetNamespace() string {
@@ -407,54 +369,14 @@ func (c *Conf) GetJobMode() string {
 	return c.Env[EnvJobMode]
 }
 
-func (c *Conf) GetJobReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobReplicas]
-}
-
-func (c *Conf) GetWorkerReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerReplicas]
-}
-
-func (c *Conf) GetPSReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerReplicas]
-}
-
-func (c *Conf) GetJobExecutorReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobExecutorReplicas]
-}
-
 func (c *Conf) GetFlavour() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobFlavour]
 }
 
-func (c *Conf) GetPSFlavour() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerFlavour]
-}
-
-func (c *Conf) GetWorkerFlavour() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerFlavour]
-}
-
 func (c *Conf) SetFlavour(flavourKey string) {
 	c.preCheckEnv()
 	c.Env[EnvJobFlavour] = flavourKey
-}
-
-func (c *Conf) SetPSFlavour(flavourKey string) {
-	c.preCheckEnv()
-	c.Env[EnvJobPServerFlavour] = flavourKey
-}
-
-func (c *Conf) SetWorkerFlavour(flavourKey string) {
-	c.preCheckEnv()
-	c.Env[EnvJobWorkerFlavour] = flavourKey
 }
 
 func (c *Conf) SetEnv(name, value string) {

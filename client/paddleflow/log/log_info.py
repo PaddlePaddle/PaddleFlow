@@ -39,3 +39,26 @@ class LogInfo(object):
         self.pageno = pageno
         # 具体的日志内容
         self.log_content = log_content
+
+
+class LogInfoByLimit(object):
+
+    """the class of log info"""
+    def __init__(self, job_id="", task_id="", name="", has_next_page=False, truncated=False, line_limit=0, size_limit="", log_content=""):
+        """init """
+        # job id
+        self.job_id = job_id
+        # job下子task的id
+        self.task_id = task_id
+        # name
+        self.name = name
+        # 日志内容是否还有下一页，为true时则有下一页，否则为最后一页
+        self.has_next_page = has_next_page
+        # 日志内容是否被截断，为true时则被截断，否则未截断
+        self.truncated = truncated
+        # 行数限制
+        self.line_limit = line_limit
+        # 字节数限制
+        self.size_limit = size_limit
+        # 具体的日志内容
+        self.log_content = log_content

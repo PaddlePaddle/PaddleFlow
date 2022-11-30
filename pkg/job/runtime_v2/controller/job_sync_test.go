@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -50,6 +51,7 @@ func NewUnstructured(gvk k8sschema.GroupVersionKind, namespace, name string) *un
 				"name":      name,
 				"labels": map[string]interface{}{
 					schema.JobOwnerLabel:       schema.JobOwnerValue,
+					schema.JobLabelFramework:   string(schema.FrameworkStandalone),
 					schema.VolcanoJobNameLabel: name,
 					schema.JobIDLabel:          name,
 				},
@@ -63,7 +65,7 @@ func newFakeJobSyncController() *JobSync {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	ctrl := &JobSync{}
+	ctrl := NewJobSync()
 	opt := client.NewFakeKubeRuntimeClient(server)
 	err := ctrl.Initialize(opt)
 	if err != nil {
@@ -72,53 +74,92 @@ func newFakeJobSyncController() *JobSync {
 	return ctrl
 }
 
-func TestJobSyncAndGC(t *testing.T) {
-	tests := []struct {
-		name             string
-		namespace        string
-		frameworkVersion schema.FrameworkVersion
-		oldObj           *unstructured.Unstructured
-		newObj           *unstructured.Unstructured
-		oldStatus        interface{}
-		newStatus        interface{}
+func initJobData(mockQueueID, mockClusterID, mockJobID string) error {
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{Model: model.Model{ID: mockClusterID}, Status: model.ClusterStatusOnLine})
+	if err != nil {
+		return err
+	}
+
+	err = storage.Queue.CreateQueue(&model.Queue{Model: model.Model{ID: mockQueueID}, ClusterId: mockClusterID})
+	if err != nil {
+		return err
+	}
+
+	return storage.Job.CreateJob(&model.Job{
+		ID: mockJobID,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobTerminating,
+		QueueID:   mockQueueID})
+}
+
+func TestJobSync(t *testing.T) {
+	mockJobID := "test-job-id"
+	mockSubJobID := "test-sub-job-id"
+	mockNamespace := "default"
+
+	testCases := []struct {
+		name        string
+		jobSyncInfo *api.JobSyncInfo
 	}{
 		{
-			name:             "job status from pending turn to running",
-			namespace:        "default",
-			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
-			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job1"),
-			oldStatus: &v1.PodStatus{
-				Phase: v1.PodPending,
-			},
-			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job1"),
-			newStatus: &v1.PodStatus{
-				Phase: v1.PodRunning,
+			name: "sync add job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPending,
+				Action:    schema.Create,
 			},
 		},
 		{
-			name:             "job status from running turn to failed",
-			namespace:        "default",
-			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
-			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job2"),
-			oldStatus: &v1.PodStatus{
-				Phase: v1.PodRunning,
-			},
-			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job2"),
-			newStatus: &v1.PodStatus{
-				Phase: v1.PodFailed,
+			name: "sync parent job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:          mockSubJobID,
+				ParentJobID: mockJobID,
+				Namespace:   mockNamespace,
+				Status:      schema.StatusJobPending,
+				Action:      schema.Create,
 			},
 		},
 		{
-			name:             "job status from running turn to succeeded",
-			namespace:        "default",
-			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
-			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job3"),
-			oldStatus: &v1.PodStatus{
-				Phase: v1.PodRunning,
+			name: "sync terminate job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockSubJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPending,
+				Action:    schema.Terminate,
 			},
-			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job3"),
-			newStatus: &v1.PodStatus{
-				Phase: v1.PodSucceeded,
+		},
+		{
+			name: "sync update job to Running",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobRunning,
+				Action:    schema.Update,
+			},
+		},
+		{
+			name: "sync update job to Succeed",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobSucceeded,
+				Action:    schema.Update,
+			},
+		},
+		{
+			name: "sync delete job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobFailed,
+				Action:    schema.Delete,
 			},
 		},
 	}
@@ -130,32 +171,140 @@ func TestJobSyncAndGC(t *testing.T) {
 			},
 		},
 	}
+	c := newFakeJobSyncController()
+	// init mock db
+	mockQueueID := "mock-queue-id"
+	err := initJobData(mockQueueID, c.runtimeClient.ClusterID(), "mock-job-id")
+	assert.Equal(t, nil, err)
+	// init new job
+	err = storage.Job.CreateJob(&model.Job{
+		ID: mockJobID,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobPending,
+	})
+	assert.Equal(t, nil, err)
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			driver.InitMockDB()
-			err := storage.Job.CreateJob(&model.Job{ID: test.newObj.GetName()})
-			assert.Equal(t, nil, err)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	c.Run(stopCh)
 
-			c := newFakeJobSyncController()
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			c.Run(stopCh)
-
-			test.oldObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.oldStatus)
-			assert.Equal(t, nil, err)
-
-			test.newObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.newStatus)
-			assert.Equal(t, nil, err)
-
-			err = c.runtimeClient.Create(test.oldObj, test.frameworkVersion)
-			assert.Equal(t, nil, err)
-			// create old pod
-			err = c.runtimeClient.Update(test.newObj, test.frameworkVersion)
-			assert.Equal(t, nil, err)
-
-			time.Sleep(5 * time.Second)
+	// run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c.jobQueue.Add(tc.jobSyncInfo)
 		})
+	}
+
+	for c.jobQueue.Len() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func TestJobTaskSync(t *testing.T) {
+	mockJobID := "mock-job-id"
+	mockTaskID := "mock-task-id"
+
+	testCases := []struct {
+		name     string
+		taskInfo *api.TaskSyncInfo
+	}{
+		{
+			name: "sync task",
+			taskInfo: &api.TaskSyncInfo{
+				ID:     mockTaskID,
+				JobID:  mockJobID,
+				Status: schema.StatusTaskRunning,
+				Action: schema.Update,
+				PodStatus: &v1.PodStatus{
+					Phase: v1.PodRunning,
+				},
+			},
+		},
+		{
+			name: "sync task delete",
+			taskInfo: &api.TaskSyncInfo{
+				ID:     mockTaskID,
+				JobID:  mockJobID,
+				Status: schema.StatusTaskSucceeded,
+				Action: schema.Delete,
+			},
+		},
+		{
+			name: "sync task failed",
+			taskInfo: &api.TaskSyncInfo{
+				ID:     mockTaskID,
+				JobID:  "test-job-id",
+				Status: schema.StatusTaskSucceeded,
+			},
+		},
+	}
+
+	c := newFakeJobSyncController()
+	// init mock db
+	mockQueueID := "mock-queue-id"
+	err := initJobData(mockQueueID, c.runtimeClient.ClusterID(), mockJobID)
+	assert.Equal(t, nil, err)
+	// start job controller
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	c.Run(stopCh)
+
+	// run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c.taskQueue.Add(tc.taskInfo)
+		})
+	}
+
+	for c.taskQueue.Len() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func TestJobGC(t *testing.T) {
+	testCases := []struct {
+		name            string
+		finishedJobInfo *api.FinishedJobInfo
+	}{
+		{
+			name: "gc succeeded job",
+			finishedJobInfo: &api.FinishedJobInfo{
+				Name:             "test-job",
+				Namespace:        "default",
+				FrameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+			},
+		},
+	}
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{
+			Reclaim: config.ReclaimConfig{
+				CleanJob: true,
+			},
+		},
+	}
+	c := newFakeJobSyncController()
+	// init mock db
+	mockQueueID := "mock-queue-id"
+	err := initJobData(mockQueueID, c.runtimeClient.ClusterID(), "mock-job-id")
+	assert.Equal(t, nil, err)
+	// start controller
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	c.Run(stopCh)
+
+	// run test cases
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c.waitedCleanQueue.Add(tc.finishedJobInfo)
+		})
+	}
+	for c.waitedCleanQueue.Len() > 0 {
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

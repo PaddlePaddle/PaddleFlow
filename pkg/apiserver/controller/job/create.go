@@ -104,14 +104,85 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	}
 
 	if len(request.ExtensionTemplate) != 0 {
-		// extension template from user
-		ctx.Logging().Infof("request ExtensionTemplate is not empty, pass validate members")
+		// validate extension template from user
+		if len(request.Members) == 0 {
+			ctx.Logging().Infof("request ExtensionTemplate pass validate nil members")
+			return nil
+		}
+		// todo validateMembers using these function
+		// members not nil, continue validate
+		if err := validateMembersRole(ctx, request); err != nil {
+			ctx.Logging().Errorf("validate members role failed, err: %v", err)
+			return err
+		}
+		// validate scheduleInfo in members
+		if err := validateMembersScheduleInfo(ctx, request); err != nil {
+			ctx.Logging().Errorf("validate members role failed, err: %v", err)
+			return err
+		}
+		// validate resource in members
+		if err := validateMembersResource(ctx, request); err != nil {
+			ctx.Logging().Errorf("validate members role failed, err: %v", err)
+			return err
+		}
 	} else {
 		// validate members
 		if err := validateJobMembers(ctx, request); err != nil {
 			ctx.Logging().Errorf("validate members failed, err: %v", err)
 			return err
 		}
+	}
+	return nil
+}
+
+// validateScheduleInfo include
+func validateMembersScheduleInfo(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	var err error
+	// validate queue
+	for _, member := range request.Members {
+		if err = validateMembersQueue(ctx, &member, request.SchedulingPolicy); err != nil {
+			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
+			return err
+		}
+		// check members priority
+		if err = checkPriority(&member.SchedulingPolicy, &request.SchedulingPolicy); err != nil {
+			ctx.Logging().Errorf("Failed to check priority: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	var err error
+	sumResource := resources.EmptyResource()
+	for index, member := range request.Members {
+		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
+		if err != nil {
+			log.Errorf("get flavour failed, err:%v", err)
+			return err
+		}
+		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
+		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
+		if err != nil {
+			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+		ctx.Logging().Debugf("member resource info %v", member.Flavour.ResourceInfo)
+		if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
+			err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+			ctx.Logging().Errorf("Failed to check flavour: %v", err)
+			return err
+		}
+		memberRes.Multi(member.Replicas)
+		sumResource.Add(memberRes)
+	}
+	// validate queue and total-member-resource
+	if !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, request.SchedulingPolicy.MaxResources)
+		ctx.Logging().Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	return nil
 }
@@ -143,6 +214,28 @@ func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *Com
 		return err
 	}
 
+	return nil
+}
+
+func validateMembersRole(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	log.Infof("validate job %s MembersRole", request.Name)
+	frameworkRoles := getFrameworkRoles(request.Framework)
+	for _, member := range request.Members {
+		memberRole := schema.MemberRole(member.Role)
+		_, find := frameworkRoles[memberRole]
+		if !find {
+			err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, request.Framework)
+			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
+			return err
+		}
+		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
+	}
+	var err error
+	request.Mode, err = checkMemberRole(request.Framework, frameworkRoles)
+	if err != nil {
+		ctx.Logging().Errorf("check member role for framework %s failed, err: %v", request.Framework, err)
+		return err
+	}
 	return nil
 }
 
@@ -407,10 +500,8 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 	case schema.TypeDistributed:
 		switch framework {
 		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
+			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay, schema.FrameworkMPI:
 			err = nil
-		case schema.FrameworkMPI:
-			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
 		default:
 			err = fmt.Errorf("invalid framework %s for distributed job", framework)
 		}
@@ -449,13 +540,9 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 		if roles[schema.RoleDriver] < 1 {
 			err = fmt.Errorf("spark application must be set role driver")
 		}
-	case schema.FrameworkMPI:
-		if roles[schema.RoleMaster] < 1 {
-			err = fmt.Errorf("mpi job must be set role master")
-		}
-	case schema.FrameworkRay:
+	case schema.FrameworkRay, schema.FrameworkMPI:
 		if roles[schema.RoleMaster] < 1 || roles[schema.RoleWorker] < 1 {
-			err = fmt.Errorf("ray job must be set a master role and a worker role")
+			err = fmt.Errorf("%s job must be set a master role and a worker role", framework)
 		}
 	case schema.FrameworkStandalone:
 		if roles[schema.RoleWorker] != 1 {
@@ -493,9 +580,10 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	var members []schema.Member
 	var templateJson string
 	var err error
-	if len(request.ExtensionTemplate) == 0 {
+	if len(request.Members) != 0 {
 		members = buildMembers(request)
-	} else {
+	}
+	if len(request.ExtensionTemplate) != 0 {
 		templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
 		if err != nil {
 			log.Errorf("parse extension template failed, err: %v", err)

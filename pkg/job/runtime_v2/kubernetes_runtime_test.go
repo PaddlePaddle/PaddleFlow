@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,6 +39,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
@@ -64,6 +69,10 @@ spec:
   schedulerName: volcano
 status: {}
 `
+	mockNS         = "default"
+	mockPodName    = "fakePod"
+	mockDeployName = "fakeDeployName"
+	nodeName       = "node1"
 )
 
 // init trace logger
@@ -420,4 +429,424 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	assert.Equal(t, nil, err)
 	t.Logf("quota summary: %v", quotaSummary)
 	t.Logf("node  quota info: %v", nodeQuotaInfos)
+}
+
+func TestKubeRuntime_SyncController(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+	ch := make(chan struct{})
+	kubeRuntime.SyncController(ch)
+}
+
+func TestKubeRuntime_GetMixedLog(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+	createMockLog(t, kubeRuntime)
+
+	type args struct {
+		req              schema.MixedLogRequest
+		mockListFailed   bool
+		mockGetPodFailed bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "empty request",
+			args: args{
+
+				req: schema.MixedLogRequest{
+					Name: "",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty request, only name",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name: "abc",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: string(schema.TypePodJob),
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           "",
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypePodJob),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: string(schema.TypePodJob),
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockPodName,
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypePodJob),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "get pod failed",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockPodName,
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypePodJob),
+				},
+				mockGetPodFailed: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "name or ns is nil",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           "",
+					Namespace:      "default",
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypeDeployment),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "parse linelimit default faild",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockDeployName,
+					Namespace:      mockNS,
+					Framework:      "",
+					LineLimit:      "default",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypeDeployment),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "deploy",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockDeployName,
+					Namespace:      mockNS,
+					Framework:      "",
+					LineLimit:      "5",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypeDeployment),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "deploy",
+			args: args{
+				req: schema.MixedLogRequest{
+					Name:           mockDeployName,
+					Namespace:      mockNS,
+					Framework:      "",
+					LineLimit:      "5",
+					SizeLimit:      10000,
+					IsReadFromTail: true,
+					ResourceType:   string(schema.TypeDeployment),
+				},
+				mockListFailed: true,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			if tt.args.mockListFailed || tt.args.mockGetPodFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Pods("")), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Pod, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				patch2 := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Pods("")), "List", func(ctx context.Context, opts metav1.ListOptions) (*corev1.PodList, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch2.Reset()
+
+				res, err := kubeRuntime.getLog(tt.args.req)
+				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+				if tt.wantErr {
+					assert.Error(t, err)
+					if err != nil {
+						t.Logf("wantError: %s", err.Error())
+					}
+				} else {
+					assert.NoError(t, err)
+					t.Logf("name=%s, res=%#v", tt.name, res)
+				}
+				t.SkipNow()
+			} else {
+				res, err := kubeRuntime.getLog(tt.args.req)
+				t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+				if tt.wantErr {
+					assert.Error(t, err)
+					if err != nil {
+						t.Logf("wantError: %s", err.Error())
+					}
+				} else {
+					assert.NoError(t, err)
+					t.Logf("name=%s, res=%#v", tt.name, res)
+				}
+			}
+
+		})
+	}
+
+}
+
+func createMockLog(t *testing.T, kr *KubeRuntime) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
+				"cpu":    resource.MustParse("22"),
+				"memory": resource.MustParse("22Gi"),
+			},
+			Allocatable: corev1.ResourceList{
+				"cpu":    resource.MustParse("20"),
+				"memory": resource.MustParse("20Gi"),
+			},
+		},
+	}
+	podSpec := corev1.PodSpec{
+		NodeName: nodeName,
+		Containers: []corev1.Container{
+			{
+				Name: "c1",
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"cpu":    resource.MustParse("2"),
+						"memory": resource.MustParse("2Gi"),
+					},
+				},
+			},
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mockPodName,
+			Namespace: mockNS,
+			Labels: map[string]string{
+				"app": mockDeployName,
+			},
+		},
+		Spec: podSpec,
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
+
+	deploy := &appv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mockDeployName,
+			Namespace: mockNS,
+		},
+		Spec: appv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      mockPodName,
+					Namespace: mockNS,
+					Labels: map[string]string{
+						"app": mockPodName,
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	// create node
+	_, err := kr.clientset().CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// create pod
+	for i := 0; i < 10; i++ {
+		t.Logf("create pod %s", pod.Name)
+		_, err = kr.clientset().CoreV1().Pods(mockNS).Create(context.TODO(), pod, metav1.CreateOptions{})
+		assert.NoError(t, err)
+		pod.Name = uuid.GenerateIDWithLength("pod", 5)
+	}
+
+	// create deployment
+	_, err = kr.clientset().AppsV1().Deployments(mockNS).Create(context.TODO(), deploy, metav1.CreateOptions{})
+	assert.Equal(t, nil, err)
+	// create random events
+	createEvents(t, kr, mockPodName, mockNS)
+	createEvents(t, kr, mockDeployName, mockNS)
+}
+
+func createEvents(t *testing.T, kr *KubeRuntime, objectName, namespace string) {
+	for i := 0; i < 10; i++ {
+		mockEventName := uuid.GenerateIDWithLength("randomName", 5)
+		event := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mockEventName,
+				Namespace: namespace,
+			},
+			InvolvedObject: corev1.ObjectReference{
+				Name:      objectName,
+				Namespace: namespace,
+			},
+			Reason:         "start",
+			Message:        "end msg",
+			FirstTimestamp: metav1.NewTime(time.Now()),
+			LastTimestamp:  metav1.NewTime(time.Now()),
+		}
+		_, err := kr.clientset().CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
+		assert.Equal(t, nil, err)
+	}
+}
+
+func TestKubeRuntime_GetEvents(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+	createMockLog(t, kubeRuntime)
+
+	type args struct {
+		name         string
+		namespace    string
+		kr           *KubeRuntime
+		getPodFailed bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "empty request",
+			args:    args{},
+			wantErr: false,
+		},
+		{
+			name: "empty request, only name",
+			args: args{
+				name:      mockPodName,
+				namespace: "",
+				kr:        kubeRuntime,
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty request, only namespace",
+			args: args{
+				name:      "",
+				namespace: mockNS,
+				kr:        kubeRuntime,
+			},
+			wantErr: false,
+		},
+		{
+			name: "success1",
+			args: args{
+				name:      mockPodName,
+				namespace: mockNS,
+				kr:        kubeRuntime,
+			},
+			wantErr: false,
+		},
+		{
+			name: "nil kubeRuntime",
+			args: args{
+				name:         mockPodName,
+				namespace:    mockNS,
+				kr:           kubeRuntime,
+				getPodFailed: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil kubeRuntime for deploy",
+			args: args{
+				name:         mockDeployName,
+				namespace:    mockNS,
+				kr:           kubeRuntime,
+				getPodFailed: true,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+
+			if tt.args.getPodFailed {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().Events("")), "List", func(ctx context.Context, opts metav1.ListOptions) (*corev1.EventList, error) {
+					return nil, fmt.Errorf("err")
+				})
+				defer patch.Reset()
+				_, err := kubeRuntime.GetEvents(tt.args.namespace, tt.args.name)
+				assert.Error(t, err)
+				if err != nil {
+					t.Logf("wantError: %s", err.Error())
+				}
+				t.SkipNow()
+			}
+			res, err := kubeRuntime.GetEvents(tt.args.namespace, tt.args.name)
+			t.Logf("case[%s] get k8s logs, response=%+v", tt.name, res)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if err != nil {
+					t.Logf("wantError: %s", err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+				t.Logf("name=%s, res=%#v", tt.name, res)
+			}
+		})
+
+	}
 }
