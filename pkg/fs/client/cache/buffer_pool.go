@@ -19,6 +19,7 @@ package cache
 import (
 	"errors"
 	"io"
+	"math/rand"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -51,8 +52,15 @@ func init() {
 	}()
 	go func() {
 		for {
-			debug.FreeOSMemory()
-			time.Sleep(5 * time.Second)
+			m, err := mem.VirtualMemory()
+			if err != nil {
+				log.Errorf("get virtualMemory error: %v", err)
+			}
+			if m.UsedPercent > 0.5 {
+				debug.FreeOSMemory()
+				time.Sleep((30 + time.Duration(rand.Intn(10)))*time.Second)
+			}
+			time.Sleep(10 * time.Second)
 		}
 	}()
 }

@@ -7,6 +7,7 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.7.0
 	github.com/argoproj/argo v0.0.0-20210119221932-53f022c3f740
 	github.com/aws/aws-sdk-go v1.40.25
+	github.com/baidubce/bce-sdk-go v0.9.138
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/container-storage-interface/spec v1.5.0
