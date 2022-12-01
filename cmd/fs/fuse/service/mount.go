@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -170,8 +171,8 @@ func processStatistics() {
 		for {
 			availableMem, memPercent := utils.GetMemPercent()
 			cpuPercent := utils.GetCpuPercent()
-			log.Infof("mem avaliable %vM percent %v%% cpuPercent %v%%", availableMem, fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent))
-			time.Sleep(30 * time.Second)
+			log.Infof("mem avaliable %vM memPercent %v%% cpuPercent %v%%", availableMem, fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent))
+			time.Sleep((30 + time.Duration(rand.Intn(10))) * time.Second)
 		}
 	}()
 }

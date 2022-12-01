@@ -28,7 +28,8 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 	if fname != "" {
 		fd, err := os.Open(fname)
 		if err != nil {
-			log.Fatalf("Failed to open file %s: %s", fname, err)
+			log.Errorf("Failed to open file %s: %s", fname, err)
+			return err
 		}
 		defer fd.Close()
 		scanner := bufio.NewScanner(fd)
@@ -38,7 +39,8 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			log.Fatalf("Reading file %s failed with error: %s", fname, err)
+			log.Errorf("Reading file %s failed with error: %s", fname, err)
+			return err
 		}
 	}
 	if len(paths) == 0 {

@@ -40,7 +40,16 @@ func Test_warmup_(t *testing.T) {
 		{
 			name: "read not exist",
 			args: args{
-				fname:    "./test/notexist.txt",
+				fname:    "./test/xxxx.txt",
+				threads:  3,
+				warmType: "meta",
+			},
+			wantErr: true,
+		},
+		{
+			name: "read not exist",
+			args: args{
+				fname:    "./test/file2.txt",
 				threads:  3,
 				warmType: "meta",
 			},
