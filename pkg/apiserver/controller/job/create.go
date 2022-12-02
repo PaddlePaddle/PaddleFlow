@@ -58,7 +58,7 @@ type CreateJobInfo struct {
 
 func init() {
 	IsSkipResourceValidate = os.Getenv(EnvSkipResourceValidate) != ""
-	log.Debugf("IsSkipResourceValidate: %v\n", IsSkipResourceValidate)
+	fmt.Printf("IsSkipResourceValidate: %v\n", IsSkipResourceValidate)
 }
 
 // CreatePFJob handler for creating job
