@@ -44,6 +44,8 @@ import (
 
 const EnvSkipResourceValidate = "PF_SKIP_RESOURCE_VALIDATE"
 
+var IsSkipResourceValidate bool
+
 // CreateJobInfo defines
 type CreateJobInfo struct {
 	CommonJobInfo     `json:",inline"`
@@ -52,6 +54,11 @@ type CreateJobInfo struct {
 	Mode              string                 `json:"mode,omitempty"`
 	Members           []MemberSpec           `json:"members"`
 	ExtensionTemplate map[string]interface{} `json:"extensionTemplate,omitempty"`
+}
+
+func init() {
+	IsSkipResourceValidate = os.Getenv(EnvSkipResourceValidate) != ""
+	log.Debugf("IsSkipResourceValidate: %v\n", IsSkipResourceValidate)
 }
 
 // CreatePFJob handler for creating job
@@ -125,7 +132,7 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		}
 		// validate resource in members
 		if err := validateMembersResource(ctx, request); err != nil {
-			ctx.Logging().Errorf("validate members role failed, err: %v", err)
+			ctx.Logging().Errorf("validate job resource failed, err: %v", err)
 			return err
 		}
 	} else {
@@ -183,7 +190,7 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 	}
 	// validate queue and total-member-resource
 	// if EnvSkipRV is set, it will pass the validation for 0-Capability volcano queue
-	skipResValidate := os.Getenv(EnvSkipResourceValidate) != "" &&
+	skipResValidate := IsSkipResourceValidate &&
 		request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
 		request.SchedulingPolicy.MaxResources.IsZero()
 	if !skipResValidate && !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
@@ -256,7 +263,7 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 
 	// validate resource in members
 	if err := validateMembersResource(ctx, request); err != nil {
-		ctx.Logging().Errorf("validate members role failed, err: %v", err)
+		ctx.Logging().Errorf("validate job resource failed, err: %v", err)
 		return err
 	}
 

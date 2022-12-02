@@ -213,7 +213,7 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
-			name: "paddleJob flavour validate cpu failed,err: cpu cannot be negative",
+			name: "extensionTemplate paddleJob flavour validate cpu failed,err: cpu cannot be negative",
 			args: args{
 				ctx: &logger.RequestContext{
 					UserName: mockRootUser,
@@ -268,6 +268,65 @@ func TestCreatePFJob(t *testing.T) {
 					},
 					ExtensionTemplate: map[string]interface{}{
 						"a": "b",
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "custom paddleJob flavour validate cpu failed,err: cpu cannot be negative",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
 					},
 				},
 			},
