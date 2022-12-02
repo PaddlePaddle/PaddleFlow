@@ -495,12 +495,13 @@ ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 |run_name| string (optional)|工作流名称
 |desc| string (optional)|工作流描述
 |run_yaml_path| string (optional)|指定的yaml 文件路径，发起任务方式之一
-|run_yaml_raw| string (optional)|本地yaml 文件路径，发起任务方式之一
+|run_yaml_raw| string (optional)|yaml文件内容的bytes形式，发起任务方式之一
 |pipeline_id| string (optional)|pipeline模板的ID，发起任务方式之一
 |pipeline_version_id| string(optional)|pipeline模板的版本ID，如设置了pipeline_id，则必须同时设置该参数
 |param| dict (optional)|工作流运行参数 如{"epoch":100}
 |disabled| string (optional) |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
 |docker_env| string (optional) |镜像的url或镜像tar包在fs的路径
+|failure_options| dict (optional)| [FailureOpitons], 示例： {"strategy": "fail_fast"}  
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -778,8 +779,9 @@ ret, response = client.create_pipeline()
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|fs_name| string (required)|共享存储名称
-|yaml_path| string (optional)|yaml 文件所在路径
+|fs_name| string (optional)|共享存储名称
+|yaml_path| string (optional)|yaml 文件所在路径, 与yaml_raw二选一
+|yaml_raw| bytes (optional) | yaml文件内容的bytes形式, 与yaml_path二选一
 |desc| string (optional)|工作流模板的描述
 |username| string (optional)|模板所属用户名称
 
@@ -880,8 +882,9 @@ ret, response, ppl_ver_id = client.update_pipeline("pipeline_id", "fs_name", "ya
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|fs_name| string (required) |共享存储名称
-|yaml_path| string (required) |yaml 文件所在路径
+|fs_name| string (optional) |共享存储名称
+|yaml_path| string (optional) |yaml 文件所在路径, 与yaml_raw二选一
+|yaml_raw| bytes (optional) | yaml文件内容的bytes形式, 与yaml_path二选一
 |desc| string (optional)| 工作流模板的描述
 |username| string (optional) | 模板所属用户名称
 
@@ -1348,3 +1351,4 @@ class TaskInfo:
 
 
 
+[FailureOpitons]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md

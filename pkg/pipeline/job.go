@@ -23,6 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -69,15 +70,17 @@ type BaseJob struct {
 type PaddleFlowJob struct {
 	BaseJob
 	Image        string
+	userName     string
 	mainFS       *schema.FsMount
 	extraFS      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
 }
 
-func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
+func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
+		userName:     userName,
 		eventChannel: eventChannel,
 		mainFS:       mainFS,
 		extraFS:      extraFS,
@@ -219,7 +222,10 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 // 停止作业接口
 func (pfj *PaddleFlowJob) Stop() error {
 	// 此函数不更新job.Status，job.endTime，统一通过watch更新
-	err := job.StopJobByID(pfj.ID)
+	logCtx := &logger.RequestContext{
+		UserName: pfj.userName,
+	}
+	err := job.StopJob(logCtx, pfj.ID)
 	if err != nil {
 		return err
 	}

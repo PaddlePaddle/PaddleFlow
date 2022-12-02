@@ -18,12 +18,13 @@ package schema
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -133,18 +134,18 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name         string                 `yaml:"-"`
-	LoopArgument interface{}            `yaml:"loop_argument"`
-	Condition    string                 `yaml:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"`
-	Command      string                 `yaml:"command"`
-	Deps         string                 `yaml:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"`
-	Env          map[string]string      `yaml:"env"`
-	DockerEnv    string                 `yaml:"docker_env"`
-	Cache        Cache                  `yaml:"cache"`
-	Reference    Reference              `yaml:"reference"`
-	ExtraFS      []FsMount              `yaml:"extra_fs"`
+	Name         string                 `yaml:"-"                 json:"name"`
+	LoopArgument interface{}            `yaml:"loop_argument"     json:"loopArgument"`
+	Condition    string                 `yaml:"condition"         json:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"        json:"parameters"`
+	Command      string                 `yaml:"command"           json:"command"`
+	Deps         string                 `yaml:"deps"              json:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"         json:"artifacts"`
+	Env          map[string]string      `yaml:"env"               json:"env"`
+	DockerEnv    string                 `yaml:"docker_env"        json:"dockerEnv"`
+	Cache        Cache                  `yaml:"cache"             json:"cache"`
+	Reference    Reference              `yaml:"reference"         json:"reference"`
+	ExtraFS      []FsMount              `yaml:"extra_fs"          json:"extraFS"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -297,14 +298,14 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 }
 
 type WorkflowSourceDag struct {
-	Name         string                 `yaml:"-"`
-	Type         string                 `yaml:"-"`
-	LoopArgument interface{}            `yaml:"loop_argument"`
-	Condition    string                 `yaml:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"`
-	Deps         string                 `yaml:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"`
-	EntryPoints  map[string]Component   `yaml:"entry_points"`
+	Name         string                 `yaml:"-"              json:"name"`
+	Type         string                 `yaml:"-"              json:"type"`
+	LoopArgument interface{}            `yaml:"loop_argument"  json:"loopArgument"`
+	Condition    string                 `yaml:"condition"      json:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"     json:"parameters"`
+	Deps         string                 `yaml:"deps"           json:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"      json:"artifacts"`
+	EntryPoints  map[string]Component   `yaml:"entry_points"   json:"entryPoints"`
 }
 
 func (d *WorkflowSourceDag) GetName() string {
@@ -460,7 +461,7 @@ type RunOptions struct {
 }
 
 type Reference struct {
-	Component string
+	Component string `yaml:"component" json:"component"`
 }
 
 type Cache struct {
@@ -493,16 +494,38 @@ type FsMount struct {
 }
 
 type WorkflowSource struct {
-	Name           string                         `yaml:"name"`
-	DockerEnv      string                         `yaml:"docker_env"`
-	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
-	Components     map[string]Component           `yaml:"components"`
-	Cache          Cache                          `yaml:"cache"`
-	Parallelism    int                            `yaml:"parallelism"`
-	Disabled       string                         `yaml:"disabled"`
-	FailureOptions FailureOptions                 `yaml:"failure_options"`
-	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
-	FsOptions      FsOptions                      `yaml:"fs_options"`
+	Name           string                         `yaml:"name"               json:"name"`
+	DockerEnv      string                         `yaml:"docker_env"         json:"dockerEnv"`
+	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"       json:"entryPoints"`
+	Components     map[string]Component           `yaml:"components"         json:"components"`
+	Cache          Cache                          `yaml:"cache"              json:"cache"`
+	Parallelism    int                            `yaml:"parallelism"        json:"parallelism"`
+	Disabled       string                         `yaml:"disabled"           json:"disabled"`
+	FailureOptions FailureOptions                 `yaml:"failure_options"    json:"failureOptions"`
+	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"       json:"postProcess"`
+	FsOptions      FsOptions                      `yaml:"fs_options"         json:"fsOptions"`
+}
+
+func (wfs *WorkflowSource) UnmarshalJSON(data []byte) error {
+	bodyMap := map[string]interface{}{}
+	if err := json.Unmarshal(data, &bodyMap); err != nil {
+		return err
+	}
+	// 去除最外层的WorkflowSourceDag
+	dag, ok := bodyMap["entryPoints"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("json of workflow illegal")
+	}
+	bodyMap["entryPoints"] = dag["entryPoints"]
+	p := Parser{}
+	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
+		return err
+	}
+
+	if err := p.ParseWorkflowSource(bodyMap, wfs); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
@@ -823,7 +846,31 @@ func getComponentRecursively(components map[string]Component, names []string) (C
 }
 
 func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
-	runYaml, err := yaml.Marshal(wfs)
+	type workflow struct {
+		Name           string                         `yaml:"name"`
+		DockerEnv      string                         `yaml:"docker_env"`
+		EntryPoints    map[string]Component           `yaml:"entry_points"`
+		Cache          Cache                          `yaml:"cache"`
+		Parallelism    int                            `yaml:"parallelism"`
+		Disabled       string                         `yaml:"disabled"`
+		FailureOptions FailureOptions                 `yaml:"failure_options"`
+		PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
+		FsOptions      FsOptions                      `yaml:"fs_options"`
+	}
+
+	wf := workflow{
+		Name:           wfs.Name,
+		DockerEnv:      wfs.DockerEnv,
+		EntryPoints:    wfs.EntryPoints.EntryPoints,
+		Cache:          wfs.Cache,
+		Parallelism:    wfs.Parallelism,
+		Disabled:       wfs.Disabled,
+		FailureOptions: wfs.FailureOptions,
+		PostProcess:    wfs.PostProcess,
+		FsOptions:      wfs.FsOptions,
+	}
+
+	runYaml, err := yaml.Marshal(wf)
 	if err != nil {
 		return "", err
 	}

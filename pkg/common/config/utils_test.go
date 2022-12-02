@@ -48,17 +48,19 @@ func TestInitConfigFromYaml(t *testing.T) {
 
 func TestInitJobTemplate(t *testing.T) {
 	tests := []struct {
+		name     string
 		confPath string
-		count    int
 	}{
 		{
+			name:     "job template test",
 			confPath: "../../../config/server/default/job/job_template.yaml",
-			count:    3,
 		},
 	}
 	for _, test := range tests {
-		err := InitJobTemplate(test.confPath)
-		assert.Equal(t, nil, err)
-		assert.Equal(t, test.count, len(DefaultJobTemplate))
+		t.Run(test.name, func(t *testing.T) {
+			err := InitJobTemplate(test.confPath)
+			assert.Equal(t, nil, err)
+			t.Logf("default job template number %d", len(DefaultJobTemplate))
+		})
 	}
 }

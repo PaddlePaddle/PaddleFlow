@@ -82,8 +82,24 @@ def clean_pipelines(client):
 
 
 def clean_storage(client):
-    print("clean_storage todo")
-    return 0
+    print("clean_storage starting")
+    try:
+        ret, fs_list = client.list_fs('root')
+        if not ret:
+            print("list fs failed with err[%s]" %fs_list)
+    except Exception as e:
+            print(e)
+    num = 0
+    for fs in fs_list:
+        try:
+            ret, message = client.delete_fs(fs.name, fs.owner)
+            if message != None:
+                print("delete fs with fsname[%s] and username[%s] succeed, but get message[%s]" %(fs.name, fs.owner, message))
+            num += 1
+        except Exception as e:
+                print(e)
+    return num
+
 
 
 def clean_default_queue(client):

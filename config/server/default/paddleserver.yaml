@@ -30,6 +30,7 @@ apiServer:
 fs:
   defaultPVPath: "./config/fs/default_pv.yaml"
   defaultPVCPath: "./config/fs/default_pvc.yaml"
+  servicePort: 8999
 
 job:
   reclaim:
@@ -39,7 +40,6 @@ job:
     failedJobTTLSeconds: 3600
   schedulerName: volcano
   clusterSyncPeriod: 30
-  defaultJobYamlDir: "./config/server/default/job"
   defaultJobYamlPath: "./config/server/default/job/job_template.yaml"
   isSingleCluster: true
 

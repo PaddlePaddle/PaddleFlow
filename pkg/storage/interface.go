@@ -208,3 +208,48 @@ type ImageStoreInterface interface {
 	GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error)
 	UpdateImage(logEntry *log.Entry, PFImageID string, image model.Image) error
 }
+
+// Store cache for PaddleFlow Server
+
+var (
+	ClusterCache *gorm.DB
+
+	NodeCache     NodeCacheInterface
+	PodCache      PodCacheInterface
+	ResourceCache ResourceCacheInterface
+	LabelCache    LabelCacheInterface
+)
+
+func InitClusterCaches(db *gorm.DB) {
+	// do not use once.Do() because unit test need to init dbCache twice
+	NodeCache = newClusterNodeCache(db)
+	PodCache = newClusterPodCache(db)
+	ResourceCache = newResourceCache(db)
+	LabelCache = newLabelCache(db)
+}
+
+type NodeCacheInterface interface {
+	AddNode(nodeInfo *model.NodeInfo) error
+	UpdateNode(nodeID string, nodeInfo *model.NodeInfo) error
+	DeleteNode(nodeID string) error
+	GetNode(nodeID string) (model.NodeInfo, error)
+	ListNode([]string, string, int, int) ([]model.NodeInfo, error)
+}
+
+type PodCacheInterface interface {
+	AddPod(podInfo *model.PodInfo) error
+	UpdatePod(podID string, podInfo *model.PodInfo) error
+	UpdatePodResources(podID string, podInfo *model.PodInfo) error
+	DeletePod(podID string) error
+}
+
+type ResourceCacheInterface interface {
+	AddResource(rInfo *model.ResourceInfo) error
+	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
+	ListNodeResources([]string) ([]model.ResourceInfo, error)
+}
+
+type LabelCacheInterface interface {
+	AddLabel(lInfo *model.LabelInfo) error
+	DeleteLabel(objID, objType string) error
+}

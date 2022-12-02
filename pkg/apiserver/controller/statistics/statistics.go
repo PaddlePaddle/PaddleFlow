@@ -153,7 +153,7 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 	}
 	if ok := checkJobPermission(ctx, &job); !ok {
 		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorf("get the job[%s] auth failed. error:%s", jobID, err.Error())
+		ctx.Logging().Errorf("get the job[%s] auth failed.", jobID)
 		return "", nil, common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
 	}
 

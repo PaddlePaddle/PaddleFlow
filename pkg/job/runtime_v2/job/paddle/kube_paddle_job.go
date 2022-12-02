@@ -76,9 +76,19 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
+	if err := pj.validatePaddleContainers(pdj, job); err != nil {
+		log.Errorf("validate paddlejob %s failed, err: %v", pj.String(jobName), err)
+		return err
+	}
 
 	// set metadata field
 	kuberuntime.BuildJobMetadata(&pdj.ObjectMeta, job)
+	// set scheduling policy for paddle job
+	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
+		log.Errorf("build scheduling policy for %s failed, err: %v", pj.String(jobName), err)
+		return err
+	}
+
 	// build job spec field
 	if job.IsCustomYaml {
 		// set custom PaddleJob Spec from user
@@ -101,25 +111,29 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 }
 
 func (pj *KubePaddleJob) customPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PFJob) error {
+	log.Infof("customPaddleJob fill resource")
 	if pdj == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
-	jobName := job.NamespacedName()
-	if err := pj.validateCustomYaml(pdj, jobName); err != nil {
-		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(jobName), err)
+	if err := pj.validateCustomYaml(pdj, job.ID); err != nil {
+		log.Errorf("validate custom yaml for %s failed, err: %v", pj.String(job.ID), err)
 		return err
 	}
-	// set scheduling policy
-	return pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf)
+	if err := pj.patchResource(pdj, job); err != nil {
+		log.Errorf("patch resource for paddlejob %s failed, err: %v", pj.String(job.ID), err)
+		return err
+	}
+	return nil
 }
 
-func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, name string) error {
-	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(name), pdj)
+func (pj *KubePaddleJob) validateCustomYaml(pdj *paddlejobv1.PaddleJob, jobID string) error {
+	log.Infof("validate custom yaml for %s, and yaml content: %v", pj.String(jobID), pdj)
 	resourceSpecs := []*paddlejobv1.ResourceSpec{pdj.Spec.PS, pdj.Spec.Worker}
 	for _, resourceSpec := range resourceSpecs {
 		if resourceSpec == nil {
 			continue
 		}
+		kuberuntime.BuildTaskMetadata(&resourceSpec.Template.ObjectMeta, jobID, &pfschema.Conf{})
 		if err := kuberuntime.ValidatePodResources(&resourceSpec.Template.Spec); err != nil {
 			err = fmt.Errorf("validate resource in extensionTemplate.Worker failed, err %v", err)
 			log.Errorf("%v", err)
@@ -170,11 +184,6 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 		return fmt.Errorf("PaddleJob or PFJob is nil")
 	}
 	jobName := job.NamespacedName()
-	// set scheduling policy for builtin paddle job
-	if err := pj.buildSchedulingPolicy(&pdj.Spec, &job.Conf); err != nil {
-		log.Errorf("build scheduling policy for job failed, err: %v", err)
-		return err
-	}
 	// build job tasks
 	var minAvailable int32
 	minResources := resources.EmptyResource()
@@ -213,7 +222,7 @@ func (pj *KubePaddleJob) builtinPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.P
 	return nil
 }
 
-// xx patches info into task of paddleJob
+// patchPaddleTask patch info into task of paddle job
 func (pj *KubePaddleJob) patchPaddleTask(resourceSpec *paddlejobv1.ResourceSpec, task pfschema.Member, jobID string) error {
 	log.Infof("patch paddle task %s, task: %#v", pj.String(""), task)
 	if resourceSpec == nil {
@@ -339,7 +348,7 @@ func (pj *KubePaddleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
 		return api.StatusInfo{}, err
 	}
-	// convert single job status
+	// convert job status
 	state, msg, err := pj.getJobStatus(&job.Status)
 	if err != nil {
 		log.Errorf("get PaddleJob status failed, err: %v", err)
@@ -382,4 +391,80 @@ func (pj *KubePaddleJob) getJobStatus(jobStatus *paddlejobv1.PaddleJobStatus) (p
 		return status, msg, fmt.Errorf("unexpected paddlejob status: %s", jobStatus.Phase)
 	}
 	return status, msg, nil
+}
+
+func (pj *KubePaddleJob) patchResource(pdj *paddlejobv1.PaddleJob, job *api.PFJob) error {
+	log.Infof("patch resource in paddlejob")
+	if len(job.Tasks) == 0 {
+		log.Debugf("no resources to be configured")
+		return nil
+	}
+
+	// fill resource
+	var minAvailable int32
+	minResources := resources.EmptyResource()
+	for _, task := range job.Tasks {
+		if pfschema.IsEmptyResource(task.Flavour.ResourceInfo) {
+			continue
+		}
+		resourceRequirements, err := kuberuntime.GenerateResourceRequirements(task.Flavour)
+		if err != nil {
+			log.Errorf("generate resource requirements failed, err: %v", err)
+			return err
+		}
+		switch task.Role {
+		case pfschema.RolePServer:
+			pdj.Spec.PS.Template.Spec.Containers[0].Resources = resourceRequirements
+		case pfschema.RolePWorker, pfschema.RoleWorker:
+			pdj.Spec.Worker.Template.Spec.Containers[0].Resources = resourceRequirements
+		default:
+			err = fmt.Errorf("role %s is not supported", task.Role)
+		}
+		if err != nil {
+			log.Errorf("build task for paddle job with role %s failed, err: %v", task.Role, err)
+			return err
+		}
+		// calculate min resources
+		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
+		if err != nil {
+			log.Errorf("parse resources for %s task failed, err: %v", pj.String(job.ID), err)
+			return err
+		}
+		taskResources.Multi(task.Replicas)
+		minResources.Add(taskResources)
+		// calculate min available
+		minAvailable += int32(task.Replicas)
+	}
+	// set minAvailable and minResources for paddle job
+	if pdj.Spec.SchedulingPolicy != nil {
+		pdj.Spec.SchedulingPolicy.MinAvailable = &minAvailable
+		pdj.Spec.SchedulingPolicy.MinResources = k8s.NewResourceList(minResources)
+	}
+	return nil
+}
+
+func (pj *KubePaddleJob) validatePaddleContainers(pdj *paddlejobv1.PaddleJob, job *api.PFJob) error {
+	nilContainerErr := fmt.Errorf("container is required in paddleJob")
+	if pdj.Spec.PS == nil && job.JobMode == pfschema.EnvJobModePS {
+		err := fmt.Errorf("PS mode required spec.PS")
+		log.Errorln(err)
+		return err
+	}
+	if pdj.Spec.PS != nil {
+		psContainers := pdj.Spec.PS.Template.Spec.Containers
+		if len(psContainers) == 0 {
+			log.Errorln(nilContainerErr)
+			return nilContainerErr
+		}
+	}
+	if pdj.Spec.Worker == nil {
+		err := fmt.Errorf("worker is required in paddleJob")
+		log.Errorln(err)
+		return err
+	}
+	if len(pdj.Spec.Worker.Template.Spec.Containers) == 0 {
+		log.Errorln(nilContainerErr)
+		return nilContainerErr
+	}
+	return nil
 }

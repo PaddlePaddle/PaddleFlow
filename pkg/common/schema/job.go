@@ -16,7 +16,10 @@ limitations under the License.
 
 package schema
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type JobType string
 type ActionType string
@@ -37,6 +40,7 @@ const (
 	EnvJobPVCName     = "PF_JOB_PVC_NAME"
 	EnvJobPriority    = "PF_JOB_PRIORITY"
 	EnvJobMode        = "PF_JOB_MODE"
+	EnvJobFramework   = "PF_JOB_FRAMEWORK"
 	// EnvJobYamlPath Additional configuration for a specific job
 	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
 	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
@@ -45,6 +49,8 @@ const (
 	EnvMountPath  = "PF_MOUNT_PATH"
 
 	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
+
+	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -73,10 +79,11 @@ const (
 	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
 
 	// TODO move to framework
-	TypeVcJob     JobType = "vcjob"
-	TypeSparkJob  JobType = "spark"
-	TypePaddleJob JobType = "paddlejob"
-	TypePodJob    JobType = "pod"
+	TypeVcJob      JobType = "vcjob"
+	TypeSparkJob   JobType = "spark"
+	TypePaddleJob  JobType = "paddlejob"
+	TypePodJob     JobType = "pod"
+	TypeDeployment JobType = "deployment"
 
 	StatusJobInit        JobStatus = "init"
 	StatusJobPending     JobStatus = "pending"
@@ -113,9 +120,16 @@ const (
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
 
-	ListenerTypeJob   = "job"
-	ListenerTypeTask  = "task"
-	ListenerTypeQueue = "queue"
+	ListenerTypeJob      = "job"
+	ListenerTypeTask     = "task"
+	ListenerTypeQueue    = "queue"
+	ListenerTypeNode     = "node"
+	ListenerTypeNodeTask = "nodeTask"
+
+	EnvPFNodeLabels     = "PF_NODE_LABELS"
+	EnvPFTaskLabels     = "PF_TASK_LABELS"
+	EnvPFResourceFilter = "PF_NODE_RESOURCES_FILTER"
+	PFNodeLabels        = "resource-isolation-type"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -131,10 +145,11 @@ const (
 	PriorityClassHigh     = "high"
 	PriorityClassVeryHigh = "very-high"
 
-	JobOwnerLabel = "owner"
-	JobOwnerValue = "paddleflow"
-	JobIDLabel    = "paddleflow-job-id"
-	JobTTLSeconds = "padleflow/job-ttl-seconds"
+	JobOwnerLabel     = "owner"
+	JobOwnerValue     = "paddleflow"
+	JobIDLabel        = "paddleflow-job-id"
+	JobTTLSeconds     = "padleflow/job-ttl-seconds"
+	JobLabelFramework = "paddleflow-job-framework"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
 	QueueLabelKey        = "volcano.sh/queue-name"
@@ -155,6 +170,26 @@ const (
 	PaddleParaEnvJobName            = "FLAGS_job_name"
 	PaddleParaEnvGPUConfigFile      = "GPU_CONFIG_FILE"
 	PaddleParaGPUConfigFilePath     = "/opt/paddle/para/gpu_config.json"
+
+	// RayJob keywords
+	EnvRayJobEntryPoint              = "RAY_JOB_ENTRY_POINT"
+	EnvRayJobRuntimeEnv              = "RAY_JOB_RUNTIME_ENV"
+	EnvRayJobEnableAutoScaling       = "RAY_JOB_ENABLE_AUTOSCALING"
+	EnvRayJobAutoScalingMode         = "RAY_JOB_AUTOSCALING_MODE"
+	EnvRayJobAutoScalingTimeout      = "RAY_JOB_AUTOSCALING_IDLE_TIMEOUT"
+	EnvRayJobHeaderFlavour           = "RAY_JOB_HEADER_FLAVOUR"
+	EnvRayJobHeaderImage             = "RAY_JOB_HEADER_IMAGE"
+	EnvRayJobHeaderPriority          = "RAY_JOB_HEADER_PRIORITY"
+	EnvRayJobHeaderPreStop           = "RAY_JOB_HEADER_PRE_STOP"
+	EnvRayJobHeaderStartParamsPrefix = "RAY_JOB_HEADER_START_PARAMS_"
+	EnvRayJobWorkerGroupName         = "RAY_JOB_WORKER_GROUP_NAME"
+	EnvRayJobWorkerFlavour           = "RAY_JOB_WORKER_FLAVOUR"
+	EnvRayJobWorkerImage             = "RAY_JOB_WORKER_IMAGE"
+	EnvRayJobWorkerPriority          = "RAY_JOB_WORKER_PRIORITY"
+	EnvRayJobWorkerReplicas          = "RAY_JOB_WORKER_REPLICAS"
+	EnvRayJobWorkerMinReplicas       = "RAY_JOB_WORKER_MIN_REPLICAS"
+	EnvRayJobWorkerMaxReplicas       = "RAY_JOB_WORKER_MAX_REPLICAS"
+	EnvRayJobWorkerStartParamsPrefix = "RAY_JOB_WORKER_START_PARAMS_"
 )
 
 const (
@@ -176,6 +211,8 @@ func IsImmutableJobStatus(status JobStatus) bool {
 type PFJobConf interface {
 	GetName() string
 	GetEnv() map[string]string
+	GetEnvValue(key string) string
+	GetEnvSubset(prefix string) map[string]string
 	GetCommand() string
 	GetImage() string
 
@@ -190,18 +227,8 @@ type PFJobConf interface {
 	GetQueueID() string
 	GetClusterID() string
 	GetUserName() string
-
-	// Deprecated
-	GetFS() string
-	SetFS(string)
-
-	GetYamlPath() string
 	GetNamespace() string
-	GetJobMode() string
-
 	GetFlavour() string
-	GetPSFlavour() string
-	GetWorkerFlavour() string
 
 	SetQueueID(string)
 	SetClusterID(string)
@@ -211,6 +238,7 @@ type PFJobConf interface {
 	SetAnnotations(string, string)
 
 	Type() JobType
+	Framework() Framework
 }
 
 type Conf struct {
@@ -225,7 +253,6 @@ type Conf struct {
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
-
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
@@ -239,15 +266,16 @@ type Conf struct {
 type FileSystem struct {
 	ID        string `json:"id,omitempty"`
 	Name      string `json:"name"`
+	Type      string `json:"type"`
+	HostPath  string `json:"hostPath,omitempty"`
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
 }
 
 type FrameworkVersion struct {
-	Framework  string            `json:"framework"`
-	APIVersion string            `json:"apiVersion"`
-	Extra      map[string]string `json:"extra,omitempty"`
+	Framework  string `json:"framework"`
+	APIVersion string `json:"apiVersion"`
 }
 
 func (f *FrameworkVersion) String() string {
@@ -258,7 +286,6 @@ func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
 	return FrameworkVersion{
 		APIVersion: apiVersion,
 		Framework:  framework,
-		Extra:      make(map[string]string),
 	}
 }
 
@@ -291,16 +318,6 @@ func (c *Conf) GetRestartPolicy() string {
 	return c.Env[EnvJobRestartPolicy]
 }
 
-func (c *Conf) GetWorkerCommand() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerCommand]
-}
-
-func (c *Conf) GetPSCommand() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerCommand]
-}
-
 func (c *Conf) GetImage() string {
 	return c.Image
 }
@@ -327,29 +344,6 @@ func (c *Conf) GetUserName() string {
 	return c.Env[EnvJobUserName]
 }
 
-func (c *Conf) SetUserName(userName string) {
-	c.preCheckEnv()
-	c.Env[EnvJobUserName] = userName
-}
-
-// Deprecated
-func (c *Conf) GetFS() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobFsID]
-}
-
-// SetFS sets the filesystem id
-// Deprecated
-func (c *Conf) SetFS(fsID string) {
-	c.preCheckEnv()
-	c.Env[EnvJobFsID] = fsID
-}
-
-func (c *Conf) GetYamlPath() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobYamlPath]
-}
-
 func (c *Conf) GetNamespace() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobNamespace]
@@ -365,29 +359,14 @@ func (c *Conf) Type() JobType {
 	return JobType(c.Env[EnvJobType])
 }
 
+func (c *Conf) Framework() Framework {
+	c.preCheckEnv()
+	return Framework(c.Env[EnvJobFramework])
+}
+
 func (c *Conf) GetJobMode() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobMode]
-}
-
-func (c *Conf) GetJobReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobReplicas]
-}
-
-func (c *Conf) GetWorkerReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerReplicas]
-}
-
-func (c *Conf) GetPSReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerReplicas]
-}
-
-func (c *Conf) GetJobExecutorReplicas() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobExecutorReplicas]
 }
 
 func (c *Conf) GetFlavour() string {
@@ -395,29 +374,9 @@ func (c *Conf) GetFlavour() string {
 	return c.Env[EnvJobFlavour]
 }
 
-func (c *Conf) GetPSFlavour() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPServerFlavour]
-}
-
-func (c *Conf) GetWorkerFlavour() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobWorkerFlavour]
-}
-
 func (c *Conf) SetFlavour(flavourKey string) {
 	c.preCheckEnv()
 	c.Env[EnvJobFlavour] = flavourKey
-}
-
-func (c *Conf) SetPSFlavour(flavourKey string) {
-	c.preCheckEnv()
-	c.Env[EnvJobPServerFlavour] = flavourKey
-}
-
-func (c *Conf) SetWorkerFlavour(flavourKey string) {
-	c.preCheckEnv()
-	c.Env[EnvJobWorkerFlavour] = flavourKey
 }
 
 func (c *Conf) SetEnv(name, value string) {
@@ -457,6 +416,22 @@ func (c *Conf) SetAnnotations(k, v string) {
 
 func (c *Conf) GetAnnotations() map[string]string {
 	return c.Annotations
+}
+
+func (c *Conf) GetEnvSubset(prefix string) map[string]string {
+	c.preCheck()
+	subEnv := make(map[string]string)
+	for key, value := range c.Env {
+		if strings.HasPrefix(key, prefix) {
+			subEnv[key] = value
+		}
+	}
+	return subEnv
+}
+
+func (c *Conf) GetEnvValue(key string) string {
+	c.preCheck()
+	return c.Env[key]
 }
 
 func (c *Conf) preCheck() {

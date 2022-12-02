@@ -33,7 +33,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-const rootID = 1
+const (
+	rootID  = 1
+	maxName = 255
+)
 
 var StatsSize = 1000
 
@@ -106,16 +109,15 @@ func WithDataCacheConfig(data cache.Config) Option {
 
 func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	config *Config, registry *prometheus.Registry) (*VFS, error) {
+	log.Infof("InitVFS fsMeta %+v config %+v", fsMeta, config)
 	vfs := &VFS{
 		fsMeta:   fsMeta,
 		registry: registry,
 	}
-	inodeHandle := meta.NewInodeHandle()
-	inodeHandle.InitRootNode()
 	if config == nil {
 		config = &Config{}
 	}
-	vfsMeta, err := meta.NewMeta(fsMeta, links, inodeHandle, config.Meta)
+	vfsMeta, err := meta.NewMeta(fsMeta, links, config.Meta)
 
 	if err != nil {
 		log.Errorf("new default meta failed: %v", err)
@@ -142,6 +144,10 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	if global {
 		vfsop = vfs
 	}
+	err = vfs.Meta.InitRootInode()
+	if err != nil {
+		return nil, err
+	}
 	initInternalNodes()
 	log.Debugf("Init VFS: %+v", vfs)
 	return vfs, nil
@@ -162,9 +168,9 @@ func (v *VFS) getUFS(name string) (ufslib.UnderFileStorage, bool, string, string
 // Lookup is called by the kernel when the VFS wants to know
 // about a file inside a directory. Many lookup calls can
 // occur in parallel, but only one call happens for each (dir,
-// name) pair.
+// path) pair.
 func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.Entry, err syscall.Errno) {
-	log.Tracef("vfs lookup: parent[%x], name[%s]", parent, name)
+	log.Tracef("vfs lookup: parent[%x], path[%s]", parent, name)
 	if parent == rootID {
 		n := getInternalNodeByName(name)
 		if n != nil {
@@ -172,6 +178,11 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 			log.Debugf("vfs lookup special node[%x] attr: %+v", entry.Ino, *entry.Attr)
 			return
 		}
+	}
+	nleng := len(name)
+	if nleng > maxName {
+		err = syscall.ENAMETOOLONG
+		return
 	}
 	var inode Ino
 	var attr *Attr
@@ -215,13 +226,6 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 					if utils.IsError(err) {
 						return entry, err
 					}
-					if v.Store != nil {
-						delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(size))
-						if delCacheErr != nil {
-							// todo:: 先忽略删除缓存的错误，需要保证一致性
-							log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
-						}
-					}
 				}
 			}
 		}
@@ -236,27 +240,59 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 		Mtimensec: mtimensec,
 		Size:      size,
 	}
-	err = v.Meta.SetAttr(ctx, ino, set, attr)
+	path, err := v.Meta.SetAttr(ctx, ino, set, attr)
 	if utils.IsError(err) {
 		return entry, err
 	}
+	if v.Store != nil {
+		delCacheErr := v.Store.InvalidateCache(path, int(size))
+		if delCacheErr != nil {
+			// todo:: 先忽略删除缓存的错误，需要保证一致性
+			log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
+		}
+	}
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
+}
+
+func get_filetype(mode uint16) uint8 {
+	switch mode & (syscall.S_IFMT & 0xffff) {
+	case syscall.S_IFIFO:
+		return meta.TypeFIFO
+	case syscall.S_IFSOCK:
+		return meta.TypeSocket
+	case syscall.S_IFLNK:
+		return meta.TypeSymlink
+	case syscall.S_IFREG:
+		return meta.TypeFile
+	case syscall.S_IFBLK:
+		return meta.TypeBlockDev
+	case syscall.S_IFDIR:
+		return meta.TypeDirectory
+	case syscall.S_IFCHR:
+		return meta.TypeCharDev
+	}
+	return meta.TypeFile
 }
 
 // Modifying structure.
 func (v *VFS) Mknod(ctx *meta.Context, parent Ino, name string, mode uint32, rdev uint32) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mknod(ctx, parent, name, mode, rdev, &ino, attr)
+	_type := get_filetype(uint16(mode))
+	if _type == 0 {
+		err = syscall.EPERM
+		return
+	}
+	err = v.Meta.Mknod(ctx, parent, name, _type, mode&07777, 0, rdev, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
 
-func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32) (entry *meta.Entry, err syscall.Errno) {
+func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cumask uint16) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mkdir(ctx, parent, name, mode, &ino, attr)
+	err = v.Meta.Mkdir(ctx, parent, name, mode, cumask, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
@@ -282,17 +318,18 @@ func (v *VFS) Rmdir(ctx *meta.Context, parent Ino, name string) (err syscall.Err
 func (v *VFS) Rename(ctx *meta.Context, parent Ino, name string, newparent Ino, newname string, flags uint32) (err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Rename(ctx, parent, name, newparent, newname, flags, &ino, attr)
+	src, dst, err := v.Meta.Rename(ctx, parent, name, newparent, newname, flags, &ino, attr)
 	if utils.IsError(err) {
 		return err
 	}
 	if v.Store != nil {
-		delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(parent)+"/"+name, int(attr.Size))
+		delCacheErr := v.Store.InvalidateCache(src, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("rename delete cache error %v:", delCacheErr)
 		}
-		delCacheErr = v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
+		log.Debugf("rename inode %v", ino)
+		delCacheErr = v.Store.InvalidateCache(dst, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("rename delete cache error %v:", delCacheErr)
@@ -395,7 +432,7 @@ func (v *VFS) Create(ctx *meta.Context, parent Ino, name string, mode uint32, cu
 		return nil, 0, utils.ToSyscallErrno(errHandle)
 	}
 	if v.Store != nil {
-		delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
+		delCacheErr := v.Store.InvalidateCache(path, int(attr.Size))
 		if delCacheErr != nil {
 			// todo:: 先忽略删除缓存的错误，需要保证一致性
 			log.Errorf("create delete cache error %v:", delCacheErr)
@@ -477,6 +514,8 @@ func (v *VFS) Read(ctx *meta.Context, ino Ino, buf []byte, off uint64, fh uint64
 		err = syscall.EACCES
 		return
 	}
+	h.lock.RLock()
+	defer h.lock.RUnlock()
 	// todo:: 对读入的文件大小加上限制
 	n, err = h.reader.Read(buf, off)
 	for err == syscall.EAGAIN {
@@ -508,8 +547,8 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 		err = syscall.EACCES
 		return
 	}
-	// todo:: 对写入的文件大小加上限制
-	// todo:: 限制并发写的情况
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	err = h.writer.Write(buf, off)
 	if utils.IsError(err) {
 		return err
@@ -564,17 +603,7 @@ func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int6
 	if IsSpecialNode(ino) {
 		return syscall.EPERM
 	}
-	h := v.findHandle(ino, fh)
-	if h == nil {
-		return syscall.EBADF
-	}
-	if h.writer != nil {
-		err := h.writer.Fallocate(length, off, uint32(mode))
-		if utils.IsError(err) {
-			return err
-		}
-	}
-	return v.Meta.Write(ctx, ino, uint32(off), int(length))
+	return syscall.ENOSYS
 }
 
 // Directory handling
@@ -626,8 +655,8 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 	if fh > 0 {
 		v.releaseFileHandle(ino, fh)
 		log.Debugf("release inode %v", ino)
-		return
 	}
+	_ = v.Meta.Close(ctx, ino)
 }
 
 func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {

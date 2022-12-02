@@ -152,7 +152,7 @@ func (vcq *KubeVCQueue) AddEventListener(ctx context.Context, listenerType strin
 func (vcq *KubeVCQueue) add(obj interface{}) {
 	newObj := obj.(*unstructured.Unstructured)
 	name := newObj.GetName()
-	// convert to ElasticResourceQuota struct
+	// convert to vc queue struct
 	vcQueue := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newObj.Object, vcQueue); err != nil {
 		log.Errorf("convert unstructured object [%+v] to %s failed. err: %s", obj, vcq.String(name), err)
@@ -166,7 +166,7 @@ func (vcq *KubeVCQueue) add(obj interface{}) {
 		// set vc queue status
 		Status:    getVCQueueStatus(vcQueue.Status.State),
 		QuotaType: pfschema.TypeVolcanoCapabilityQuota,
-		Namespace: newObj.GetNamespace(),
+		Namespace: "default",
 	}
 	vcq.workQueue.Add(qSyncInfo)
 	log.Infof("watch %s is added", vcq.String(name))

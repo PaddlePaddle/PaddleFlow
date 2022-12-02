@@ -114,7 +114,6 @@ ppl.entry_points
 #### 返回值说明
 一个Dict，其key为节点的名字，value为节点实例
 
-
 ### 1.7、获取pipeline名字
 ```python3
 ppl.name
@@ -163,6 +162,43 @@ ppl.add_env({"env1": "env1"})
 
 #### 返回值说明
 无返回值
+
+### 1.11 创建工作流模板
+```python3
+ppl.create()
+```
+
+#### 接口入参说明
+字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|config | string|配置文件路径| 否 | 配置文件的内容请参考[这里][config_content] |
+|desc| string | 工作流模板的描述 | 否 | | 
+|username| string| 模板所属用户名称 | 否 | | 
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回dict：{'name': 名称, 'pplID': 工作流模板id, 'pplVerID': 工作流模板版本id}
+
+### 1.12 工作流模板更新（版本创建）
+```python3
+ppl.update("123")
+```
+
+#### 接口入参说明
+字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|pipeline_id| string |工作流模板id | 是 | | 
+|config | string|配置文件路径| 否 | 配置文件的内容请参考[这里][config_content] |
+|desc| string | 工作流模板的描述 | 否 | | 
+|username| string| 模板所属用户名称 | 否 | | 
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回dict: {'pipelineID': pplID, 'pipelineVersionID': pplVerID}
 
 ## 2、ContainerStep
 ### 2.1 初始化

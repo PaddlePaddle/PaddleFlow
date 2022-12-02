@@ -43,7 +43,7 @@ var (
 	KubePyTorchFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
-// KubePyTorchJob is an executor struct that runs a pytorch job
+// KubePyTorchJob is a struct that runs a pytorch job
 type KubePyTorchJob struct {
 	GVK              schema.GroupVersionKind
 	frameworkVersion pfschema.FrameworkVersion
@@ -118,7 +118,7 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, &task); err != nil {
+		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
 			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
 			return err
 		}
@@ -138,14 +138,23 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
 func (pj *KubePyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
+	if job == nil || torchJobSpec == nil {
+		return fmt.Errorf("job or torchJobSpec is nil")
 	}
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), torchJobSpec)
+	// patch metadata
+	ps, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
+	if find && ps != nil {
+		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	}
+	worker, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeWorker]
+	if find && worker != nil {
+		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	}
 	// TODO: patch pytorch job from user
 	// check RunPolicy
-	return nil
+	return kuberuntime.KubeflowRunPolicy(&torchJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
 func (pj *KubePyTorchJob) Stop(ctx context.Context, job *api.PFJob) error {
@@ -244,7 +253,7 @@ func (pj *KubePyTorchJob) deleteJob(obj interface{}) {
 	pj.jobQueue.Add(jobSyncInfo)
 }
 
-// JobStatus get the statusInfo of paddle job, including origin status, pf status and message
+// JobStatus get the statusInfo of PyTorch job, including origin status, pf status and message
 func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	unObj := obj.(*unstructured.Unstructured)
 	// convert to PyTorchJob struct
@@ -261,10 +270,10 @@ func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	}
 	state, msg, err := pj.getJobStatus(jobCond)
 	if err != nil {
-		log.Errorf("get PaddleJob status failed, err: %v", err)
+		log.Errorf("get pytorch status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
-	log.Infof("Paddle job status: %s", state)
+	log.Infof("pytorch job status: %s", state)
 	return api.StatusInfo{
 		OriginStatus: string(jobCond.Type),
 		Status:       state,

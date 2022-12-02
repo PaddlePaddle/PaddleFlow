@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 type FileWriter interface {
@@ -39,9 +40,9 @@ type FileWriter interface {
 
 type DataWriter interface {
 	Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error)
-	// Flush(name string) syscall.Errno
-	// GetLength(name string) uint64
-	// Truncate(name string, length uint64)
+	// Flush(path string) syscall.Errno
+	// GetLength(path string) uint64
+	// Truncate(path string, length uint64)
 }
 
 func NewDataWriter(m meta.Meta, blockSize int, store cache.Store) DataWriter {
@@ -58,7 +59,6 @@ type fileWriter struct {
 	sync.Mutex
 	writer *dataWriter
 	inode  Ino
-	name   string
 	path   string
 	length uint64
 	ufs    ufslib.UnderFileStorage
@@ -70,24 +70,23 @@ type fileWriter struct {
 func (f *fileWriter) Fallocate(size int64, off int64, mode uint32) syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
-	return syscall.Errno(f.fd.Allocate(uint64(off), uint64(size), mode))
+	return utils.ToSyscallErrno(f.fd.Allocate(uint64(off), uint64(size), mode))
 }
 
 func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
-	ufsHandle := ufslib.NewFileHandle(f.fd)
 	f.Lock()
 	defer f.Unlock()
 	var err error
 	if f.writer.store != nil {
 		// todo:: length可能会有遗漏
-		log.Debugf("fileWriter write: InvalidateCache name[%s] cache lenght[%d]", f.name, f.length)
-		err = f.writer.store.InvalidateCache(f.name, int(f.length))
+		log.Debugf("fileWriter write: InvalidateCache path[%s] cache length[%d]", f.path, f.length)
+		err = f.writer.store.InvalidateCache(f.path, int(f.length))
 		if err != nil {
 			log.Errorf("ufs delete cache err: %v", err)
 			return syscall.EBADF
 		}
 	}
-	_, err = ufsHandle.WriteAt(data, int64(offset))
+	_, err = f.fd.Write(data, offset)
 	if err != nil {
 		log.Errorf("ufs write err: %v", err)
 		return syscall.EBADF
@@ -99,24 +98,22 @@ func (f *fileWriter) Flush() syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
 	if f.writer.store != nil {
-		log.Debugf("flush: delete cache is %s", f.name)
-		delErr := f.writer.store.InvalidateCache(f.name, int(f.length))
+		log.Debugf("flush: delete cache is %s", f.path)
+		delErr := f.writer.store.InvalidateCache(f.path, int(f.length))
 		if delErr != nil {
 			log.Errorf("del cache error: %v", delErr)
 			return syscall.EBADF
 		}
 	}
 	// todo:: 需要加一个超时和重试
-	err := f.fd.Flush()
-	return syscall.Errno(err)
+	return utils.ToSyscallErrno(f.fd.Flush())
 }
 
 func (f *fileWriter) Fsync(fd int) syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
 	// todo:: 需要加一个超时和重试
-	err := f.fd.Fsync(fd)
-	return syscall.Errno(err)
+	return utils.ToSyscallErrno(f.fd.Fsync(fd))
 }
 
 func (f *fileWriter) Close() {
@@ -129,7 +126,7 @@ func (f *fileWriter) release() {
 }
 
 func (f *fileWriter) Truncate(size uint64) syscall.Errno {
-	return syscall.Errno(f.fd.Truncate(size))
+	return utils.ToSyscallErrno(f.fd.Truncate(size))
 }
 
 type dataWriter struct {
@@ -142,15 +139,13 @@ type dataWriter struct {
 }
 
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {
-	name := w.m.InoToPath(inode)
-	fd, err := ufs.Open(path, syscall.O_WRONLY)
+	fd, err := ufs.Open(path, syscall.O_WRONLY, length)
 	if err != nil {
 		return nil, err
 	}
 	f := &fileWriter{
 		writer: w,
 		inode:  inode,
-		name:   name,
 		path:   path,
 		length: length,
 		ufs:    ufs,

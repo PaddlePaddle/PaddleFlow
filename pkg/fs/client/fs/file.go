@@ -28,15 +28,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
-)
-
-const (
-	mMaskR = 4
-	mMaskW = 2
-	mMaskX = 1
 )
 
 type FileInfo struct {
@@ -47,20 +41,6 @@ type FileInfo struct {
 	isDir     bool
 	mode      os.FileMode
 	sys       interface{}
-}
-
-func NewFileInfo(attr *base.FileInfo) FileInfo {
-	if attr == nil {
-		return FileInfo{}
-	}
-	return FileInfo{
-		path:  attr.Name,
-		size:  attr.Size,
-		mtime: attr.Mtime,
-		isDir: attr.IsDir,
-		mode:  attr.Mode,
-		sys:   attr.Sys,
-	}
 }
 
 func NewFileInfoForCreate(path string, mode os.FileMode) FileInfo {
@@ -249,6 +229,7 @@ func (f *File) ReadAt(b []byte, off int64) (int, error) {
 
 func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 	ctx := meta.NewEmptyContext()
+	path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 	entries, err := f.fs.vfs.ReadDir(ctx, f.inode, f.fh, 0)
 	if utils.IsError(err) {
 		return []os.DirEntry{}, err
@@ -261,7 +242,6 @@ func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 			Name: info.Name,
 			Ino:  uint64(info.Ino),
 		}
-		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
 			path:      path_,
 			size:      int64(info.Attr.Size),
@@ -289,9 +269,8 @@ func (f *File) Readdir(n int) ([]os.FileInfo, error) {
 	}
 	dirInfos := make([]os.FileInfo, len(entries))
 	for i, info := range entries {
-		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
-			path:      path_,
+			path:      info.Name,
 			size:      int64(info.Attr.Size),
 			mtime:     uint64(info.Attr.Mtime),
 			mtimensec: uint64(info.Attr.Mtimensec),
@@ -307,6 +286,7 @@ func (f *File) Readdirnames(n int) ([]string, error) {
 	ctx := meta.NewEmptyContext()
 	entries, err := f.fs.vfs.ReadDir(ctx, f.inode, f.fh, 0)
 	if utils.IsError(err) {
+		log.Errorf("Readdirnames inode[%d] fh[%d]", f.inode, f.fh)
 		return []string{}, err
 	}
 	dirNames := make([]string, len(entries))

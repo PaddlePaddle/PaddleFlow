@@ -63,11 +63,13 @@ class TestPipeline(object):
         pipeline.name = "ppl1"
         assert pipeline.name == "ppl1"
 
+        pipeline.name = "adefef-fefe_dfefe" + "a" * 80
+
         with pytest.raises(PaddleFlowSDKException):
             pipeline.name = "01224"
 
         with pytest.raises(PaddleFlowSDKException):
-            pipeline.name = "a" * 53
+            pipeline.name = "a" * 153
 
     @pytest.mark.call
     def test_call(self):
@@ -127,6 +129,38 @@ class TestPipeline(object):
         
         with pytest.raises(PaddleFlowSDKException):
             pipeline.run(pf_config, "xiaodu")
+
+    @pytest.mark.run
+    def test_create(self, mocker):
+        """ test run 
+        """
+        pf_config = str(Path(__file__).parent / "pf.config")
+        pipeline = Pipeline(name="hello", docker_env="python:3.9")(hello_with_io)(name="pipeline", age=17)
+
+        mocker.patch("paddleflow.Client.login", return_value=(True, ""))
+        mocker.patch("paddleflow.Client.create_pipeline", return_value=None)
+        mocker.patch("paddleflow.Client.pre_check", return_value=None)
+        
+        pipeline.create(pf_config, "xiaodu", "just for test")
+        pipeline._client = None
+        mocker.patch("paddleflow.Client.login", return_value=(False, ""))
+        with pytest.raises(PaddleFlowSDKException):
+            pipeline.run(pf_config, "xiaodu", "just for test")
+
+        with pytest.raises(PaddleFlowSDKException):
+            pipeline.run(pf_config, "xiaodu", "just for test")
+          
+    @pytest.mark.update
+    def test_update(self, mocker):
+        """ test run 
+        """
+        pf_config = str(Path(__file__).parent / "pf.config")
+        pipeline = Pipeline(name="hello", docker_env="python:3.9")(hello_with_io)(name="pipeline", age=17)
+
+        mocker.patch("paddleflow.Client.login", return_value=(True, ""))
+        mocker.patch("paddleflow.Client.update_pipeline", return_value=None)
+        mocker.patch("paddleflow.Client.pre_check", return_value=None)
+        pipeline.update("0123", pf_config, "xiaodu", "just for test")
 
     @pytest.mark.post
     def test_post_process(self):

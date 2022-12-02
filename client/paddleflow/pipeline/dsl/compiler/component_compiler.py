@@ -56,7 +56,10 @@ class ComponentCompiler(object):
 
         # 1. deps
         if self._component._dependences:
-            self._dict["deps"] = ",".join(self._component._dependences)
+            deps = list(self._component._dependences)
+            deps.sort()
+
+            self._dict["deps"] = ",".join(deps)
 
         # 2. condition 
         if self._component.condition is not None:

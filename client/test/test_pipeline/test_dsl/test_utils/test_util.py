@@ -8,6 +8,7 @@ from pathlib import Path
 
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.util import random_code
+from paddleflow.pipeline.dsl.utils.util import trans_10_36
 
 
 @pytest.mark.regex
@@ -28,3 +29,12 @@ def test_random_code():
         assert c in string.ascii_letters + string.digits
 
     assert len(code) == 6
+    
+
+@pytest.mark.trans_10_36
+def test_trans_10_36():
+    """ test trans_10_36
+    """
+    assert 0 == int(trans_10_36(0), 36)
+    assert -619636339069370109986290477894975592 == int(trans_10_36(-619636339069370109986290477894975592), 36)
+    assert 619636339069370109986290477894975592 == int(trans_10_36(619636339069370109986290477894975592), 36)

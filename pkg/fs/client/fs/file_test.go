@@ -17,17 +17,20 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	vfs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -78,7 +81,7 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 		BlockSize:    2,
 		MaxReadAhead: 100,
 		Config: kv.Config{
-			Driver: kv.NutsDB,
+			Driver: kv.MemType,
 		},
 	}
 	SetDataCache(d)
@@ -136,7 +139,7 @@ func TestFsStat(t *testing.T) {
 		MaxReadAhead: 10,
 		Expire:       10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -162,6 +165,95 @@ func TestFsStat(t *testing.T) {
 	assert.Equal(t, info2.ModTime(), info.ModTime())
 }
 
+func TestFS_Readdir_Expire(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 10,
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	m := meta.Config{
+		AttrCacheExpire:  2 * time.Second,
+		EntryCacheExpire: 2 * time.Second,
+		PathCacheExpire:  1 * time.Second,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+
+	SetMetaCache(m)
+	// new client
+	client, err := newPfsTest()
+	assert.Nil(t, err)
+	// mkdir
+	testdir1 := "dir1"
+	err = client.Mkdir(testdir1, 0755)
+	assert.Nil(t, err)
+	// new file
+	mode := 0644
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	testfile1 := "testfile1"
+	_, err = client.Create(filepath.Join(testdir1, testfile1), uint32(flags), uint32(mode))
+	assert.Nil(t, err)
+	testfile2 := "testfile2"
+	_, err = client.Create(filepath.Join(testdir1, testfile2), uint32(flags), uint32(mode))
+	assert.Nil(t, err)
+
+	dir, err := client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err := dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 2)
+	// 另开一个客户端去写一个新文件
+	go func() {
+		d := cache.Config{
+			BlockSize:    4,
+			MaxReadAhead: 10,
+			Expire:       10 * time.Second,
+			Config: kv.Config{
+				Driver:    kv.MemType,
+				CachePath: "./mock-cache",
+			},
+		}
+		SetDataCache(d)
+		m := meta.Config{
+			AttrCacheExpire:  0 * time.Second,
+			EntryCacheExpire: 0 * time.Second,
+			Config: kv.Config{
+				Driver: kv.MemType,
+			},
+		}
+		SetMetaCache(m)
+		client1, err := newPfsTest()
+		assert.Nil(t, err)
+		testfile3 := "testfile3"
+		_, err = client1.Create(filepath.Join(testdir1, testfile3), uint32(flags), uint32(mode))
+		assert.Nil(t, err)
+	}()
+	time.Sleep(1 * time.Second) // 还未过期
+	dir, err = client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err = dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 2)
+	time.Sleep(3 * time.Second) // 已经过期
+	dir, err = client.Open(testdir1)
+	assert.Nil(t, err)
+	entryList, err = dir.ReadDir(int(dir.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, len(entryList), 3)
+}
+
 func TestFS_read_readAt(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
@@ -174,7 +266,7 @@ func TestFS_read_readAt(t *testing.T) {
 		MaxReadAhead: 10,
 		Expire:       10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -257,7 +349,7 @@ func TestReadAtCocurrent(t *testing.T) {
 		MaxReadAhead: 10,
 		Expire:       10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -340,7 +432,7 @@ func TestFSClient_readAt(t *testing.T) {
 		MaxReadAhead: 10,
 		Expire:       10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -397,7 +489,7 @@ func TestFSClient_readAtwithsmallBlock_2(t *testing.T) {
 		BlockSize:    3,
 		MaxReadAhead: 100,
 		Config: kv.Config{
-			Driver: kv.NutsDB,
+			Driver: kv.MemType,
 		},
 	}
 	SetDataCache(d)
@@ -465,7 +557,7 @@ func TestFSClient_readAtwithsmallBlock_1(t *testing.T) {
 		MaxReadAhead: 100,
 		Expire:       10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -538,7 +630,7 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 		MaxReadAhead: 1,
 		Expire:       0,
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
+			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
 		},
 	}
@@ -574,6 +666,7 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 	assert.Equal(t, len(buf), n)
 	assert.Equal(t, string(buf), "34567")
 	p := setPoolNil()
+	fmt.Println("===============")
 	time.Sleep(1 * time.Second)
 
 	buf = make([]byte, 5)
@@ -588,4 +681,100 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 	assert.Equal(t, "67890abcde", string(buf[:n]))
 	reader.Close()
 
+}
+
+func TestPathCacheAndRename(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 10,
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	m := meta.Config{
+		AttrCacheExpire:  10 * time.Second,
+		EntryCacheExpire: 10 * time.Second,
+		PathCacheExpire:  2 * time.Second,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+
+	SetMetaCache(m)
+	// new client
+	client, err := newPfsTestWithOutVfsLevelCache()
+	assert.Nil(t, err)
+
+	dir := &strings.Builder{}
+	for i := 1; i <= 10; i++ {
+		dir.WriteString(fmt.Sprintf("dir%d", i))
+		err = client.Mkdir(dir.String(), 0755)
+		assert.Nil(t, err)
+		dir.WriteString("/")
+	}
+	err = client.Rename("dir1/dir2", "dir2-2")
+	assert.Nil(t, err)
+	_, err = client.Open(dir.String())
+	assert.NotNil(t, err)
+	root, err := client.Open("/")
+	assert.Nil(t, err)
+	dirs, err := root.ReadDir(int(root.inode))
+	assert.Nil(t, err)
+	assert.Equal(t, 3, len(dirs))
+}
+
+func TestFile_Readdirnames(t *testing.T) {
+	type fields struct {
+		inode       vfs.Ino
+		fh          uint64
+		attr        FileInfo
+		readOffset  int64
+		writeOffset int64
+		fs          *FileSystem
+	}
+	type args struct {
+		n int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "want readdir err",
+			fields: fields{
+				fs: &FileSystem{
+					vfs: &vfs.VFS{},
+				},
+			},
+			want:    []string{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &File{
+				inode:       tt.fields.inode,
+				fh:          tt.fields.fh,
+				attr:        tt.fields.attr,
+				readOffset:  tt.fields.readOffset,
+				writeOffset: tt.fields.writeOffset,
+				fs:          tt.fields.fs,
+			}
+			if _, err := f.Readdirnames(tt.args.n); (err != nil) != tt.wantErr {
+				t.Errorf("Readdirnames() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

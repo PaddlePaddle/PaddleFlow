@@ -27,7 +27,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -144,7 +144,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 			LogPageSize:     request.PageSize,
 			LogPageNo:       request.PageNo,
 		}
-		jobLogInfo, err := runtimeSvc.GetJobLog(jobLogRequest)
+		jobLogInfo, err := runtimeSvc.GetLog(jobLogRequest, schema.MixedLogRequest{})
 		if err != nil {
 			ctx.Logging().Errorf("jobID[%s] get queue[%s] failed. error:%s.", job.ID, job.QueueID, err.Error())
 			return nil, err

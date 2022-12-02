@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -36,8 +38,9 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
+	infov1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
@@ -45,8 +48,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var (
@@ -54,11 +61,14 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// TaskGVK gvk for task
+	TaskGVK = k8s.PodGVK
 )
 
 // KubeRuntimeClient for kubernetes client
 type KubeRuntimeClient struct {
-	Client kubernetes.Interface
+	Client          kubernetes.Interface
+	InformerFactory informers.SharedInformerFactory
 	// DynamicClient dynamic client
 	DynamicClient  dynamic.Interface
 	DynamicFactory dynamicinformer.DynamicSharedInformerFactory
@@ -70,11 +80,17 @@ type KubeRuntimeClient struct {
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 
-	// InformerMap contains GroupVersionKind and informer for different kubernetes job
-	InformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// nodeInformer contains the informer of node
+	nodeInformer infov1.NodeInformer
+	// nodeTaskInformer contains the informer of node task
+	nodeTaskInformer infov1.PodInformer
+	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
+	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
-	podLister   cache.GenericLister
+	taskClient  framework.JobInterface
+	// QueueInformerMap
+	QueueInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 }
 
 func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (framework.RuntimeClientInterface, error) {
@@ -100,13 +116,15 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		return nil, fmt.Errorf("cluster info is nil")
 	}
 	return &KubeRuntimeClient{
-		Client:          k8sClient,
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  factory,
-		DiscoveryClient: discoveryClient,
-		Config:          config,
-		ClusterInfo:     cluster,
-		InformerMap:     make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		Client:           k8sClient,
+		InformerFactory:  informers.NewSharedInformerFactory(k8sClient, 0),
+		DynamicClient:    dynamicClient,
+		DynamicFactory:   factory,
+		DiscoveryClient:  discoveryClient,
+		Config:           config,
+		ClusterInfo:      cluster,
+		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
 
@@ -120,7 +138,7 @@ func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion
 
 func (krc *KubeRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
 	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
-	log.Infof("FrameworkVesion for job type %s framework %s, is %s", jobType, fw, frameworkVersion)
+	log.Infof("on %s, FrameworkVesion for job type %s framework %s, is %s", krc.Cluster(), jobType, fw, frameworkVersion)
 	return frameworkVersion
 }
 
@@ -130,61 +148,427 @@ func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) 
 	return jobType, framework
 }
 
-func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error {
-	// TODO
-	for gvk := range k8s.GVKJobStatusMap {
+func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
+	var err error
+	switch listenerType {
+	case pfschema.ListenerTypeJob:
+		err = krc.registerJobListener(workQueue)
+	case pfschema.ListenerTypeTask:
+		err = krc.registerTaskListener(workQueue)
+	case pfschema.ListenerTypeQueue:
+		err = krc.registerQueueListener(workQueue)
+	case pfschema.ListenerTypeNode:
+		err = krc.registerNodeListener(workQueue)
+	case pfschema.ListenerTypeNodeTask:
+		err = krc.registerNodeTaskListener(workQueue)
+	default:
+		err = fmt.Errorf("listener type %s is not supported", listenerType)
+	}
+	return err
+}
+
+func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimitingInterface) error {
+	jobPlugins := framework.ListJobPlugins(pfschema.KubernetesType)
+	if len(jobPlugins) == 0 {
+		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
+	}
+	for fv, jobPlugin := range jobPlugins {
+		gvk := frameworkVersionToGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
-			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
+			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 		} else {
-			fwVersion := KubeFrameworkVersion(gvk)
-			jobBuilder, find := framework.GetJobPlugin(pfschema.KubernetesType, fwVersion)
-			if !find {
-				log.Warnf("cann't find registered %s job event listener", gvk.String())
-				continue
-			}
 			// Register job event listener
-			krc.InformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-			jobClient := jobBuilder(krc)
-			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.InformerMap[gvk])
+			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+			jobClient := jobPlugin(krc)
+			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 			if err != nil {
-				log.Warnf("add event lister for job %s failed, err: %v", gvk.String(), err)
+				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
 				continue
 			}
-
 			// Register task event listener
-			if gvk == k8s.PodGVK {
-				krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-				krc.podLister = krc.DynamicFactory.ForResource(gvrMap.Resource).Lister()
-				err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
-				if err != nil {
-					log.Errorf("add event lister for task failed, err: %v", err)
-					return err
-				}
+			if gvk == TaskGVK {
+				krc.taskClient = jobClient
 			}
 		}
 	}
-
 	return nil
 }
 
-func (krc *KubeRuntimeClient) StartLister(stopCh <-chan struct{}) {
-	if len(krc.InformerMap) == 0 {
-		log.Infof("Cluster hasn't any GroupVersionKind, skip %s controller!", krc.Cluster())
-		return
+func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	gvrMap, err := krc.GetGVR(TaskGVK)
+	if err != nil {
+		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
+		return err
 	}
-	go krc.DynamicFactory.Start(stopCh)
+	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+	taskInformer, find := krc.JobInformerMap[TaskGVK]
+	if !find {
+		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
+	if krc.taskClient == nil {
+		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
+	// Register task event listener
+	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
+	if err != nil {
+		log.Errorf("on %s, add event lister for task failed, err: %v", krc.Cluster(), err)
+		return err
+	}
+	return nil
+}
 
-	for _, informer := range krc.InformerMap {
-		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
-			log.Errorf("timed out waiting for caches to %s", krc.Cluster())
-			return
+func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimitingInterface) error {
+	queuePlugins := framework.ListQueuePlugins(pfschema.KubernetesType)
+	if len(queuePlugins) == 0 {
+		return fmt.Errorf("on %s, register queue listener failed, err: plugins is nil", krc.Cluster())
+	}
+	for fv, plugin := range queuePlugins {
+		gvk := frameworkVersionToGVK(fv)
+		gvrMap, err := krc.GetGVR(gvk)
+		if err != nil {
+			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+		} else {
+			// Register queue event listener
+			log.Infof("on %s, register queue event listener for %s", krc.Cluster(), gvk.String())
+			krc.QueueInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+			queueClient := plugin(krc)
+			err = queueClient.AddEventListener(context.TODO(), pfschema.ListenerTypeQueue, workQueue, krc.QueueInformerMap[gvk])
+			if err != nil {
+				log.Warnf("on %s, add event lister for queue %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+				continue
+			}
 		}
 	}
-	if !cache.WaitForCacheSync(stopCh, krc.podInformer.HasSynced) {
-		log.Errorf("timed out waiting for pod caches to %s", krc.Cluster())
+	return nil
+}
+
+func (krc *KubeRuntimeClient) registerNodeListener(workQueue workqueue.RateLimitingInterface) error {
+	krc.nodeInformer = krc.InformerFactory.Core().V1().Nodes()
+	nodeHandler := NewNodeHandler(workQueue, krc.Cluster())
+	krc.nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    nodeHandler.AddNode,
+		UpdateFunc: nodeHandler.UpdateNode,
+		DeleteFunc: nodeHandler.DeleteNode,
+	})
+	return nil
+}
+
+func (krc *KubeRuntimeClient) registerNodeTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	krc.nodeTaskInformer = krc.InformerFactory.Core().V1().Pods()
+
+	taskHandler := NewNodeTaskHandler(workQueue, krc.Cluster())
+	krc.nodeTaskInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			// TODO: evaluate the time of filter
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				return false
+			}
+			// check weather pod resources is empty or not
+			podResource := GetPodResource(pod)
+			if podResource.IsZero() {
+				log.Debugf("node task %s/%s request resources is empty, ignore it", pod.Namespace, pod.Name)
+				return false
+			}
+			return true
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    taskHandler.AddPod,
+			UpdateFunc: taskHandler.UpdatePod,
+			DeleteFunc: taskHandler.DeletePod,
+		},
+	})
+	return nil
+}
+
+func GetPodResource(pod *corev1.Pod) *resources.Resource {
+	result := resources.EmptyResource()
+	for _, container := range pod.Spec.Containers {
+		result.Add(k8s.NewResource(container.Resources.Requests))
+	}
+	return result
+}
+
+type NodeHandler struct {
+	workQueue      workqueue.RateLimitingInterface
+	labelKeys      []string
+	cluster        string
+	resourceFilter []string
+}
+
+func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHandler {
+	var labelKeys []string
+	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFNodeLabels))
+	if len(nodeLabels) > 0 {
+		labelKeys = strings.Split(nodeLabels, ",")
+	} else {
+		labelKeys = []string{pfschema.PFNodeLabels}
+	}
+	var rFilter = []string{
+		"pods",
+	}
+	resourceFilters := strings.TrimSpace(os.Getenv(pfschema.EnvPFResourceFilter))
+	if len(resourceFilters) > 0 {
+		filters := strings.Split(resourceFilters, ",")
+		rFilter = append(rFilter, filters...)
+	}
+	return &NodeHandler{
+		workQueue:      q,
+		labelKeys:      labelKeys,
+		cluster:        cluster,
+		resourceFilter: rFilter,
+	}
+}
+
+func (n *NodeHandler) isExpectedResources(rName string) bool {
+	var isExpected = true
+	for _, filter := range n.resourceFilter {
+		if strings.Contains(rName, filter) {
+			isExpected = false
+			break
+		}
+	}
+	return isExpected
+}
+
+func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, labels map[string]string) {
+	capacity := make(map[string]string)
+	for rName, rValue := range node.Status.Allocatable {
+		resourceName := string(rName)
+		if n.isExpectedResources(resourceName) {
+			capacity[resourceName] = rValue.String()
+		}
+	}
+	nodeSync := &api.NodeSyncInfo{
+		Name:     node.Name,
+		Status:   getNodeStatus(node),
+		Capacity: capacity,
+		Labels:   labels,
+		Action:   action,
+	}
+	log.Infof("WatchNodeSync: %s, watch %s event for node %s with status %s", n.cluster, action, node.Name, nodeSync.Status)
+	n.workQueue.Add(nodeSync)
+}
+
+func (n *NodeHandler) AddNode(obj interface{}) {
+	node := obj.(*corev1.Node)
+	n.addQueue(node, pfschema.Create, getLabels(n.labelKeys, node.GetLabels()))
+}
+
+func (n *NodeHandler) UpdateNode(old, new interface{}) {
+	oldNode := old.(*corev1.Node)
+	newNode := new.(*corev1.Node)
+
+	oldStatus := getNodeStatus(oldNode)
+	newStatus := getNodeStatus(newNode)
+
+	oldLabels := getLabels(n.labelKeys, oldNode.Labels)
+	newLabels := getLabels(n.labelKeys, newNode.Labels)
+
+	if oldStatus == newStatus &&
+		reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) &&
+		reflect.DeepEqual(oldLabels, newLabels) {
 		return
 	}
+	if reflect.DeepEqual(oldLabels, newLabels) {
+		// In order to skip label update, set newLabels to nil
+		newLabels = nil
+	}
+	n.addQueue(newNode, pfschema.Update, newLabels)
+}
+
+func (n *NodeHandler) DeleteNode(obj interface{}) {
+	node := obj.(*corev1.Node)
+	n.addQueue(node, pfschema.Delete, nil)
+}
+
+func getNodeStatus(node *corev1.Node) string {
+	if node.Spec.Unschedulable {
+		return "Unschedulable"
+	}
+	nodeStatus := "NotReady"
+	condLen := len(node.Status.Conditions)
+	if condLen > 0 {
+		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
+			nodeStatus = "Ready"
+		}
+	}
+	return nodeStatus
+}
+
+func getLabels(labelKeys []string, totalLabels map[string]string) map[string]string {
+	labels := make(map[string]string)
+
+	for _, key := range labelKeys {
+		if value, find := totalLabels[key]; find {
+			labels[key] = value
+		}
+	}
+	return labels
+}
+
+type NodeTaskHandler struct {
+	workQueue workqueue.RateLimitingInterface
+	labelKeys []string
+	cluster   string
+}
+
+func NewNodeTaskHandler(q workqueue.RateLimitingInterface, cluster string) *NodeTaskHandler {
+	var labelKeys []string
+	nodeLabels := strings.TrimSpace(os.Getenv(pfschema.EnvPFTaskLabels))
+	if len(nodeLabels) > 0 {
+		labelKeys = strings.Split(nodeLabels, ",")
+	} else {
+		labelKeys = []string{pfschema.QueueLabelKey}
+	}
+	return &NodeTaskHandler{
+		workQueue: q,
+		labelKeys: labelKeys,
+		cluster:   cluster,
+	}
+}
+
+func convertPodResources(pod *corev1.Pod) map[string]int64 {
+	result := resources.EmptyResource()
+	for _, container := range pod.Spec.Containers {
+		result.Add(k8s.NewResource(container.Resources.Requests))
+	}
+	deviceIDX := k8s.SharedGPUIDX(pod)
+	if deviceIDX > 0 {
+		result.SetResources(k8s.GPUIndexResources, deviceIDX)
+	}
+
+	podResources := make(map[string]int64)
+	for rName, rValue := range result.Resource() {
+		switch rName {
+		case resources.ResMemory:
+			podResources[string(corev1.ResourceMemory)] = int64(rValue)
+		default:
+			podResources[rName] = int64(rValue)
+		}
+	}
+	return podResources
+}
+
+func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, status model.TaskAllocateStatus, labels map[string]string) {
+	// TODO: use multi workQueues
+	nodeTaskSync := &api.NodeTaskSyncInfo{
+		ID:        string(pod.UID),
+		Name:      pod.Name,
+		NodeName:  pod.Spec.NodeName,
+		Status:    status,
+		Resources: convertPodResources(pod),
+		Labels:    labels,
+		Action:    action,
+	}
+	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %v", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
+	n.workQueue.Add(nodeTaskSync)
+}
+
+func isAllocatedPod(pod *corev1.Pod) bool {
+	if pod.Spec.NodeName != "" &&
+		(pod.Status.Phase == corev1.PodPending || pod.Status.Phase == corev1.PodRunning) {
+		return true
+	}
+	return false
+}
+
+func (n *NodeTaskHandler) AddPod(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+
+	// TODO: check weather pod is exist or not
+	if isAllocatedPod(pod) {
+		n.addQueue(pod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, pod.Labels))
+	}
+}
+
+func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
+	oldPod := old.(*corev1.Pod)
+	newPod := new.(*corev1.Pod)
+	var deletionGracePeriodSeconds int64 = -1
+	if newPod.DeletionGracePeriodSeconds != nil {
+		deletionGracePeriodSeconds = *newPod.DeletionGracePeriodSeconds
+	}
+	log.Debugf("TaskSync: %s, update task %s/%s, deletionGracePeriodSeconds: %v, status: %v,  nodeName: %s",
+		n.cluster, newPod.Namespace, newPod.Name, deletionGracePeriodSeconds, newPod.Status.Phase, newPod.Spec.NodeName)
+
+	// 1. weather the allocated status of pod is changed or not
+	oldPodAllocated := isAllocatedPod(oldPod)
+	newPodAllocated := isAllocatedPod(newPod)
+	if oldPodAllocated != newPodAllocated {
+		if newPodAllocated {
+			n.addQueue(newPod, pfschema.Create, model.TaskRunning, getLabels(n.labelKeys, newPod.Labels))
+		} else {
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
+		}
+		return
+	}
+	// 2. pod is allocated and is deleted
+	if newPodAllocated && oldPod.DeletionGracePeriodSeconds == nil && newPod.DeletionGracePeriodSeconds != nil {
+		if *newPod.DeletionGracePeriodSeconds == 0 {
+			n.addQueue(newPod, pfschema.Delete, model.TaskDeleted, nil)
+		} else {
+			n.addQueue(newPod, pfschema.Update, model.TaskTerminating, nil)
+		}
+	}
+}
+
+func (n *NodeTaskHandler) DeletePod(obj interface{}) {
+	pod := obj.(*corev1.Pod)
+	n.addQueue(pod, pfschema.Delete, model.TaskDeleted, nil)
+}
+
+func (krc *KubeRuntimeClient) StartListener(listenerType string, stopCh <-chan struct{}) error {
+	var err error
+	switch listenerType {
+	case pfschema.ListenerTypeNode, pfschema.ListenerTypeNodeTask:
+		krc.InformerFactory.Start(stopCh)
+		for _, synced := range krc.InformerFactory.WaitForCacheSync(stopCh) {
+			if !synced {
+				err = fmt.Errorf("timed out waiting for caches to %s", listenerType)
+				log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
+				break
+			}
+		}
+	default:
+		err = krc.startDynamicListener(listenerType, stopCh)
+	}
+	return err
+}
+
+func (krc *KubeRuntimeClient) startDynamicListener(listenerType string, stopCh <-chan struct{}) error {
+	var err error
+	var informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
+	switch listenerType {
+	case pfschema.ListenerTypeJob:
+		informerMap = krc.JobInformerMap
+	case pfschema.ListenerTypeTask:
+		informerMap[TaskGVK] = krc.podInformer
+	case pfschema.ListenerTypeQueue:
+		informerMap = krc.QueueInformerMap
+	default:
+		err = fmt.Errorf("listener type %s is not supported", listenerType)
+	}
+	if err != nil {
+		log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
+		return err
+	}
+	// start dynamic factory and wait for cache sync
+	krc.DynamicFactory.Start(stopCh)
+	for _, informer := range informerMap {
+		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
+			err = fmt.Errorf("timed out waiting for caches to %s", krc.Cluster())
+			log.Errorf("on %s, start %s listener failed, err: %v", krc.Cluster(), listenerType, err)
+			break
+		}
+	}
+	return err
 }
 
 func (krc *KubeRuntimeClient) Cluster() string {
@@ -193,6 +577,14 @@ func (krc *KubeRuntimeClient) Cluster() string {
 		msg = fmt.Sprintf("cluster %s with type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
 	}
 	return msg
+}
+
+func (krc *KubeRuntimeClient) ClusterName() string {
+	name := ""
+	if krc.ClusterInfo != nil {
+		name = krc.ClusterInfo.Name
+	}
+	return name
 }
 
 func (krc *KubeRuntimeClient) ClusterID() string {
@@ -368,6 +760,7 @@ func (krc *KubeRuntimeClient) Update(resource interface{}, fv pfschema.Framework
 	return err
 }
 
+// GetTaskLog using pageSize and pageNo to paging logs
 func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string, pageSize, pageNo int) ([]pfschema.TaskLogInfo, error) {
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
 	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
@@ -386,7 +779,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 		endIndex := -1
 		hasNextPage := false
 		truncated := false
-		limitFlag := isReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
+		limitFlag := utils.IsReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
 		overFlag := false
 		// 判断开始位置是否已超过日志总行数，若超过overFlag为true；
 		// 如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
@@ -421,7 +814,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 		taskLogInfo := pfschema.TaskLogInfo{
 			TaskID: fmt.Sprintf("%s_%s", pod.GetUID(), c.Name),
 			Info: pfschema.LogInfo{
-				LogContent:  splitLog(logContent, startIndex, endIndex, overFlag),
+				LogContent:  utils.SplitLog(logContent, startIndex, endIndex, overFlag),
 				HasNextPage: hasNextPage,
 				Truncated:   truncated,
 			},
@@ -432,13 +825,42 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 
 }
 
+// GetTaskLogV2 using lineLimit and sizeLimit to paging logs
+func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
+	log.Infof("Get mixed logs for %s/%s, paging info: %#v", namespace, name, logpage)
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []pfschema.TaskLogInfo{}, nil
+	} else if err != nil {
+		return []pfschema.TaskLogInfo{}, err
+	}
+
+	// traverse Containers
+	for _, c := range pod.Spec.Containers {
+		log.Debugf("traverse pod %s-container %s", name, c.Name)
+		podLogOptions := mapToLogOptions(c.Name, logpage.LogFilePosition)
+		logContent, logContentLineNum, err := krc.getContainerLog(namespace, name, podLogOptions)
+		if err != nil {
+			return []pfschema.TaskLogInfo{}, err
+		}
+		finalContent := logpage.Paging(logContent, logContentLineNum)
+		log.Debugf("get log of pod/container: %s/%s, content length: %d", name, c.Name, len(finalContent))
+		taskLogInfo := pfschema.TaskLogInfo{
+			TaskID: fmt.Sprintf("%s_%s/%s", pod.Name, pod.GetUID(), c.Name),
+			Info: pfschema.LogInfo{
+				LogContent:  finalContent,
+				HasNextPage: logpage.HasNextPage,
+				Truncated:   logpage.Truncated,
+			},
+		}
+		taskLogInfoList = append(taskLogInfoList, taskLogInfo)
+	}
+	return taskLogInfoList, nil
+}
+
 func (krc *KubeRuntimeClient) getContainerLog(namespace, name string, logOptions *corev1.PodLogOptions) (string, int, error) {
-	readCloser, err := krc.Client.CoreV1().RESTClient().Get().
-		Namespace(namespace).
-		Name(name).
-		Resource("pods").
-		SubResource("log").
-		VersionedParams(logOptions, scheme.ParameterCodec).Stream(context.TODO())
+	readCloser, err := krc.Client.CoreV1().Pods(namespace).GetLogs(name, logOptions).Stream(context.TODO())
 	if err != nil {
 		log.Errorf("pod[%s] get log stream failed. error: %s", name, err.Error())
 		return err.Error(), 0, nil
@@ -470,27 +892,4 @@ func mapToLogOptions(container, logFilePosition string) *corev1.PodLogOptions {
 	}
 
 	return logOptions
-}
-
-func splitLog(logContent string, startIndex, endIndex int, overFlag bool) string {
-	if overFlag || logContent == "" {
-		return ""
-	}
-	logContent = strings.TrimRight(logContent, "\n")
-	var logLines []string
-	if startIndex == -1 && endIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[:]
-	} else if startIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[:endIndex]
-	} else if endIndex == -1 {
-		logLines = strings.Split(logContent, "\n")[startIndex:]
-	} else {
-		logLines = strings.Split(logContent, "\n")[startIndex:endIndex]
-	}
-	return strings.Join(logLines, "\n") + "\n"
-}
-
-func isReadLimitReached(bytesLoaded int64, linesLoaded int64, logFilePosition string) bool {
-	return (logFilePosition == common.BeginFilePosition && bytesLoaded >= byteReadLimit) ||
-		(logFilePosition == common.EndFilePosition && linesLoaded >= lineReadLimit)
 }

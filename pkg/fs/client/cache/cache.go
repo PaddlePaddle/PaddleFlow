@@ -21,6 +21,7 @@ import (
 	"io"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -28,13 +29,14 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 const (
 	maxReadAheadSize = 200 * 1024 * 1024
 	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
+	TimeFormat       = "2006-01-02-15:04:05"
 )
 
 type DataCacheClient interface {
@@ -48,7 +50,8 @@ func NewDataCache(config Config) DataCacheClient {
 	if config.CachePath == "" || config.CachePath == "/" || config.Expire == 0 {
 		return nil
 	}
-	config.CachePath = filepath.Join(config.CachePath, config.FsID)
+	config.CachePath = filepath.Join(config.CachePath, config.FsID,
+		strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
 	// currently, supports file client only
 	return newFileClient(config)
 }
@@ -85,19 +88,12 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			break
+			return 0, err
 		}
 		bytesRead += nread
 		blockOff += nread
 
-		if readAheadBuf.size <= 0 && readAheadBuf.Buffer.page.ready {
-			readAheadBuf.Buffer.Close()
-			r.lock.Lock()
-			delete(r.buffers, indexOff)
-			r.lock.Unlock()
-			break
-		}
-		if nread == 0 {
+		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
 		}
 	}
@@ -176,7 +172,7 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	blockOff := r.off(int(off))
 	start := time.Now()
 	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
-	if hitCache {
+	if hitCache && nReadFromCache != 0 {
 		// metrics
 		cacheHits.Inc()
 		cacheHitBytes.Add(float64(nReadFromCache))
@@ -188,6 +184,7 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	log.Debugf("read buffers map %v", len(r.buffers))
 	if err == nil {
 		n, err = r.readFromReadAhead(off, buf)
+		log.Debugf("readFromReadAhead n is %v err %v", n, err)
 		return
 	} else {
 		log.Errorf("read ahead err is %v", err)

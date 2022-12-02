@@ -25,7 +25,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -53,11 +52,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
+const TimeFormat = "2006-01-02-15:04:05"
+
 var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse",
+	FilePrefix:      "./pfs-fuse-" + time.Now().Format(TimeFormat),
 	Level:           "INFO",
 	MaxKeepDays:     90,
 	MaxFileNum:      100,
@@ -142,7 +143,7 @@ func setup(c *cli.Context) error {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
 		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
-	if c.Bool("pprof-enable") {
+	if c.Int("pprof-port") != 0 {
 		go func() {
 			http.ListenAndServe(fmt.Sprintf(":%d", c.Int("pprof-port")), nil)
 		}()
@@ -160,7 +161,19 @@ func setup(c *cli.Context) error {
 		}
 	}
 	signalHandle(mountPoint)
+	processStatistics()
 	return nil
+}
+
+func processStatistics() {
+	go func() {
+		for {
+			availableMem, memPercent := utils.GetMemPercent()
+			cpuPercent := utils.GetCpuPercent()
+			log.Infof("mem avaliable %vM percent %v%% cpuPercent %v%%", availableMem, fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent))
+			time.Sleep(30 * time.Second)
+		}
+	}()
 }
 
 func exposeMetricsService(hostServer string, port int) string {
@@ -203,6 +216,11 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("panic err: %v", err)
+		}
+	}()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
@@ -259,15 +277,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		fsMeta = common.FSMeta{
 			UfsType: common.LocalType,
 			SubPath: localRoot,
-		}
-		linkPath, linkRoot := c.String("link-path"), c.String("link-root")
-		if linkPath != "" && linkRoot != "" {
-			links = map[string]common.FSMeta{
-				path.Clean(linkPath): common.FSMeta{
-					UfsType: common.LocalType,
-					SubPath: linkRoot,
-				},
-			}
 		}
 	} else if c.String(schema.FuseKeyFsInfo) != "" {
 		fs, err := utils.ProcessFSInfo(c.String(schema.FuseKeyFsInfo))
@@ -361,7 +370,9 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
+		PathCacheExpire:  c.Duration("path-cache-expire"),
 		Config: kv.Config{
+			FsID:      fsMeta.ID,
 			Driver:    c.String("meta-cache-driver"),
 			CachePath: c.String("meta-cache-path"),
 		},

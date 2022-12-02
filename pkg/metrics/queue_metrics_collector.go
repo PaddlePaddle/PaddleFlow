@@ -32,7 +32,7 @@ func NewQueueMetricsCollector(queueFunc ListQueueFunc) *QueueMetricCollector {
 		queueInfo: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricQueueInfo,
-				Help: toHelp(MetricJobCount),
+				Help: toHelp(MetricQueueInfo),
 			},
 			[]string{QueueNameLabel, ResourceLabel, TypeLabel},
 		),

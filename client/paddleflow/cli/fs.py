@@ -175,11 +175,11 @@ def delete(ctx, fsname, username=None):
 mount options: 
   -o block-size: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used 
   -o data-cache-path: directory path of local data cache  (default:"/var/cache/pfs-cache-dir/data-cache") 
-  -o data-cache-expire: expire time of disk data cache (default 900s) 
+  -o data-cache-expire: file data cache timeout (default 0s)
   -o meta-cache-path: directory path of meta cache  (default:"/var/cache/pfs-cache-dir/meta-cache") 
-  -o meta-driver: meta driver type (e.g. mem, leveldb, nutsdb)",
-  -o meta-cache-expire: expire time of meta cache expire (default 10s) 
-  -o entry-cache-expire: expire time of meta entry cache expire (default 10s) 
+  -o meta-cache-driver: meta driver type (e.g. mem, disk)",
+  -o meta-cache-expire: file meta cache timeout (default 5s)
+  -o entry-cache-expire: file entry cache timeout (default 5s)
 """)
 @click.pass_context
 def mount(ctx, fsname, path, o="", username=None):
@@ -220,7 +220,7 @@ def mount(ctx, fsname, path, o="", username=None):
 @click.option('-o', '--o', multiple=True, help="""
 cacheConfig options: 
   -o cacheDir: cache dir on host node. Two sub-directories "data-cache" and "meta-cache" will be created under it.
-  -o metaDriver: meta driver type (e.g. default, mem, leveldb, nutsdb)",
+  -o metaDriver: meta driver type (e.g. default, mem, disk)",
   -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
 """)
 @click.pass_context

@@ -229,7 +229,6 @@ data:
             pfs.fs.id: $(pfs.fs.id)
             pfs.fs.info: $(pfs.fs.info)
             pfs.fs.cache: $(pfs.fs.cache)
-            pfs.server: $(pfs.server)
           volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
   default_pvc.yaml: |2-
       kind: PersistentVolumeClaim
@@ -326,6 +325,7 @@ data:
       fs:
         defaultPVPath: "./config/fs/default_pv.yaml"
         defaultPVCPath: "./config/fs/default_pvc.yaml"
+        servicePort: 8999
 
       job:
         reclaim:

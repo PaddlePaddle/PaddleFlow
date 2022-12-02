@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -33,6 +34,26 @@ type RuntimeService interface {
 	Client() framework.RuntimeClientInterface
 	// SyncController start sync controller
 	SyncController(stopCh <-chan struct{})
+
+	// SubmitJob submit job to cluster
+	SubmitJob(job *api.PFJob) error
+	// StopJob stop job on cluster
+	StopJob(job *api.PFJob) error
+	// UpdateJob update job on cluster
+	UpdateJob(job *api.PFJob) error
+	// DeleteJob delete job from cluster
+	DeleteJob(job *api.PFJob) error
+	// GetLog get log for job
+	GetLog(jobLogRequest schema.JobLogRequest, request schema.MixedLogRequest) (schema.JobLogInfo, error)
+
+	// CreateQueue create a queue on cluster
+	CreateQueue(q *api.QueueInfo) error
+	// DeleteQueue delete a queue on cluster
+	DeleteQueue(q *api.QueueInfo) error
+	// UpdateQueue update a queue on cluster
+	UpdateQueue(q *api.QueueInfo) error
+
+	ListNodeQuota() (schema.QuotaSummary, []schema.NodeQuotaInfo, error)
 
 	framework.JobGetter
 	framework.QueueGetter

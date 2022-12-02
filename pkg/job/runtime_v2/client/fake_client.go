@@ -20,28 +20,38 @@ import (
 	"net/http/httptest"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/dynamic/fake"
+	fakedynamicclient "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
-	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 	scheme := runtime.NewScheme()
-	dynamicClient := fake.NewSimpleDynamicClient(scheme)
+	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
 	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&rest.Config{Host: server.URL})
+	kubeClient := fakedclient.NewSimpleClientset()
 
 	return &KubeRuntimeClient{
+		Client:          kubeClient,
+		InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &pfschema.Cluster{
+		ClusterInfo: &schema.Cluster{
 			Name: "default-cluster",
-			ID:   "cluster-123",
+			ID:   uuid.GenerateID("cluster"),
 			Type: "Kubernetes",
 		},
-		Config: &rest.Config{Host: server.URL},
+		Config:           &rest.Config{Host: server.URL},
+		JobInformerMap:   make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
+		QueueInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
 	}
 }

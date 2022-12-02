@@ -36,33 +36,29 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
 
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "20",
+		resources.ResMemory: "20Gi",
+	})
+	assert.Equal(t, nil, err)
+
 	q := model.Queue{
 		Model: model.Model{
 			ID: "test_queue_id",
 		},
-		Name:      "test_queue_name",
-		Namespace: "default",
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: &resources.Resource{
-			Resources: map[string]resources.Quantity{
-				"cpu": 20 * 1000,
-				"mem": 20 * 1024 * 1024 * 1024,
-			},
-		},
+		Name:         "test_queue_name",
+		Namespace:    "default",
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		MaxResources: maxRes,
 	}
 	queueInfo := api.NewQueueInfo(q)
 
 	vcQueue := New(kubeRuntimeClient)
 	// create vc queue
-	err := vcQueue.Create(context.TODO(), queueInfo)
+	err = vcQueue.Create(context.TODO(), queueInfo)
 	assert.Equal(t, nil, err)
-	// close vc queue
-	q.MaxResources = &resources.Resource{
-		Resources: map[string]resources.Quantity{
-			"cpu": 50 * 1000,
-			"mem": 50 * 1024 * 1024 * 1024,
-		},
-	}
+	// update vc queue
+	q.MaxResources.SetResources(resources.ResCPU, 50*1000)
 	queueInfo = api.NewQueueInfo(q)
 	err = vcQueue.Update(context.TODO(), queueInfo)
 	assert.Equal(t, nil, err)

@@ -36,8 +36,9 @@ import (
 
 var testNew = &k8sCore.Pod{
 	ObjectMeta: metav1.ObjectMeta{
-		Name:      "pfs-test-node-fs-root-testfs",
-		Namespace: "default",
+		Name:        "pfs-test-node-fs-root-testfs",
+		Namespace:   "default",
+		Annotations: map[string]string{},
 	},
 	Status: k8sCore.PodStatus{
 		Phase: k8sCore.PodRunning,
@@ -59,8 +60,8 @@ var testExist = &k8sCore.Pod{
 		Name:      "pfs-test-node-fs-root-testfs",
 		Namespace: "default",
 		Annotations: map[string]string{
-			utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-			schema.AnnotationKeyMTime:                     time.Now().Format(model.TimeFormat),
+			schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
+			schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
 		},
 	},
 	Status: k8sCore.PodStatus{
@@ -108,7 +109,7 @@ func TestPFSMountWithCache(t *testing.T) {
 	fsCache := model.FSCacheConfig{
 		FsID:       fs.ID,
 		CacheDir:   "/data/paddleflow-FS/mnt",
-		MetaDriver: "leveldb",
+		MetaDriver: "disk",
 		BlockSize:  4096,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -152,10 +153,10 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
 			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
-			assert.Equal(t, testTargetPath, newPod.Annotations[utils.GetPodUIDFromTargetPath(testTargetPath)])
+			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
-				" --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755"+
+				" --block-size=4096 --meta-cache-driver=disk --file-mode=0644 --dir-mode=0755"+
 				" --data-cache-path="+FusePodCachePath+DataCacheDir+
 				" --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
 		})
@@ -184,8 +185,8 @@ func Test_addRef(t *testing.T) {
 			},
 			wantErr: false,
 			wantAnno: map[string]string{
-				utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
-				schema.AnnotationKeyMTime:                     time.Now().Format(model.TimeFormat),
+				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath): testTargetPath,
+				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
 			},
 		},
 		{
@@ -197,9 +198,9 @@ func Test_addRef(t *testing.T) {
 			},
 			wantErr: false,
 			wantAnno: map[string]string{
-				utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
-				utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
-				schema.AnnotationKeyMTime:                      time.Now().Format(model.TimeFormat),
+				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath):  testTargetPath,
+				schema.AnnotationKeyMountPrefix + utils.GetPodUIDFromTargetPath(testTargetPath2): testTargetPath2,
+				schema.AnnotationKeyMTime: time.Now().Format(model.TimeFormat),
 			},
 		},
 	}
@@ -213,8 +214,8 @@ func Test_addRef(t *testing.T) {
 			}
 			newPod, _ := tt.args.c.GetPod("default", "pfs-test-node-fs-root-testfs")
 			if newPod == nil ||
-				newPod.Annotations[utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[utils.GetPodUIDFromTargetPath(testTargetPath)] ||
-				newPod.Annotations[utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[utils.GetPodUIDFromTargetPath(testTargetPath2)] {
+				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)] ||
+				newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] != tt.wantAnno[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath2)] {
 				t.Errorf("waitUntilMount() got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
 			}
 			if len(newPod.Annotations) != len(tt.wantAnno) {

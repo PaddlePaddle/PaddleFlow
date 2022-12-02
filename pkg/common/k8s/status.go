@@ -434,23 +434,18 @@ func RayJobStatus(obj interface{}) (StatusInfo, error) {
 func getRayJobStatus(rayJobStatus *rayV1alpha1.RayJobStatus) (schema.JobStatus, string, error) {
 	status := schema.JobStatus("")
 	msg := ""
-	jobStatus := rayJobStatus.JobDeploymentStatus
+	jobStatus := rayJobStatus.JobStatus
 	switch jobStatus {
-	// todo if change StatusJobPending to "Initializing"
-	case rayV1alpha1.JobDeploymentStatusInitializing, rayV1alpha1.JobDeploymentStatusWaitForDashboard:
-		status = schema.StatusJobPending
-		msg = "job is pending"
-	case rayV1alpha1.JobDeploymentStatusRunning:
-		status = schema.StatusJobRunning
-		msg = "job is running"
-	case rayV1alpha1.JobDeploymentStatusComplete:
-		status = schema.StatusJobSucceeded
-		msg = "job is succeeded"
-	case rayV1alpha1.JobDeploymentStatusFailedToGetOrCreateRayCluster, rayV1alpha1.JobDeploymentStatusFailedJobDeploy,
-		rayV1alpha1.JobDeploymentStatusFailedToGetJobStatus:
+	// TODO JobStatusStopped should be processed in another way when the feature "unused status Stopped" is fixed by ray-operator
+	case rayV1alpha1.JobStatusPending, rayV1alpha1.JobStatusStopped:
+		status, msg = schema.StatusJobPending, "job is pending"
+	case rayV1alpha1.JobStatusRunning:
+		status, msg = schema.StatusJobRunning, "job is running"
+	case rayV1alpha1.JobStatusSucceeded:
+		status, msg = schema.StatusJobSucceeded, "job is succeeded"
+	case rayV1alpha1.JobStatusFailed:
 		status = schema.StatusJobFailed
 		msg = getRayJobMessage(rayJobStatus)
-
 	default:
 		return status, msg, fmt.Errorf("unexpected ray job status: %s", jobStatus)
 	}

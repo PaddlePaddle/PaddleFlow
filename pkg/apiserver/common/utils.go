@@ -32,9 +32,9 @@ import (
 
 const (
 	RegPatternQueueName    = "^[a-z0-9][a-z0-9-]{0,8}[a-z0-9]$"
-	RegPatternUserName     = "^[A-Za-z0-9-]{4,16}$"
-	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
-	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternUserName     = "^[A-Za-z0-9]{4,16}$"
+	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
 	RegPatternScheduleName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternResource     = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
 	RegPatternClusterName  = "^[A-Za-z0-9_][A-Za-z0-9-_]{0,253}[A-Za-z0-9_]$"
@@ -241,4 +241,12 @@ func IsDNS1123Label(value string) []string {
 		errs = append(errs, dns1123LabelErrMsg+" (regex used for validation is '"+DNS1123LabelFmt+"')")
 	}
 	return errs
+}
+
+func CheckPermission(requestUserName, ownerUserName, resourceType, resourceID string) error {
+	if !IsRootUser(requestUserName) && ownerUserName != requestUserName {
+		err := NoAccessError(requestUserName, resourceType, resourceID)
+		return err
+	}
+	return nil
 }

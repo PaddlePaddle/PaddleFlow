@@ -61,46 +61,6 @@ func TestGetDefaultGID(t *testing.T) {
 	assert.Equal(t, uid, value)
 }
 
-func TestFSIDToName(t *testing.T) {
-	type args struct {
-		fsID string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "use fsID",
-			args: args{
-				fsID: "fs-root-myfs",
-			},
-			want: "myfs",
-		},
-		{
-			name: "use fsID with user has '-' ",
-			args: args{
-				fsID: "fs-user-test-myfs",
-			},
-			want: "myfs",
-		},
-		{
-			name: "empty fsID",
-			args: args{
-				fsID: "",
-			},
-			want: "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if fsName, _ := FsIDToFsNameUsername(tt.args.fsID); fsName != tt.want {
-				t.Errorf("FSIDToName() = %v, want %v", fsName, tt.want)
-			}
-		})
-	}
-}
-
 func TestGetFsNameAndUserNameByFsID(t *testing.T) {
 	type args struct {
 		fsID string
@@ -131,7 +91,7 @@ func TestGetFsNameAndUserNameByFsID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotUserName, gotFsName, err := GetFsNameAndUserNameByFsID(tt.args.fsID)
+			gotFsName, gotUserName, err := GetFsNameAndUserNameByFsID(tt.args.fsID)
 			assert.Nil(t, err)
 			if gotUserName != tt.wantUserName {
 				t.Errorf("GetFsNameAndUserNameByFsID() gotUserName = %v, want %v", gotUserName, tt.wantUserName)
@@ -225,5 +185,59 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 				t.Errorf("GetPodUIDFromTargetPath() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGetCpuPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetCpuPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetCpuPercent() = %v and want %v", cpuP, tt.want)
+		}
+	}
+}
+
+func TestGetMemPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetCpuPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+		}
+	}
+}
+
+func TestGetDiskPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		cpuP := GetDiskPercent()
+		if tt.want > cpuP {
+			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+		}
 	}
 }

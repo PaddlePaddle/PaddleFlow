@@ -77,8 +77,8 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: kv.LevelDB,
-			Usage: "meta cache driver, e.g. mem, leveldb",
+			Value: kv.MemType,
+			Usage: "meta cache driver, e.g. mem, disk",
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-path",
@@ -100,6 +100,11 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Value: 5 * time.Second,
 			Usage: "entry cache expire",
 		},
+		&cli.DurationFlag{
+			Name:  "path-cache-expire",
+			Value: 1 * time.Second,
+			Usage: "path cache expire",
+		},
 		&cli.IntFlag{
 			Name:  "block-size",
 			Value: 20971520,
@@ -108,13 +113,13 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		&cli.DurationFlag{
 			Name:        "attr-timeout",
 			Value:       1 * time.Second,
-			Usage:       "attribute cache TTL",
+			Usage:       "attribute cache TTL in kernel",
 			Destination: &fuseConf.AttrTimeout,
 		},
 		&cli.DurationFlag{
 			Name:        "entry-timeout",
 			Value:       1 * time.Second,
-			Usage:       "entry cache TTL",
+			Usage:       "entry cache TTL in kernel",
 			Destination: &fuseConf.EntryTimeout,
 		},
 		&cli.IntFlag{
@@ -166,16 +171,6 @@ func MountFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 
 func LinkFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{
-			Name:  "link-root",
-			Value: "",
-			Usage: "local root for mock link",
-		},
-		&cli.StringFlag{
-			Name:  "link-path",
-			Value: "",
-			Usage: "fs path for link",
-		},
 		&cli.BoolFlag{
 			Name:  "skip-check-links",
 			Value: true,
@@ -199,11 +194,12 @@ func UserFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		&cli.StringFlag{
 			Name:  "user-name",
 			Value: "root",
-			Usage: "username",
+			Usage: "fs server api username",
 		},
 		&cli.StringFlag{
 			Name:  "password",
-			Usage: "fs server password for fs username",
+			Value: "paddleflow",
+			Usage: "fs server api password for fs username",
 		},
 		&cli.BoolFlag{
 			Name:  "allow-other",
@@ -221,12 +217,6 @@ func UserFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Value:       os.Getgid(),
 			Usage:       "gid given to replace default gid",
 			Destination: &fuseConf.Gid,
-		},
-		&cli.BoolFlag{
-			Name:        "raw-owner",
-			Value:       false,
-			Usage:       "show the same uid and gid to ufs",
-			Destination: &fuseConf.RawOwner,
 		},
 	}
 }

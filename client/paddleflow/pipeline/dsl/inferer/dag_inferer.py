@@ -89,7 +89,7 @@ class DAGInferer(ComponentInferer):
                     cp.parameters[name]=self._component.entry_points[upstream_name].parameters[value.ref.name]
                 else:
                     # parameter is come from self._component's upstream
-                    param_name = self._generate_art_or_param_name("dsl", "param")
+                    param_name = self._generate_art_or_param_name("dsl", "param", value.ref.component_full_name, value.ref.name)
                     self._component.parameters[param_name] = value.ref
                     cp.parameters[name] = self._component.parameters[param_name]
 
@@ -102,13 +102,13 @@ class DAGInferer(ComponentInferer):
                     upstream_name = value.ref.component_full_name.split(".")[-1]
                     cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.ref.name]
                 else:
-                    art_name = self._generate_art_or_param_name("dsl", "art")
+                    art_name = self._generate_art_or_param_name("dsl", "art", value.ref.component_full_name, value.name)
                     if self._has_descendants_component(value.ref.component_full_name):
                         upstream_name = value.ref.component_full_name.split(".")[len(cp.full_name.split(".")) -1 ]
                         self._component.entry_points[upstream_name].outputs[art_name] = value.ref
                         cp.inputs[name] = self._component.entry_points[upstream_name].outputs[art_name]
                     else:    
-                        art_name = self._generate_art_or_param_name("dsl", "art")
+                        art_name = self._generate_art_or_param_name("dsl", "art", value.ref.component_full_name, value.ref.name)
                         self._component.inputs[art_name] = value.ref
                         cp.inputs[name] = self._component.inputs[art_name]
                 
@@ -121,7 +121,7 @@ class DAGInferer(ComponentInferer):
                 if self._has_sub_componet(value.ref.component_full_name):
                     self._component.outputs[key] = self._component.entry_points[sub_name].outputs[value.ref.name]
                 else:
-                    art_name = self._generate_art_or_param_name("dsl", "art")
+                    art_name = self._generate_art_or_param_name("dsl", "art", value.ref.component_full_name, value.ref.name)
                     self._component.entry_points[sub_name].outputs[art_name] = value.ref
                     self._component.outputs[key] = self._component.entry_points[sub_name].outputs[art_name]
                     # self._component.outputs[key].ref.ref = None
