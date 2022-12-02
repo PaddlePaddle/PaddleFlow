@@ -241,3 +241,37 @@ func TestGetDiskPercent(t *testing.T) {
 		}
 	}
 }
+
+func TestGetProcessCPUPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotZero(t, GetProcessMemPercent())
+		})
+	}
+}
+
+func TestGetProcessMemPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float32
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NotZero(t, GetProcessMemPercent())
+		})
+	}
+}

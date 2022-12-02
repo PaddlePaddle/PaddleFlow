@@ -169,10 +169,15 @@ func setup(c *cli.Context) error {
 func processStatistics() {
 	go func() {
 		for {
-			memPercent := utils.GetProcessMemPercent()
-			cpuPercent := utils.GetProcessCPUPercent()
+			processMemPercent := utils.GetProcessMemPercent()
+			processCpuPercent := utils.GetProcessCPUPercent()
+			_, sysMemPercent := utils.GetSysMemPercent()
+			sysCpuPercent := utils.GetSysCpuPercent()
 			gNum := runtime.NumGoroutine()
-			log.Infof("memPercent %v%% cpuPercent %v%% goroutine num %v", fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent), gNum)
+			log.Infof("processMemPercent %v%% processCpuPercent %v%% sysMemPercent %v%% sysCpuPercent %v%% "+
+				"goroutine num %v", fmt.Sprintf("%.2f", processMemPercent),
+				fmt.Sprintf("%.2f", processCpuPercent), fmt.Sprintf("%.2f", sysMemPercent),
+				fmt.Sprintf("%.2f", sysCpuPercent), gNum)
 			time.Sleep(30 * time.Second)
 		}
 	}()
