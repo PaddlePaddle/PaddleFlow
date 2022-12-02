@@ -30,7 +30,9 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 		log.Errorf("Failed to open file %s: %s", fname, err)
 		return err
 	}
-	defer fd.Close()
+	defer func() {
+		_ = fd.Close()
+	}()
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
 		if p := strings.TrimSpace(scanner.Text()); p != "" {
@@ -51,7 +53,7 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 	bar.SetTotal(int64(len(paths)), false)
 	for _, path := range paths {
 		path_ := path
-		pool.Submit(func() {
+		_ = pool.Submit(func() {
 			if warmType == "meta" {
 				warmupMeta(path_)
 			} else if warmType == "data" {
@@ -64,7 +66,7 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 	}
 	bar.SetTotal(0, true)
 	progress.Wait()
-	fmt.Printf("spend time %v \n", time.Now().Sub(now))
+	fmt.Printf("spend time %v \n", time.Since(now))
 	return nil
 }
 
