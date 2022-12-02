@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -40,6 +41,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
+
+const EnvSkipResourceValidate = "PF_SKIP_RESOURCE_VALIDATE"
 
 // CreateJobInfo defines
 type CreateJobInfo struct {
@@ -179,7 +182,11 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 		sumResource.Add(memberRes)
 	}
 	// validate queue and total-member-resource
-	if !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
+	// if EnvSkipRV is set, it will pass the validation for 0-Capability volcano queue
+	skipResValidate := os.Getenv(EnvSkipResourceValidate) != "" &&
+		request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
+		request.SchedulingPolicy.MaxResources.IsZero()
+	if !skipResValidate && !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, request.SchedulingPolicy.MaxResources)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
@@ -247,10 +254,15 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 		return err
 	}
 
+	// validate resource in members
+	if err := validateMembersResource(ctx, request); err != nil {
+		ctx.Logging().Errorf("validate members role failed, err: %v", err)
+		return err
+	}
+
 	frameworkRoles := getFrameworkRoles(request.Framework)
 	// calculate total member resource, and compare with queue.MaxResource
-	sumResource := resources.EmptyResource()
-	for index, member := range request.Members {
+	for index, _ := range request.Members {
 		// validate member
 		err := validateMember(ctx, &request.Members[index], request.Framework, frameworkRoles, request.SchedulingPolicy)
 		if err != nil {
@@ -258,35 +270,8 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
-		// TODO: use flavour point
-		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
-		if err != nil {
-			log.Errorf("get flavour failed, err:%v", err)
-			return err
-		}
-		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
-		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
-		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
-		if err != nil {
-			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		ctx.Logging().Debugf("member resource info %v", member.Flavour.ResourceInfo)
-		if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
-			err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
-			ctx.Logging().Errorf("Failed to check flavour: %v", err)
-			return err
-		}
-		memberRes.Multi(member.Replicas)
-		sumResource.Add(memberRes)
 	}
 	// validate queue and total-member-resource
-	if !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
-		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, request.SchedulingPolicy.MaxResources)
-		ctx.Logging().Errorf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
 	var err error
 	request.Mode, err = checkMemberRole(request.Framework, frameworkRoles)
 	if err != nil {
@@ -386,6 +371,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 		return fmt.Errorf(errMsg)
 	}
 	schedulingPolicy.QueueID = queue.ID
+	schedulingPolicy.QueueType = queue.QuotaType
 	schedulingPolicy.MaxResources = queue.MaxResources
 	schedulingPolicy.ClusterId = queue.ClusterId
 	schedulingPolicy.Namespace = queue.Namespace
@@ -425,6 +411,7 @@ func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePo
 	member.SchedulingPolicy.Namespace = schePolicy.Namespace
 	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
 	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
+	member.SchedulingPolicy.QueueType = schePolicy.QueueType
 	return nil
 }
 
