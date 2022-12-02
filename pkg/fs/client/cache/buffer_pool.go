@@ -36,6 +36,8 @@ import (
 // todo:: cacheBuf may be block, can use ringbuf
 var cacheChan = make(chan *Page, 2000)
 var cacheGoPool, _ = ants.NewPool(5)
+var lastFreeOSMemoryMemPercent = float64(0)
+var freeI int
 
 func init() {
 	var count = 0
@@ -54,26 +56,26 @@ func init() {
 		}
 	}()
 	go func() {
-		lastFreeOSMemoryMemPercent := float64(0)
-		i := 0
 		for {
-			// process memory exceeds 50 percent capacity will force gc
-			// if force gc，the memory percent has small changed since the last force gc, it will also be forced to skip gc
-			mp := utils.GetProcessMemPercent() / 100
-			i += 1
-			if mp > 0.3 {
-				if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || i < 3 {
-					debug.FreeOSMemory()
-					time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
-					lastFreeOSMemoryMemPercent = float64(mp)
-					i = 0
-				} else {
-					i += 1
-				}
-			}
+			freeMemory()
 			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func freeMemory() {
+	mp := utils.GetProcessMemPercent() / 100
+	freeI += 1
+	if mp > 0.3 {
+		if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || freeI >= 3 {
+			debug.FreeOSMemory()
+			time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
+			lastFreeOSMemoryMemPercent = float64(mp)
+			freeI = 0
+		} else {
+			freeI += 1
+		}
+	}
 }
 
 type Page struct {
