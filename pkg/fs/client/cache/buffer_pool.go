@@ -19,6 +19,7 @@ package cache
 import (
 	"errors"
 	"io"
+	"math"
 	"math/rand"
 	"runtime"
 	"runtime/debug"
@@ -28,6 +29,8 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/shirou/gopsutil/v3/mem"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 // todo:: cacheBuf may be block, can use ringbuf
@@ -51,14 +54,22 @@ func init() {
 		}
 	}()
 	go func() {
+		lastFreeOSMemoryMemPercent := float64(0)
+		i := 0
 		for {
-			m, err := mem.VirtualMemory()
-			if err != nil {
-				log.Errorf("get virtualMemory error: %v", err)
-			}
-			if m.UsedPercent > 0.5 {
-				debug.FreeOSMemory()
-				time.Sleep((30 + time.Duration(rand.Intn(10)))*time.Second)
+			// process memory exceeds 50 percent capacity will force gc
+			// if force gc，the memory percent has small changed since the last force gc, it will also be forced to skip gc
+			mp := utils.GetProcessMemPercent() / 100
+			i += 1
+			if mp > 0.3 {
+				if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || i < 3 {
+					debug.FreeOSMemory()
+					time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
+					lastFreeOSMemoryMemPercent = float64(mp)
+					i = 0
+				} else {
+					i += 1
+				}
 			}
 			time.Sleep(10 * time.Second)
 		}

@@ -25,23 +25,21 @@ func warmup(ctx *cli.Context) error {
 
 func warmup_(fname string, paths []string, threads int, warmType string) error {
 	now := time.Now()
-	if fname != "" {
-		fd, err := os.Open(fname)
-		if err != nil {
-			log.Errorf("Failed to open file %s: %s", fname, err)
-			return err
+	fd, err := os.Open(fname)
+	if err != nil {
+		log.Errorf("Failed to open file %s: %s", fname, err)
+		return err
+	}
+	defer fd.Close()
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		if p := strings.TrimSpace(scanner.Text()); p != "" {
+			paths = append(paths, p)
 		}
-		defer fd.Close()
-		scanner := bufio.NewScanner(fd)
-		for scanner.Scan() {
-			if p := strings.TrimSpace(scanner.Text()); p != "" {
-				paths = append(paths, p)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			log.Errorf("Reading file %s failed with error: %s", fname, err)
-			return err
-		}
+	}
+	if err = scanner.Err(); err != nil {
+		log.Errorf("Reading file %s failed with error: %s", fname, err)
+		return err
 	}
 	if len(paths) == 0 {
 		log.Infof("Nothing to warm up")
@@ -98,9 +96,10 @@ func CmdWarmup() *cli.Command {
 		Action:    warmup,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "file",
-				Aliases: []string{"f"},
-				Usage:   "file containing a list of paths",
+				Name:     "file",
+				Required: true,
+				Aliases:  []string{"f"},
+				Usage:    "file containing a list of paths",
 			},
 			&cli.UintFlag{
 				Name:    "threads",

@@ -20,12 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -169,10 +169,11 @@ func setup(c *cli.Context) error {
 func processStatistics() {
 	go func() {
 		for {
-			availableMem, memPercent := utils.GetMemPercent()
-			cpuPercent := utils.GetCpuPercent()
-			log.Infof("mem avaliable %vM memPercent %v%% cpuPercent %v%%", availableMem, fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent))
-			time.Sleep((30 + time.Duration(rand.Intn(10))) * time.Second)
+			memPercent := utils.GetProcessMemPercent()
+			cpuPercent := utils.GetProcessCPUPercent()
+			gNum := runtime.NumGoroutine()
+			log.Infof("memPercent %v%% cpuPercent %v%% goroutine num %v", fmt.Sprintf("%.2f", memPercent), fmt.Sprintf("%.2f", cpuPercent), gNum)
+			time.Sleep(30 * time.Second)
 		}
 	}()
 }

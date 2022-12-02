@@ -490,7 +490,7 @@ func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 	}
 	n, err := fh.reader.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
-		log.Debugf("hdfsRead: the err is %+v", err)
+		log.Errorf("hdfsRead: the err is %+v", err)
 		if strings.Contains(err.Error(), "invalid checksum") ||
 			strings.Contains(err.Error(), "read/write on closed pipe") {
 			// todo: 考虑并发，fh.reader需要加速判断
