@@ -50,6 +50,7 @@ func Main(args []string) error {
 			service.CmdUmount(),
 			service.CmdStats(),
 			service.CmdBench(),
+			service.CmdWarmup(),
 		},
 	}
 	return app.Run(args)
