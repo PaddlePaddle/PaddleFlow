@@ -95,6 +95,7 @@ type SchedulingPolicy struct {
 	Queue        string              `json:"queue"`
 	QueueID      string              `json:"-"`
 	MaxResources *resources.Resource `json:"-"`
+	QueueType    string              `json:"-"`
 	ClusterId    string              `json:"-"`
 	Namespace    string              `json:"-"`
 	Priority     string              `json:"priority,omitempty"`
