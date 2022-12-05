@@ -199,9 +199,9 @@ func TestGetCpuPercent(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		cpuP := GetCpuPercent()
+		cpuP := GetSysCpuPercent()
 		if tt.want > cpuP {
-			t.Errorf("GetCpuPercent() = %v and want %v", cpuP, tt.want)
+			t.Errorf("GetSysCpuPercent() = %v and want %v", cpuP, tt.want)
 		}
 	}
 }
@@ -217,9 +217,9 @@ func TestGetMemPercent(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		cpuP := GetCpuPercent()
+		cpuP := GetSysCpuPercent()
 		if tt.want > cpuP {
-			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+			t.Errorf("GetSysMemPercent() = %v and want %v", cpuP, tt.want)
 		}
 	}
 }
@@ -237,7 +237,41 @@ func TestGetDiskPercent(t *testing.T) {
 	for _, tt := range tests {
 		cpuP := GetDiskPercent()
 		if tt.want > cpuP {
-			t.Errorf("GetMemPercent() = %v and want %v", cpuP, tt.want)
+			t.Errorf("GetSysMemPercent() = %v and want %v", cpuP, tt.want)
 		}
+	}
+}
+
+func TestGetProcessCPUPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float64
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetProcessCPUPercent()
+		})
+	}
+}
+
+func TestGetProcessMemPercent(t *testing.T) {
+	tests := []struct {
+		name string
+		want float32
+	}{
+		{
+			name: "ok",
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetProcessMemPercent()
+		})
 	}
 }
