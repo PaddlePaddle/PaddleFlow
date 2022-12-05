@@ -230,3 +230,56 @@ func BenchmarkResource_UnmarshalJSON(b *testing.B) {
 		})
 	}
 }
+
+func TestResource_IsZero(t *testing.T) {
+	testCases := []struct {
+		name         string
+		resourceInfo map[string]string
+		isZero       bool
+		err          error
+	}{
+		{
+			name:         "resource with nil",
+			resourceInfo: nil,
+			isZero:       true,
+			err:          nil,
+		},
+		{
+			name: "resource with 0cpu",
+			resourceInfo: map[string]string{
+				"cpu": "0",
+				"mem": "0",
+			},
+			isZero: true,
+			err:    nil,
+		},
+		{
+			name: "resource with 100 mem",
+			resourceInfo: map[string]string{
+				"cpu": "0",
+				"mem": "100",
+			},
+			isZero: false,
+			err:    nil,
+		},
+		{
+			name: "resource with 1cpu 100 mem",
+			resourceInfo: map[string]string{
+				"cpu": "1",
+				"mem": "100",
+			},
+			isZero: false,
+			err:    nil,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			res, err := NewResourceFromMap(test.resourceInfo)
+			assert.ErrorIs(t, test.err, err)
+
+			assert.Equal(t, test.isZero, res.IsZero())
+			t.Logf("res: %#v", res)
+		})
+	}
+}
