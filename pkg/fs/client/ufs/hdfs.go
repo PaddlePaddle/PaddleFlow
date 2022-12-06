@@ -209,11 +209,13 @@ func (fs *hdfsFileSystem) Truncate(name string, size uint64) error {
 	log.Tracef("hdfs truncate: name[%s], size[%d]", name, size)
 	if size == 0 {
 		if err := fs.Unlink(name); err != nil {
+			log.Errorf("hdfsFileSystem name[%s] Truncate Unlink error: %v", name, err)
 			return err
 		}
 		flags := syscall.O_CREAT | syscall.O_EXCL
 		fh, err := fs.Create(name, uint32(flags), 0644)
 		if err != nil {
+			log.Errorf("hdfsFileSystem name[%s] Truncate Create error: %v", name, err)
 			return err
 		}
 		fh.Release()
@@ -238,6 +240,7 @@ func (fs *hdfsFileSystem) Mkdir(name string, mode uint32) error {
 	defer fs.Unlock()
 	err := fs.client.Mkdir(fs.GetPath(name), os.FileMode(mode))
 	if err != nil {
+		log.Errorf("hdfsFileSystem name[%s] Mkdirk error: %v", name, err)
 		if strings.HasSuffix(err.Error(), "file already exists") {
 			err = syscall.EEXIST
 		}
@@ -324,7 +327,7 @@ func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 func (fs *hdfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	reader, err := fs.client.Open(fs.GetPath(name))
 	if err != nil {
-		log.Debugf("hdfs client open err: %v", err)
+		log.Errorf("hdfs client open err: %v", err)
 		return nil, err
 	}
 	if off > 0 {
@@ -351,51 +354,19 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 	flag := fs.GetOpenFlags(name, flags)
 
 	if flag < 0 {
-		log.Debugf("hdfs open flag<0")
+		log.Errorf("hdfs open flag<0")
 		return nil, syscall.ENOSYS
 	}
 
 	fs.Lock()
 	defer fs.Unlock()
 
-	// read only
-	if flag&syscall.O_ACCMODE == syscall.O_RDONLY {
-		reader, err := fs.client.Open(fs.GetPath(name))
-		if err != nil {
-			log.Debugf("hdfs client open err: %v", err)
-			return nil, err
-		}
-
-		return &hdfsFileHandle{
-			name:   name,
-			reader: reader,
-			fs:     fs,
-			writer: nil,
-		}, nil
-	}
-
-	if flag&syscall.O_APPEND != 0 {
-		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
-		for i := 0; i < 5; i++ {
-			writer, err := fs.client.Append(fs.GetPath(name))
-			if err != nil {
-				if fs.shouldRetry(err) {
-					time.Sleep(100 * time.Millisecond * time.Duration(i*i))
-					continue
-				}
-				log.Debugf("hdfs client append err: %v", err)
-				return nil, err
-			}
-			return &hdfsFileHandle{
-				name:   name,
-				reader: nil,
-				fs:     fs,
-				writer: writer,
-			}, nil
-		}
-	}
-
-	return nil, syscall.ENOSYS
+	return &hdfsFileHandle{
+		name:   name,
+		reader: nil,
+		fs:     fs,
+		writer: nil,
+	}, nil
 }
 
 func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd FileHandle, err error) {
@@ -405,6 +376,7 @@ func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd FileHandle
 	writer, err := fs.client.CreateFile(fs.GetPath(name),
 		fs.replication, fs.blockSize, os.FileMode(mode))
 	if err != nil {
+		log.Errorf("hdfsFileSystem name[%s] create error: %v", name, err)
 		return nil, err
 	}
 	return &hdfsFileHandle{
@@ -422,6 +394,7 @@ func (fs *hdfsFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	log.Tracef("hdfs readdir: name[%s]", name)
 	files, err := fs.client.ReadDir(fs.GetPath(name))
 	if err != nil {
+		log.Errorf("hdfsFileSystem name[%s] ReadDir error: %v", name, err)
 		return nil, err
 	}
 
@@ -490,7 +463,7 @@ func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 	}
 	n, err := fh.reader.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
-		log.Debugf("hdfsRead: the err is %+v", err)
+		log.Errorf("hdfsRead: the err is %+v", err)
 		if strings.Contains(err.Error(), "invalid checksum") ||
 			strings.Contains(err.Error(), "read/write on closed pipe") {
 			// todo: 考虑并发，fh.reader需要加速判断
@@ -506,15 +479,18 @@ func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 
 func (fh *hdfsFileHandle) Write(data []byte, off uint64) (uint32, error) {
 	log.Tracef("hdfs write: fh.name[%s], dataLength[%d], offset[%d], fh[%+v]", fh.name, len(data), off, fh)
+	var err error
 	if fh.writer == nil {
-		err := fmt.Errorf("hdfs write: file[%s] bad file descriptor writer==nil", fh.name)
-		log.Errorf(err.Error())
-		return 0, err
+		fh.writer, err = fh.fs.client.Append(fh.fs.GetPath(fh.name))
+		if err != nil {
+			log.Errorf("hdfs client append err: %v", err)
+			return 0, err
+		}
 	}
 
 	n, err := fh.writer.Write(data)
 	if err != nil {
-		log.Tracef("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
+		log.Errorf("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
 		return 0, err
 	}
 	return uint32(n), nil

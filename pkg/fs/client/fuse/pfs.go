@@ -228,7 +228,7 @@ func (fs *PFS) RemoveXAttr(cancel <-chan struct{}, header *fuse.InHeader, attr s
 
 // File handling.
 func (fs *PFS) Create(cancel <-chan struct{}, input *fuse.CreateIn, name string, out *fuse.CreateOut) fuse.Status {
-	log.Debugf("pfs POSIX Create: input[%+v] name[%s]", *input, name)
+	log.Infof("pfs POSIX Create: input[%+v] name[%s]", *input, name)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	entry, fh, code := vfs.GetVFS().Create(ctx, vfs.Ino(input.NodeId), name, input.Mode, 0, input.Flags)
 	if code != 0 {
@@ -236,12 +236,12 @@ func (fs *PFS) Create(cancel <-chan struct{}, input *fuse.CreateIn, name string,
 	}
 	out.Fh = fh
 	fs.replyEntry(entry, &out.EntryOut)
-	log.Debugf("pfs POSIX Create out %+v", *out)
+	log.Infof("pfs POSIX Create out %+v", *out)
 	return fuse.Status(code)
 }
 
 func (fs *PFS) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOut) fuse.Status {
-	log.Debugf("pfs POSIX Open: input[%+v]", *input)
+	log.Infof("pfs POSIX Open: input[%+v]", *input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	_, fh, code := vfs.GetVFS().Open(ctx, vfs.Ino(input.NodeId), input.Flags)
 	if code != 0 {
@@ -251,12 +251,12 @@ func (fs *PFS) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOu
 	if vfs.IsSpecialNode(meta.Ino(input.NodeId)) {
 		out.OpenFlags |= fuse.FOPEN_DIRECT_IO
 	}
-	log.Debugf("pfs POSIX Open out %+v", *out)
+	log.Infof("pfs POSIX Open out %+v", *out)
 	return fuse.Status(code)
 }
 
 func (fs *PFS) Read(cancel <-chan struct{}, input *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
-	log.Debugf("pfs POSIX Read: input[%+v]", *input)
+	log.Infof("pfs POSIX Read: input[%+v]", *input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	n, code := vfs.GetVFS().Read(ctx, vfs.Ino(input.NodeId), buf, input.Offset, input.Fh)
 	if code != 0 {
@@ -279,7 +279,7 @@ func (fs *PFS) SetLkw(cancel <-chan struct{}, input *fuse.LkIn) (code fuse.Statu
 }
 
 func (fs *PFS) Write(cancel <-chan struct{}, input *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
-	log.Debugf("pfs POSIX Write: input[%+v]", *input)
+	log.Infof("pfs POSIX Write: input[%+v]", *input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Write(ctx, vfs.Ino(input.NodeId), data, input.Offset, input.Fh)
 	if code != 0 {
@@ -295,21 +295,21 @@ func (fs *PFS) CopyFileRange(cancel <-chan struct{}, input *fuse.CopyFileRangeIn
 }
 
 func (fs *PFS) Flush(cancel <-chan struct{}, input *fuse.FlushIn) fuse.Status {
-	log.Debugf("pfs POSIX Flush: input [%+v]", input)
+	log.Infof("pfs POSIX Flush: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Flush(ctx, vfs.Ino(input.NodeId), input.Fh, input.LockOwner)
 	return fuse.Status(code)
 }
 
 func (fs *PFS) Fsync(cancel <-chan struct{}, input *fuse.FsyncIn) fuse.Status {
-	log.Debugf("pfs POSIX Fsync: input [%+v]", input)
+	log.Infof("pfs POSIX Fsync: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Fsync(ctx, vfs.Ino(input.NodeId), int(input.FsyncFlags), input.Fh)
 	return fuse.Status(code)
 }
 
 func (fs *PFS) Fallocate(cancel <-chan struct{}, input *fuse.FallocateIn) fuse.Status {
-	log.Debugf("pfs POSIX Fallocate: input [%+v]", input)
+	log.Infof("pfs POSIX Fallocate: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Fallocate(ctx, vfs.Ino(input.NodeId), uint8(input.Mode), int64(input.Offset), int64(input.Length), input.Fh)
 	return fuse.Status(code)
@@ -366,7 +366,7 @@ func (fs *PFS) ReadDirPlus(cancel <-chan struct{}, input *fuse.ReadIn, out *fuse
 }
 
 func (fs *PFS) Release(cancel <-chan struct{}, input *fuse.ReleaseIn) {
-	log.Debugf("pfs POSIX Release: input [%+v]", input)
+	log.Infof("pfs POSIX Release: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	vfs.GetVFS().Release(ctx, vfs.Ino(input.NodeId), input.Fh)
 }
