@@ -457,9 +457,12 @@ var _ FileHandle = &hdfsFileHandle{}
 func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
 	if fh.reader == nil {
-		err := fmt.Errorf("hdfs read: file[%s] bad file descriptor reader==nil", fh.name)
-		log.Errorf(err.Error())
-		return 0, err
+		reader, err := fh.fs.client.Open(fh.fs.GetPath(fh.name))
+		if err != nil {
+			log.Errorf("hdfs client open err: %v", err)
+			return 0, err
+		}
+		fh.reader = reader
 	}
 	n, err := fh.reader.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
