@@ -225,7 +225,15 @@ func (r *Resource) IsNegative() bool {
 	return isNegative
 }
 
+// IsZero check resource cpu and resource
 func (r *Resource) IsZero() bool {
+	if r.CPU() == 0 || r.Memory() == 0 {
+		return true
+	}
+	return false
+}
+
+func (r *Resource) IsAllZero() bool {
 	isZero := true
 	if r != nil {
 		for _, rQuantity := range r.Resources {

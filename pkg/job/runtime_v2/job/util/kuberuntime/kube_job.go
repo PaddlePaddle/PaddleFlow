@@ -380,7 +380,7 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	// container.Args would be passed
 	// fill resource
 	var err error
-	container.Resources, err = GenerateResourceRequirements(task.Flavour)
+	container.Resources, err = GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
 	if err != nil {
 		log.Errorf("generate resource requirements failed, err: %v", err)
 		return err
@@ -439,7 +439,7 @@ func generateContainerCommand(command string, workdir string) []string {
 	return commands
 }
 
-func GenerateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
+func GenerateResourceRequirements(flavour, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
 	log.Infof("GenerateResourceRequirements by flavour:[%+v]", flavour)
 
 	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
@@ -447,11 +447,20 @@ func GenerateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequir
 		log.Errorf("GenerateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
 		return corev1.ResourceRequirements{}, err
 	}
+
+	limitFlavourResource, err := resources.NewResourceFromMap(limitFlavour.ToMap())
+	if err != nil {
+		log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", flavour, err)
+		return corev1.ResourceRequirements{}, err
+	}
+
 	resources := corev1.ResourceRequirements{
 		Requests: k8s.NewResourceList(flavourResource),
 		Limits:   k8s.NewResourceList(flavourResource),
 	}
-
+	if !limitFlavourResource.IsZero() {
+		resources.Limits = k8s.NewResourceList(limitFlavourResource)
+	}
 	return resources, nil
 }
 

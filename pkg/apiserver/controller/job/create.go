@@ -163,30 +163,61 @@ func validateMembersScheduleInfo(ctx *logger.RequestContext, request *CreateJobI
 	return nil
 }
 
+func parseFlavourResource(flavour schema.Flavour) (*resources.Resource, error) {
+	memberRes, err := resources.NewResourceFromMap(flavour.ResourceInfo.ToMap())
+	if err != nil {
+		log.Errorf("Failed to get resourceInfo from flavour %v, err: %v", flavour, err)
+		return nil, err
+	}
+
+	if memberRes.IsZero() {
+		err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+		log.Errorf("Failed to check flavour: %v", err)
+		return nil, err
+	}
+	return memberRes, nil
+}
+
 func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	var err error
 	sumResource := resources.EmptyResource()
+
 	for index, member := range request.Members {
-		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
-		if err != nil {
+		var limitResource, requestResource *resources.Resource
+		var limitFlavour schema.Flavour
+		// validate LimitFlavour
+		if len(member.Env) != 0 && member.Env[schema.EnvJobLimitFlavour] != "" {
+			flavourName := member.Env[schema.EnvJobLimitFlavour]
+			limitFlavour = schema.Flavour{Name: flavourName}
+			if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
+				log.Errorf("get limit flavour[%s] failed, err:%v", flavourName, err)
+				return err
+			}
+			request.Members[index].LimitFlavour = limitFlavour
+			if limitResource, err = parseFlavourResource(limitFlavour); err != nil {
+				log.Errorf("parse Flavour resource failed, err:%v", err)
+				return err
+			}
+		}
+		// validate Flavour and validate total Resource
+		if member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour); err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
 			return err
 		}
 		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
-		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
-		if err != nil {
-			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
-			ctx.ErrorCode = common.JobInvalidField
+		if requestResource, err = parseFlavourResource(member.Flavour); err != nil {
+			log.Errorf("parse Flavour resource failed, err:%v", err)
 			return err
 		}
-		ctx.Logging().Debugf("member resource info %v", member.Flavour.ResourceInfo)
-		if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
-			err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+		// compare limit and request
+		if limitResource != nil && !requestResource.LessEqual(limitResource) {
+			err = fmt.Errorf("request %#v is greater than limit %#v", requestResource, limitResource)
 			ctx.Logging().Errorf("Failed to check flavour: %v", err)
 			return err
 		}
-		memberRes.Multi(member.Replicas)
-		sumResource.Add(memberRes)
+
+		requestResource.Multi(member.Replicas)
+		sumResource.Add(requestResource)
 	}
 	// validate queue and total-member-resource
 	// if EnvSkipRV is set, it will pass the validation for 0-Capability volcano queue
@@ -868,6 +899,9 @@ func fillStandaloneJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
 			JobSpec: JobSpec{
 				Flavour: schema.Flavour{
 					Name: conf.GetFlavour(),
+				},
+				LimitFlavour: schema.Flavour{
+					Name: conf.GetLimitFlavour(),
 				},
 				FileSystem:       conf.GetFileSystem(),
 				ExtraFileSystems: conf.GetExtraFS(),

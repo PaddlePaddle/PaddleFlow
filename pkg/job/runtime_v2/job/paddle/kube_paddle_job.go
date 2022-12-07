@@ -407,7 +407,7 @@ func (pj *KubePaddleJob) patchResource(pdj *paddlejobv1.PaddleJob, job *api.PFJo
 		if pfschema.IsEmptyResource(task.Flavour.ResourceInfo) {
 			continue
 		}
-		resourceRequirements, err := kuberuntime.GenerateResourceRequirements(task.Flavour)
+		resourceRequirements, err := kuberuntime.GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
 		if err != nil {
 			log.Errorf("generate resource requirements failed, err: %v", err)
 			return err
