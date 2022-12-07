@@ -1178,7 +1178,7 @@ func (m *kvMeta) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Att
 	return syscall.ENOSYS
 }
 
-//badger do not allow a Tnx which is too big
+// badger do not allow a Tnx which is too big
 type entrySliceItem struct {
 	name string
 	et   *entryItem
@@ -1230,48 +1230,41 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	log.Debugf("kv meta readdir inode[%v]", inode)
 	*entries = []*Entry{}
 	dirInodeItem := &inodeItem{}
-	buf, err := m.get(m.inodeKey(inode))
-	if err != nil {
-		return syscall.EIO
-	}
-	if buf == nil {
-		return syscall.ENOENT
-	}
-	m.parseInode(buf, dirInodeItem)
-	parentIno := dirInodeItem.parentIno
-
-	entry, err := m.get(m.entryKey(parentIno, string(dirInodeItem.name)))
-	if err != nil {
-		return utils.ToSyscallErrno(err)
-	}
-
-	if entry != nil {
-		dirEntryItem := &entryItem{}
-		m.parseEntry(entry, dirEntryItem)
-		if dirEntryItem.done == entryDone && !m.entryItemExpired(dirEntryItem) {
-			ens, err := m.scanValues(m.entryKey(inode, ""))
-			if err != nil {
-				return utils.ToSyscallErrno(err)
-			}
-			prefix := len(m.entryKey(inode, ""))
-			var childEntryItem *entryItem
-			for name, childEntryBuf := range ens {
-				childEntryItem = &entryItem{}
-				m.parseEntry(childEntryBuf, childEntryItem)
-				en := &Entry{
-					Ino:  childEntryItem.ino,
-					Name: name[prefix:],
-					Attr: &Attr{Mode: childEntryItem.mode},
-				}
-				*entries = append(*entries, en)
-			}
-			return syscall.F_OK
-		}
-	}
 	entrySlice := make([]entrySliceItem, 0)
 	inodeSlice := make([]inodeSliceItem, 0)
+	var parentIno Ino
 	now := time.Now()
-	err = m.txn(func(tx kv.KvTxn) error {
+	err := m.txn(func(tx kv.KvTxn) error {
+		buf := tx.Get(m.inodeKey(inode))
+		if buf == nil {
+			return syscall.ENOENT
+		}
+		m.parseInode(buf, dirInodeItem)
+		parentIno = dirInodeItem.parentIno
+		entry := tx.Get(m.entryKey(parentIno, string(dirInodeItem.name)))
+		if entry != nil {
+			dirEntryItem := &entryItem{}
+			m.parseEntry(entry, dirEntryItem)
+			if dirEntryItem.done == entryDone && !m.entryItemExpired(dirEntryItem) {
+				ens, err := tx.ScanValues(m.entryKey(inode, ""))
+				if err != nil {
+					return err
+				}
+				prefix := len(m.entryKey(inode, ""))
+				// var childEntryItem *entryItem
+				for name, childEntryBuf := range ens {
+					childEntryItem := &entryItem{}
+					m.parseEntry(childEntryBuf, childEntryItem)
+					en := &Entry{
+						Ino:  childEntryItem.ino,
+						Name: name[prefix:],
+						Attr: &Attr{Mode: childEntryItem.mode},
+					}
+					*entries = append(*entries, en)
+				}
+				return nil
+			}
+		}
 		absolutePath := m.absolutePath(inode, tx)
 		ufs_, isLink, _, path := m.GetUFS(absolutePath)
 		dirs, err := ufs_.ReadDir(path)
@@ -1399,7 +1392,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 		log.Errorf("meta-kv read dir from ufs succeed, but update entries err: %s", err.Error())
 		return utils.ToSyscallErrno(err)
 	}
-	//update dir
+	// update dir
 	insertDirEntry := &entryItem{
 		ino:    inode,
 		mode:   dirInodeItem.attr.Mode,

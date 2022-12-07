@@ -190,7 +190,7 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 	if utils.IsError(err) {
 		return nil, err
 	}
-	log.Debugf("vfs lookup inode[%x] from meta: attr[%+v] ", inode, *attr)
+	log.Debugf("vfs lookup inode[%v] from meta: attr[%+v] ", inode, *attr)
 	entry = &meta.Entry{Ino: inode, Attr: attr}
 	return entry, err
 }
