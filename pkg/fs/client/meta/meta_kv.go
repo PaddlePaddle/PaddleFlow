@@ -1261,7 +1261,6 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 						Attr: &Attr{Mode: childEntryItem.mode},
 					}
 					*entries = append(*entries, en)
-					log.Infof("entry read parent %v name %s inode %v mode %v and name %s", inode, en.Name, en.Ino, en.Attr.Mode, name)
 				}
 				return nil
 			}
