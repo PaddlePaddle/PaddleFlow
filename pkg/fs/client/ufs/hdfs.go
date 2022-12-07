@@ -215,7 +215,6 @@ func (fs *hdfsFileSystem) Truncate(name string, size uint64) error {
 		flags := syscall.O_CREAT | syscall.O_EXCL
 		fh, err := fs.Create(name, uint32(flags), 0644)
 		if err != nil {
-			log.Errorf("hdfsFileSystem name[%s] Truncate Create error: %v", name, err)
 			return err
 		}
 		fh.Release()
@@ -240,7 +239,6 @@ func (fs *hdfsFileSystem) Mkdir(name string, mode uint32) error {
 	defer fs.Unlock()
 	err := fs.client.Mkdir(fs.GetPath(name), os.FileMode(mode))
 	if err != nil {
-		log.Errorf("hdfsFileSystem name[%s] Mkdirk error: %v", name, err)
 		if strings.HasSuffix(err.Error(), "file already exists") {
 			err = syscall.EEXIST
 		}
@@ -327,7 +325,7 @@ func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 func (fs *hdfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	reader, err := fs.client.Open(fs.GetPath(name))
 	if err != nil {
-		log.Errorf("hdfs client open err: %v", err)
+		log.Debugf("hdfs client open err: %v", err)
 		return nil, err
 	}
 	if off > 0 {
@@ -354,7 +352,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 	flag := fs.GetOpenFlags(name, flags)
 
 	if flag < 0 {
-		log.Errorf("hdfs open flag<0")
+		log.Debugf("hdfs open flag<0")
 		return nil, syscall.ENOSYS
 	}
 

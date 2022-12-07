@@ -1248,7 +1248,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 			if dirEntryItem.done == entryDone && !m.entryItemExpired(dirEntryItem) {
 				ens, err := tx.ScanValues(m.entryKey(inode, ""))
 				if err != nil {
-					return utils.ToSyscallErrno(err)
+					return err
 				}
 				prefix := len(m.entryKey(inode, ""))
 				// var childEntryItem *entryItem

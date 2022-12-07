@@ -19,6 +19,7 @@ package ufs
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -156,6 +157,108 @@ func Test_hdfsFileSystem_shouldRetry(t *testing.T) {
 				Mutex:       tt.fields.Mutex,
 			}
 			assert.Equalf(t, tt.want, fs.shouldRetry(tt.args.err), "shouldRetry(%v)", tt.args.err)
+		})
+	}
+}
+
+func Test_hdfsFileHandle_Read(t *testing.T) {
+	type fields struct {
+		name   string
+		fs     *hdfsFileSystem
+		writer *hdfs.FileWriter
+		reader *hdfs.FileReader
+	}
+	type args struct {
+		buf []byte
+		off uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "reader fail",
+			fields: fields{
+				name: "1",
+				fs:   &hdfsFileSystem{client: &hdfs.Client{}},
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, fmt.Errorf("oepn fail")
+	})
+	defer p2.Reset()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &hdfsFileHandle{
+				name:   tt.fields.name,
+				fs:     tt.fields.fs,
+				writer: tt.fields.writer,
+				reader: tt.fields.reader,
+			}
+			got, err := fh.Read(tt.args.buf, tt.args.off)
+			if !tt.wantErr(t, err, fmt.Sprintf("Read(%v, %v)", tt.args.buf, tt.args.off)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Read(%v, %v)", tt.args.buf, tt.args.off)
+		})
+	}
+}
+
+func Test_hdfsFileHandle_Write(t *testing.T) {
+	type fields struct {
+		name   string
+		fs     *hdfsFileSystem
+		writer *hdfs.FileWriter
+		reader *hdfs.FileReader
+	}
+	type args struct {
+		data []byte
+		off  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    uint32
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "write fail",
+			fields: fields{
+				name: "1",
+				fs:   &hdfsFileSystem{client: &hdfs.Client{}},
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+		return nil, fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")
+	})
+	defer p2.Reset()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &hdfsFileHandle{
+				name:   tt.fields.name,
+				fs:     tt.fields.fs,
+				writer: tt.fields.writer,
+				reader: tt.fields.reader,
+			}
+			got, err := fh.Write(tt.args.data, tt.args.off)
+			if !tt.wantErr(t, err, fmt.Sprintf("Write(%v, %v)", tt.args.data, tt.args.off)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Write(%v, %v)", tt.args.data, tt.args.off)
 		})
 	}
 }
