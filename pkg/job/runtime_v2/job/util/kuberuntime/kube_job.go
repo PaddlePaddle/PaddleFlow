@@ -456,10 +456,19 @@ func GenerateResourceRequirements(flavour, limitFlavour schema.Flavour) (corev1.
 
 	resources := corev1.ResourceRequirements{
 		Requests: k8s.NewResourceList(flavourResource),
-		Limits:   k8s.NewResourceList(flavourResource),
 	}
-	if !limitFlavourResource.IsZero() {
-		resources.Limits = k8s.NewResourceList(limitFlavourResource)
+	if limitFlavour.Name == schema.EnvJobLimitFlavourNone {
+		resources.Limits = nil
+	} else if limitFlavourResource.IsZero() {
+		resources = corev1.ResourceRequirements{
+			Requests: k8s.NewResourceList(flavourResource),
+			Limits:   k8s.NewResourceList(flavourResource),
+		}
+	} else {
+		resources = corev1.ResourceRequirements{
+			Requests: k8s.NewResourceList(flavourResource),
+			Limits:   k8s.NewResourceList(limitFlavourResource),
+		}
 	}
 	return resources, nil
 }

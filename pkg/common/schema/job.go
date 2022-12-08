@@ -63,10 +63,11 @@ const (
 	EnvJobWorkerCommand   = "PF_JOB_WORKER_COMMAND"
 
 	// EnvJobModeCollective env
-	EnvJobModeCollective = "Collective"
-	EnvJobReplicas       = "PF_JOB_REPLICAS"
-	EnvJobFlavour        = "PF_JOB_FLAVOUR"
-	EnvJobLimitFlavour   = "PF_JOB_LIMIT_FLAVOUR"
+	EnvJobModeCollective   = "Collective"
+	EnvJobReplicas         = "PF_JOB_REPLICAS"
+	EnvJobFlavour          = "PF_JOB_FLAVOUR"
+	EnvJobLimitFlavour     = "PF_JOB_LIMIT_FLAVOUR"
+	EnvJobLimitFlavourNone = "None"
 
 	// EnvJobModePod env reuse EnvJobReplicas and EnvJobFlavour
 	EnvJobModePod = "Pod"

@@ -185,8 +185,26 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 	for index, member := range request.Members {
 		var limitResource, requestResource *resources.Resource
 		var limitFlavour schema.Flavour
-		// validate LimitFlavour
-		if len(member.Env) != 0 && member.Env[schema.EnvJobLimitFlavour] != "" {
+		// validate LimitFlavour when env is set
+		limitFlavourName := member.Env[schema.EnvJobLimitFlavour]
+		if limitFlavourName != "" {
+			// if env is schema.EnvJobLimitFlavourNone, only set name=None, which mean resource.limit is nil
+			// else query flavour in db and set resource.limit to a specified flavour
+			limitFlavour = schema.Flavour{Name: limitFlavourName}
+			if limitFlavourName != schema.EnvJobLimitFlavourNone {
+				if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
+					log.Errorf("get limit flavour[%s] failed, err:%v", limitFlavourName, err)
+					return err
+				}
+				if limitResource, err = parseFlavourResource(limitFlavour); err != nil {
+					log.Errorf("parse Flavour resource failed, err:%v", err)
+					return err
+				}
+			}
+			request.Members[index].LimitFlavour = limitFlavour
+		}
+
+		if len(member.Env) != 0 && member.Env[schema.EnvJobLimitFlavour] != schema.EnvJobLimitFlavourNone {
 			flavourName := member.Env[schema.EnvJobLimitFlavour]
 			limitFlavour = schema.Flavour{Name: flavourName}
 			if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
@@ -664,6 +682,7 @@ func buildMembers(request *CreateJobInfo) []schema.Member {
 	members := make([]schema.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
+		log.Debugf("reqMember %#v, role is %s", reqMember, reqMember.Role)
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
 		buildCommonInfo(&member.Conf, &request.CommonJobInfo)
 		members = append(members, member)
@@ -687,6 +706,7 @@ func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 
 // newMember convert request.Member to models.member
 func newMember(member MemberSpec, role schema.MemberRole) schema.Member {
+	log.Debugf("newMember is %#v", member)
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
