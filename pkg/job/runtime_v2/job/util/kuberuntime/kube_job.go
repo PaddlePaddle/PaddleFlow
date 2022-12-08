@@ -380,7 +380,7 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	// container.Args would be passed
 	// fill resource
 	var err error
-	container.Resources, err = GenerateResourceRequirements(task.Flavour)
+	container.Resources, err = GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
 	if err != nil {
 		log.Errorf("generate resource requirements failed, err: %v", err)
 		return err
@@ -439,19 +439,33 @@ func generateContainerCommand(command string, workdir string) []string {
 	return commands
 }
 
-func GenerateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
-	log.Infof("GenerateResourceRequirements by flavour:[%+v]", flavour)
+func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
+	log.Infof("GenerateResourceRequirements by request:[%+v]", request)
 
-	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
+	flavourResource, err := resources.NewResourceFromMap(request.ToMap())
 	if err != nil {
-		log.Errorf("GenerateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
+		log.Errorf("GenerateResourceRequirements by request:[%+v] error:%v", request, err)
 		return corev1.ResourceRequirements{}, err
 	}
-	resources := corev1.ResourceRequirements{
-		Requests: k8s.NewResourceList(flavourResource),
-		Limits:   k8s.NewResourceList(flavourResource),
+
+	limitFlavourResource, err := resources.NewResourceFromMap(limitFlavour.ToMap())
+	if err != nil {
+		log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", request, err)
+		return corev1.ResourceRequirements{}, err
 	}
 
+	resources := corev1.ResourceRequirements{
+		Requests: k8s.NewResourceList(flavourResource),
+	}
+	if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
+		resources.Limits = nil
+	} else if limitFlavourResource.CPU() == 0 || limitFlavourResource.Memory() == 0 {
+		// limit set zero, patch the same value as request
+		resources.Limits = k8s.NewResourceList(flavourResource)
+	} else {
+		// limit set specified value
+		resources.Limits = k8s.NewResourceList(limitFlavourResource)
+	}
 	return resources, nil
 }
 

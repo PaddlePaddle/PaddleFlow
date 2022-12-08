@@ -144,7 +144,7 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	}
 	// set resource
 	var err error
-	container.Resources, err = kuberuntime.GenerateResourceRequirements(task.Flavour)
+	container.Resources, err = kuberuntime.GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
 	if err != nil {
 		log.Errorf("generate resource requirements failed, err: %v", err)
 		return err
