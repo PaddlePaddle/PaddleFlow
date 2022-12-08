@@ -75,26 +75,6 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 	return realStatus, nil
 }
 
-func GetTaskStatus(podStatus *v1.PodStatus) (schema.TaskStatus, error) {
-	status := schema.TaskStatus("")
-	if podStatus == nil {
-		return status, fmt.Errorf("the status of pod is nil")
-	}
-	switch podStatus.Phase {
-	case v1.PodPending:
-		status = schema.StatusTaskPending
-	case v1.PodRunning:
-		status = schema.StatusTaskRunning
-	case v1.PodSucceeded:
-		status = schema.StatusTaskSucceeded
-	case v1.PodFailed, v1.PodUnknown:
-		status = schema.StatusTaskFailed
-	default:
-		return status, fmt.Errorf("unexpected task status: %s", podStatus.Phase)
-	}
-	return status, nil
-}
-
 // SparkAppStatus get spark application status, message from interface{}, and covert to JobStatus
 func SparkAppStatus(obj interface{}) (StatusInfo, error) {
 	status, err := ConvertToStatus(obj, SparkAppGVK)
