@@ -717,9 +717,10 @@ func newMember(member MemberSpec, role schema.MemberRole) schema.Member {
 		FileSystem:      member.FileSystem,
 		ExtraFileSystem: member.ExtraFileSystems,
 		// 计算资源
-		Flavour:  member.Flavour,
-		Priority: member.SchedulingPolicy.Priority,
-		QueueID:  member.SchedulingPolicy.QueueID,
+		Flavour:      member.Flavour,
+		LimitFlavour: member.LimitFlavour,
+		Priority:     member.SchedulingPolicy.Priority,
+		QueueID:      member.SchedulingPolicy.QueueID,
 		// 运行时需要的参数
 		Labels:      member.Labels,
 		Annotations: member.Annotations,

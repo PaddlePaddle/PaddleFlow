@@ -439,18 +439,18 @@ func generateContainerCommand(command string, workdir string) []string {
 	return commands
 }
 
-func GenerateResourceRequirements(flavour, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
-	log.Infof("GenerateResourceRequirements by flavour:[%+v]", flavour)
+func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
+	log.Infof("GenerateResourceRequirements by request:[%+v]", request)
 
-	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
+	flavourResource, err := resources.NewResourceFromMap(request.ToMap())
 	if err != nil {
-		log.Errorf("GenerateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
+		log.Errorf("GenerateResourceRequirements by request:[%+v] error:%v", request, err)
 		return corev1.ResourceRequirements{}, err
 	}
 
 	limitFlavourResource, err := resources.NewResourceFromMap(limitFlavour.ToMap())
 	if err != nil {
-		log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", flavour, err)
+		log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", request, err)
 		return corev1.ResourceRequirements{}, err
 	}
 
