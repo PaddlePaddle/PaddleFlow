@@ -139,14 +139,13 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	}
 	// set resource
 	var err error
-	container.Resources, err = kuberuntime.GenerateResourceRequirements(job.Conf.Flavour)
+	container.Resources, err = kuberuntime.GenerateResourceRequirements(job.Conf.Flavour, job.Conf.LimitFlavour)
 	if err != nil {
 		log.Errorf("generate resource requirements failed, err: %v", err)
 		return err
 	}
 	podSpec.Containers[0] = container
 	return nil
-
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {

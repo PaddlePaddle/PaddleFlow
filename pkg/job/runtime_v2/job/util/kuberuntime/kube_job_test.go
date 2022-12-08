@@ -280,3 +280,104 @@ func TestBuildPodTemplateSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateResourceRequirements(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+	type args struct {
+		flavour      schema.Flavour
+		limitFlavour schema.Flavour
+	}
+	testCases := []struct {
+		testName string
+		args     args
+		err      error
+	}{
+		{
+			testName: "success",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "2",
+						Mem: "2",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "success2",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "negative resources not permitted",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "-1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 mem:1]"),
+		},
+		{
+			testName: "limitFlavour negative resources not permitted",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "-1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 mem:1]"),
+		},
+	}
+
+	driver.InitMockDB()
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			res, err := GenerateResourceRequirements(tt.args.flavour, tt.args.limitFlavour)
+			assert.Equal(t, tt.err, err)
+			if err == nil {
+				t.Logf("res is %#v", res)
+			}
+		})
+	}
+
+}

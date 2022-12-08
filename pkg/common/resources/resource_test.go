@@ -63,39 +63,66 @@ var marshalTestCases = []struct {
 	},
 }
 
+type _Args struct {
+	isZero    bool
+	isAllZero bool
+}
+
 var unmarshalTestCases = []struct {
 	name         string
 	resourceJSON string
+	args         _Args
 	err          error
 }{
 	{
 		name:         "resource with null string",
 		resourceJSON: `{"cpu":"","mem":""}`,
-		err:          nil,
+		args: _Args{
+			isZero:    true,
+			isAllZero: true,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with zero string",
 		resourceJSON: `{"cpu":"0","mem":"1Ki"}`,
-		err:          nil,
+		args: _Args{
+			isZero:    true,
+			isAllZero: false,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with 10 milli cpu",
 		resourceJSON: `{"cpu":"10m","mem":"1Mi"}`,
-		err:          nil,
+		args: _Args{
+			isZero:    false,
+			isAllZero: false,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with 1 cpu",
 		resourceJSON: `{"cpu":"1","mem":"1M"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 	{
 		name:         "resource with 1k cpu",
 		resourceJSON: `{"cpu":"1k","mem":"1Gi"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 	{
 		name:         "resource with 1G mem",
 		resourceJSON: `{"cpu":"1","mem":"1G"}`,
+		args:         _Args{},
+		err:          nil,
+	},
+	{
+		name:         "test compatible with old mem",
+		resourceJSON: `{"cpu":"1","mem":"1G"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 }
