@@ -345,7 +345,7 @@ func TestGenerateResourceRequirements(t *testing.T) {
 					Name: "flavour1",
 				},
 			},
-			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 memory:1]"),
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 mem:1]"),
 		},
 		{
 			testName: "limitFlavour negative resources not permitted",
@@ -365,7 +365,7 @@ func TestGenerateResourceRequirements(t *testing.T) {
 					Name: "flavour1",
 				},
 			},
-			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 memory:1]"),
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 mem:1]"),
 		},
 	}
 
