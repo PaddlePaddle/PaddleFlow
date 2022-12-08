@@ -1,6 +1,7 @@
 package job
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,9 @@ const (
 	MockQueueName   = "default-queue"
 	MockQueueID     = "default-queue"
 	MockClusterName = "default-cluster"
+	MockFlavour0    = "default-flavour0"
+	MockFlavour1    = "default-flavour1"
+	MockFlavour2    = "default-flavour2"
 )
 
 var clusterInfo = model.ClusterInfo{
@@ -47,6 +51,36 @@ func TestCreatePFJob(t *testing.T) {
 		ClusterType: schema.KubernetesType,
 	})
 	assert.Equal(t, nil, err)
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour0,
+		},
+		Name: MockFlavour0,
+		CPU:  "0",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour1,
+		},
+		Name: MockFlavour1,
+		CPU:  "1",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour2,
+		},
+		Name: MockFlavour2,
+		CPU:  "2",
+		Mem:  "8",
+	})
+	assert.Equal(t, nil, err)
+
 	maxRes, err := resources.NewResourceFromMap(map[string]string{
 		resources.ResCPU:    "10",
 		resources.ResMemory: "20Gi",
@@ -309,6 +343,192 @@ func TestCreatePFJob(t *testing.T) {
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "env limit flavour not found",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Env: map[string]string{
+									schema.EnvJobLimitFlavour: "fake",
+								},
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "env limit flavour is zero",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Env: map[string]string{
+									schema.EnvJobLimitFlavour: MockFlavour0,
+								},
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "3"}},
+							},
+						},
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePWorker),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+							},
+						},
+					},
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "env limit flavour is less than request's",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					CommonJobInfo: CommonJobInfo{
+						ID:          uuid.GenerateIDWithLength("job", 5),
+						Name:        "normal",
+						Labels:      map[string]string{},
+						Annotations: map[string]string{},
+						SchedulingPolicy: SchedulingPolicy{
+							Queue: MockQueueName,
+						},
+					},
+					Type:      schema.TypeDistributed,
+					Framework: schema.FrameworkPaddle,
+					Members: []MemberSpec{
+						{
+							Replicas: 1,
+							Role:     string(schema.RolePServer),
+							CommonJobInfo: CommonJobInfo{
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Command: "sleep 20",
+								Env: map[string]string{
+									schema.EnvJobLimitFlavour: MockFlavour1,
+								},
+								Flavour: schema.Flavour{
+									ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
 							},
 						},
 						{
@@ -783,6 +1003,128 @@ func TestCreatePFJob(t *testing.T) {
 			res, err := CreatePFJob(tt.args.ctx, tt.args.req)
 			t.Logf("case[%s] create job, response=%+v", tt.name, res)
 			if tt.wantErr {
+				assert.Error(t, err)
+				t.Logf("name=%s err: %v", tt.name, err)
+			} else {
+				assert.Equal(t, nil, err)
+				t.Logf("response: %+v", res)
+			}
+		})
+	}
+
+}
+
+func TestCreatePPLJob(t *testing.T) {
+	driver.InitMockDB()
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.IsSingleCluster = true
+
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name:        MockClusterName,
+		ClusterType: schema.KubernetesType,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour0,
+		},
+		Name: MockFlavour0,
+		CPU:  "0",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour1,
+		},
+		Name: MockFlavour1,
+		CPU:  "1",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour2,
+		},
+		Name: MockFlavour2,
+		CPU:  "2",
+		Mem:  "8",
+	})
+	assert.Equal(t, nil, err)
+
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "20Gi",
+		"nvidia.com/gpu":    "500",
+	})
+	assert.Equal(t, nil, err)
+	queueInfo := model.Queue{
+		Model: model.Model{
+			ID: MockQueueID,
+		},
+		Name:         MockQueueName,
+		Namespace:    "default",
+		MaxResources: maxRes,
+		MinResources: maxRes,
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		ClusterId:    MockClusterName,
+		ClusterName:  MockClusterName,
+		Status:       "open",
+	}
+	err = storage.Queue.CreateQueue(&queueInfo)
+	assert.NoError(t, err)
+
+	type args struct {
+		req *schema.Conf
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "image are empty",
+			args: args{
+				req: &schema.Conf{
+					Name:            "ppl",
+					Env:             map[string]string{},
+					Command:         "",
+					Image:           "",
+					ExtraFileSystem: nil,
+					QueueName:       MockQueueName,
+					Priority:        "low",
+				},
+			},
+			wantErr: fmt.Errorf("required fields in {image} are empty, please fill it"),
+		},
+		{
+			name: "image are empty",
+			args: args{
+				req: &schema.Conf{
+					Name:            "ppl",
+					Env:             map[string]string{},
+					Command:         "",
+					Image:           "busybox:1",
+					ExtraFileSystem: nil,
+					QueueName:       MockQueueName,
+					Priority:        "low",
+				},
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			res, err := CreatePPLJob(tt.args.req)
+			t.Logf("case[%s] create job, response=%+v", tt.name, res)
+			if tt.wantErr != nil {
 				assert.Error(t, err)
 				t.Logf("name=%s err: %v", tt.name, err)
 			} else {
