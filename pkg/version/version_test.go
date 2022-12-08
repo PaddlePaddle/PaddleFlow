@@ -1,11 +1,11 @@
 /*
-Copyright 2017 Google LLC
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package,register
-// go:generate controller-gen crd:trivialVersions=true paths=. output:dir=.
+package version
 
-// Package v1beta2 is the v1beta2 version of the API.
-// +groupName=sparkoperator.k8s.io
-// +versionName=v1beta2
-package v1beta2
+import "testing"
+
+func TestInfoStr(t *testing.T) {
+	iStr := InfoStr()
+	t.Logf("info: %s", iStr)
+}
