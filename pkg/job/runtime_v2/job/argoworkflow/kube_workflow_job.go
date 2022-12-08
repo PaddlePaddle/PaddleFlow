@@ -24,7 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -43,22 +42,14 @@ var (
 
 // KubeArgoWorkflowJob is a struct that runs an argo workflow
 type KubeArgoWorkflowJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
+	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeArgoWorkflowJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeArgoWorkflowFwVersion,
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeArgoWorkflowFwVersion, kubeClient),
 	}
-}
-
-func (pj *KubeArgoWorkflowJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.runtimeClient.Cluster())
 }
 
 func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -88,7 +79,7 @@ func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), argoWfJob)
-	err = pj.runtimeClient.Create(argoWfJob, pj.frameworkVersion)
+	err = pj.RuntimeClient.Create(argoWfJob, pj.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -99,50 +90,6 @@ func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error
 func (pj *KubeArgoWorkflowJob) customTFJobSpec(spec *wfv1.WorkflowSpec, job *api.PFJob) error {
 	// TODO: patch workflow spec
 	return nil
-}
-
-func (pj *KubeArgoWorkflowJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeArgoWorkflowJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", pj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, pj.runtimeClient, pj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeArgoWorkflowJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeArgoWorkflowJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
 }
 
 func (pj *KubeArgoWorkflowJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {

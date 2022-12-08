@@ -24,7 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -43,24 +42,15 @@ var (
 
 // KubeSingleJob is an executor struct that runs a single job
 type KubeSingleJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
-	taskQueue        workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
+	jobQueue  workqueue.RateLimitingInterface
+	taskQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
-	singleJob := &KubeSingleJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeSingleFwVersion,
+	return &KubeSingleJob{
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeSingleFwVersion, kubeClient),
 	}
-	return singleJob
-}
-
-func (sp *KubeSingleJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", sp.GVK.String(), name, sp.runtimeClient.Cluster())
 }
 
 func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -101,7 +91,7 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, singlePod: %s", sp.String(jobName), singlePod)
-	err = sp.runtimeClient.Create(singlePod, sp.frameworkVersion)
+	err = sp.RuntimeClient.Create(singlePod, sp.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(jobName), err)
 		return err
@@ -163,50 +153,6 @@ func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error 
 		job.Tasks[0].Name = job.ID
 	}
 	return kuberuntime.BuildPod(jobPod, job.Tasks[0])
-}
-
-func (sp *KubeSingleJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", sp.String(jobName))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", sp.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sp *KubeSingleJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", sp.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, sp.runtimeClient, sp.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", sp.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sp *KubeSingleJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", sp.String(jobName))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", sp.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sp *KubeSingleJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
 }
 
 func (sp *KubeSingleJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {

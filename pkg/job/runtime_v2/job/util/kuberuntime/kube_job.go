@@ -17,6 +17,7 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -47,6 +48,68 @@ import (
 const (
 	DefaultReplicas = 1
 )
+
+type KubeBaseJob struct {
+	GVK              kubeschema.GroupVersionKind
+	FrameworkVersion schema.FrameworkVersion
+	RuntimeClient    framework.RuntimeClientInterface
+}
+
+func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, fv schema.FrameworkVersion, c framework.RuntimeClientInterface) KubeBaseJob {
+	return KubeBaseJob{
+		GVK:              gvk,
+		FrameworkVersion: fv,
+		RuntimeClient:    c,
+	}
+}
+
+func (pj *KubeBaseJob) String(name string) string {
+	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.RuntimeClient.Cluster())
+}
+
+func (pj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to stop %s", pj.String(jobName))
+	if err := pj.RuntimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
+		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (pj *KubeBaseJob) Update(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to update %s", pj.String(jobName))
+	if err := UpdateKubeJob(job, pj.RuntimeClient, pj.FrameworkVersion); err != nil {
+		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (pj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to delete %s ", pj.String(jobName))
+	if err := pj.RuntimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
+		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (pj *KubeBaseJob) GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
+	// TODO: add get log logic
+	return schema.JobLogInfo{}, nil
+}
 
 // ResponsibleForJob filter job belong to PaddleFlow
 func ResponsibleForJob(obj interface{}) bool {

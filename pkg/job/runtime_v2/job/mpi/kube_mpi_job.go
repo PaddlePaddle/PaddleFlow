@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -45,22 +44,14 @@ var (
 
 // KubeMPIJob is a struct that runs a mpi job
 type KubeMPIJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
+	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeMPIJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeMPIFwVersion,
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeMPIFwVersion, kubeClient),
 	}
-}
-
-func (mj *KubeMPIJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", mj.GVK.String(), name, mj.runtimeClient.Cluster())
 }
 
 func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -87,7 +78,7 @@ func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), mpiJob)
-	err = mj.runtimeClient.Create(mpiJob, mj.frameworkVersion)
+	err = mj.RuntimeClient.Create(mpiJob, mj.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
@@ -139,50 +130,6 @@ func (mj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PF
 	// TODO: patch mpi job from user
 	// check RunPolicy
 	return kuberuntime.KubeflowRunPolicy(&mpiJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
-}
-
-func (mj *KubeMPIJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", mj.String(jobName))
-	if err := mj.runtimeClient.Delete(job.Namespace, job.ID, mj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", mj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (mj *KubeMPIJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", mj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, mj.runtimeClient, mj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", mj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (mj *KubeMPIJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", mj.String(jobName))
-	if err := mj.runtimeClient.Delete(job.Namespace, job.ID, mj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", mj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (mj *KubeMPIJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
 }
 
 func (mj *KubeMPIJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
