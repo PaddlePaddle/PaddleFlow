@@ -138,13 +138,14 @@ func TestBuildPodSpec(t *testing.T) {
 	driver.InitMockDB()
 	for _, testCase := range testCases {
 		t.Run(testCase.testName, func(t *testing.T) {
-			storage.FsCache.Add(&model.FSCache{
+			err := storage.FsCache.Add(&model.FSCache{
 				FsID:      testCase.task.Conf.FileSystem.ID,
 				CacheDir:  "./xx",
 				NodeName:  "instance1",
 				ClusterID: "xxx",
 			})
-			err := BuildPodSpec(testCase.podSpec, testCase.task)
+			assert.Equal(t, nil, err)
+			err = BuildPodSpec(testCase.podSpec, testCase.task)
 			assert.Equal(t, testCase.err, err)
 		})
 	}

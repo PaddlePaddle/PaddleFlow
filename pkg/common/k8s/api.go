@@ -17,10 +17,7 @@ limitations under the License.
 package k8s
 
 import (
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -113,89 +110,4 @@ type StatusInfo struct {
 	OriginStatus string
 	Status       commomschema.JobStatus
 	Message      string
-}
-
-type PodStatusMessage struct {
-	Phase             v1.PodPhase              `json:"phase,omitempty"`
-	Message           string                   `json:"message,omitempty"`
-	Reason            string                   `json:"reason,omitempty"`
-	ContainerMessages []ContainerStatusMessage `json:"containerMessages,omitempty"`
-}
-
-func (ps *PodStatusMessage) String() string {
-	msg := fmt.Sprintf("pod phase is %s", ps.Phase)
-	if len(ps.Reason) != 0 {
-		msg += fmt.Sprintf(" with reason %s", ps.Reason)
-	}
-	if len(ps.Message) != 0 {
-		msg += fmt.Sprintf(", detail message: %s", ps.Message)
-	}
-	// Container status message
-	if len(ps.ContainerMessages) != 0 {
-		msg += ". Containers status:"
-	}
-	for _, cs := range ps.ContainerMessages {
-		msg += fmt.Sprintf(" %s;", cs.String())
-	}
-	return msg
-}
-
-type ContainerStatusMessage struct {
-	Name            string                       `json:"name,omitempty"`
-	ContainerID     string                       `json:"containerID,omitempty"`
-	RestartCount    int32                        `json:"restartCount,omitempty"`
-	WaitingState    *v1.ContainerStateWaiting    `json:"waitingState,omitempty"`
-	TerminatedState *v1.ContainerStateTerminated `json:"terminatedState,omitempty"`
-}
-
-func (cs *ContainerStatusMessage) String() string {
-	msg := fmt.Sprintf("container %s with restart count %d", cs.Name, cs.RestartCount)
-	if len(cs.ContainerID) != 0 {
-		msg += fmt.Sprintf(", id is %s", cs.ContainerID)
-	}
-	if cs.WaitingState != nil {
-		msg += fmt.Sprintf(", wating with reason %s", cs.WaitingState.Reason)
-		if len(cs.WaitingState.Message) != 0 {
-			msg += fmt.Sprintf(", message: %s", cs.WaitingState.Message)
-		}
-	}
-	if cs.TerminatedState != nil {
-		msg += fmt.Sprintf(", terminated with exitCode %d, reason is %s", cs.TerminatedState.ExitCode, cs.TerminatedState.Reason)
-		if len(cs.TerminatedState.Message) != 0 {
-			msg += fmt.Sprintf(", message: %s", cs.TerminatedState.Message)
-		}
-	}
-	return msg
-}
-
-// GetTaskMessage construct message from pod status
-func GetTaskMessage(podStatus *v1.PodStatus) string {
-	if podStatus == nil {
-		return ""
-	}
-	statusMessage := PodStatusMessage{
-		Phase:             podStatus.Phase,
-		Reason:            podStatus.Reason,
-		Message:           podStatus.Message,
-		ContainerMessages: []ContainerStatusMessage{},
-	}
-	for _, initCS := range podStatus.InitContainerStatuses {
-		statusMessage.ContainerMessages = append(statusMessage.ContainerMessages, ContainerStatusMessage{
-			Name:            initCS.Name,
-			ContainerID:     initCS.ContainerID,
-			RestartCount:    initCS.RestartCount,
-			WaitingState:    initCS.State.Waiting,
-			TerminatedState: initCS.State.Terminated,
-		})
-	}
-	for _, cs := range podStatus.ContainerStatuses {
-		statusMessage.ContainerMessages = append(statusMessage.ContainerMessages, ContainerStatusMessage{
-			Name:            cs.Name,
-			ContainerID:     cs.ContainerID,
-			RestartCount:    cs.RestartCount,
-			WaitingState:    cs.State.Waiting,
-			TerminatedState: cs.State.Terminated,
-		})
-	}
-	return statusMessage.String()
 }
