@@ -457,18 +457,14 @@ func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.
 	resources := corev1.ResourceRequirements{
 		Requests: k8s.NewResourceList(flavourResource),
 	}
-	if limitFlavour.Name == schema.EnvJobLimitFlavourNone {
+	if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
 		resources.Limits = nil
-	} else if limitFlavourResource.IsZero() {
-		resources = corev1.ResourceRequirements{
-			Requests: k8s.NewResourceList(flavourResource),
-			Limits:   k8s.NewResourceList(flavourResource),
-		}
+	} else if limitFlavourResource.CPU() == 0 || limitFlavourResource.Memory() == 0 {
+		// limit set zero, patch the same value as request
+		resources.Limits = k8s.NewResourceList(flavourResource)
 	} else {
-		resources = corev1.ResourceRequirements{
-			Requests: k8s.NewResourceList(flavourResource),
-			Limits:   k8s.NewResourceList(limitFlavourResource),
-		}
+		// limit set specified value
+		resources.Limits = k8s.NewResourceList(limitFlavourResource)
 	}
 	return resources, nil
 }

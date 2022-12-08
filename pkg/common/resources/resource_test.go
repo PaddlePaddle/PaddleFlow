@@ -308,21 +308,7 @@ func TestResource_IsZero(t *testing.T) {
 			assert.Equal(t, test.err, err)
 			if err == nil {
 				t.Logf("resource info: %v", r)
-				assert.Equal(t, test.args.isZero, r.IsZero())
-			}
-		})
-	}
-}
-
-func TestResource_IsAllZero(t *testing.T) {
-	for _, test := range unmarshalTestCases {
-		t.Run(test.name, func(t *testing.T) {
-			r := EmptyResource()
-			err := json.Unmarshal([]byte(test.resourceJSON), r)
-			assert.Equal(t, test.err, err)
-			if err == nil {
-				t.Logf("resource info: %v", r)
-				assert.Equal(t, test.args.isAllZero, r.IsAllZero())
+				assert.Equal(t, test.args.isAllZero, r.IsZero())
 			}
 		})
 	}

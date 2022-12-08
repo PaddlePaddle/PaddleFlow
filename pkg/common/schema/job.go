@@ -67,7 +67,7 @@ const (
 	EnvJobReplicas         = "PF_JOB_REPLICAS"
 	EnvJobFlavour          = "PF_JOB_FLAVOUR"
 	EnvJobLimitFlavour     = "PF_JOB_LIMIT_FLAVOUR"
-	EnvJobLimitFlavourNone = "None"
+	EnvJobLimitFlavourNone = "NONE"
 
 	// EnvJobModePod env reuse EnvJobReplicas and EnvJobFlavour
 	EnvJobModePod = "Pod"

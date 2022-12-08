@@ -171,7 +171,7 @@ func parseFlavourResource(flavour schema.Flavour) (*resources.Resource, error) {
 		return nil, err
 	}
 
-	if memberRes.IsZero() {
+	if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
 		err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
 		log.Errorf("Failed to check flavour: %v", err)
 		return nil, err
@@ -192,7 +192,7 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 			// if env is schema.EnvJobLimitFlavourNone, only set name=None, which mean resource.limit is nil
 			// else query flavour in db and set resource.limit to a specified flavour
 			limitFlavour = schema.Flavour{Name: limitFlavourName}
-			if limitFlavourName != schema.EnvJobLimitFlavourNone {
+			if strings.ToUpper(limitFlavourName) != schema.EnvJobLimitFlavourNone {
 				if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
 					log.Errorf("get limit flavour[%s] failed, err:%v", limitFlavourName, err)
 					return err
@@ -205,19 +205,6 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 			request.Members[index].LimitFlavour = limitFlavour
 		}
 
-		if len(member.Env) != 0 && member.Env[schema.EnvJobLimitFlavour] != schema.EnvJobLimitFlavourNone {
-			flavourName := member.Env[schema.EnvJobLimitFlavour]
-			limitFlavour = schema.Flavour{Name: flavourName}
-			if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
-				log.Errorf("get limit flavour[%s] failed, err:%v", flavourName, err)
-				return err
-			}
-			request.Members[index].LimitFlavour = limitFlavour
-			if limitResource, err = parseFlavourResource(limitFlavour); err != nil {
-				log.Errorf("parse Flavour resource failed, err:%v", err)
-				return err
-			}
-		}
 		// validate Flavour and validate total Resource
 		if member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour); err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
