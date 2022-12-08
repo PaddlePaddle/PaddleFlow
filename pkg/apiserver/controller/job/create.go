@@ -102,6 +102,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 }
 
 func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	log.Debugf("validateJob request %v", request)
 	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
 		ctx.Logging().Errorf("validateCommonJobInfo failed, err: %v", err)
 		return err
@@ -616,7 +617,7 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 
 // buildJob build a models job
 func buildJob(request *CreateJobInfo) (*model.Job, error) {
-	log.Debugf("begin build job with info: %#v", request)
+	log.Debugf("begin build job with request: %#v", request)
 	// build main job config
 	conf := buildMainConf(request)
 	// convert job members if necessary
@@ -625,6 +626,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	var err error
 	if len(request.Members) != 0 {
 		members = buildMembers(request)
+		log.Debugf("members is %v", members)
 	}
 	if len(request.ExtensionTemplate) != 0 {
 		templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
@@ -650,6 +652,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 }
 
 func buildMainConf(request *CreateJobInfo) *schema.Conf {
+	log.Debugf("buildMainConf request %v", request)
 	var conf = &schema.Conf{
 		Name: request.Name,
 	}
@@ -679,6 +682,7 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 }
 
 func buildMembers(request *CreateJobInfo) []schema.Member {
+	log.Debugf("buildMembers %v", request)
 	members := make([]schema.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
