@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -53,6 +55,8 @@ type KubeBaseJob struct {
 	GVK              kubeschema.GroupVersionKind
 	FrameworkVersion schema.FrameworkVersion
 	RuntimeClient    framework.RuntimeClientInterface
+	JobQueue         workqueue.RateLimitingInterface
+	getStatusFunc    api.GetStatusFunc
 }
 
 func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, fv schema.FrameworkVersion, c framework.RuntimeClientInterface) KubeBaseJob {
@@ -109,6 +113,55 @@ func (pj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
 func (pj *KubeBaseJob) GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
 	// TODO: add get log logic
 	return schema.JobLogInfo{}, nil
+}
+
+func (pj *KubeBaseJob) AddJobEventListener(ctx context.Context,
+	jobQueue workqueue.RateLimitingInterface,
+	listener interface{},
+	jobStatus api.GetStatusFunc,
+	filterFunc func(interface{}) bool) error {
+	if jobQueue == nil || listener == nil || jobStatus == nil {
+		return fmt.Errorf("add job event listener failed, err: listener is nil")
+	}
+	if filterFunc == nil {
+		filterFunc = ResponsibleForJob
+	}
+	pj.JobQueue = jobQueue
+	pj.getStatusFunc = jobStatus
+	informer := listener.(cache.SharedIndexInformer)
+	informer.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: filterFunc,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    pj.add,
+			UpdateFunc: pj.update,
+			DeleteFunc: pj.delete,
+		},
+	})
+	return nil
+}
+
+func (pj *KubeBaseJob) add(obj interface{}) {
+	jobSyncInfo, err := JobAddFunc(obj, pj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	pj.JobQueue.Add(jobSyncInfo)
+}
+
+func (pj *KubeBaseJob) update(old, new interface{}) {
+	jobSyncInfo, err := JobUpdateFunc(old, new, pj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	pj.JobQueue.Add(jobSyncInfo)
+}
+
+func (pj *KubeBaseJob) delete(obj interface{}) {
+	jobSyncInfo, err := JobDeleteFunc(obj, pj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	pj.JobQueue.Add(jobSyncInfo)
 }
 
 // ResponsibleForJob filter job belong to PaddleFlow

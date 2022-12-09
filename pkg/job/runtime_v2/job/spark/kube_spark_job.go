@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
@@ -47,7 +46,6 @@ var (
 // KubeSparkJob is a struct that contains client to operate spark application on cluster
 type KubeSparkJob struct {
 	kuberuntime.KubeBaseJob
-	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
@@ -279,52 +277,11 @@ func (sj *KubeSparkJob) AddEventListener(ctx context.Context, listenerType strin
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = sj.addJobEventListener(ctx, jobQueue, listener)
+		err = sj.AddJobEventListener(ctx, jobQueue, listener, sj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (sj *KubeSparkJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	sj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    sj.addJob,
-			UpdateFunc: sj.updateJob,
-			DeleteFunc: sj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (sj *KubeSparkJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
-}
-
-func (sj *KubeSparkJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
-}
-
-func (sj *KubeSparkJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of spark application, including origin status, pf status and message

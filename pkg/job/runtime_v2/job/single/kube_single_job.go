@@ -43,7 +43,6 @@ var (
 // KubeSingleJob is an executor struct that runs a single job
 type KubeSingleJob struct {
 	kuberuntime.KubeBaseJob
-	jobQueue  workqueue.RateLimitingInterface
 	taskQueue workqueue.RateLimitingInterface
 }
 
@@ -159,7 +158,7 @@ func (sp *KubeSingleJob) AddEventListener(ctx context.Context, listenerType stri
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = sp.addJobEventListener(ctx, jobQueue, listener)
+		err = sp.AddJobEventListener(ctx, jobQueue, listener, sp.JobStatus, filterFunc)
 	case pfschema.ListenerTypeTask:
 		err = sp.addTaskEventListener(ctx, jobQueue, listener)
 	default:
@@ -168,58 +167,19 @@ func (sp *KubeSingleJob) AddEventListener(ctx context.Context, listenerType stri
 	return err
 }
 
-func (sp *KubeSingleJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	sp.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			job := obj.(*unstructured.Unstructured)
-			labels := job.GetLabels()
-			jobName := job.GetLabels()
-			if labels != nil && labels[pfschema.JobOwnerLabel] == pfschema.JobOwnerValue {
-				if labels[pfschema.JobLabelFramework] != string(pfschema.FrameworkStandalone) {
-					log.Debugf("job %s is not single job", jobName)
-					return false
-				}
-				log.Debugf("responsible for handle job. jobName:[%s]", jobName)
-				return true
-			}
+func filterFunc(obj interface{}) bool {
+	job := obj.(*unstructured.Unstructured)
+	labels := job.GetLabels()
+	jobName := job.GetLabels()
+	if labels != nil && labels[pfschema.JobOwnerLabel] == pfschema.JobOwnerValue {
+		if labels[pfschema.JobLabelFramework] != string(pfschema.FrameworkStandalone) {
+			log.Debugf("job %s is not single job", jobName)
 			return false
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    sp.addJob,
-			UpdateFunc: sp.updateJob,
-			DeleteFunc: sp.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (sp *KubeSingleJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, sp.JobStatus)
-	if err != nil {
-		return
+		}
+		log.Debugf("responsible for handle job. jobName:[%s]", jobName)
+		return true
 	}
-	sp.jobQueue.Add(jobSyncInfo)
-}
-
-func (sp *KubeSingleJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, sp.JobStatus)
-	if err != nil {
-		return
-	}
-	sp.jobQueue.Add(jobSyncInfo)
-}
-
-func (sp *KubeSingleJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, sp.JobStatus)
-	if err != nil {
-		return
-	}
-	sp.jobQueue.Add(jobSyncInfo)
+	return false
 }
 
 // JobStatus get single job status, message from interface{}, and covert to JobStatus
@@ -313,7 +273,7 @@ func (sp *KubeSingleJob) addTask(obj interface{}) {
 }
 
 func (sp *KubeSingleJob) updateTask(old, new interface{}) {
-	kuberuntime.TaskUpdate(old, new, sp.taskQueue, sp.jobQueue)
+	kuberuntime.TaskUpdate(old, new, sp.taskQueue, sp.KubeBaseJob.JobQueue)
 }
 
 func (sp *KubeSingleJob) deleteTask(obj interface{}) {

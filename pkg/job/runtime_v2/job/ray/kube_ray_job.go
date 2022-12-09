@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -46,7 +45,6 @@ var (
 // KubeRayJob is a struct that runs a ray job
 type KubeRayJob struct {
 	kuberuntime.KubeBaseJob
-	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
@@ -287,52 +285,11 @@ func (rj *KubeRayJob) AddEventListener(ctx context.Context, listenerType string,
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = rj.addJobEventListener(ctx, jobQueue, listener)
+		err = rj.AddJobEventListener(ctx, jobQueue, listener, rj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (rj *KubeRayJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	rj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    rj.addJob,
-			UpdateFunc: rj.updateJob,
-			DeleteFunc: rj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (rj *KubeRayJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
-}
-
-func (rj *KubeRayJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
-}
-
-func (rj *KubeRayJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of PyTorch job, including origin status, PaddleFlow status and message

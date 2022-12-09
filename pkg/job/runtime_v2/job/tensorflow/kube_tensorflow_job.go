@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -45,7 +44,6 @@ var (
 // KubeTFJob is a struct that runs a tensorflow job
 type KubeTFJob struct {
 	kuberuntime.KubeBaseJob
-	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
@@ -154,52 +152,11 @@ func (pj *KubeTFJob) AddEventListener(ctx context.Context, listenerType string, 
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = pj.addJobEventListener(ctx, jobQueue, listener)
+		err = pj.AddJobEventListener(ctx, jobQueue, listener, pj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (pj *KubeTFJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	pj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    pj.addJob,
-			UpdateFunc: pj.updateJob,
-			DeleteFunc: pj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (pj *KubeTFJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
-}
-
-func (pj *KubeTFJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
-}
-
-func (pj *KubeTFJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of TF job, including origin status, pf status and message

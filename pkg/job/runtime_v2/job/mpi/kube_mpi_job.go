@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -45,7 +44,6 @@ var (
 // KubeMPIJob is a struct that runs a mpi job
 type KubeMPIJob struct {
 	kuberuntime.KubeBaseJob
-	jobQueue workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
@@ -136,55 +134,11 @@ func (mj *KubeMPIJob) AddEventListener(ctx context.Context, listenerType string,
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = mj.addJobEventListener(ctx, jobQueue, listener)
+		err = mj.AddJobEventListener(ctx, jobQueue, listener, mj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (mj *KubeMPIJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	mj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    mj.addJob,
-			UpdateFunc: mj.updateJob,
-			DeleteFunc: mj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (mj *KubeMPIJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, mj.JobStatus)
-	if err != nil {
-		log.Errorf("add job failed, err: %v", err)
-		return
-	}
-	mj.jobQueue.Add(jobSyncInfo)
-}
-
-func (mj *KubeMPIJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, mj.JobStatus)
-	if err != nil {
-		log.Errorf("update job failed, err: %v", err)
-		return
-	}
-	mj.jobQueue.Add(jobSyncInfo)
-}
-
-func (mj *KubeMPIJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, mj.JobStatus)
-	if err != nil {
-		log.Errorf("delete job failed, err: %v", err)
-		return
-	}
-	mj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of mpi job, including origin status, pf status and message
