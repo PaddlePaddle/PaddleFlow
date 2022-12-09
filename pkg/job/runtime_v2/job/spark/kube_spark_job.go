@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
@@ -47,22 +45,13 @@ var (
 
 // KubeSparkJob is a struct that contains client to operate spark application on cluster
 type KubeSparkJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeSparkJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeSparkFwVersion,
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeSparkFwVersion, kubeClient),
 	}
-}
-
-func (sj *KubeSparkJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", sj.GVK.String(), name, sj.runtimeClient.Cluster())
 }
 
 func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -94,7 +83,7 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", sj.String(jobName), sparkJob)
-	err = sj.runtimeClient.Create(sparkJob, sj.frameworkVersion)
+	err = sj.RuntimeClient.Create(sparkJob, sj.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sj.String(jobName), err)
 		return err
@@ -284,100 +273,15 @@ func (sj *KubeSparkJob) validateSparkResource(sparkApp *v1beta2.SparkApplication
 	return nil
 }
 
-func (sj *KubeSparkJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", sj.String(jobName))
-	if err := sj.runtimeClient.Delete(job.Namespace, job.ID, sj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", sj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sj *KubeSparkJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", sj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, sj.runtimeClient, sj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", sj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sj *KubeSparkJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", sj.String(jobName))
-	if err := sj.runtimeClient.Delete(job.Namespace, job.ID, sj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", sj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (sj *KubeSparkJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
-}
-
 func (sj *KubeSparkJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = sj.addJobEventListener(ctx, jobQueue, listener)
+		err = sj.AddJobEventListener(ctx, jobQueue, listener, sj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (sj *KubeSparkJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	sj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    sj.addJob,
-			UpdateFunc: sj.updateJob,
-			DeleteFunc: sj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (sj *KubeSparkJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
-}
-
-func (sj *KubeSparkJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
-}
-
-func (sj *KubeSparkJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, sj.JobStatus)
-	if err != nil {
-		return
-	}
-	sj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of spark application, including origin status, pf status and message

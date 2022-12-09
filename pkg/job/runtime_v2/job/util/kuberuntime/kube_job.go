@@ -17,6 +17,7 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -31,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -47,6 +50,119 @@ import (
 const (
 	DefaultReplicas = 1
 )
+
+type KubeBaseJob struct {
+	GVK              kubeschema.GroupVersionKind
+	FrameworkVersion schema.FrameworkVersion
+	RuntimeClient    framework.RuntimeClientInterface
+	JobQueue         workqueue.RateLimitingInterface
+	getStatusFunc    api.GetStatusFunc
+}
+
+func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, fv schema.FrameworkVersion, c framework.RuntimeClientInterface) KubeBaseJob {
+	return KubeBaseJob{
+		GVK:              gvk,
+		FrameworkVersion: fv,
+		RuntimeClient:    c,
+	}
+}
+
+func (kj *KubeBaseJob) String(name string) string {
+	return fmt.Sprintf("%s job %s on %s", kj.GVK.String(), name, kj.RuntimeClient.Cluster())
+}
+
+func (kj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to stop %s", kj.String(jobName))
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+		log.Errorf("stop %s failed, err: %v", kj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (kj *KubeBaseJob) Update(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to update %s", kj.String(jobName))
+	if err := UpdateKubeJob(job, kj.RuntimeClient, kj.FrameworkVersion); err != nil {
+		log.Errorf("update %s failed, err: %v", kj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (kj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
+	if job == nil {
+		return fmt.Errorf("job is nil")
+	}
+	jobName := job.NamespacedName()
+	log.Infof("begin to delete %s ", kj.String(jobName))
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+		log.Errorf("delete %s failed, err %v", kj.String(jobName), err)
+		return err
+	}
+	return nil
+}
+
+func (kj *KubeBaseJob) GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
+	// TODO: add get log logic
+	return schema.JobLogInfo{}, nil
+}
+
+func (kj *KubeBaseJob) AddJobEventListener(ctx context.Context,
+	jobQueue workqueue.RateLimitingInterface,
+	listener interface{},
+	jobStatus api.GetStatusFunc,
+	filterFunc func(interface{}) bool) error {
+	if jobQueue == nil || listener == nil || jobStatus == nil {
+		return fmt.Errorf("add job event listener failed, err: listener is nil")
+	}
+	if filterFunc == nil {
+		filterFunc = ResponsibleForJob
+	}
+	kj.JobQueue = jobQueue
+	kj.getStatusFunc = jobStatus
+	informer := listener.(cache.SharedIndexInformer)
+	informer.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: filterFunc,
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    kj.add,
+			UpdateFunc: kj.update,
+			DeleteFunc: kj.delete,
+		},
+	})
+	return nil
+}
+
+func (kj *KubeBaseJob) add(obj interface{}) {
+	jobSyncInfo, err := JobAddFunc(obj, kj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	kj.JobQueue.Add(jobSyncInfo)
+}
+
+func (kj *KubeBaseJob) update(old, new interface{}) {
+	jobSyncInfo, err := JobUpdateFunc(old, new, kj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	kj.JobQueue.Add(jobSyncInfo)
+}
+
+func (kj *KubeBaseJob) delete(obj interface{}) {
+	jobSyncInfo, err := JobDeleteFunc(obj, kj.getStatusFunc)
+	if err != nil {
+		return
+	}
+	kj.JobQueue.Add(jobSyncInfo)
+}
 
 // ResponsibleForJob filter job belong to PaddleFlow
 func ResponsibleForJob(obj interface{}) bool {
