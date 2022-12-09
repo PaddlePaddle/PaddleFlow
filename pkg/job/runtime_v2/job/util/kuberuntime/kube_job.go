@@ -67,55 +67,55 @@ func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, fv schema.FrameworkVersion,
 	}
 }
 
-func (pj *KubeBaseJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.RuntimeClient.Cluster())
+func (kj *KubeBaseJob) String(name string) string {
+	return fmt.Sprintf("%s job %s on %s", kj.GVK.String(), name, kj.RuntimeClient.Cluster())
 }
 
-func (pj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
+func (kj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", pj.String(jobName))
-	if err := pj.RuntimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
+	log.Infof("begin to stop %s", kj.String(jobName))
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+		log.Errorf("stop %s failed, err: %v", kj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeBaseJob) Update(ctx context.Context, job *api.PFJob) error {
+func (kj *KubeBaseJob) Update(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", pj.String(jobName))
-	if err := UpdateKubeJob(job, pj.RuntimeClient, pj.FrameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
+	log.Infof("begin to update %s", kj.String(jobName))
+	if err := UpdateKubeJob(job, kj.RuntimeClient, kj.FrameworkVersion); err != nil {
+		log.Errorf("update %s failed, err: %v", kj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
+func (kj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", pj.String(jobName))
-	if err := pj.RuntimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
+	log.Infof("begin to delete %s ", kj.String(jobName))
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+		log.Errorf("delete %s failed, err %v", kj.String(jobName), err)
 		return err
 	}
 	return nil
 }
 
-func (pj *KubeBaseJob) GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
+func (kj *KubeBaseJob) GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
 	// TODO: add get log logic
 	return schema.JobLogInfo{}, nil
 }
 
-func (pj *KubeBaseJob) AddJobEventListener(ctx context.Context,
+func (kj *KubeBaseJob) AddJobEventListener(ctx context.Context,
 	jobQueue workqueue.RateLimitingInterface,
 	listener interface{},
 	jobStatus api.GetStatusFunc,
@@ -126,42 +126,42 @@ func (pj *KubeBaseJob) AddJobEventListener(ctx context.Context,
 	if filterFunc == nil {
 		filterFunc = ResponsibleForJob
 	}
-	pj.JobQueue = jobQueue
-	pj.getStatusFunc = jobStatus
+	kj.JobQueue = jobQueue
+	kj.getStatusFunc = jobStatus
 	informer := listener.(cache.SharedIndexInformer)
 	informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: filterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    pj.add,
-			UpdateFunc: pj.update,
-			DeleteFunc: pj.delete,
+			AddFunc:    kj.add,
+			UpdateFunc: kj.update,
+			DeleteFunc: kj.delete,
 		},
 	})
 	return nil
 }
 
-func (pj *KubeBaseJob) add(obj interface{}) {
-	jobSyncInfo, err := JobAddFunc(obj, pj.getStatusFunc)
+func (kj *KubeBaseJob) add(obj interface{}) {
+	jobSyncInfo, err := JobAddFunc(obj, kj.getStatusFunc)
 	if err != nil {
 		return
 	}
-	pj.JobQueue.Add(jobSyncInfo)
+	kj.JobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubeBaseJob) update(old, new interface{}) {
-	jobSyncInfo, err := JobUpdateFunc(old, new, pj.getStatusFunc)
+func (kj *KubeBaseJob) update(old, new interface{}) {
+	jobSyncInfo, err := JobUpdateFunc(old, new, kj.getStatusFunc)
 	if err != nil {
 		return
 	}
-	pj.JobQueue.Add(jobSyncInfo)
+	kj.JobQueue.Add(jobSyncInfo)
 }
 
-func (pj *KubeBaseJob) delete(obj interface{}) {
-	jobSyncInfo, err := JobDeleteFunc(obj, pj.getStatusFunc)
+func (kj *KubeBaseJob) delete(obj interface{}) {
+	jobSyncInfo, err := JobDeleteFunc(obj, kj.getStatusFunc)
 	if err != nil {
 		return
 	}
-	pj.JobQueue.Add(jobSyncInfo)
+	kj.JobQueue.Add(jobSyncInfo)
 }
 
 // ResponsibleForJob filter job belong to PaddleFlow
