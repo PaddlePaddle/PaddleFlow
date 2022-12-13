@@ -257,13 +257,11 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 func ValidatePodResources(spec *corev1.PodSpec) error {
 	for index, container := range spec.Containers {
 		resourcesList := k8s.NewMinResourceList()
-
-		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
+		pfRes := k8s.NewResource(container.Resources.Requests)
+		if pfRes.IsZero() {
 			spec.Containers[index].Resources.Requests = resourcesList
-			spec.Containers[index].Resources.Limits = resourcesList
 			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
 		}
-
 	}
 	return nil
 }
