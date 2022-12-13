@@ -219,6 +219,16 @@ func (rj *RunJob) decode() error {
 	return nil
 }
 
+func (rj *RunJob) Finished() bool {
+	if rj.Status == schema.StatusJobCancelled || rj.Status == schema.StatusJobFailed ||
+		rj.Status == schema.StatusJobSucceeded || rj.Status == schema.StatusJobSkipped ||
+		rj.Status == schema.StatusJobTerminated {
+		return true
+	}
+
+	return false
+}
+
 func (rj *RunJob) Trans2JobView() schema.JobView {
 	// 该函数通过数据库中run_job记录的信息，生成JobView，该JobView的信息是不全的：少了deps
 	// 差别可参考ParseJobView函数
@@ -232,7 +242,8 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEnv[k] = v
 	}
 	newEndTime := ""
-	if rj.Status == schema.StatusJobCancelled || rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded || rj.Status == schema.StatusJobSkipped {
+	if rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded ||
+		rj.Status == schema.StatusJobTerminated {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
