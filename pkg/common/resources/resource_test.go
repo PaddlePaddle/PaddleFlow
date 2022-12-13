@@ -63,44 +63,66 @@ var marshalTestCases = []struct {
 	},
 }
 
+type _Args struct {
+	isZero    bool
+	isAllZero bool
+}
+
 var unmarshalTestCases = []struct {
 	name         string
 	resourceJSON string
+	args         _Args
 	err          error
 }{
 	{
 		name:         "resource with null string",
 		resourceJSON: `{"cpu":"","memory":""}`,
-		err:          nil,
+		args: _Args{
+			isZero:    true,
+			isAllZero: true,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with zero string",
 		resourceJSON: `{"cpu":"0","memory":"1Ki"}`,
-		err:          nil,
+		args: _Args{
+			isZero:    true,
+			isAllZero: false,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with 10 milli cpu",
 		resourceJSON: `{"cpu":"10m","memory":"1Mi"}`,
-		err:          nil,
+		args: _Args{
+			isZero:    false,
+			isAllZero: false,
+		},
+		err: nil,
 	},
 	{
 		name:         "resource with 1 cpu",
 		resourceJSON: `{"cpu":"1","memory":"1M"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 	{
 		name:         "resource with 1k cpu",
 		resourceJSON: `{"cpu":"1k","memory":"1Gi"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 	{
 		name:         "resource with 1G mem",
 		resourceJSON: `{"cpu":"1","memory":"1G"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 	{
 		name:         "test compatible with old mem",
 		resourceJSON: `{"cpu":"1","mem":"1G"}`,
+		args:         _Args{},
 		err:          nil,
 	},
 }
@@ -276,4 +298,18 @@ func TestResource_Op(t *testing.T) {
 	// test negative
 	assert.Equal(t, false, r5.IsNegative())
 
+}
+
+func TestResource_IsZero(t *testing.T) {
+	for _, test := range unmarshalTestCases {
+		t.Run(test.name, func(t *testing.T) {
+			r := EmptyResource()
+			err := json.Unmarshal([]byte(test.resourceJSON), r)
+			assert.Equal(t, test.err, err)
+			if err == nil {
+				t.Logf("resource info: %v", r)
+				assert.Equal(t, test.args.isAllZero, r.IsZero())
+			}
+		})
+	}
 }

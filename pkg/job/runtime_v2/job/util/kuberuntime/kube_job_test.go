@@ -138,13 +138,14 @@ func TestBuildPodSpec(t *testing.T) {
 	driver.InitMockDB()
 	for _, testCase := range testCases {
 		t.Run(testCase.testName, func(t *testing.T) {
-			storage.FsCache.Add(&model.FSCache{
+			err := storage.FsCache.Add(&model.FSCache{
 				FsID:      testCase.task.Conf.FileSystem.ID,
 				CacheDir:  "./xx",
 				NodeName:  "instance1",
 				ClusterID: "xxx",
 			})
-			err := BuildPodSpec(testCase.podSpec, testCase.task)
+			assert.Equal(t, nil, err)
+			err = BuildPodSpec(testCase.podSpec, testCase.task)
 			assert.Equal(t, testCase.err, err)
 		})
 	}
@@ -279,4 +280,105 @@ func TestBuildPodTemplateSpec(t *testing.T) {
 			assert.Equal(t, tt.err, err)
 		})
 	}
+}
+
+func TestGenerateResourceRequirements(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+	type args struct {
+		flavour      schema.Flavour
+		limitFlavour schema.Flavour
+	}
+	testCases := []struct {
+		testName string
+		args     args
+		err      error
+	}{
+		{
+			testName: "success",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "2",
+						Mem: "2",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "success2",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "negative resources not permitted",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "-1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 memory:1]"),
+		},
+		{
+			testName: "limitFlavour negative resources not permitted",
+			args: args{
+				flavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+				limitFlavour: schema.Flavour{
+					ResourceInfo: schema.ResourceInfo{
+						CPU: "-1",
+						Mem: "1",
+					},
+					Name: "flavour1",
+				},
+			},
+			err: fmt.Errorf("negative resources not permitted: map[cpu:-1 memory:1]"),
+		},
+	}
+
+	driver.InitMockDB()
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			res, err := GenerateResourceRequirements(tt.args.flavour, tt.args.limitFlavour)
+			assert.Equal(t, tt.err, err)
+			if err == nil {
+				t.Logf("res is %#v", res)
+			}
+		})
+	}
+
 }

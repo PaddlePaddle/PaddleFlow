@@ -19,6 +19,8 @@ package cache
 import (
 	"errors"
 	"io"
+	"math"
+	"math/rand"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -27,11 +29,15 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/shirou/gopsutil/v3/mem"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 // todo:: cacheBuf may be block, can use ringbuf
 var cacheChan = make(chan *Page, 2000)
 var cacheGoPool, _ = ants.NewPool(5)
+var lastFreeOSMemoryMemPercent = float64(0)
+var freeI int
 
 func init() {
 	var count = 0
@@ -51,10 +57,25 @@ func init() {
 	}()
 	go func() {
 		for {
-			debug.FreeOSMemory()
-			time.Sleep(5 * time.Second)
+			freeMemory()
+			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func freeMemory() {
+	mp := utils.GetProcessMemPercent() / 100
+	freeI += 1
+	if mp > 0.3 {
+		if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || freeI >= 3 {
+			debug.FreeOSMemory()
+			time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
+			lastFreeOSMemoryMemPercent = float64(mp)
+			freeI = 0
+		} else {
+			freeI += 1
+		}
+	}
 }
 
 type Page struct {

@@ -25,8 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -45,22 +43,13 @@ var (
 
 // KubeTFJob is a struct that runs a tensorflow job
 type KubeTFJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeTFJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeTFFwVersion,
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeTFFwVersion, kubeClient),
 	}
-}
-
-func (pj *KubeTFJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", pj.GVK.String(), name, pj.runtimeClient.Cluster())
 }
 
 func (pj *KubeTFJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -90,7 +79,7 @@ func (pj *KubeTFJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), tfjob)
-	err = pj.runtimeClient.Create(tfjob, pj.frameworkVersion)
+	err = pj.RuntimeClient.Create(tfjob, pj.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -159,100 +148,15 @@ func (pj *KubeTFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob) 
 	return kuberuntime.KubeflowRunPolicy(&tfJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
-func (pj *KubeTFJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeTFJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", pj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, pj.runtimeClient, pj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeTFJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (pj *KubeTFJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
-}
-
 func (pj *KubeTFJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = pj.addJobEventListener(ctx, jobQueue, listener)
+		err = pj.AddJobEventListener(ctx, jobQueue, listener, pj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (pj *KubeTFJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	pj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    pj.addJob,
-			UpdateFunc: pj.updateJob,
-			DeleteFunc: pj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (pj *KubeTFJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
-}
-
-func (pj *KubeTFJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
-}
-
-func (pj *KubeTFJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, pj.JobStatus)
-	if err != nil {
-		return
-	}
-	pj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of TF job, including origin status, pf status and message
