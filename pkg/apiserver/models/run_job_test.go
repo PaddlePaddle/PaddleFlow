@@ -34,3 +34,36 @@ func TestFinished(t *testing.T) {
 	rj.Status = ScheduleStatusRunning
 	assert.False(t, rj.Finished())
 }
+
+func TestTransJob(t *testing.T) {
+	rj := RunJob{
+		Status: schema.StatusJobCancelled,
+	}
+
+	jobView := rj.Trans2JobView()
+	assert.Equal(t, jobView.EndTime, "")
+
+	rj = RunJob{
+		Status:     schema.StatusJobTerminated,
+		UpdateTime: "2022-01-01 00:01:11",
+	}
+
+	jobView = rj.Trans2JobView()
+	assert.Equal(t, jobView.EndTime, "2022-01-01 00:01:11")
+
+	rj = RunJob{
+		Status:     schema.StatusJobCancelled,
+		UpdateTime: "2022-01-01 00:01:11",
+	}
+
+	jobView = rj.Trans2JobView()
+	assert.Equal(t, jobView.EndTime, "")
+
+	rj = RunJob{
+		Status:     schema.StatusJobRunning,
+		UpdateTime: "2022-01-01 00:01:11",
+	}
+
+	jobView = rj.Trans2JobView()
+	assert.Equal(t, jobView.EndTime, "")
+}

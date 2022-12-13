@@ -242,7 +242,8 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEnv[k] = v
 	}
 	newEndTime := ""
-	if rj.Finished() {
+	if rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded ||
+		rj.Status == schema.StatusJobTerminated {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
