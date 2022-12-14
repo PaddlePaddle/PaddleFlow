@@ -343,6 +343,7 @@ func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 		},
 		Spec: schedulingv1beta1.QueueSpec{
 			Capability: capability,
+			Weight:     1,
 		},
 		Status: schedulingv1beta1.QueueStatus{
 			State: schedulingv1beta1.QueueStateOpen,
