@@ -217,17 +217,6 @@ func TestCreateCluster(t *testing.T) {
 			}
 		})
 	}
-
-	//// case2 client init success
-	//rts := &runtime.KubeRuntime{}
-	//var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
-	//	return nil
-	//})
-	//defer p2.Reset()
-	//resp, err = CreateCluster(ctx, &createClusterReq)
-	//
-	//assert.Equal(t, createClusterReq.Status, resp.Status)
-	//t.Logf("resp=%v", resp)
 }
 
 func TestGetCluster(t *testing.T) {
