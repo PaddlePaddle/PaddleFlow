@@ -101,7 +101,6 @@ func validateClusterStatus(clusterStatus string) error {
 
 func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClusterRequest) error {
 	request.Name = strings.TrimSpace(request.Name)
-	log.Infof("len(request.Name) is %d", len(request.Name))
 
 	request.Endpoint = strings.TrimSpace(request.Endpoint)
 	if request.Endpoint == "" {
