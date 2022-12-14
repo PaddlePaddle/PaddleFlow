@@ -226,9 +226,8 @@ func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo)
 		sumResource.Add(requestResource)
 	}
 	// validate queue and total-member-resource
-	// if EnvSkipRV is set, it will pass the validation for 0-Capability volcano queue
-	skipResValidate := IsSkipResourceValidate &&
-		request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
+	// It will pass the validation for 0-Capability volcano queue or EnvSkipRV is set
+	skipResValidate := IsSkipResourceValidate || request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
 		request.SchedulingPolicy.MaxResources.IsZero()
 	if !skipResValidate && !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, request.SchedulingPolicy.MaxResources)
