@@ -53,9 +53,6 @@ spec:
               limits:
                 cpu: "1"
                 memory: 1Gi
-              requests:
-                cpu: "1"
-                memory: 1Gi
   ps:
     replicas: 2
     template:

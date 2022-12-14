@@ -27,7 +27,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -102,12 +101,6 @@ func validateClusterStatus(clusterStatus string) error {
 
 func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClusterRequest) error {
 	request.Name = strings.TrimSpace(request.Name)
-	if request.Name == "" {
-		return errors.New("ClusterName should not be empty")
-	}
-	if len(request.Name) > util.ClusterNameMaxLength {
-		return errors.New("The length of ClusterName should not exceed 255")
-	}
 
 	request.Endpoint = strings.TrimSpace(request.Endpoint)
 	if request.Endpoint == "" {
