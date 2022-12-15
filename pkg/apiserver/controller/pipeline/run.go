@@ -887,11 +887,13 @@ func isLastRunPk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
-func GetRunByID(logEntry *log.Entry, userName string, runID string) (models.Run, error) {
+func GetRunByID(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+	logEntry := ctx.Logging()
 	logEntry.Debugf("begin get run by id. runID:%s", runID)
 	run, err := models.GetRunByID(logEntry, runID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RunNotFound
 			err = common.NotFoundError(common.ResourceTypeRun, runID)
 		}
 		logEntry.Errorln(err.Error())
@@ -899,6 +901,7 @@ func GetRunByID(logEntry *log.Entry, userName string, runID string) (models.Run,
 	}
 
 	if !common.IsRootUser(userName) && userName != run.UserName {
+		ctx.ErrorCode = common.AccessDenied
 		err := common.NoAccessError(userName, common.ResourceTypeRun, runID)
 		logEntry.Errorln(err.Error())
 		return models.Run{}, err
