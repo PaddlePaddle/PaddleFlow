@@ -325,7 +325,7 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"delete run failed to read request body:%+v. error:%s", r.Body, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 	if len(string(bodyByte)) > 0 {
@@ -333,7 +333,7 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.LoggerForRequest(&ctx).Errorf(
 				"delete run failed to unmarshal body, error:%s", err.Error())
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 			return
 		}
 	}

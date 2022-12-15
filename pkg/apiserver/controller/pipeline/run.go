@@ -989,7 +989,6 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	// check run exist && check user access right
 	run, err := GetRunByID(ctx, ctx.UserName, id)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("delete run[%s] failed when getting run, %s", id, err.Error())
 		ctx.Logging().Errorf(err.Error())
 		return err
@@ -1015,7 +1014,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 
 			err := fmt.Errorf("delete run[%s] failed. run deleting is cached by other Runs[%v].", id, runExistIDList)
 			ctx.Logging().Errorf(err.Error())
-			ctx.ErrorCode = common.InternalError
+			ctx.ErrorCode = common.ActionNotAllowed
 			return err
 		}
 	}
@@ -1069,7 +1068,7 @@ func resumeActiveRuns() error {
 	go func() {
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
-			if _, err := restartRun(run, true); err != nil {
+			if _, err := restartRun(&logger.RequestContext{}, run, true); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
 		}
