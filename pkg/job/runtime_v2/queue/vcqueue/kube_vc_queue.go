@@ -74,6 +74,7 @@ func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {
 		},
 		Spec: v1beta1.QueueSpec{
 			Capability: k8s.NewResourceList(q.MaxResources),
+			Weight:     1,
 		},
 		Status: v1beta1.QueueStatus{
 			State: v1beta1.QueueStateOpen,

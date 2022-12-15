@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -40,38 +41,182 @@ func TestCreateCluster(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	createClusterReq := CreateClusterRequest{
-		Name: MockClusterName,
+	tests := []struct {
+		name             string
+		createClusterReq CreateClusterRequest
+		mockInitClient   bool
+		expectedErr      error
+	}{
+		{
+			name: "ClusterName regex",
+			createClusterReq: CreateClusterRequest{
+				Name: "",
+				ClusterCommonInfo: ClusterCommonInfo{
+					ID:            "error_init",
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        "wrong",
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			expectedErr: fmt.Errorf("does not compile with regex rule"),
+		},
+		{
+			name: "clusterStatus can only be 'online' or 'offline'",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					ID:            "error_init",
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        "wrong",
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			expectedErr: fmt.Errorf("clusterStatus can only be 'online' or 'offline'"),
+		},
+		{
+			name: "clustertype",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					ID:            "error_init",
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   "wrong",
+				},
+			},
+			expectedErr: fmt.Errorf("ClusterType [wrong] is invalid"),
+		},
+		{
+			name: "clustertype should not be empty",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					ID:            "error_init",
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   "",
+				},
+			},
+			expectedErr: fmt.Errorf("ClusterType should not be empty"),
+		},
+		{
+			name: "Endpoint should not be empty",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					Endpoint:      "",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+				},
+			},
+			expectedErr: fmt.Errorf("Endpoint should not be empty"),
+		},
+		{
+			name: "version should not be empty",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			expectedErr: fmt.Errorf("version of cluster"),
+		},
+		{
+			name: "wrong case without client",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					ID:            "error_init",
+					Endpoint:      "http://1.1.1.1:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			expectedErr: fmt.Errorf("invalid configuration: no configuration has been provided, try setting KUBERNETES_MASTER environment variable"),
+		},
+		{
+			name: "ns list case",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					Endpoint:      "http://10.204.9.128:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n-1", "n_2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			mockInitClient: true,
+			expectedErr:    fmt.Errorf("namespace[n_2] is invalid"),
+		},
+		{
+			name: "Success case",
+			createClusterReq: CreateClusterRequest{
+				Name: MockClusterName,
+				ClusterCommonInfo: ClusterCommonInfo{
+					Endpoint:      "http://10.204.9.128:8086",
+					Source:        "build",
+					Status:        model.ClusterStatusOnLine,
+					Version:       "1.15",
+					NamespaceList: []string{"n1", "n2"},
+					ClusterType:   schema.KubernetesType,
+				},
+			},
+			mockInitClient: true,
+			expectedErr:    nil,
+		},
 	}
 
-	createClusterReq.ID = ""
-	createClusterReq.Description = ""
-	resp, err := CreateCluster(ctx, &createClusterReq)
-	assert.Equal(t, "Endpoint should not be empty", err.Error())
-
-	createClusterReq.Endpoint = "127.0.0.1"
-	createClusterReq.Source = ""
-	createClusterReq.ClusterType = schema.KubernetesType
-	createClusterReq.Version = "1.16"
-	createClusterReq.Status = model.ClusterStatusOnLine
-	createClusterReq.Credential = ""
-	createClusterReq.Setting = ""
-	createClusterReq.NamespaceList = []string{"n1", "n2"}
-	// case1 test CreateCluster
-	resp, err = CreateCluster(ctx, &createClusterReq)
-	assert.NotNil(t, err)
-	err = nil
-
-	// case2 client init success
-	rts := &runtime.KubeRuntime{}
-	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
-		return nil
-	})
-	defer p2.Reset()
-	resp, err = CreateCluster(ctx, &createClusterReq)
-
-	assert.Equal(t, createClusterReq.Status, resp.Status)
-	t.Logf("resp=%v", resp)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.createClusterReq, tt.expectedErr)
+			if tt.mockInitClient {
+				rts := &runtime.KubeRuntime{}
+				var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
+					return nil
+				})
+				defer p2.Reset()
+				resp, err := CreateCluster(ctx, &tt.createClusterReq)
+				if tt.expectedErr != nil && assert.Error(t, err) {
+					assert.ErrorContains(t, err, tt.expectedErr.Error())
+				}
+				if err == nil {
+					t.Logf("resp= %v", resp)
+				}
+			} else {
+				resp, err := CreateCluster(ctx, &tt.createClusterReq)
+				if tt.expectedErr != nil && assert.Error(t, err) {
+					assert.ErrorContains(t, err, tt.expectedErr.Error())
+				}
+				if err == nil {
+					t.Logf("resp= %v", resp)
+				}
+			}
+		})
+	}
 }
 
 func TestGetCluster(t *testing.T) {
