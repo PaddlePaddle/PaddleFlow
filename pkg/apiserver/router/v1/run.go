@@ -265,7 +265,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("get body err: %v", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 	if len(bodyBytes) > 0 {
@@ -274,23 +274,20 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.LoggerForRequest(&ctx).Errorf(
 				"stop run failed to unmarshal body, error:%s", err.Error())
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 			return
 		}
 	}
 
 	switch action {
 	case util.QueryActionStop:
-		err = pipeline.StopRun(ctx.Logging(), ctx.UserName, runID, request)
-		if err != nil {
-			ctx.ErrorCode = common.InternalError
-		}
+		err = pipeline.StopRun(&ctx, ctx.UserName, runID, request)
 	case util.QueryActionRetry:
 		runID, err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidArguments, err.Error())
 		return
 	}
 	if err != nil {

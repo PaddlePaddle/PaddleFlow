@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -910,10 +909,11 @@ func GetRunByID(ctx *logger.RequestContext, userName string, runID string) (mode
 	return run, nil
 }
 
-func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunRequest) error {
+func StopRun(ctx *logger.RequestContext, userName, runID string, request UpdateRunRequest) error {
+	logEntry := ctx.Logging()
 	logEntry.Debugf("begin stop run. runID:%s", runID)
 	// check run exist && check user access right
-	run, err := GetRunByID(logEntry, userName, runID)
+	run, err := GetRunByID(ctx, userName, runID)
 	if err != nil {
 		logEntry.Errorf("stop run[%s] failed when getting run. error: %v", runID, err)
 		return err
@@ -922,6 +922,7 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 	// check run current status
 	if run.Status == common.StatusRunTerminating && !request.StopForce ||
 		common.IsRunFinalStatus(run.Status) {
+		ctx.ErrorCode = common.ActionNotAllowed
 		err := fmt.Errorf("cannot stop run[%s] as run is already in status[%s]", runID, run.Status)
 		logEntry.Errorln(err.Error())
 		return err
@@ -929,10 +930,12 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 
 	wf, exist := wfMap[runID]
 	if !exist {
+		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("run[%s]'s workflow ptr is lost", runID)
 		logEntry.Errorln(err.Error())
 		return err
 	}
+
 	run.RunOptions.StopForce = request.StopForce
 	runUpdate := models.Run{
 		Status:     common.StatusRunTerminating,
@@ -940,6 +943,7 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 	}
 	runUpdate.Encode()
 	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
+		ctx.ErrorCode = common.InternalError
 		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
 		logEntry.Errorln(err.Error())
 		return err
@@ -953,7 +957,7 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 	ctx.Logging().Debugf("begin retry run. runID:%s\n", runID)
 	// check run exist && check user access right
-	run, err := GetRunByID(ctx.Logging(), ctx.UserName, runID)
+	run, err := GetRunByID(ctx, ctx.UserName, runID)
 	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
 		return "", err
@@ -969,7 +973,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 	}
 
 	// restart
-	newRunID, err := restartRun(run, false)
+	newRunID, err := restartRun(ctx, run, false)
 	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
 			runID, run, err.Error())
@@ -983,7 +987,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	ctx.Logging().Debugf("begin delete run: %s", id)
 
 	// check run exist && check user access right
-	run, err := GetRunByID(ctx.Logging(), ctx.UserName, id)
+	run, err := GetRunByID(ctx, ctx.UserName, id)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("delete run[%s] failed when getting run, %s", id, err.Error())
@@ -1074,15 +1078,6 @@ func resumeActiveRuns() error {
 }
 
 func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (string, error) {
-	if run.RunCachedIDs != "" {
-		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
-		// 因此被Cache的Run不能重跑
-		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
-		err := fmt.Errorf("can not retry run cached.")
-		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return "", err
-	}
-
 	wfs, err := runYamlAndReqToWfs(ctx, run.RunYaml, CreateRunRequest{
 		FsName:         run.FsName,
 		DockerEnv:      run.DockerEnv,
@@ -1100,7 +1095,7 @@ func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (stri
 
 	fsUserName := run.RunOptions.FSUsername
 
-	if err := checkFs(fsUserName, &run.WorkflowSource); err != nil {
+	if err := checkFs(ctx, fsUserName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
@@ -1117,6 +1112,7 @@ func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (stri
 
 	runID, err := RestartWf(run, isResume)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
 		return "", err
