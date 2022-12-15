@@ -69,6 +69,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	var createRunInfo pipeline.CreateRunRequest
 
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -113,6 +114,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidHTTPRequest
 		logger.LoggerForRequest(&ctx).Errorf(
 			"read body failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -121,6 +123,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	// 检查 json 请求体的格式
 	if !json.Valid(bodyBytes) {
+		ctx.ErrorCode = common.MalformedJSON
 		errMsg := "request body json format invalid"
 		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, errMsg)
@@ -130,6 +133,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	bodyUnstructured := unstructured.Unstructured{}
 	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
 		// MissingKindErr不影响Json的解析
+		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"unmarshal body failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -139,7 +143,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request body map:%+v", bodyMap)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx, bodyMap)
+	response, err := pipeline.CreateRunByJson(&ctx, bodyMap)
 	if err != nil {
 		if response.RunID != "" {
 			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)

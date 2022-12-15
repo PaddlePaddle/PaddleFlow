@@ -609,7 +609,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	return response, err
 }
 
-func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
 	requestId := ctx.RequestID
 
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
@@ -620,6 +620,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	parser := schema.Parser{}
 	// 将字段名由Json风格改为Yaml风格
 	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		return CreateRunResponse{}, err
 	}
 
@@ -627,6 +628,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	if ok {
 		fsOptions := schema.FsOptions{}
 		if err := parser.ParseFsOptions(fsMap, &fsOptions); err != nil {
+			ctx.ErrorCode = common.InvalidPipeline
 			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
 		}
@@ -656,6 +658,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
 	wfs, err := getWorkFlowSourceByJson(bodyMap)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
@@ -663,6 +666,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", bodyMap)
 	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
@@ -670,6 +674,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
+		ctx.ErrorCode = common.InvalidNamePattern
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
 		logger.Logger().Errorf("create run failed as run name illegal. error:%v", err)
 		return CreateRunResponse{}, err
