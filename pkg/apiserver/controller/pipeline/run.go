@@ -36,10 +36,8 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -156,7 +154,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	}
 }
 
-func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
+func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
 	var source, runYaml, requestId, userName string
 	requestId, userName = ctx.RequestID, ctx.UserName
 
@@ -167,52 +165,43 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		// todo://后续将实际运行的run.yaml放入文件中
 		sDec, err := base64.StdEncoding.DecodeString(req.RunYamlRaw)
 		if err != nil {
+			ctx.ErrorCode = common.MalformedYaml
 			logger.Logger().Errorf("Decode raw runyaml is [%s] failed. err:%v", req.RunYamlRaw, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
+
 		runYaml = string(sDec)
 		wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 		if err != nil {
+			ctx.ErrorCode = common.InvalidPipeline
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 		// 目前只保存用户提交的yaml，因此这里获得的yaml直接舍去
 		source, _, err = getSourceAndYaml(wfs)
 		if err != nil {
+			ctx.ErrorCode = common.InvalidPipeline
 			logger.Logger().Errorf("get source and yaml by wrokFlowSource faild. err: %v", err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
-		hasAuth, _, err := CheckPipelinePermission(userName, req.PipelineID)
+		hasAuth, _, pplVersion, err := CheckPipelineVersionPermission(ctx, userName, req.PipelineID, req.PipelineVersionID)
 		if err != nil {
-			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] failed. err:%v", req.PipelineID, err)
+			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] with version[%s] failed. err:%v", req.PipelineID,
+				req.PipelineVersionID, err)
 			return schema.WorkflowSource{}, "", "", err
 		} else if !hasAuth {
 			err := common.NoAccessError(userName, common.ResourceTypePipeline, req.PipelineID)
-			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] failed. err:%v", req.PipelineID, err)
+			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] with version[%s] failed. err:%v", req.PipelineID,
+				req.PipelineVersionID, err)
 			return schema.WorkflowSource{}, "", "", err
-		}
-
-		// query pipeline version
-		var pplVersion model.PipelineVersion
-		if req.PipelineVersionID == "" {
-			pplVersion, err = storage.Pipeline.GetLastPipelineVersion(req.PipelineID)
-			if err != nil {
-				logger.Logger().Errorf("get latest version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
-				return schema.WorkflowSource{}, "", "", err
-			}
-		} else {
-			pplVersion, err = storage.Pipeline.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
-			if err != nil {
-				logger.Logger().Errorf("get version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
-				return schema.WorkflowSource{}, "", "", err
-			}
 		}
 
 		runYaml = pplVersion.PipelineYaml
 		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineVersionID)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		if fsID == "" {
+			ctx.ErrorCode = common.InvalidArguments
 			err := fmt.Errorf("can not get runYaml without fs")
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, "", "", err
@@ -223,6 +212,7 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		}
 		runYamlByte, err := handler.ReadFileFromFs(fsID, runYamlPath, logger.Logger())
 		if err != nil {
+			ctx.ErrorCode = common.ReadYamlFileFailed
 			logger.Logger().Errorf("readFileFromFs from[%s] failed. err:%v", fsID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
@@ -234,13 +224,14 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 	yamlDecoder := yaml.NewDecoder(strings.NewReader(runYaml))
 	yamlDecoder.KnownFields(true)
 	if err := yamlDecoder.Decode(map[interface{}]interface{}{}); err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("runYaml format invalid. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
 	}
 
 	// to wfs
 	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
-	wfs, err := runYamlAndReqToWfs(runYaml, req)
+	wfs, err := runYamlAndReqToWfs(ctx, runYaml, req)
 	if err != nil {
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
@@ -459,10 +450,11 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 	return source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
+func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
 	}
@@ -484,6 +476,7 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 		if wfs.FsOptions.MainFS.Name == "" {
 			wfs.FsOptions.MainFS.Name = req.FsName
 		} else if req.FsName != wfs.FsOptions.MainFS.Name {
+			ctx.ErrorCode = common.InvalidArguments
 			err := fmt.Errorf("[main_fs.name] should be same as fs_name in request")
 			return schema.WorkflowSource{}, err
 		}
@@ -496,7 +489,7 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	return wfs, nil
 }
 
-func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[string]string) (CreateRunResponse, error) {
+func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[string]string) (CreateRunResponse, error) {
 	/*
 		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
 		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
@@ -538,6 +531,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
+		ctx.ErrorCode = common.InvalidNamePattern
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
 		logger.Logger().Errorf("create run failed as run name illegal. error:%v", err)
 		return CreateRunResponse{}, err
@@ -550,6 +544,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		scheduledAt.Valid = true
 		scheduledAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", request.ScheduledAt, time.Local)
 		if err != nil {
+			// scheduledAt 格式有问题，应该在scheduler模块检测出来，所以此处报 InternalError
+			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("scheduledAt[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", request.ScheduledAt)
 			return CreateRunResponse{}, fmt.Errorf(errMsg)
 		}
@@ -587,6 +583,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 			}
 		}
 		if !isFinal {
+			ctx.ErrorCode = common.InvalidArguments
 			err := fmt.Errorf("create final run failed without final status")
 			logger.Logger().Errorf(err.Error())
 			return CreateRunResponse{}, err
@@ -698,9 +695,10 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	return response, err
 }
 
-func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
+func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
 	requestId := ctx.RequestID
 	if requestId == "" {
+		ctx.ErrorCode = common.InternalError
 		errMsg := "get requestID failed"
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
 		return nil, "", errors.New(errMsg)
@@ -708,6 +706,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
+		ctx.ErrorCode = common.InternalError
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return nil, "", err
 	}
@@ -717,12 +716,12 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 	wfPtr, err := newWorkflowByRun(*run)
 	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
-		ctx.ErrorCode = common.InvlidPipeline
+		ctx.ErrorCode = common.InvalidPipeline
 		return nil, "", err
 	}
 
 	// 这里对fs的检查依赖username和fs模块，因此无法在workflow.validate中完成
-	if err := checkFs(userName, &run.WorkflowSource); err != nil {
+	if err := checkFs(ctx, userName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
 
@@ -731,6 +730,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 	// create run in db and update run's ID by pk
 	runID, err := models.CreateRun(logger.Logger(), run)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
 		return nil, "", err
 	}
@@ -738,7 +738,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 	return wfPtr, runID, nil
 }
 
-func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
 	if err != nil {
 		return CreateRunResponse{}, err
@@ -763,8 +763,9 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
-	if err := StartWf(run, wfPtr); err != nil {
-		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+	if err := StartWf(ctx, run, wfPtr); err != nil {
+		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv,
+			run.FsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s", runID)
 	response := CreateRunResponse{
@@ -773,9 +774,10 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	return response, nil
 }
 
-func checkFs(userName string, wfs *schema.WorkflowSource) error {
+func checkFs(ctx *logger.RequestContext, userName string, wfs *schema.WorkflowSource) error {
 	fsMounts, err := wfs.GetFsMounts()
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
@@ -785,20 +787,24 @@ func checkFs(userName string, wfs *schema.WorkflowSource) error {
 		fsID := common.ID(userName, wfs.FsOptions.MainFS.Name)
 		fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger.Logger())
 		if err != nil {
+			ctx.ErrorCode = common.InvalidArguments
 			return err
 		}
 
 		isExist, err := fsHandler.Exist(wfs.FsOptions.MainFS.SubPath)
 		if err != nil {
+			ctx.ErrorCode = common.InternalError
 			return err
 		}
 		if isExist {
 			// 由于MainFS用于Artifact的存储，因此必须是一个Dir
 			ok, err := fsHandler.IsDir(wfs.FsOptions.MainFS.SubPath)
 			if err != nil {
+				ctx.ErrorCode = common.InternalError
 				return err
 			}
 			if !ok {
+				ctx.ErrorCode = common.InvalidArguments
 				return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
 			}
 		}
@@ -806,7 +812,7 @@ func checkFs(userName string, wfs *schema.WorkflowSource) error {
 
 	for _, mount := range fsMounts {
 		// 检查fs权限
-		_, err := CheckFsAndGetID(userName, "", mount.Name)
+		_, err := CheckFsAndGetID(ctx, userName, "", mount.Name)
 		if err != nil {
 			return err
 		}
@@ -1059,7 +1065,7 @@ func resumeActiveRuns() error {
 	return nil
 }
 
-func restartRun(run models.Run, isResume bool) (string, error) {
+func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (string, error) {
 	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
@@ -1069,7 +1075,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 		return "", err
 	}
 
-	wfs, err := runYamlAndReqToWfs(run.RunYaml, CreateRunRequest{
+	wfs, err := runYamlAndReqToWfs(ctx, run.RunYaml, CreateRunRequest{
 		FsName:         run.FsName,
 		DockerEnv:      run.DockerEnv,
 		Name:           run.Name,
@@ -1110,7 +1116,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	return runID, nil
 }
 
-func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
+func StartWf(ctx *logger.RequestContext, run models.Run, wfPtr *pipeline.Workflow) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("StartWf run:%+v", run)
 	trace_logger.Key(run.ID).Debugf("StartWf run:%+v", run)
@@ -1118,12 +1124,14 @@ func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 	// 由于在数据库中创建Run记录之前，没有runID，因此这里需要重新填写好runID后，初始化Runtime，以及填写wfMap
 	wfPtr.RunID = run.ID
 	if err := wfPtr.NewWorkflowRuntime(); err != nil {
+		ctx.ErrorCode = common.InternalError
 		logEntry.Errorf("StartWf failed, error: %s", err.Error())
 		return err
 	}
 	wfMap[run.ID] = wfPtr
 
 	if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
+		ctx.ErrorCode = common.InternalError
 		return err
 	}
 

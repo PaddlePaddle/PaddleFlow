@@ -164,7 +164,7 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 	return startAt, endAt, nil
 }
 
-func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err error) {
+func CheckFsAndGetID(ctx *logger.RequestContext, userName, fsUserName, fsName string) (fsID string, err error) {
 	if fsUserName != "" {
 		fsID = common.ID(fsUserName, fsName)
 	} else {
@@ -174,11 +174,13 @@ func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err erro
 	fsService := fs.GetFileSystemService()
 	hasPermission, err := fsService.HasFsPermission(userName, fsID)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("check permission of user[%s] fsID[%s] failed, err: %v", userName, fsID, err)
 		return fsID, err
 	}
 
 	if !hasPermission {
+		ctx.ErrorCode = common.AccessDenied
 		err := fmt.Errorf("user[%s] has no permission to fsName[%s] with fsUser[%s]", userName, fsName, fsUserName)
 		return fsID, err
 	}
