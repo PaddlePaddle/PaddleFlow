@@ -192,9 +192,8 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	// validate pipeline and get name of pipeline
 	// 此处同样会校验pipeline name格式（正则表达式为：`^[A-Za-z_][A-Za-z0-9_]{1,49}$`）
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
+	pplName, err := validateWorkflowForPipeline(ctx, string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidPipeline
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -278,9 +277,8 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// validate pipeline and get name of pipeline
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
+	pplName, err := validateWorkflowForPipeline(ctx, string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidPipeline
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -345,10 +343,12 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 }
 
 // todo: 为了校验pipeline，需要准备的内容太多，需要简化校验逻辑
-func validateWorkflowForPipeline(pipelineYaml string, ctxUsername string, reqUsername string) (name string, err error) {
+func validateWorkflowForPipeline(ctx *logger.RequestContext, pipelineYaml string,
+	ctxUsername string, reqUsername string) (name string, err error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.GetWorkflowSource([]byte(pipelineYaml))
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", pipelineYaml, err)
 		return "", err
 	}
@@ -381,10 +381,12 @@ func validateWorkflowForPipeline(pipelineYaml string, ctxUsername string, reqUse
 	// todo：这里为了校验，还要传特殊的run name（validatePipeline），可以想办法简化校验逻辑
 	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", param, extra, wfCbs)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidPipeline
 		logger.Logger().Errorf("NewWorkflow for pipeline[%s] failed. err:%v", wfs.Name, err)
 		return "", err
 	}
 	if wfPtr == nil {
+		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("NewWorkflow ptr for pipeline[%s] is nil", wfs.Name)
 		logger.Logger().Errorln(err.Error())
 		return "", err
