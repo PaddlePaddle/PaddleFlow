@@ -244,15 +244,13 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	if request.UserName == "" {
-		if err := checkFs(ctx.UserName, &wfs); err != nil {
-			ctx.ErrorCode = common.InvalidArguments
+		if err := checkFs(ctx, ctx.UserName, &wfs); err != nil {
 			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 		}
 	} else {
-		if err := checkFs(request.UserName, &wfs); err != nil {
-			ctx.ErrorCode = common.InvalidArguments
+		if err := checkFs(ctx, request.UserName, &wfs); err != nil {
 			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
@@ -295,14 +293,12 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	// 校验用户对pplID pplVersionID是否有权限
-	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx.UserName, request.PipelineID, request.PipelineVersionID)
+	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx, ctx.UserName, request.PipelineID, request.PipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("create schedule failed, %s", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, request.PipelineID)
 		return CreateScheduleResponse{}, err
 	}
