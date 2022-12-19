@@ -551,12 +551,10 @@ func GetPipelineVersion(ctx *logger.RequestContext, pipelineID string, pipelineV
 	// query pipeline
 	hasAuth, ppl, pplVersion, err := CheckPipelineVersionPermission(ctx, ctx.UserName, pipelineID, pipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineVersionResponse{}, fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed. Access denied for user[%s]", pipelineID, pipelineVersionID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineVersionResponse{}, fmt.Errorf(errMsg)
