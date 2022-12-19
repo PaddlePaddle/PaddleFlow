@@ -190,7 +190,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	// 此处同样会校验pipeline name格式（正则表达式为：`^[A-Za-z_][A-Za-z0-9_]{1,49}$`）
 	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
-		ctx.ErrorCode = common.MalformedYaml
+		ctx.ErrorCode = common.InvalidPipeline
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -224,9 +224,8 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	// 这里主要是为了获取fsID，写入数据库中
 	var fsID string
 	if request.FsName != "" {
-		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+		fsID, err = CheckFsAndGetID(ctx, ctx.UserName, request.UserName, request.FsName)
 		if err != nil {
-			ctx.ErrorCode = common.InvalidArguments
 			errMsg := fmt.Sprintf("Create Pipeline failed: %s", err)
 			ctx.Logging().Errorf(errMsg)
 		}
