@@ -86,6 +86,7 @@ const (
 	RunCacheNotFound      = "RunCacheNotFound"
 	ArtifactEventNotFound = "ArtifactEventNotFound"
 	ReadYamlFileFailed    = "ReadYamlFileFailed"
+	ScheduleNotFound      = "ScheduleNotFound"
 
 	FlavourNotFound     = "FlavourNotFound"     // 未找到对应的资源套餐
 	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
@@ -182,6 +183,7 @@ var errorHTTPStatus = map[string]int{
 	PipelineNotFound:      http.StatusBadRequest,
 	RunCacheNotFound:      http.StatusBadRequest,
 	ReadYamlFileFailed:    http.StatusBadRequest,
+	ScheduleNotFound:      http.StatusNotFound,
 	ArtifactEventNotFound: http.StatusBadRequest,
 
 	GrantResourceTypeNotFound: http.StatusBadRequest,
@@ -284,6 +286,7 @@ var errorMessage = map[string]string{
 	RunCacheNotFound:      "RunCache not found",
 	ArtifactEventNotFound: "ArtifactEvent not found",
 	ReadYamlFileFailed:    "Read yaml file failed",
+	ScheduleNotFound:      "Schedule not found",
 
 	GrantResourceTypeNotFound: "This kind of resource is not exist",
 	GrantNotFound:             "Grant not found. check the user and resource",

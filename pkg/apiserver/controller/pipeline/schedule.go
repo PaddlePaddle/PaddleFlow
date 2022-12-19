@@ -446,12 +446,19 @@ func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule
 	ctx.Logging().Debugf("begin get schedule by id. scheduleID:%s", scheduleID)
 	schedule, err := models.GetSchedule(ctx.Logging(), scheduleID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.ScheduleNotFound
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
+
 		ctx.Logging().Errorln(err.Error())
 		return models.Schedule{}, err
 	}
 
 	if !common.IsRootUser(ctx.UserName) && ctx.UserName != schedule.UserName {
 		err := common.NoAccessError(ctx.UserName, common.ResourceTypeSchedule, scheduleID)
+		ctx.ErrorCode = common.AccessDenied
 		ctx.Logging().Errorln(err.Error())
 		return models.Schedule{}, err
 	}
@@ -465,7 +472,6 @@ func GetSchedule(ctx *logger.RequestContext, scheduleID string,
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("get schedule[%s] failed. err:%v", scheduleID, err)
 		ctx.Logging().Errorf(err.Error())
 		return GetScheduleResponse{}, err
@@ -475,7 +481,6 @@ func GetSchedule(ctx *logger.RequestContext, scheduleID string,
 	scheduleIDFilter := []string{scheduleID}
 	listRunResponse, err := ListRun(ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("list run for schedule[%s] failed. err:[%s]", scheduleID, err.Error())
 		return GetScheduleResponse{}, err
 	}
