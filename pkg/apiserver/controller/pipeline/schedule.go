@@ -164,7 +164,9 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 	return startAt, endAt, nil
 }
 
-func CheckFsAndGetID(ctx *logger.RequestContext, userName, fsUserName, fsName string) (fsID string, err error) {
+func CheckFsAndGetID(ctx *logger.RequestContext, fsUserName, fsName string) (fsID string, err error) {
+	userName := ctx.UserName
+
 	if fsUserName != "" {
 		fsID = common.ID(fsUserName, fsName)
 	} else {

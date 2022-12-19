@@ -119,6 +119,7 @@ func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion 
 func getPipelineYamlFromYamlRaw(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
 	pipelineYaml, err := base64.StdEncoding.DecodeString(request.YamlRaw)
 	if err != nil {
+		ctx.ErrorCode = common.DecodeBase64
 		err = fmt.Errorf("Decode raw yaml[%s] failed. err:%v", request.YamlRaw, err)
 		return nil, err
 	}
@@ -132,12 +133,13 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 	}
 
 	if request.FsName == "" {
+		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("cannot get pipeline: fsname shall not be empty while you specified YamlPath[%s]",
 			request.YamlPath)
 		return nil, err
 	}
 
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	fsID, err := CheckFsAndGetID(ctx, request.UserName, request.FsName)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +147,7 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {
+		ctx.ErrorCode = common.ReadYamlFileFailed
 		err := fmt.Errorf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
 		return nil, err
 	}
@@ -155,11 +158,13 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 func getPipelineYaml(ctx *logger.RequestContext, request *CreatePipelineRequest) ([]byte, error) {
 	if request.YamlRaw != "" {
 		if request.YamlPath != "" {
+			ctx.ErrorCode = common.InvalidArguments
 			err := fmt.Errorf("you can only specify one of YamlPath and YamlRaw")
 			return nil, err
 		}
 
 		if request.FsName != "" {
+			ctx.ErrorCode = common.InvalidArguments
 			err := fmt.Errorf("you cannot specify FsName while you specified YamlRaw")
 			return nil, err
 		}
@@ -181,7 +186,6 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	pipelineYaml, err := getPipelineYaml(ctx, &request)
 	if err != nil {
 		err = fmt.Errorf("create pipeline failed. err:%v", err)
-		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Error(err.Error())
 		return CreatePipelineResponse{}, err
 	}
@@ -224,7 +228,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	// 这里主要是为了获取fsID，写入数据库中
 	var fsID string
 	if request.FsName != "" {
-		fsID, err = CheckFsAndGetID(ctx, ctx.UserName, request.UserName, request.FsName)
+		fsID, err = CheckFsAndGetID(ctx, request.UserName, request.FsName)
 		if err != nil {
 			errMsg := fmt.Sprintf("Create Pipeline failed: %s", err)
 			ctx.Logging().Errorf(errMsg)
@@ -268,7 +272,6 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	pipelineYaml, err := getPipelineYaml(ctx, &request)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		err = fmt.Errorf("update pipeline failed. err:%v", err)
 		ctx.Logging().Error(err.Error())
 		return UpdatePipelineResponse{}, err
@@ -277,7 +280,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	// validate pipeline and get name of pipeline
 	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
-		ctx.ErrorCode = common.MalformedYaml
+		ctx.ErrorCode = common.InvalidPipeline
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -285,12 +288,10 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	hasAuth, ppl, err := CheckPipelinePermission(ctx, ctx.UserName, pipelineID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("update pipeline[%s] failed. err:%v", pipelineID, err)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		errMsg := fmt.Sprintf("update pipeline[%s] failed. Access denied for user[%s]", pipelineID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -310,9 +311,8 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	// 这里主要是为了获取fsID，写入数据库中
 	var fsID string
 	if request.FsName != "" {
-		fsID, err = CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+		fsID, err = CheckFsAndGetID(ctx, request.UserName, request.FsName)
 		if err != nil {
-			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("CreatePipeline failed: %s", err)
 			ctx.Logging().Errorf(errMsg)
 		}
@@ -362,7 +362,7 @@ func validateWorkflowForPipeline(pipelineYaml string, ctxUsername string, reqUse
 	if wfs.FsOptions.MainFS.Name != "" {
 		extra[pplcommon.WfExtraInfoKeyFsName] = wfs.FsOptions.MainFS.Name
 
-		fsID, err := CheckFsAndGetID(ctxUsername, reqUsername, wfs.FsOptions.MainFS.Name)
+		fsID, err := CheckFsAndGetID(ctx, reqUsername, wfs.FsOptions.MainFS.Name)
 		if err != nil {
 			logger.Logger().Errorf("check main fs in pipeline failed, err:%v", err)
 			return "", err
