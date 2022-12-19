@@ -229,7 +229,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	// 校验创建Schedule 的 User是否有Pipline对应的Yaml中所有FSName的权限
 	pplVer, err := storage.Pipeline.GetPipelineVersion(request.PipelineID, request.PipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.PipelineNotFound
 		errMsg := fmt.Sprintf("create schedule failed, get PipelineVersion error:[%s]", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
@@ -501,7 +501,7 @@ func StopSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.ScheduleNotFound
 		err := fmt.Errorf("stop schedule[%s] failed. %s", scheduleID, err.Error())
 		ctx.Logging().Errorf(err.Error())
 		return err
