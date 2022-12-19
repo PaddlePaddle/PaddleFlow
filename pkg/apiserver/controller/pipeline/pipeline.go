@@ -472,7 +472,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	ppl, err := storage.Pipeline.GetPipelineByID(pipelineID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.InvalidArguments
+			ctx.ErrorCode = common.PipelineNotFound
 		} else {
 			ctx.ErrorCode = common.InternalError
 		}
@@ -573,12 +573,10 @@ func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
 
 	hasAuth, _, err := CheckPipelinePermission(ctx, ctx.UserName, pipelineID)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("delete pipeline[%s] failed. err:%v", pipelineID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		errMsg := fmt.Sprintf("delete pipeline[%s] failed. Access denied for user[%s]", pipelineID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
