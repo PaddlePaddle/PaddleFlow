@@ -607,12 +607,10 @@ func DeletePipelineVersion(ctx *logger.RequestContext, pipelineID string, pipeli
 	ctx.Logging().Debugf("begin delete pipeline version[%s], with pipelineID[%s]", pipelineVersionID, pipelineID)
 	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx, ctx.UserName, pipelineID, pipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. Access denied for user[%s]", pipelineID, pipelineVersionID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
