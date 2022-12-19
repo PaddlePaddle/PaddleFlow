@@ -385,7 +385,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的schedule列表
 	if !common.IsRootUser(ctx.UserName) {
 		if len(userFilter) != 0 {
-			ctx.ErrorCode = common.InvalidArguments
+			ctx.ErrorCode = common.AccessDenied
 			errMsg := fmt.Sprint("only root user can set userFilter!")
 			ctx.Logging().Errorf(errMsg)
 			return ListScheduleResponse{}, fmt.Errorf(errMsg)
