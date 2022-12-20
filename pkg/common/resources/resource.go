@@ -194,6 +194,7 @@ func (r *Resource) IsNegative() bool {
 	return isNegative
 }
 
+// IsZero check if exist any zero resource
 func (r *Resource) IsZero() bool {
 	isZero := true
 	if r != nil {
