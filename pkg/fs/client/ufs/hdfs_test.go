@@ -23,6 +23,7 @@ import (
 	"os"
 	"reflect"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -62,6 +63,162 @@ func testFsOp(t *testing.T, fs UnderFileStorage) {
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, 1, len(entries))
 }
+
+func Test_hdfsFileSystem_OpenRead(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name  string
+		flags uint32
+		size  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    FileHandle
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "want read open err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(1),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "want read open nil",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(1),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, fmt.Errorf("open fail")
+	})
+	defer p1.Reset()
+
+	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+		return syscall.O_RDONLY
+	})
+	defer p4.Reset()
+
+	for _, tt := range tests {
+		if tt.name == "want read open nil" {
+			var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+				return nil, nil
+			})
+			defer p2.Reset()
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			got, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
+			if !tt.wantErr(t, err, fmt.Sprintf("Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)
+		})
+	}
+}
+
+func Test_hdfsFileSystem_Open(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name  string
+		flags uint32
+		size  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    FileHandle
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "want retry err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(1),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, nil
+	})
+	defer p1.Reset()
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+		return nil, fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")
+	})
+	defer p2.Reset()
+
+	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+		return syscall.O_WRONLY | syscall.O_APPEND
+	})
+	defer p4.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			got, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
+			if !tt.wantErr(t, err, fmt.Sprintf("Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)
+		})
+	}
+}
+
 func TestHdfs(t *testing.T) {
 	if os.Getenv("HDFS_USER") == "" {
 		log.Errorf("HDFS Client Init Fail")
