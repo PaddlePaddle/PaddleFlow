@@ -177,7 +177,7 @@ func TestGetRunSuccess(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
 
-	runRsp, err := GetRunByID(ctx.Logging(), ctx.UserName, run1.ID)
+	runRsp, err := GetRunByID(ctx, ctx.UserName, run1.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, run1.ID, runRsp.ID)
 	assert.Equal(t, run1.Name, runRsp.Name)
@@ -186,7 +186,7 @@ func TestGetRunSuccess(t *testing.T) {
 	run3 := getMockRun3()
 	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
 	assert.Nil(t, err)
-	runRsp, err = GetRunByID(ctx.Logging(), ctx.UserName, run3.ID)
+	runRsp, err = GetRunByID(ctx, ctx.UserName, run3.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, runRsp.FailureOptions.Strategy, schema.FailureStrategyContinue)
 }
@@ -200,12 +200,12 @@ func TestGetRunFail(t *testing.T) {
 
 	// test non-admin user no access to other users' run
 	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
-	_, err = GetRunByID(ctxOtherNonAdmin.Logging(), ctxOtherNonAdmin.UserName, run1.ID)
+	_, err = GetRunByID(ctxOtherNonAdmin, ctxOtherNonAdmin.UserName, run1.ID)
 	assert.NotNil(t, err)
 	assert.Equal(t, common.NoAccessError("non-admin", common.ResourceTypeRun, run1.ID).Error(), err.Error())
 
 	// test no record
-	_, err = GetRunByID(ctx.Logging(), ctx.UserName, "run-id_non_existed")
+	_, err = GetRunByID(ctx, ctx.UserName, "run-id_non_existed")
 	assert.NotNil(t, err)
 	assert.Equal(t, common.NotFoundError(common.ResourceTypeRun, "run-id_non_existed").Error(), err.Error())
 }
@@ -329,7 +329,7 @@ func TestCreateRun(t *testing.T) {
 	driver.InitMockDB()
 	ctx := logger.RequestContext{UserName: MockRootUser}
 
-	patch1 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch1 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 	defer patch1.Reset()
@@ -340,17 +340,17 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw: yamlRaw,
 	}
 
-	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Nil(t, run.FailureOptions)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
 		return CreateRunResponse{}, nil
 	})
 	defer patch2.Reset()
 
-	_, err := CreateRun(ctx, &createRunRequest, map[string]string{})
+	_, err := CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
-	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		return CreateRunResponse{}, nil
@@ -361,7 +361,7 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw:     yamlRaw,
 		FailureOptions: &schema.FailureOptions{Strategy: schema.FailureStrategyContinue},
 	}
-	_, err = CreateRun(ctx, &createRunRequest, map[string]string{})
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
 }
