@@ -361,7 +361,6 @@ func validateWorkflowForPipeline(ctx *logger.RequestContext, pipelineYaml string
 
 	if wfs.FsOptions.MainFS.Name != "" {
 		extra[pplcommon.WfExtraInfoKeyFsName] = wfs.FsOptions.MainFS.Name
-
 		fsID, err := CheckFsAndGetID(ctx, reqUsername, wfs.FsOptions.MainFS.Name)
 		if err != nil {
 			logger.Logger().Errorf("check main fs in pipeline failed, err:%v", err)
