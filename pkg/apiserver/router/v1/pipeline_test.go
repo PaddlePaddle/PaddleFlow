@@ -30,6 +30,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
@@ -56,7 +57,7 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyFunc(pipeline.CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(pipeline.CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
