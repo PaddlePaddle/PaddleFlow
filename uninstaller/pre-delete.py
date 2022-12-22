@@ -139,8 +139,17 @@ def clean_jobs_with_status(client, status, next_marker=None):
         raise Exception(err_msg)
     job_list = response
     if len(job_list) != 0:
-        err_msg = "there are [%s] active jobs" % len(job_list)
-        print(err_msg)
+        print("there are [%s] active jobs" % len(job_list))
+        for job in job_list:
+            try:
+                print("job is ", job.__dict__)
+                ret, response = client.stop_job(job.job_id)
+                print("stop_job %s got %s, err is %s " % (job.job_id, ret, response) )
+                if ret is True:
+                    print("stop job %s success" % job.job_id)
+
+            except Exception as e:
+                print(e)
     else:
         err_msg = "no [%s] job, quit clean_jobs_with_status check" % status
         print(err_msg)
