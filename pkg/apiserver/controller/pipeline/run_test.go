@@ -20,17 +20,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
@@ -362,6 +366,91 @@ func TestCreateRun(t *testing.T) {
 		FailureOptions: &schema.FailureOptions{Strategy: schema.FailureStrategyContinue},
 	}
 	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
+	assert.Nil(t, err)
+
+}
+
+func TestBuildWorkflowSource(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+
+	createRunRequest := CreateRunRequest{
+		RunYamlRaw: "abc",
+	}
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.MalformedYaml, ctx.ErrorCode)
+
+	runYaml := string(loadCase(runYamlPath))
+	yamlRaw := base64.StdEncoding.EncodeToString([]byte(runYaml))
+	createRunRequest = CreateRunRequest{
+		RunYamlRaw: yamlRaw,
+	}
+
+	patch := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("abc")
+	})
+	defer patch.Reset()
+
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, nil
+	})
+	patch2.Reset()
+
+	ctx.ErrorCode = ""
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	createRunRequest = CreateRunRequest{
+		PipelineID: "abc",
+	}
+
+	patch3 := gomonkey.ApplyFunc(CheckPipelineVersionPermission,
+		func(ctx *logger.RequestContext, userName string, pipelineID string, Pv string) (bool, model.Pipeline, model.PipelineVersion, error) {
+			ctx.ErrorCode = common.PipelineNotFound
+			return true, model.Pipeline{}, model.PipelineVersion{}, fmt.Errorf("abc")
+		})
+
+	defer patch3.Reset()
+
+	_, _, _, err := buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.NotNil(t, err)
+	assert.Equal(t, common.PipelineNotFound, ctx.ErrorCode)
+
+	patch4 := gomonkey.ApplyFunc(CheckPipelineVersionPermission,
+		func(ctx *logger.RequestContext, userName string, pipelineID string, Pv string) (bool, model.Pipeline, model.PipelineVersion, error) {
+			ctx.ErrorCode = common.AccessDenied
+			return false, model.Pipeline{}, model.PipelineVersion{}, nil
+		})
+
+	defer patch4.Reset()
+	_, _, _, err = buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.AccessDenied, ctx.ErrorCode)
+	assert.Equal(t, err.Error(), common.NoAccessError("root", "pipeline", "abc").Error())
+
+	createRunRequest = CreateRunRequest{}
+	buildWorkflowSource(ctx, createRunRequest, "")
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	createRunRequest = CreateRunRequest{}
+	patch5 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return []byte{}, fmt.Errorf("abc")
+	})
+	defer patch5.Reset()
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.ReadYamlFileFailed, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile("../../../../example/wide_and_deep/run.yaml")
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, nil
+	})
+	defer patch7.Reset()
+	_, _, _, err = buildWorkflowSource(ctx, createRunRequest, "abc")
 	assert.Nil(t, err)
 
 }
