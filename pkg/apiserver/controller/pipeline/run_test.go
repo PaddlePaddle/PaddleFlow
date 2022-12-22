@@ -452,5 +452,31 @@ func TestBuildWorkflowSource(t *testing.T) {
 	defer patch7.Reset()
 	_, _, _, err = buildWorkflowSource(ctx, createRunRequest, "abc")
 	assert.Nil(t, err)
+}
 
+func TestRunYamlAndReqToWfs(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	createRunRequest := CreateRunRequest{}
+	patch := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("unexpected error")
+	})
+	defer patch.Reset()
+
+	runYamlAndReqToWfs(ctx, "pipeline", createRunRequest)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		wfs := schema.WorkflowSource{
+			FsOptions: schema.FsOptions{
+				MainFS: schema.FsMount{
+					Name: "abc",
+				},
+			},
+		}
+		return wfs, nil
+	})
+	defer patch2.Reset()
+	createRunRequest = CreateRunRequest{FsName: "abd"}
+	runYamlAndReqToWfs(ctx, "pipeline", createRunRequest)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
 }
