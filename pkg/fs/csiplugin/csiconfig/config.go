@@ -38,8 +38,8 @@ const (
 	PodMount   = "pfs-mount"
 
 	// default value
-	defaultMountPodCpuLimit   = "2"
-	defaultMountPodMemLimit   = "1Gi"
+	defaultMountPodCpuLimit   = "4"
+	defaultMountPodMemLimit   = "8Gi"
 	defaultMountPodCpuRequest = "0"
 	defaultMountPodMemRequest = "0"
 )
