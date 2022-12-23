@@ -31,18 +31,7 @@ import paddleflow
 import os
 
 
-def check_pfserver_status(service_name, namespace, port, user, password):
-    print("check_pfserver_status service_name=[%s] namespace=[%s] port=[%s] user=[%s] password=[%s]" % (
-    service_name, namespace, port, user, password))
-    host = service_name
-
-    client = paddleflow.Client(host, user, password, port)
-    ret, response = client.login(user, password)
-    if not ret:
-        print(response)
-        err_msg = "client login failed, with host[%s], user[%s], password[%s], port[%s], response[%s]" % (
-        host, user, password, port, response)
-        raise Exception(err_msg)
+def check_pfserver_status(client):
     sum = 1
     while sum != 0:
         ppl_num = clean_pipelines(client)
