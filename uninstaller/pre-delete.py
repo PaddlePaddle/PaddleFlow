@@ -155,11 +155,11 @@ if __name__ == '__main__':
     client = None
     try:
         print("check_pfserver_status service_name=[%s] namespace=[%s] port=[%s] user=[%s] password=[%s]" % (
-            host, namespace, port, user, password))
-        client = paddleflow.Client(host, user, password, port)
+            service_name, namespace, port, user, password))
+        client = paddleflow.Client(service_name, user, password, port)
         ret, response = client.login(user, password)
     except Exception as e:
-        print("client login failed, with host[%s], user[%s], password[%s], port[%s], exception %s" % (host, user, password, port, e))
+        print("client login failed, with service_name[%s], user[%s], password[%s], port[%s], exception %s" % (service_name, user, password, port, e))
         if e.__str__().__contains__("Connection Error"):
             exit(0)
         exit(1)
