@@ -41,8 +41,8 @@ import (
 )
 
 const (
-	TESTACCESSKEY  = "529dc59c7f86d3972c66238f86d3972c66238"
-	TESTSECRETKEY  = "9dcd405ef86d3972c662388840323279"
+	TESTACCESSKEY  = "11111111111111111111eeeeeeeeeeeee"
+	TESTSECRETKEY  = "11111111111111111111eeeeeeeeeeeee"
 	TESTREGION     = "beijing-test"
 	TESTBUCKETNAME = "testbucket"
 	flags          = os.O_RDWR | os.O_CREATE | os.O_TRUNC
