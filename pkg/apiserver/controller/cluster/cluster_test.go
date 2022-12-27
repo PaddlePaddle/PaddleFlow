@@ -19,23 +19,23 @@ package cluster
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	fakedclient "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
@@ -387,7 +387,6 @@ func TestInitDefaultClusters(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			err := InitDefaultCluster()
-			//resp, err := ListCluster(tt.args.ctx, tt.args.marker, tt.args.maxKeys, tt.args.clusterNameList, tt.args.clusterStatus)
 			if tt.expectedErr != nil && assert.Error(t, err) {
 				t.Logf("got error %v", err)
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
@@ -398,6 +397,7 @@ func TestInitDefaultClusters(t *testing.T) {
 		})
 	}
 }
+
 func TestListClusterQuota(t *testing.T) {
 	TestCreateCluster(t)
 
