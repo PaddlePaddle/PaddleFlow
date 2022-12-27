@@ -172,25 +172,27 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
+	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
-		gvrMap, err := krc.GetGVR(gvk)
+		gvkPlugins[gvk] = jobPlugin
+		gvr, find := krc.GetStaticGVR(gvk)
+		if !find {
+			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
+			continue
+		}
+		// Register job event listener
+		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
+		jobClient := gvkPlugins[gvk](krc)
+		err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 		if err != nil {
-			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
-		} else {
-			// Register job event listener
-			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-			jobClient := jobPlugin(krc)
-			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
-			if err != nil {
-				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-				continue
-			}
-			// Register task event listener
-			if gvk == TaskGVK {
-				krc.taskClient = jobClient
-			}
+			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+			continue
+		}
+		// Register task event listener
+		if gvk == TaskGVK {
+			krc.taskClient = jobClient
 		}
 	}
 	return nil
@@ -606,6 +608,11 @@ func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapp
 		return gvr.(meta.RESTMapping), nil
 	}
 	return krc.findGVR(&gvk)
+}
+
+func (krc *KubeRuntimeClient) GetStaticGVR(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool) {
+	gvr, find := k8s.KindResourceMap[gvk]
+	return gvr, find
 }
 
 func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMapping, error) {

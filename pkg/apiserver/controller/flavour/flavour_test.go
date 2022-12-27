@@ -17,6 +17,7 @@ limitations under the License.
 package flavour
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -97,6 +98,10 @@ func TestListFlavour(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, limit, len(flavours.FlavourList))
 
+	// with clusterName
+	flavours, err = ListFlavour(limit, "1", MockClusterName, "")
+	assert.Error(t, err)
+
 }
 
 func TestCreateFlavour(t *testing.T) {
@@ -151,6 +156,64 @@ func TestUpdateFlavour(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "root update request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: MockRootUser,
+				},
+				req: UpdateFlavourRequest{
+					Name: MockFlavourName,
+					CPU:  "40",
+					Mem:  "4G",
+					ScalarResources: map[schema.ResourceName]string{
+						"nvidia.com/gpu": "1",
+					},
+					ClusterID: MockClusterID,
+					UserName:  MockRootUser,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "wrong cluster request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: MockRootUser,
+				},
+				req: UpdateFlavourRequest{
+					Name: MockFlavourName,
+					CPU:  "40",
+					Mem:  "4G",
+					ScalarResources: map[schema.ResourceName]string{
+						"nvidia.com/gpu": "1",
+					},
+					ClusterID:   MockClusterID,
+					ClusterName: "fake",
+					UserName:    MockRootUser,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not found",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: MockRootUser,
+				},
+				req: UpdateFlavourRequest{
+					Name: MockFlavourName + "fake",
+					CPU:  "40",
+					Mem:  "20G",
+					ScalarResources: map[schema.ResourceName]string{
+						"nvidia.com/gpu": "1",
+					},
+					ClusterID: MockClusterID,
+					UserName:  MockRootUser,
+				},
+			},
+			wantErr: true,
+		},
+		{
 			name: "non-root update request",
 			args: args{
 				ctx: &logger.RequestContext{
@@ -193,7 +256,6 @@ func TestGetFlavour(t *testing.T) {
 }
 
 func TestDeleteFlavour(t *testing.T) {
-	TestCreateFlavour(t)
 	//MockFlavourName
 	type args struct {
 		ctx *logger.RequestContext
@@ -202,7 +264,7 @@ func TestDeleteFlavour(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "root delete request",
@@ -212,7 +274,7 @@ func TestDeleteFlavour(t *testing.T) {
 				},
 				req: MockFlavourName,
 			},
-			wantErr: false,
+			wantErr: nil,
 		},
 		{
 			name: "non-root delete request",
@@ -222,17 +284,28 @@ func TestDeleteFlavour(t *testing.T) {
 				},
 				req: MockFlavourName,
 			},
-			wantErr: true,
+			wantErr: errors.New("has no access to resource"),
+		},
+		{
+			name: "record not found",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: MockRootUser,
+				},
+				req: MockFlavourName + "fake",
+			},
+			wantErr: errors.New("record not found"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			TestCreateFlavour(t)
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
 			err := DeleteFlavour(tt.args.ctx, tt.args.req)
 			t.Logf("case[%s] delete flavour, response=%+v", tt.name, err)
-			if tt.wantErr {
-				assert.Error(t, err)
+			if tt.wantErr != nil {
+				assert.Contains(t, err.Error(), tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
 			}
