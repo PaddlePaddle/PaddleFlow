@@ -110,6 +110,14 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				log.Errorf("read from stream failed: %v", err)
 				return 0, syscall.EBADF
 			}
+			if nread == 0 && off < fh.length{
+				log.Errorf("nread is zero off[%d] bytesRead[%d] filesize[%d]", off, bytesRead, fh.length)
+				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
+				if err != nil {
+					log.Errorf("read from stream failed: %v", err)
+					return 0, syscall.EBADF
+				}
+			}
 			bytesRead += nread
 			fh.seqReadAmount += uint64(nread)
 			if off+uint64(nread) >= fh.length {
