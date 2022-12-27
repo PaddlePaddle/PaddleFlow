@@ -391,6 +391,9 @@ func TestInitDefaultClusters(t *testing.T) {
 			if tt.expectedErr != nil && assert.Error(t, err) {
 				t.Logf("got error %v", err)
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
+			} else {
+				err = DeleteCluster(ctx, "default-cluster")
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -400,13 +403,7 @@ func TestListClusterQuota(t *testing.T) {
 
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	ctxNoRoot := &logger.RequestContext{UserName: MockNonRootUser}
-	//cluster, err := GetCluster(ctx, MockClusterName)
-	//assert.NoError(t, err)
-	//clusterInfo := schema.Cluster{
-	//	Name:      MockClusterName,
-	//	ID: cluster.ID,
-	//	Type: cluster.ClusterType,
-	//}
+
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	krc := client.NewFakeKubeRuntimeClient(server)
@@ -429,16 +426,6 @@ func TestListClusterQuota(t *testing.T) {
 		}, nil
 	})
 	defer patch3.Reset()
-	//
-	//patch3 := gomonkey.ApplyFunc(client.CreateKubeRuntimeClient, func(_ *rest.Config, _ *schema.Cluster) (framework.RuntimeClientInterface, error) {
-	//	return krc, nil
-	//})
-	//defer patch3.Reset()
-	//
-	//pRuntime := gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
-	//	return e1, nil
-	//})
-	//defer pRuntime.Reset()
 
 	type args struct {
 		ctx             *logger.RequestContext
