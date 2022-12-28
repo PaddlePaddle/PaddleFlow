@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -327,6 +328,30 @@ func TestCreateRunByJson(t *testing.T) {
 	wfPtr, err := newMockWorkflowByRun(run)
 	assert.Nil(t, err)
 	fmt.Println(wfPtr.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
+
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "TransJsonMap2Yaml", func(*schema.Parser, map[string]interface{}) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch.Reset()
+
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "TransJsonMap2Yaml", func(*schema.Parser, map[string]interface{}) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "ParseFsOptions", func(*schema.Parser, map[string]interface{},
+		*schema.FsOptions) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch3.Reset()
+
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {
