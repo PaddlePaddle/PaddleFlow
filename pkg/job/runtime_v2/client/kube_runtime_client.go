@@ -188,7 +188,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		// Register job event listener
 		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
-		jobClient := gvkPlugins[gvk](krc)
+		jobClient := jobPlugin(krc)
 		err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 		if err != nil {
 			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
