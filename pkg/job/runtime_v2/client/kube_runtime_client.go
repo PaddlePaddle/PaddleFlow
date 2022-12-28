@@ -181,22 +181,38 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
 			continue
 		}
-		gvr2, err := krc.GetGVR(gvk)
-		if err == nil {
-			log.Debugf("compare static gvr: %#v vs gvr in cluster: %#v", gvr, gvr2.Resource)
-		}
-		// Register job event listener
 		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
-		jobClient := jobPlugin(krc)
-		err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
-		if err != nil {
-			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-			continue
-		}
-		// Register task event listener
-		if gvk == TaskGVK {
-			krc.taskClient = jobClient
+		gvrMap, err := krc.GetGVR(gvk)
+		if err == nil {
+			// Register job event listener
+			informerA := krc.DynamicFactory.ForResource(gvr).Informer()
+			informerB := krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+			log.Debugf("informerA is %#v \n, informerB is %#v", informerA, informerB)
+			krc.JobInformerMap[gvk] = informerB
+			jobClient := jobPlugin(krc)
+			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+			if err != nil {
+				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+				continue
+			}
+			// Register task event listener
+			if gvk == TaskGVK {
+				krc.taskClient = jobClient
+			}
+		} else {
+			// Register job event listener
+			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
+			jobClient := jobPlugin(krc)
+			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+			if err != nil {
+				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+				continue
+			}
+			// Register task event listener
+			if gvk == TaskGVK {
+				krc.taskClient = jobClient
+			}
 		}
 	}
 	return nil
