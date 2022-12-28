@@ -200,7 +200,7 @@ func (krc *KubeRuntimeClient) AddJobInformerMaps(gvkPlugins map[schema.GroupVers
 				log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 				krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 				jobPlugin := gvkPlugins[gvk]
-				log.Debugf(" register job event listener for %s, jobplugin is %#v", gvk.String(), jobPlugin)
+				log.Debugf("register job event listener for %s, jobplugin is %#v", gvk.String(), jobPlugin)
 				jobClient := jobPlugin(krc)
 
 				err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])

@@ -110,6 +110,7 @@ func (j *JobSync) runJobWorker() {
 }
 
 func (j *JobSync) processJobWorkItem() bool {
+	log.Debugf("processJobWorkItem: jobQueue length is %d", j.jobQueue.Len())
 	obj, shutdown := j.jobQueue.Get()
 	if shutdown {
 		return false
