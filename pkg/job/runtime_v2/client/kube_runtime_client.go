@@ -172,23 +172,12 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
-	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
-		gvkPlugins[gvk] = jobPlugin
-		gvr, find := k8s.KindResourceMap[gvk]
-		if !find {
-			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
-			continue
-		}
-		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 		gvrMap, err := krc.GetGVR(gvk)
-		if err == nil {
-			// Register job event listener
-			informerA := krc.DynamicFactory.ForResource(gvr).Informer()
-			informerB := krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-			log.Debugf("informerA is %#v \n, informerB is %#v", informerA, informerB)
-			krc.JobInformerMap[gvk] = informerB
+		if err != nil {
+			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(k8s.KindResourceMap[gvk]).Informer()
 			jobClient := jobPlugin(krc)
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 			if err != nil {
@@ -202,7 +191,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		} else {
 			// Register job event listener
 			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
+			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			jobClient := jobPlugin(krc)
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 			if err != nil {
