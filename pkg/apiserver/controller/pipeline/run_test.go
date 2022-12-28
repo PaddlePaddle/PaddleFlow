@@ -352,6 +352,42 @@ func TestCreateRunByJson(t *testing.T) {
 	ctx.ErrorCode = ""
 	CreateRunByJson(ctx, bodyMap)
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "ParseFsOptions", func(*schema.Parser, map[string]interface{},
+		*schema.FsOptions) error {
+		return nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(ProcessJsonAttr, func(map[string]interface{}) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch5.Reset()
+
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyFunc(ProcessJsonAttr, func(map[string]interface{}) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return false
+	})
+	defer patch7.Reset()
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidNamePattern, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyFunc(schema.RunYaml2Map, func([]byte) (map[string]interface{}, error) {
+		return nil, fmt.Errorf("error")
+	})
+	defer patch8.Reset()
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {
