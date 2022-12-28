@@ -176,10 +176,13 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
 		gvkPlugins[gvk] = jobPlugin
-		gvr, find := krc.GetStaticGVR(gvk)
+		gvr, find := k8s.KindResourceMap[gvk]
 		if !find {
 			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
 			continue
+		}
+		if gvr2, err := krc.GetGVR(gvk); err == nil {
+			log.Debugf("compare static gvr: %#v vs gvr in cluster: %#v", gvk, gvr2)
 		}
 		// Register job event listener
 		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
@@ -608,11 +611,6 @@ func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapp
 		return gvr.(meta.RESTMapping), nil
 	}
 	return krc.findGVR(&gvk)
-}
-
-func (krc *KubeRuntimeClient) GetStaticGVR(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool) {
-	gvr, find := k8s.KindResourceMap[gvk]
-	return gvr, find
 }
 
 func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMapping, error) {

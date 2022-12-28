@@ -43,7 +43,7 @@ var (
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
 	PodGVR          = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "SparkApplication"}
+	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
 	PaddleJobGVR    = schema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
 	PyTorchJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
 	TFJobGVR        = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "tfjobs"}
