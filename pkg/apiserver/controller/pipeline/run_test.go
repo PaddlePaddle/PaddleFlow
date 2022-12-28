@@ -541,3 +541,55 @@ func TestRunYamlAndReqToWfs(t *testing.T) {
 	runYamlAndReqToWfs(ctx, "pipeline", createRunRequest)
 	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
 }
+
+func TestValidateAndCreateRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	createRunRequest := CreateRunRequest{}
+	r := &models.Run{}
+
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	ctx.RequestID = "abcd"
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return fmt.Errorf("error")
+	})
+	defer patch.Reset()
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, fmt.Errorf("error")
+	})
+	defer patch3.Reset()
+	fmt.Println("+++++++++++++++")
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	fmt.Println("+++++++++++++++")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	patch4 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.CreateRun, func(*log.Entry, *models.Run) (string, error) {
+		return "123", fmt.Errorf("error")
+	})
+	defer patch5.Reset()
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+}
