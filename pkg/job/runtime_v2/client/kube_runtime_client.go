@@ -181,14 +181,15 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
 			continue
 		}
-		if gvr2, err := krc.GetGVR(gvk); err == nil {
-			log.Debugf("compare static gvr: %#v vs gvr in cluster: %#v", gvk, gvr2)
+		gvr2, err := krc.GetGVR(gvk)
+		if err == nil {
+			log.Debugf("compare static gvr: %#v vs gvr in cluster: %#v", gvr, gvr2.Resource)
 		}
 		// Register job event listener
 		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
 		jobClient := gvkPlugins[gvk](krc)
-		err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+		err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 		if err != nil {
 			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
 			continue
@@ -202,25 +203,25 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
-	gvrMap, err := krc.GetGVR(TaskGVK)
-	if err != nil {
-		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
-		return err
+	gvr, find := k8s.KindResourceMap[TaskGVK]
+	if !find {
+		log.Warnf("failed to find gvr mapping for gvk: %#v", TaskGVK)
+		return fmt.Errorf("failed to find gvr mapping for gvk: %#v", TaskGVK)
 	}
-	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+	krc.podInformer = krc.DynamicFactory.ForResource(gvr).Informer()
 	taskInformer, find := krc.JobInformerMap[TaskGVK]
 	if !find {
-		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		err := fmt.Errorf("register task listener failed, taskClient is nil")
 		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
 	if krc.taskClient == nil {
-		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		err := fmt.Errorf("register task listener failed, taskClient is nil")
 		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
 	// Register task event listener
-	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
+	err := krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
 	if err != nil {
 		log.Errorf("on %s, add event lister for task failed, err: %v", krc.Cluster(), err)
 		return err
