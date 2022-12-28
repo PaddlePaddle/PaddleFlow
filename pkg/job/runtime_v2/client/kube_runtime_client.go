@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,8 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// SyncJobPluginsPeriod defines how often to sync jobPlugins
+	SyncJobPluginsPeriod int = 5
 	// TaskGVK gvk for task
 	TaskGVK = k8s.PodGVK
 )
@@ -86,6 +89,8 @@ type KubeRuntimeClient struct {
 	nodeTaskInformer infov1.PodInformer
 	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
 	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// UnRegisteredMap record unregistered GroupVersionKind
+	UnRegisteredMap map[schema.GroupVersionKind]bool
 	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
 	taskClient  framework.JobInterface
@@ -124,6 +129,7 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		Config:           config,
 		ClusterInfo:      cluster,
 		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		UnRegisteredMap:  make(map[schema.GroupVersionKind]bool),
 		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
@@ -175,27 +181,39 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
+		krc.UnRegisteredMap[gvk] = true
 		gvkPlugins[gvk] = jobPlugin
-		gvr, find := krc.GetStaticGVR(gvk)
-		if !find {
-			log.Warnf("failed to find static gvr mapping for gvk: %#v", gvk)
-			continue
-		}
-		// Register job event listener
-		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvr).Informer()
-		jobClient := gvkPlugins[gvk](krc)
-		err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
-		if err != nil {
-			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-			continue
-		}
-		// Register task event listener
-		if gvk == TaskGVK {
-			krc.taskClient = jobClient
-		}
 	}
+	go krc.AddJobInformerMaps(gvkPlugins, workQueue)
 	return nil
+}
+
+func (krc *KubeRuntimeClient) AddJobInformerMaps(gvkPlugins map[schema.GroupVersionKind]framework.JobPlugin, workQueue workqueue.RateLimitingInterface) {
+	for len(krc.UnRegisteredMap) != 0 {
+		for gvk, _ := range krc.UnRegisteredMap {
+			gvrMap, err := krc.GetGVR(gvk)
+			if err != nil {
+				log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+				continue
+			} else {
+				// Register job event listener
+				log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+				krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+				jobClient := gvkPlugins[gvk](krc)
+				err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+				if err != nil {
+					log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+					continue
+				}
+				// Register task event listener
+				if gvk == TaskGVK {
+					krc.taskClient = jobClient
+				}
+				delete(krc.UnRegisteredMap, gvk)
+			}
+		}
+		time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+	}
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
@@ -608,11 +626,6 @@ func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapp
 		return gvr.(meta.RESTMapping), nil
 	}
 	return krc.findGVR(&gvk)
-}
-
-func (krc *KubeRuntimeClient) GetStaticGVR(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool) {
-	gvr, find := k8s.KindResourceMap[gvk]
-	return gvr, find
 }
 
 func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMapping, error) {

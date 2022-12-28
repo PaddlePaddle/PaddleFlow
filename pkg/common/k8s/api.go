@@ -42,29 +42,6 @@ var (
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
-	PodGVR          = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
-	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "SparkApplication"}
-	PaddleJobGVR    = schema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
-	PyTorchJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
-	TFJobGVR        = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "tfjobs"}
-	MPIJobGVR       = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mpijobs"}
-	MXNetJobGVR     = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mxjobs"}
-	XGBoostJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
-	RayJobGVR       = schema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
-	ArgoWorkflowGVR = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
-
-	KindResourceMap = map[schema.GroupVersionKind]schema.GroupVersionResource{
-		PodGVK:          PodGVR,
-		SparkAppGVK:     SparkAppGVR,
-		PaddleJobGVK:    PaddleJobGVR,
-		ArgoWorkflowGVK: ArgoWorkflowGVR,
-		PyTorchJobGVK:   PyTorchJobGVR,
-		TFJobGVK:        TFJobGVR,
-		MXNetJobGVK:     MXNetJobGVR,
-		MPIJobGVK:       MPIJobGVR,
-		RayJobGVK:       RayJobGVR,
-	}
-
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
 	GVKJobStatusMap = map[schema.GroupVersionKind]bool{
 		SparkAppGVK:     true,
