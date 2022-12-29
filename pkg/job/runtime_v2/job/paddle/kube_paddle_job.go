@@ -246,6 +246,7 @@ func (pj *KubePaddleJob) AddEventListener(ctx context.Context, listenerType stri
 // JobStatus get the statusInfo of paddle job, including origin status, pf status and message
 func (pj *KubePaddleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	unObj := obj.(*unstructured.Unstructured)
+	log.Debugf(`get unstructured of job [%#v]`, unObj.Object)
 	// convert to PaddleJob struct
 	job := &paddlejobv1.PaddleJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
