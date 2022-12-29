@@ -75,8 +75,8 @@ func TestSftpWithReadErr(t *testing.T) {
 	assert.Equal(t, nil, err)
 	bu := make([]byte, 1)
 	n, err := fh.Read(bu)
-	assert.NotNil(t, err)
-	assert.Equal(t, 0, n)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, n)
 	fh.Close()
 
 }
