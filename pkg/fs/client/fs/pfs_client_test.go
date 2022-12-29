@@ -44,33 +44,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-func getS3Client(t *testing.T) FSClient {
-	os.MkdirAll("./mock", 0755)
-	// testFsMeta := common.FSMeta{
-	// 	UfsType: common.LocalType,
-	// 	Properties: map[string]string{
-	// 		common.RootKey: "./mock",
-	// 	},
-	// 	SubPath: "./mock",
-	// }
-	testFsMeta := common.FSMeta{
-		UfsType:       common.S3Type,
-		ServerAddress: "s3.bj.bcebos.com",
-		Properties: map[string]string{
-			"endpoint":  "s3.bj.bcebos.com",
-			"region":    "bj",
-			"accessKey": "6109130f43a643b5ba34095e0511554f",
-			"secretKey": "1c572c2f5f7a41b98395e773cd5d5a68",
-			"bucket":    "paddleflow",
-		},
-		SubPath: "test_s3/tmp",
-	}
-	DataCachePath = "./mock-cache"
-	fsclient, err := NewFSClientForTest(testFsMeta)
-	assert.Equal(t, nil, err)
-	return fsclient
-}
-
 func TestSftpWithReadErr(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
