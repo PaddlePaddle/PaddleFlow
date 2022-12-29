@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,8 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// SyncJobPluginsPeriod defines how often to sync jobPlugins
+	SyncJobPluginsPeriod int = 5
 	// TaskGVK gvk for task
 	TaskGVK = k8s.PodGVK
 )
@@ -86,9 +89,12 @@ type KubeRuntimeClient struct {
 	nodeTaskInformer infov1.PodInformer
 	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
 	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// UnRegisteredMap record unregistered GroupVersionKind
+	UnRegisteredMap map[schema.GroupVersionKind]bool
 	// podInformer contains the informer of task
-	podInformer cache.SharedIndexInformer
-	taskClient  framework.JobInterface
+	podInformer     cache.SharedIndexInformer
+	taskClient      framework.JobInterface
+	taskClientReady chan int
 	// QueueInformerMap
 	QueueInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 }
@@ -123,7 +129,9 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		DiscoveryClient:  discoveryClient,
 		Config:           config,
 		ClusterInfo:      cluster,
+		taskClientReady:  make(chan int),
 		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		UnRegisteredMap:  make(map[schema.GroupVersionKind]bool),
 		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
@@ -172,31 +180,47 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
+	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
-		gvrMap, err := krc.GetGVR(gvk)
-		if err != nil {
-			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
-		} else {
-			// Register job event listener
-			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-			jobClient := jobPlugin(krc)
-			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
-			if err != nil {
-				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-				continue
-			}
-			// Register task event listener
-			if gvk == TaskGVK {
-				krc.taskClient = jobClient
-			}
-		}
+		krc.UnRegisteredMap[gvk] = true
+		gvkPlugins[gvk] = jobPlugin
 	}
+	go krc.AddJobInformerMaps(gvkPlugins, workQueue)
 	return nil
 }
 
+func (krc *KubeRuntimeClient) AddJobInformerMaps(gvkPlugins map[schema.GroupVersionKind]framework.JobPlugin, workQueue workqueue.RateLimitingInterface) {
+	for len(krc.UnRegisteredMap) != 0 {
+		for gvk, _ := range krc.UnRegisteredMap {
+			gvrMap, err := krc.GetGVR(gvk)
+			if err != nil {
+				continue
+			} else {
+				// Register job event listener
+				log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+				krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+				jobPlugin := gvkPlugins[gvk]
+				jobClient := jobPlugin(krc)
+				err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+				if err != nil {
+					log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+					continue
+				}
+				// Register task event listener
+				if gvk == TaskGVK {
+					krc.taskClient = jobClient
+					krc.taskClientReady <- 0
+				}
+				delete(krc.UnRegisteredMap, gvk)
+			}
+		}
+		time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+	}
+}
+
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	<-krc.taskClientReady
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
