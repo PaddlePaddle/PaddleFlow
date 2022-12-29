@@ -101,10 +101,14 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
 			if err != nil && err != syscall.ENOMEM {
 				log.Errorf("reader readat failed: %v", err)
-				return 0, syscall.EBADF
+				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
 			}
 			if err == syscall.ENOMEM {
 				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
+				if err != nil {
+					log.Errorf("read from stream with not ENOMEM failed: %v", err)
+					return 0, syscall.EBADF
+				}
 			}
 			if err != nil {
 				log.Errorf("read from stream failed: %v", err)
