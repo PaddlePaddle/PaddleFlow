@@ -670,7 +670,7 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 func buildMembers(request *CreateJobInfo) []schema.Member {
 	log.Debugf("buildMembers %v", request)
 	members := make([]schema.Member, 0)
-	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
+	log.Infof("build members for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		log.Debugf("reqMember %#v, role is %s", reqMember, reqMember.Role)
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
