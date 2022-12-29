@@ -195,7 +195,6 @@ func (krc *KubeRuntimeClient) AddJobInformerMaps(gvkPlugins map[schema.GroupVers
 		for gvk, _ := range krc.UnRegisteredMap {
 			gvrMap, err := krc.GetGVR(gvk)
 			if err != nil {
-				log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 				continue
 			} else {
 				// Register job event listener
