@@ -87,6 +87,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			return
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
+		log.Errorf("readAdeadBuf err %v nread %v", err, nread)
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			return 0, err
 		}
@@ -159,7 +160,7 @@ func (r *rCache) readAhead(index int) (err error) {
 }
 
 func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
-	log.Debugf("rCache read len byte %d off %d "+
+	log.Infof("rCache read len byte %d off %d "+
 		"length %v conf %+v buffers %v", len(buf), off, r.length, r.store.conf, len(r.buffers))
 	if len(buf) == 0 || int(off) >= r.length {
 		return 0, nil
