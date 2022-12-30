@@ -202,6 +202,14 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	log.Debugf("Register task listener")
+	jobPlugin, exist := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(TaskGVK))
+	if !exist {
+		err := fmt.Errorf("register task listener failed, jobPlugin of task %s not found", TaskGVK)
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
+	krc.taskClient = jobPlugin(krc)
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
