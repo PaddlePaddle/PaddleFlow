@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -177,8 +178,17 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
-	for fv, jobPlugin := range jobPlugins {
+	for fv, _ := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
+		krc.unRegisteredMap[gvk] = true
+	}
+	krc.addJobInformers(workQueue)
+	return nil
+}
+
+func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
+	for gvk := range krc.unRegisteredMap {
+		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
@@ -196,20 +206,18 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			if gvk == TaskGVK {
 				krc.taskClient = jobClient
 			}
+			delete(krc.unRegisteredMap, gvk)
 		}
 	}
-	return nil
+
+	time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+	if len(krc.unRegisteredMap) != 0 {
+		go krc.addJobInformers(workQueue)
+	}
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
 	log.Debugf("Register task listener")
-	jobPlugin, exist := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(TaskGVK))
-	if !exist {
-		err := fmt.Errorf("register task listener failed, jobPlugin of task %s not found", TaskGVK)
-		log.Errorf("on %s, %s", krc.Cluster(), err)
-		return err
-	}
-	krc.taskClient = jobPlugin(krc)
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
@@ -218,7 +226,7 @@ func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimit
 	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 	taskInformer, find := krc.JobInformerMap[TaskGVK]
 	if !find {
-		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		err = fmt.Errorf("register task listener failed, taskInformer not found")
 		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
