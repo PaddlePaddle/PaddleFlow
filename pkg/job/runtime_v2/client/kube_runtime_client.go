@@ -182,7 +182,16 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		gvk := frameworkVersionToGVK(fv)
 		krc.unRegisteredMap[gvk] = true
 	}
+	// register first
 	krc.addJobInformers(workQueue)
+	go func() {
+		log.Debugf("loop sync %d unRegistered job plugins", len(krc.unRegisteredMap))
+		for len(krc.unRegisteredMap) != 0 {
+			krc.addJobInformers(workQueue)
+			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+		}
+	}()
+
 	return nil
 }
 
@@ -208,11 +217,6 @@ func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingIn
 			}
 			delete(krc.unRegisteredMap, gvk)
 		}
-	}
-
-	time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
-	if len(krc.unRegisteredMap) != 0 {
-		go krc.addJobInformers(workQueue)
 	}
 }
 
