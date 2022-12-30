@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -178,17 +177,8 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
-	for fv, _ := range jobPlugins {
+	for fv, jobPlugin := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
-		krc.unRegisteredMap[gvk] = true
-	}
-	krc.addJobInformers(workQueue)
-	return nil
-}
-
-func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
-	for gvk := range krc.unRegisteredMap {
-		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
@@ -202,26 +192,16 @@ func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingIn
 				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
 				continue
 			}
-			delete(krc.unRegisteredMap, gvk)
+			// Register task event listener
+			if gvk == TaskGVK {
+				krc.taskClient = jobClient
+			}
 		}
 	}
-
-	time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
-	if len(krc.unRegisteredMap) != 0 {
-		go krc.addJobInformers(workQueue)
-	}
+	return nil
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
-	log.Debugf("Register task listener")
-	jobPlugin, exist := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(TaskGVK))
-	if !exist {
-		err := fmt.Errorf("register task listener failed, jobPlugin of task %s not found", TaskGVK)
-		log.Errorf("on %s, %s", krc.Cluster(), err)
-		return err
-	}
-	krc.taskClient = jobPlugin(krc)
-
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
@@ -234,7 +214,11 @@ func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimit
 		log.Errorf("on %s, %s", krc.Cluster(), err)
 		return err
 	}
-
+	if krc.taskClient == nil {
+		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
 	// Register task event listener
 	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
 	if err != nil {
