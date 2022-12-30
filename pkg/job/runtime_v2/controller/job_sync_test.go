@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -72,6 +73,54 @@ func newFakeJobSyncController() *JobSync {
 		log.Errorf("initialize controller failed: %v", err)
 	}
 	return ctrl
+}
+
+func TestJobSync_Initialize(t *testing.T) {
+	t.Logf("test start job sync")
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	ctrl := NewJobSync()
+	opt := client.NewFakeKubeRuntimeClient(server)
+
+	type args struct {
+		jobSync *JobSync
+		opt     *client.KubeRuntimeClient
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success",
+			args: args{
+				jobSync: ctrl,
+				opt:     opt,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "client is nil",
+			args: args{
+				jobSync: ctrl,
+				opt:     nil,
+			},
+			wantErr: fmt.Errorf("init JobSync failed"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			err := tt.args.jobSync.Initialize(tt.args.opt)
+			if err != nil {
+				assert.Equal(t, tt.wantErr, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
 }
 
 func initJobData(mockQueueID, mockClusterID, mockJobID string) error {

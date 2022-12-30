@@ -199,10 +199,12 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 
 func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) error {
 	for gvk := range krc.unRegisteredMap {
+		log.Infof("add job informer for %v", gvk)
 		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+			continue
 		} else {
 			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 			jobClient := jobPlugin(krc)
@@ -212,7 +214,15 @@ func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingIn
 					err = fmt.Errorf("register task listener failed, taskClient is nil")
 					log.Errorf("on %s, %s", krc.Cluster(), err)
 				} else {
-					jobClient = krc.taskClient
+					log.Debugf("register singleJob listener")
+					krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+					err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+					if err != nil {
+						log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+						continue
+					}
+					delete(krc.unRegisteredMap, gvk)
+					continue
 				}
 			}
 			// Register job event listener
