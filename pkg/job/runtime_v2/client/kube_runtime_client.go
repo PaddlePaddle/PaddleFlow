@@ -211,13 +211,17 @@ func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingIn
 			continue
 		}
 		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
-		jobClient := jobPlugin(krc)
+
 		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 		// Register job event listener
 		if gvk == TaskGVK {
 			err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 		} else {
+			jobPlugin, find := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
+			if !find {
+				log.Errorf("cannot find job plugin by gvk %s", gvk.String())
+			}
+			jobClient := jobPlugin(krc)
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 		}
 
