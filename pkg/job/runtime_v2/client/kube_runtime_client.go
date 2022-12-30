@@ -190,18 +190,19 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	}
 
 	go func() {
-		log.Debugf("loop sync %d unRegistered job plugins", len(krc.unRegisteredMap))
+		log.Infof("loop sync %d unRegistered job plugins", len(krc.unRegisteredMap))
 		for len(krc.unRegisteredMap) != 0 {
 			krc.addJobInformers(workQueue)
 			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
 		}
-		log.Debugf("loop sync job informers done, total job type is %d", len(jobPlugins))
+		log.Infof("loop sync job informers done, total job type is %d", len(jobPlugins))
 	}()
 
 	return nil
 }
 
 func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
+	log.Debugf("addJobInformers with %d unRegistered Job", len(krc.unRegisteredMap))
 	for gvk := range krc.unRegisteredMap {
 		log.Infof("add job informer for %v", gvk)
 		gvrMap, err := krc.GetGVR(gvk)
