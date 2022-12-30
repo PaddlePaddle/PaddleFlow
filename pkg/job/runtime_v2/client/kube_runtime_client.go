@@ -195,6 +195,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			krc.addJobInformers(workQueue)
 			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
 		}
+		log.Debugf("loop sync job informers done, total job type is %d", len(jobPlugins))
 	}()
 
 	return nil
