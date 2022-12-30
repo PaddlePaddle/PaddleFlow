@@ -239,16 +239,11 @@ func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimit
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
 		return err
 	}
+	// init podInformer
 	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-	taskInformer, find := krc.JobInformerMap[TaskGVK]
-	if !find {
-		err = fmt.Errorf("register task listener failed, taskInformer not found")
-		log.Errorf("on %s, %s", krc.Cluster(), err)
-		return err
-	}
 
 	// Register task event listener
-	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
+	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, krc.podInformer)
 	if err != nil {
 		log.Errorf("on %s, add event lister for task failed, err: %v", krc.Cluster(), err)
 		return err
