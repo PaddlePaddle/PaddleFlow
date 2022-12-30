@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,8 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// SyncJobPluginsPeriod defines how often to sync jobPlugins
+	SyncJobPluginsPeriod int = 5
 	// TaskGVK gvk for task
 	TaskGVK = k8s.PodGVK
 )
@@ -86,9 +89,12 @@ type KubeRuntimeClient struct {
 	nodeTaskInformer infov1.PodInformer
 	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
 	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// UnRegisteredMap record unregistered GroupVersionKind
+	UnRegisteredMap map[schema.GroupVersionKind]bool
 	// podInformer contains the informer of task
-	podInformer cache.SharedIndexInformer
-	taskClient  framework.JobInterface
+	podInformer     cache.SharedIndexInformer
+	taskClient      framework.JobInterface
+	taskClientReady chan int
 	// QueueInformerMap
 	QueueInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 }
@@ -123,7 +129,9 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		DiscoveryClient:  discoveryClient,
 		Config:           config,
 		ClusterInfo:      cluster,
+		taskClientReady:  make(chan int),
 		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		UnRegisteredMap:  make(map[schema.GroupVersionKind]bool),
 		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
@@ -172,13 +180,9 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
+	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
-		gvk := frameworkVersionToGVK(fv)
-		_, err := krc.GetGVR(gvk)
-		if err != nil {
-			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
-			continue
-		} else {
+		  gvk := frameworkVersionToGVK(fv)
 			// Register job event listener
 			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
 			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(k8s.KindResourceMap[gvk]).Informer()
@@ -186,15 +190,12 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
 			if err != nil {
 				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-				continue
+				 continue
 			}
-			// Register task event listener
-			if gvk == TaskGVK {
-				krc.taskClient = jobClient
+      if gvk == TaskGVK {
+					krc.taskClient = jobClient
 			}
-		}
 	}
-	return nil
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {

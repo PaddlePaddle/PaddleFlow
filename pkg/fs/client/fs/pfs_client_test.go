@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -38,9 +39,87 @@ import (
 	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
+
+func TestSftpWithReadErr(t *testing.T) {
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "123456789"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	var p *cache.Page
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(p), "WriteFrom", func(_ *cache.Page, reader io.Reader) (n int, err error) {
+		return 0, errors.New("read fail")
+	})
+	defer patch.Reset()
+
+	fh, err := client.Open(path)
+	assert.Equal(t, nil, err)
+	bu := make([]byte, 1)
+	n, err := fh.Read(bu)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, n)
+	fh.Close()
+
+}
+
+func TestSftpWithUfsGetErr(t *testing.T) {
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "123456789"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	var p ufslib.UnderFileStorage
+	p, _ = ufslib.NewUFS("local", map[string]interface{}{
+		common.SubPath: "./mock",
+	})
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(p), "Get", func(_ *ufslib.LocalFileSystem, name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+		return nil, errors.New("init reader fail")
+	})
+	defer patch.Reset()
+
+	fh, err := client.Open(path)
+	assert.Equal(t, nil, err)
+	bu := make([]byte, 1)
+	n, err := fh.Read(bu)
+	assert.NotNil(t, err)
+	assert.Equal(t, 0, n)
+	fh.Close()
+
+}
 
 func getTestFSClient(t *testing.T) FSClient {
 	os.MkdirAll("./mock", 0755)

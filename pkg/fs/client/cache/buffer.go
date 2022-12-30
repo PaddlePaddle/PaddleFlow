@@ -21,6 +21,8 @@ import (
 	"sync"
 	"syscall"
 
+	log "github.com/sirupsen/logrus"
+
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
@@ -54,12 +56,17 @@ func (b *ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 
 func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 	getFunc := func() (io.ReadCloser, error) {
-		resp, err := b.ufs.Get(b.path, syscall.O_RDONLY, int64(offset), int64(size))
-		if err != nil {
-			return nil, err
+		var resp io.ReadCloser
+		var err error
+		for i := 0; i < 3; i++ {
+			resp, err = b.ufs.Get(b.path, syscall.O_RDONLY, int64(offset), int64(size))
+			if err != nil {
+				log.Errorf("init ufs reader[%d] with offset[%d] size[%d] error: %v", i, offset, size, err)
+			} else {
+				break
+			}
 		}
-
-		return resp, nil
+		return resp, err
 	}
 
 	if b.Buffer == nil {
