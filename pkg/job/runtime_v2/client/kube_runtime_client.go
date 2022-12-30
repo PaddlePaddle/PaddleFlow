@@ -180,30 +180,26 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
-	gvkPlugins := make(map[schema.GroupVersionKind]framework.JobPlugin)
 	for fv, jobPlugin := range jobPlugins {
-		  gvk := frameworkVersionToGVK(fv)
-			// Register job event listener
-			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(k8s.KindResourceMap[gvk]).Informer()
-			jobClient := jobPlugin(krc)
-			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
-			if err != nil {
-				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-				 continue
-			}
-      if gvk == TaskGVK {
-					krc.taskClient = jobClient
-			}
+		gvk := frameworkVersionToGVK(fv)
+		// Register job event listener
+		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(k8s.KindResourceMap[gvk]).Informer()
+		jobClient := jobPlugin(krc)
+		err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+		if err != nil {
+			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+			continue
+		}
+		if gvk == TaskGVK {
+			krc.taskClient = jobClient
+		}
 	}
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
-	gvr, find := k8s.KindResourceMap[TaskGVK]
-	if !find {
-		log.Warnf("failed to find gvr mapping for gvk: %#v", TaskGVK)
-		return fmt.Errorf("failed to find gvr mapping for gvk: %#v", TaskGVK)
-	}
+	gvr := k8s.KindResourceMap[TaskGVK]
+	log.Infof("registering task listener for gvr %s", gvr)
 	krc.podInformer = krc.DynamicFactory.ForResource(gvr).Informer()
 	taskInformer, find := krc.JobInformerMap[TaskGVK]
 	if !find {
