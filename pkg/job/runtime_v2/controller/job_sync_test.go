@@ -18,7 +18,10 @@ package controller
 
 import (
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -40,6 +43,31 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+)
+
+var (
+	PodGVR          = k8sschema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	SparkAppGVR     = k8sschema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
+	PaddleJobGVR    = k8sschema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
+	PyTorchJobGVR   = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
+	TFJobGVR        = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "tfjobs"}
+	MPIJobGVR       = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mpijobs"}
+	MXNetJobGVR     = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mxjobs"}
+	XGBoostJobGVR   = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
+	RayJobGVR       = k8sschema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
+	ArgoWorkflowGVR = k8sschema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
+
+	kindResourceMap = map[k8sschema.GroupVersionKind]k8sschema.GroupVersionResource{
+		k8s.PodGVK:          PodGVR,
+		k8s.SparkAppGVK:     SparkAppGVR,
+		k8s.PaddleJobGVK:    PaddleJobGVR,
+		k8s.ArgoWorkflowGVK: ArgoWorkflowGVR,
+		k8s.PyTorchJobGVK:   PyTorchJobGVR,
+		k8s.TFJobGVK:        TFJobGVR,
+		k8s.MXNetJobGVK:     MXNetJobGVR,
+		k8s.MPIJobGVK:       MPIJobGVR,
+		k8s.RayJobGVK:       RayJobGVR,
+	}
 )
 
 func NewUnstructured(gvk k8sschema.GroupVersionKind, namespace, name string) *unstructured.Unstructured {
@@ -82,6 +110,14 @@ func TestJobSync_Initialize(t *testing.T) {
 
 	ctrl := NewJobSync()
 	opt := client.NewFakeKubeRuntimeClient(server)
+	var p1 = gomonkey.ApplyMethodFunc(reflect.TypeOf(opt), "GetGVR", func(gvk k8sschema.GroupVersionKind) (meta.RESTMapping, error) {
+		res := meta.RESTMapping{
+			Resource:         kindResourceMap[gvk],
+			GroupVersionKind: gvk,
+		}
+		return res, nil
+	})
+	defer p1.Reset()
 
 	type args struct {
 		jobSync *JobSync

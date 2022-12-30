@@ -71,15 +71,16 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.waitedCleanQueue = workqueue.NewDelayingQueue()
 
-	// Register task listeners
-	if err := j.runtimeClient.RegisterListener(pfschema.ListenerTypeTask, j.taskQueue); err != nil {
-		log.Errorf("register task event listener for %s failed, err: %v", j.Name(), err)
-		return err
-	}
 	// Register job listeners
 	err := j.runtimeClient.RegisterListener(pfschema.ListenerTypeJob, j.jobQueue)
 	if err != nil {
 		log.Errorf("register job event listener for %s failed, err: %v", j.Name(), err)
+		return err
+	}
+	// Register task listeners
+	err = j.runtimeClient.RegisterListener(pfschema.ListenerTypeTask, j.taskQueue)
+	if err != nil {
+		log.Errorf("register task event listener for %s failed, err: %v", j.Name(), err)
 		return err
 	}
 	return nil

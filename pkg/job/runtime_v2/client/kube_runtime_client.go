@@ -174,12 +174,6 @@ func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue wo
 }
 
 func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimitingInterface) error {
-	if krc.taskClient == nil {
-		err := fmt.Errorf("register task listener failed, taskClient is nil")
-		log.Errorf("on %s, %s", krc.Cluster(), err)
-		return err
-	}
-
 	jobPlugins := framework.ListJobPlugins(pfschema.KubernetesType)
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
@@ -188,66 +182,63 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		gvk := frameworkVersionToGVK(fv)
 		krc.unRegisteredMap[gvk] = true
 	}
-
 	go func() {
-		log.Infof("loop sync %d unRegistered job plugins", len(krc.unRegisteredMap))
 		for len(krc.unRegisteredMap) != 0 {
 			krc.addJobInformers(workQueue)
 			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
 		}
-		log.Infof("loop sync job informers done, total job type is %d", len(jobPlugins))
 	}()
 
 	return nil
 }
 
 func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
-	log.Debugf("addJobInformers with %d unRegistered Job", len(krc.unRegisteredMap))
+	log.Debugf("add job informers")
 	for gvk := range krc.unRegisteredMap {
+		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
-			continue
-		}
-		log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
-
-		krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-		// Register job event listener
-		if gvk == TaskGVK {
-			err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.podInformer)
 		} else {
-			jobPlugin, find := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
-			if !find {
-				log.Errorf("cannot find job plugin by gvk %s", gvk.String())
-			}
+			// Register job event listener
+			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
+			krc.JobInformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			jobClient := jobPlugin(krc)
 			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, krc.JobInformerMap[gvk])
+			if err != nil {
+				log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
+				continue
+			}
+			// Register task event listener
+			if gvk == TaskGVK {
+				krc.taskClient = jobClient
+			}
+			delete(krc.unRegisteredMap, gvk)
 		}
-
-		if err != nil {
-			log.Warnf("on %s, add event lister for job %s failed, err: %v", krc.Cluster(), gvk.String(), err)
-			continue
-		}
-		delete(krc.unRegisteredMap, gvk)
 	}
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
 	log.Debugf("Register task listener")
-	// init taskClient
-	jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(TaskGVK))
-	krc.taskClient = jobPlugin(krc)
-
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
 		return err
 	}
-	// init podInformer
 	krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-
+	taskInformer, find := krc.JobInformerMap[TaskGVK]
+	if !find {
+		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
+	if krc.taskClient == nil {
+		err = fmt.Errorf("register task listener failed, taskClient is nil")
+		log.Errorf("on %s, %s", krc.Cluster(), err)
+		return err
+	}
 	// Register task event listener
-	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, krc.podInformer)
+	err = krc.taskClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, workQueue, taskInformer)
 	if err != nil {
 		log.Errorf("on %s, add event lister for task failed, err: %v", krc.Cluster(), err)
 		return err
