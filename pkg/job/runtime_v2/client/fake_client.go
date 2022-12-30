@@ -52,7 +52,7 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 		},
 		Config:           &rest.Config{Host: server.URL},
 		JobInformerMap:   make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
-		UnRegisteredMap:  make(map[k8sschema.GroupVersionKind]bool),
+		unRegisteredMap:  make(map[k8sschema.GroupVersionKind]bool),
 		QueueInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
 	}
 }
