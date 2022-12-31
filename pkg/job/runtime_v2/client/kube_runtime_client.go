@@ -182,9 +182,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		gvk := frameworkVersionToGVK(fv)
 		krc.unRegisteredMap[gvk] = true
 	}
-	if len(krc.unRegisteredMap) != 0 {
-		krc.addJobInformers(workQueue)
-	}
+	krc.addJobInformers(workQueue)
 	go func() {
 		for len(krc.unRegisteredMap) != 0 {
 			krc.addJobInformers(workQueue)
