@@ -199,7 +199,7 @@ func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingIn
 		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
-			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+			log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 		} else {
 			// Register job event listener
 			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
