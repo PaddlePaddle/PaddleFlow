@@ -716,3 +716,47 @@ func TestStopRun(t *testing.T) {
 	StopRun(ctx, MockRootUser, "runID", req)
 	assert.Equal(t, "", ctx.ErrorCode)
 }
+
+func TestRetryRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+	RetryRun(ctx, "runid")
+
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	RetryRun(ctx, "runID")
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	patch4 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("patch4 error")
+	})
+	defer patch4.Reset()
+	RetryRun(ctx, "runID")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+}
