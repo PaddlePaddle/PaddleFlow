@@ -573,9 +573,7 @@ func TestValidateAndCreateRun(t *testing.T) {
 		return &pipeline.Workflow{}, fmt.Errorf("error")
 	})
 	defer patch3.Reset()
-	fmt.Println("+++++++++++++++")
 	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
-	fmt.Println("+++++++++++++++")
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
 	ctx.ErrorCode = ""
 
@@ -592,4 +590,129 @@ func TestValidateAndCreateRun(t *testing.T) {
 	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
 	assert.Equal(t, common.InternalError, ctx.ErrorCode)
 	ctx.ErrorCode = ""
+}
+
+func TestCheckFs(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	wfs := &schema.WorkflowSource{}
+
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		return nil, fmt.Errorf("error")
+	})
+	defer patch.Reset()
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		return nil, nil
+	})
+	defer patch2.Reset()
+
+	wfs.FsOptions.MainFS.SubPath = "/tmp/a.txt"
+	wfs.FsOptions.MainFS.Name = "abcfs"
+	patch3 := gomonkey.ApplyFunc(handler.NewFsHandlerWithServer,
+		func(string, *log.Entry) (*handler.FsHandler, error) {
+			return &handler.FsHandler{}, fmt.Errorf("error patch3")
+		})
+	defer patch3.Reset()
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+
+	var hl *handler.FsHandler
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "Exist", func(*handler.FsHandler, string) (bool, error) {
+		return false, fmt.Errorf("error")
+	})
+	defer patch5.Reset()
+
+	fsHandler, _ := handler.NewFsHandlerWithServer("abc", logger.Logger())
+	fsHandler.Exist("/tmp/a.txt")
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "Exist", func(*handler.FsHandler, string) (bool, error) {
+		return true, nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "IsDir", func(*handler.FsHandler, string) (bool, error) {
+		return false, fmt.Errorf("error")
+	})
+	defer patch7.Reset()
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "IsDir", func(*handler.FsHandler, string) (bool, error) {
+		return false, nil
+	})
+	defer patch8.Reset()
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+}
+
+func TestStopRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+
+	req := UpdateRunRequest{}
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunRunning,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	wfMap["runID"] = &pipeline.Workflow{}
+
+	patch4 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
+		return fmt.Errorf("patch4 error")
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
+		return nil
+	})
+	defer patch5.Reset()
+
+	var wf *pipeline.Workflow
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(wf), "Stop", func(*pipeline.Workflow, bool) {
+		ctx.ErrorCode = ""
+	})
+	defer patch6.Reset()
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, "", ctx.ErrorCode)
 }
