@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -61,7 +62,7 @@ func (j *JobSync) Name() string {
 }
 
 func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
-	if runtimeClient == nil {
+	if runtimeClient == nil || (reflect.ValueOf(runtimeClient).Kind() == reflect.Ptr && reflect.ValueOf(runtimeClient).IsNil()) {
 		return fmt.Errorf("init %s failed", JobSyncControllerName)
 	}
 	j.runtimeClient = runtimeClient
@@ -110,6 +111,7 @@ func (j *JobSync) runJobWorker() {
 }
 
 func (j *JobSync) processJobWorkItem() bool {
+	log.Debugf("processJobWorkItem: jobQueue length is %d", j.jobQueue.Len())
 	obj, shutdown := j.jobQueue.Get()
 	if shutdown {
 		return false

@@ -31,18 +31,7 @@ import paddleflow
 import os
 
 
-def check_pfserver_status(service_name, namespace, port, user, password):
-    print("check_pfserver_status service_name=[%s] namespace=[%s] port=[%s] user=[%s] password=[%s]" % (
-    service_name, namespace, port, user, password))
-    host = service_name
-
-    client = paddleflow.Client(host, user, password, port)
-    ret, response = client.login(user, password)
-    if not ret:
-        print(response)
-        err_msg = "client login failed, with host[%s], user[%s], password[%s], port[%s], response[%s]" % (
-        host, user, password, port, response)
-        raise Exception(err_msg)
+def check_pfserver_status(client):
     sum = 1
     while sum != 0:
         ppl_num = clean_pipelines(client)
@@ -139,8 +128,17 @@ def clean_jobs_with_status(client, status, next_marker=None):
         raise Exception(err_msg)
     job_list = response
     if len(job_list) != 0:
-        err_msg = "there are [%s] active jobs" % len(job_list)
-        print(err_msg)
+        print("there are [%s] active jobs" % len(job_list))
+        for job in job_list:
+            try:
+                print("job is ", job.__dict__)
+                ret, response = client.stop_job(job.job_id)
+                print("stop_job %s got %s, err is %s " % (job.job_id, ret, response) )
+                if ret is True:
+                    print("stop job %s success" % job.job_id)
+
+            except Exception as e:
+                print(e)
     else:
         err_msg = "no [%s] job, quit clean_jobs_with_status check" % status
         print(err_msg)
@@ -154,9 +152,20 @@ if __name__ == '__main__':
     port = int(os.getenv("port"))
     user = os.getenv("user")
     password = os.getenv("password")
+    client = None
+    try:
+        print("check_pfserver_status service_name=[%s] namespace=[%s] port=[%s] user=[%s] password=[%s]" % (
+            service_name, namespace, port, user, password))
+        client = paddleflow.Client(service_name, user, password, port)
+        ret, response = client.login(user, password)
+    except Exception as e:
+        print("client login failed, with service_name[%s], user[%s], password[%s], port[%s], exception %s" % (service_name, user, password, port, e))
+        if e.__str__().__contains__("Connection Error"):
+            exit(0)
+        exit(1)
 
     try:
-        check_pfserver_status(service_name, namespace, port, user, password)
+        check_pfserver_status(client)
     except Exception as e:
         print(e)
 

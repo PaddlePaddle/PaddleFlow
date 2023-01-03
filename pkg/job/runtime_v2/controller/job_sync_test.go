@@ -17,13 +17,17 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +43,31 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+)
+
+var (
+	PodGVR          = k8sschema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	SparkAppGVR     = k8sschema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
+	PaddleJobGVR    = k8sschema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
+	PyTorchJobGVR   = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
+	TFJobGVR        = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "tfjobs"}
+	MPIJobGVR       = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mpijobs"}
+	MXNetJobGVR     = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mxjobs"}
+	XGBoostJobGVR   = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
+	RayJobGVR       = k8sschema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
+	ArgoWorkflowGVR = k8sschema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
+
+	kindResourceMap = map[k8sschema.GroupVersionKind]k8sschema.GroupVersionResource{
+		k8s.PodGVK:          PodGVR,
+		k8s.SparkAppGVK:     SparkAppGVR,
+		k8s.PaddleJobGVK:    PaddleJobGVR,
+		k8s.ArgoWorkflowGVK: ArgoWorkflowGVR,
+		k8s.PyTorchJobGVK:   PyTorchJobGVR,
+		k8s.TFJobGVK:        TFJobGVR,
+		k8s.MXNetJobGVK:     MXNetJobGVR,
+		k8s.MPIJobGVK:       MPIJobGVR,
+		k8s.RayJobGVK:       RayJobGVR,
+	}
 )
 
 func NewUnstructured(gvk k8sschema.GroupVersionKind, namespace, name string) *unstructured.Unstructured {
@@ -72,6 +101,62 @@ func newFakeJobSyncController() *JobSync {
 		log.Errorf("initialize controller failed: %v", err)
 	}
 	return ctrl
+}
+
+func TestJobSync_Initialize(t *testing.T) {
+	t.Logf("test start job sync")
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	ctrl := NewJobSync()
+	opt := client.NewFakeKubeRuntimeClient(server)
+	var p1 = gomonkey.ApplyMethodFunc(reflect.TypeOf(opt), "GetGVR", func(gvk k8sschema.GroupVersionKind) (meta.RESTMapping, error) {
+		res := meta.RESTMapping{
+			Resource:         kindResourceMap[gvk],
+			GroupVersionKind: gvk,
+		}
+		return res, nil
+	})
+	defer p1.Reset()
+
+	type args struct {
+		jobSync *JobSync
+		opt     *client.KubeRuntimeClient
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success",
+			args: args{
+				jobSync: ctrl,
+				opt:     opt,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "client is nil",
+			args: args{
+				jobSync: ctrl,
+				opt:     nil,
+			},
+			wantErr: fmt.Errorf("init JobSync failed"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			err := tt.args.jobSync.Initialize(tt.args.opt)
+			if err != nil {
+				assert.Equal(t, tt.wantErr, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
 }
 
 func initJobData(mockQueueID, mockClusterID, mockJobID string) error {

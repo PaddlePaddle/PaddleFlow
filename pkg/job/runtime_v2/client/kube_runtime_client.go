@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -61,6 +62,8 @@ var (
 	lineReadLimit int64 = 5000
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
+	// SyncJobPluginsPeriod defines how often to sync jobPlugins
+	SyncJobPluginsPeriod int = 5
 	// TaskGVK gvk for task
 	TaskGVK = k8s.PodGVK
 )
@@ -86,6 +89,8 @@ type KubeRuntimeClient struct {
 	nodeTaskInformer infov1.PodInformer
 	// JobInformerMap contains GroupVersionKind and informer for different kubernetes job
 	JobInformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// unRegisteredMap record unregistered GroupVersionKind
+	unRegisteredMap map[schema.GroupVersionKind]bool
 	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
 	taskClient  framework.JobInterface
@@ -124,6 +129,7 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		Config:           config,
 		ClusterInfo:      cluster,
 		JobInformerMap:   make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		unRegisteredMap:  make(map[schema.GroupVersionKind]bool),
 		QueueInformerMap: make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
@@ -172,11 +178,28 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	if len(jobPlugins) == 0 {
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
-	for fv, jobPlugin := range jobPlugins {
+	for fv, _ := range jobPlugins {
 		gvk := frameworkVersionToGVK(fv)
+		krc.unRegisteredMap[gvk] = true
+	}
+	krc.addJobInformers(workQueue)
+	go func() {
+		for len(krc.unRegisteredMap) != 0 {
+			krc.addJobInformers(workQueue)
+			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+		}
+	}()
+
+	return nil
+}
+
+func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
+	log.Debugf("add job informers")
+	for gvk := range krc.unRegisteredMap {
+		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
-			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
+			log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
 		} else {
 			// Register job event listener
 			log.Infof("on %s, register job event listener for %s", krc.Cluster(), gvk.String())
@@ -191,12 +214,13 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 			if gvk == TaskGVK {
 				krc.taskClient = jobClient
 			}
+			delete(krc.unRegisteredMap, gvk)
 		}
 	}
-	return nil
 }
 
 func (krc *KubeRuntimeClient) registerTaskListener(workQueue workqueue.RateLimitingInterface) error {
+	log.Debugf("Register task listener")
 	gvrMap, err := krc.GetGVR(TaskGVK)
 	if err != nil {
 		log.Warnf("on %s, cann't find task GroupVersionKind %s, err: %v", krc.Cluster(), TaskGVK.String(), err)
