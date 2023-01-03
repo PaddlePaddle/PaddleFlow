@@ -17,13 +17,16 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
@@ -66,6 +69,15 @@ func getMockRun2() models.Run {
 		Status:   common.StatusRunPending,
 	}
 	return run2
+}
+
+func loadCase(casePath string) []byte {
+	data, err := ioutil.ReadFile(casePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return []byte{}
+	}
+	return data
 }
 
 func TestGetRunRouter(t *testing.T) {
@@ -180,4 +192,57 @@ func TestCreateRunRouter(t *testing.T) {
 
 	res, _ = PerformPostRequest(router, runUrl, req)
 	assert.Equal(t, http.StatusBadRequest, res.Code)
+}
+
+func TestCreateRunByJson(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	jsonPath := "../../controller/pipeline/testcase/run_dag.json"
+	jsonByte := loadCase(jsonPath)
+
+	runUrl := baseUrl + "/runjson"
+
+	patch3 := gomonkey.ApplyFunc(json.Valid, func([]byte) bool {
+		return false
+	})
+	defer patch3.Reset()
+
+	res, _ := PerformPostRequest(router, runUrl, jsonByte)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch4 := gomonkey.ApplyFunc(json.Valid, func([]byte) bool {
+		return true
+	})
+	defer patch4.Reset()
+
+	var us *unstructured.Unstructured
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(us), "UnmarshalJSON", func(*unstructured.Unstructured, []byte) error {
+		return fmt.Errorf("patch5 error")
+	})
+	defer patch5.Reset()
+
+	res, _ = PerformPostRequest(router, runUrl, jsonByte)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(us), "UnmarshalJSON", func(*unstructured.Unstructured, []byte) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(pipeline.CreateRunByJson,
+		func(ctx *logger.RequestContext, bodyMap map[string]interface{}) (pipeline.CreateRunResponse, error) {
+			ctx.ErrorCode = common.InvalidPipeline
+			return pipeline.CreateRunResponse{}, fmt.Errorf("patch7 error")
+		})
+	defer patch7.Reset()
+	res, _ = PerformPostRequest(router, runUrl, map[string]string{})
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch8 := gomonkey.ApplyFunc(pipeline.CreateRunByJson,
+		func(ctx *logger.RequestContext, bodyMap map[string]interface{}) (pipeline.CreateRunResponse, error) {
+			return pipeline.CreateRunResponse{}, nil
+		})
+	defer patch8.Reset()
+
+	res, _ = PerformPostRequest(router, runUrl, map[string]string{})
+	assert.Equal(t, res.Code, http.StatusCreated)
 }

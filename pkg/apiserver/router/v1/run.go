@@ -108,10 +108,9 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Success 201 {object} run.CreateRunResponse "创建运行响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
-// @Router /run/json [POST]
+// @Router /runjson [POST]
 func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
