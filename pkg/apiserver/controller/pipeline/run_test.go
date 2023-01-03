@@ -37,6 +37,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -758,5 +759,111 @@ func TestRetryRun(t *testing.T) {
 	defer patch4.Reset()
 	RetryRun(ctx, "runID")
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+}
+
+func TestDeleteRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+
+	req := &DeleteRunRequest{}
+	DeleteRun(ctx, "runid", req)
+
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	req.CheckCache = true
+	var run *models.Run
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(run), "GetRunCacheIDList", func(*models.Run) []string {
+		return []string{"cache1", "cache2", "cache3"}
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.ListRun,
+		func(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) ([]models.Run, error) {
+			run := models.Run{}
+			return []models.Run{run}, nil
+		})
+	defer patch5.Reset()
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	req.CheckCache = false
+	patch6 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+			FsID:   "fs-01",
+		}
+		return run, nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(pplcommon.NewResourceHandler, func(runID string, fsID string, logger *log.Entry) (pplcommon.ResourceHandler, error) {
+		return pplcommon.ResourceHandler{}, fmt.Errorf("patch7 error")
+	})
+	defer patch7.Reset()
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyFunc(pplcommon.NewResourceHandler, func(runID string, fsID string, logger *log.Entry) (pplcommon.ResourceHandler, error) {
+		return pplcommon.ResourceHandler{}, nil
+	})
+	defer patch8.Reset()
+
+	var rh *pplcommon.ResourceHandler
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(rh), "ClearResource", func(*pplcommon.ResourceHandler) error {
+		return fmt.Errorf("patch9 error")
+	})
+	defer patch9.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch10 := gomonkey.ApplyMethod(reflect.TypeOf(rh), "ClearResource", func(*pplcommon.ResourceHandler) error {
+		return nil
+	})
+	defer patch10.Reset()
+
+	patch11 := gomonkey.ApplyFunc(models.DeleteRun, func(*log.Entry, string) error {
+		return fmt.Errorf("patch11 error")
+	})
+	defer patch11.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch12 := gomonkey.ApplyFunc(models.DeleteRun, func(*log.Entry, string) error {
+		return nil
+	})
+	defer patch12.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, "", ctx.ErrorCode)
 
 }
