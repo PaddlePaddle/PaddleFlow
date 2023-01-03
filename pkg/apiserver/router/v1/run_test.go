@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
@@ -130,4 +131,53 @@ func TestListRunRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(runRsp.RunList))
 	assert.Equal(t, MockFsName1, runRsp.RunList[0].FsName)
+}
+
+func TestCreateRunRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+
+	runUrl := baseUrl + "/run"
+	req := pipeline.CreateRunRequest{}
+
+	patch := gomonkey.ApplyFunc(common.BindJSON, func(r *http.Request, data interface{}) error {
+		data = &pipeline.CreateRunRequest{}
+		return nil
+	})
+	defer patch.Reset()
+
+	patch1_1 := gomonkey.ApplyFunc(pipeline.CreateRun,
+		func(ctx *logger.RequestContext, request *pipeline.CreateRunRequest, extra map[string]string) (pipeline.CreateRunResponse, error) {
+			return pipeline.CreateRunResponse{}, nil
+		})
+	defer patch1_1.Reset()
+
+	res, _ := PerformPostRequest(router, runUrl, req)
+	assert.Equal(t, res.Code, http.StatusCreated)
+
+	patch1 := gomonkey.ApplyFunc(pipeline.CreateRun,
+		func(ctx *logger.RequestContext, request *pipeline.CreateRunRequest, extra map[string]string) (pipeline.CreateRunResponse, error) {
+			ctx.ErrorCode = common.InvalidPipeline
+			return pipeline.CreateRunResponse{}, fmt.Errorf("patch error")
+		})
+	defer patch1.Reset()
+
+	res, _ = PerformPostRequest(router, runUrl, req)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch2 := gomonkey.ApplyFunc(pipeline.CreateRun,
+		func(ctx *logger.RequestContext, request *pipeline.CreateRunRequest, extra map[string]string) (pipeline.CreateRunResponse, error) {
+			ctx.ErrorCode = common.InvalidPipeline
+			return pipeline.CreateRunResponse{}, fmt.Errorf("patch2 error")
+		})
+	defer patch2.Reset()
+	res, _ = PerformPostRequest(router, runUrl, req)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch3 := gomonkey.ApplyFunc(common.BindJSON, func(*http.Request, interface{}) error {
+		return fmt.Errorf("patch3 error")
+	})
+	defer patch3.Reset()
+
+	res, _ = PerformPostRequest(router, runUrl, req)
+	assert.Equal(t, http.StatusBadRequest, res.Code)
 }
