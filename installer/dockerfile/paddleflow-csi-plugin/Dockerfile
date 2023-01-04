@@ -1,6 +1,5 @@
-FROM paddleflow/pfs-csi:base
+FROM paddleflow/alpine:1.5
 
-RUN echo "Asia/shanghai" > /etc/timezone
 ENV WORKDIR /home/paddleflow
 RUN adduser -g paddleflow paddleflow -D
 ADD  output/bin/csi-plugin $WORKDIR/csi-plugin
