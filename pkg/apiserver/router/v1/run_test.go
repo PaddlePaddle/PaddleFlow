@@ -19,6 +19,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -245,6 +246,13 @@ func TestCreateRunByJsonRouter(t *testing.T) {
 
 	res, _ = PerformPostRequest(router, runUrl, map[string]string{})
 	assert.Equal(t, res.Code, http.StatusCreated)
+
+	patch9 := gomonkey.ApplyFunc(ioutil.ReadAll, func(r io.Reader) ([]byte, error) {
+		return []byte{}, fmt.Errorf("patch9 error")
+	})
+	defer patch9.Reset()
+	res, _ = PerformPostRequest(router, runUrl, map[string]string{})
+	assert.Equal(t, res.Code, http.StatusBadRequest)
 }
 
 func TestUpdateRunRouter(t *testing.T) {
@@ -296,5 +304,12 @@ func TestUpdateRunRouter(t *testing.T) {
 	defer patch4.Reset()
 	res, _ = PerformPutRequest(router, url, nil)
 	assert.Equal(t, res.Code, http.StatusOK)
+
+	patch9 := gomonkey.ApplyFunc(ioutil.ReadAll, func(r io.Reader) ([]byte, error) {
+		return []byte{}, fmt.Errorf("patch9 error")
+	})
+	defer patch9.Reset()
+	res, _ = PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
 
 }
