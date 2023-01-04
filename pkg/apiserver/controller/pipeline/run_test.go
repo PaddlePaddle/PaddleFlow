@@ -430,6 +430,28 @@ func TestCreateRun(t *testing.T) {
 	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
+	patch4 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return false
+	})
+	defer patch4.Reset()
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
+	assert.Equal(t, common.InvalidNamePattern, ctx.ErrorCode)
+
+	patch5 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return true
+	})
+	defer patch5.Reset()
+
+	createRunRequest.ScheduledAt = "now"
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	createRunRequest.ScheduledAt = ""
+	extra := map[string]string{
+		FinalRunStatus: common.StatusRunPending,
+	}
+	_, err = CreateRun(&ctx, &createRunRequest, extra)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
 }
 
 func TestBuildWorkflowSource(t *testing.T) {
