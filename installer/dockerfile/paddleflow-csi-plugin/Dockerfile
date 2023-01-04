@@ -1,4 +1,4 @@
-FROM paddleflow/alpine:1.5
+FROM paddleflow/ubuntu:latest
 
 ENV WORKDIR /home/paddleflow
 RUN adduser -g paddleflow paddleflow -D
