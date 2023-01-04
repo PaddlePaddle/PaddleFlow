@@ -194,7 +194,7 @@ func TestCreateRunRouter(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, res.Code)
 }
 
-func TestCreateRunByJson(t *testing.T) {
+func TestCreateRunByJsonRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	jsonPath := "../../controller/pipeline/testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
@@ -245,4 +245,56 @@ func TestCreateRunByJson(t *testing.T) {
 
 	res, _ = PerformPostRequest(router, runUrl, map[string]string{})
 	assert.Equal(t, res.Code, http.StatusCreated)
+}
+
+func TestUpdateRunRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+
+	ctxroot := &logger.RequestContext{UserName: MockRootUser}
+	run1 := getMockRun1()
+	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
+	assert.Nil(t, err)
+
+	url := baseUrl + "/run/" + run1.ID + "?action=stop23"
+	res, _ := PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	url = baseUrl + "/run/" + run1.ID + "?action=stop"
+	patch := gomonkey.ApplyFunc(pipeline.StopRun, func(ctx *logger.RequestContext, userName, runID string, request pipeline.UpdateRunRequest) error {
+		ctx.ErrorCode = common.InvalidArguments
+		return fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+
+	res, _ = PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch2 := gomonkey.ApplyFunc(pipeline.StopRun, func(ctx *logger.RequestContext, userName, runID string, request pipeline.UpdateRunRequest) error {
+		ctx.ErrorCode = ""
+		return nil
+	})
+	defer patch2.Reset()
+	res, _ = PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusOK)
+
+	res, _ = PerformPutRequest(router, url, "abcdefe")
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	url = baseUrl + "/run/" + run1.ID + "?action=retry"
+	patch3 := gomonkey.ApplyFunc(pipeline.RetryRun, func(ctx *logger.RequestContext, runID string) (string, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return "run-01", fmt.Errorf("patch3 error")
+	})
+	defer patch3.Reset()
+	res, _ = PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusBadRequest)
+
+	patch4 := gomonkey.ApplyFunc(pipeline.RetryRun, func(ctx *logger.RequestContext, runID string) (string, error) {
+		return "run-01", nil
+	})
+	defer patch4.Reset()
+	res, _ = PerformPutRequest(router, url, nil)
+	assert.Equal(t, res.Code, http.StatusOK)
+
 }
