@@ -19,7 +19,10 @@ jobs:
     steps:
       - name: Dump GitHub context
         id: github_context_step
-        run: echo '${{ toJSON(github) }}'
+        run: |
+          echo '${{ toJSON(github) }}'
+          echo $(uname -m)
+          echo $(uname -s)
       - name: Dump event context
         id: github_event_step
         run: cat /home/runner/work/_temp/_github_workflow/event.json
