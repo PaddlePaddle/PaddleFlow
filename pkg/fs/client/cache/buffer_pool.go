@@ -182,10 +182,12 @@ func (p *Page) setCache() {
 
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	if int(offset) > cap(p.buffer) {
+		log.Errorf("offset > cap(p.buffer) with offset %d cap(p.fuffer) %d", offset, cap(p.buffer))
 		return 0, io.EOF
 	}
 	if int(offset) > len(p.buffer) || int(offset) >= p.writeLength {
 		if p.ready {
+			log.Debugf("read from buffer empty with offset %d b.fuffer %d writelength %d", offset, cap(p.buffer), p.writeLength)
 			return 0, io.EOF
 		}
 		// page not ready

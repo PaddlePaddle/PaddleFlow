@@ -121,7 +121,9 @@ func (f *fileWriter) Close() {
 }
 
 func (f *fileWriter) release() {
+	f.writer.Lock()
 	delete(f.writer.files, f.inode)
+	f.writer.Unlock()
 	f.fd.Release()
 }
 
