@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         go-version: [1.18.x]
-        goos: [linux, windows, darwin] # 需要打包的系统
+        goos: [linux, darwin] # 需要打包的系统
         goarch: [amd64, arm64] # 需要打包的架构
         exclude: # 排除某些平台和架构
           - goarch: arm64
@@ -23,6 +23,9 @@ jobs:
       - name: Dump GitHub context
         id: github_context_step
         run: echo '${{ toJSON(github) }}'
+      - name: Dump event context
+        id: github_event_step
+        run: cat /home/runner/work/_temp/_github_workflow/event.json
       - name: Install go
         uses: actions/setup-go@v3
         with:
