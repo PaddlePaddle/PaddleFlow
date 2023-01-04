@@ -1,4 +1,4 @@
-FROM paddleflow/alpine:3.13-shanghai-tz
+FROM paddleflow/alpine:1.5
 
 ENV WORKDIR /home/paddleflow
 ADD output/bin/paddleflow $WORKDIR/server/

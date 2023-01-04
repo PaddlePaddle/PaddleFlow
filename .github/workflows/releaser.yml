@@ -1,0 +1,40 @@
+name: release
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  GO_VERSION: 1.18
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin] # 需要打包的系统
+        goarch: [amd64, arm64] # 需要打包的架构
+        exclude: # 排除某些平台和架构
+          - goarch: arm64
+            goos: windows
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run build
+        run: make all
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+      - name: Packaging
+        run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
+      - name: Uploading assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: myfolder/dist/paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --rm-dist
+          workdir: myfolder
