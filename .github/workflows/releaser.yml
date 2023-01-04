@@ -1,24 +1,32 @@
-name: release
+name: Release
 on:
   push:
-    tags:
-      - '*'
-
+  # branches to consider in the event; optional, defaults to all
+  # pull_request event is required only for autolabeler
+  pull_request:
+    # Only following types are handled by the action, but one can default to all as well
+    types: [opened, reopened, synchronize]
 env:
-  GO_VERSION: 1.18
+  FILES_DIR: /tmp/paddleflow
+
+permissions:
+  contents: read
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  release_compile:
     strategy:
       matrix:
-        goos: [linux, windows, darwin] # 需要打包的系统
-        goarch: [amd64, arm64] # 需要打包的架构
-        exclude: # 排除某些平台和架构
-          - goarch: arm64
-            goos: windows
+        go-version: [1.18.x]
+        goos: [linux]
+        goarch: [amd64]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Run build
         run: make all
         env:
@@ -30,11 +38,79 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: myfolder/dist/paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+          path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+  update_release_draft:
+    needs: release_compile
+    strategy:
+      matrix:
+        go-version: [1.18.x]
+        goos: [linux]
+        goarch: [amd64]
+    permissions:
+      # write permission is required to create a github release
+      contents: write
+      # write permission is required for autolabeler
+      # otherwise, read permission is required at least
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      # Drafts your next Release notes as Pull Requests are merged into "master"
+      - name: create or update a drafter
+        id: drafter
+        uses: release-drafter/release-drafter@v5.21.1
+        # (Optional) specify config name to use, relative to .github/. Default: release-drafter.yml
         with:
-          version: latest
-          args: release --rm-dist
-          workdir: myfolder
+          config-name: common/release-drafter.yml
+        #   disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+      - name: mkdir for download assets
+        run: |
+          mkdir ${{ env.FILES_DIR }}
+
+      - uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.FILES_DIR }}/paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+      - name: Display structure of downloaded files
+        run: ls -lhR
+        working-directory: ${{ env.FILES_DIR }}
+
+      - name: 'Echo download path'
+        run: echo ${{steps.download.outputs.download-path}}
+      - name: upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+        run: |
+          echo "GH_TOKEN is $GH_TOKEN"
+          j=0
+          asset_path=${{ env.FILES_DIR }}
+          cd ${asset_path}
+          for filename in `ls ${asset_path}`;
+          do
+              folder_list[j]=$filename
+              j=`expr $j + 1`
+          done
+          echo "Uploading asset... "
+
+          for filepath in ${folder_list[@]};
+          do
+              gh release upload ${{ steps.drafter.outputs.tag_name }} ${filepath}/${filepath} --clobber --repo ${{ github.repository }}
+          done
+
+  public_release:
+    needs: update_release_draft
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version from ref
+        id: get-version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: Publish release on GitHub
+        uses: test-room-7/action-publish-release-drafts@v0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag-name: ${{ steps.get-version.outputs.VERSION }}
