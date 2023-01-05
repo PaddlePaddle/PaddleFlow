@@ -9,8 +9,8 @@ GOMOD   := $(GO) mod
 GOBUILD := $(GO) build
 GOTEST  := $(GO) test -gcflags="-N -l"
 GOPKGS  := $$($(GO) list ./...| grep -vE "vendor" | grep -vE "github.com/PaddlePaddle/PaddleFlow/pkg/fs/fuse/ufs")
-GOARCH := $(GO) GOARCH
-GOOS := $(GO) GOOS
+GOARCH := $(shell $(GO) env GOARCH)
+GOOS := $(shell $(GO) env GOOS)
 export PATH := $(GOPATH)/bin/:$(PATH)
 
 # test cover files
@@ -44,7 +44,7 @@ gomod:
 	$(GOMOD) download
 
 # make compile
-compile: build-by-xgo
+compile: build
 
 build:
 	CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
@@ -54,7 +54,7 @@ build:
 
 build-by-xgo:
 	$(GO) install src.techknowlogick.com/xgo@latest
-	$(GOPATH)/bin/xgo -ldflags ${LD_FLAGS} -targets $(GOOS)/$(GOARCH) -pkg $(HOMEDIR)/cmd/server/main.go .
+	$(GOPATH)/bin/xgo -ldflags ${LD_FLAGS} -trimpath -out $(HOMEDIR)/paddleflow -targets $(GOOS)/$(GOARCH) -pkg $(HOMEDIR)/cmd/server/main.go .
 
 # make doc
 doc:

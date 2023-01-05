@@ -31,6 +31,9 @@ jobs:
         timeout-minutes: 12
       - name: Run build
         run: |
+          go env
+          uname -s
+          uname -m
           make all
         env:
           GOOS: ${{ matrix.goos }}
