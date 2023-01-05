@@ -23,6 +23,7 @@ jobs:
           echo '${{ toJSON(github) }}'
           echo $(uname -m)
           echo $(uname -s)
+          apt-get install -y gcc automake autoconf libtool make
       - name: Dump event context
         id: github_event_step
         run: cat /home/runner/work/_temp/_github_workflow/event.json
