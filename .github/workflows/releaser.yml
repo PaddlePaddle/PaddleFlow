@@ -27,8 +27,11 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Checkout code
         uses: actions/checkout@v3
+      - uses: docker-practice/actions-setup-docker@master
+        timeout-minutes: 12
       - name: Run build
-        run: make all
+        run: |
+          make all
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}

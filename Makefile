@@ -9,6 +9,8 @@ GOMOD   := $(GO) mod
 GOBUILD := $(GO) build
 GOTEST  := $(GO) test -gcflags="-N -l"
 GOPKGS  := $$($(GO) list ./...| grep -vE "vendor" | grep -vE "github.com/PaddlePaddle/PaddleFlow/pkg/fs/fuse/ufs")
+GOARCH := $(GO) GOARCH
+GOOS := $(GO) GOOS
 export PATH := $(GOPATH)/bin/:$(PATH)
 
 # test cover files
@@ -42,13 +44,17 @@ gomod:
 	$(GOMOD) download
 
 # make compile
-compile: build
+compile: build-by-xgo
 
 build:
 	CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
+
+build-by-xgo:
+	$(GO) install src.techknowlogick.com/xgo@latest
+	$(GOPATH)/bin/xgo -ldflags ${LD_FLAGS} -targets $(GOOS)/$(GOARCH) -pkg $(HOMEDIR)/cmd/server/main.go .
 
 # make doc
 doc:
