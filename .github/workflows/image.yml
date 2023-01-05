@@ -9,7 +9,7 @@ env:
   PF_SERVER: paddleflow-server
   PF_CSI: pfs-csi-plugin
 jobs:
-  docker:
+  push_image:
     strategy:
       matrix:
         go-version: [1.18.x]
