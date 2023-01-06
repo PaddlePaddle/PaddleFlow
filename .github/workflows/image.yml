@@ -21,8 +21,8 @@ jobs:
         id: github_context_step
         run: |
           echo '${{ toJSON(github) }}'
-          echo $(uname -m)
-          echo $(uname -s)
+          echo '$(uname -m)'
+          echo '$(uname -s)'
           sudo apt-get install -y gcc automake autoconf libtool make
       - name: Dump event context
         id: github_event_step
@@ -34,11 +34,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install gcc
-        id: github_context_step
+        id: install_gcc
         run: |
-          echo '${{ toJSON(github) }}'
-          echo $(uname -m)
-          echo $(uname -s)
           sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
       - name: Run build
         run: make all
