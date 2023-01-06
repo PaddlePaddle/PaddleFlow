@@ -71,6 +71,7 @@ jobs:
         # (Optional) specify config name to use, relative to .github/. Default: release-drafter.yml
         with:
           config-name: common/release-drafter.yml
+          token: ${{ secrets.GITHUB_TOKEN }}
         #   disable-autolabeler: true
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
