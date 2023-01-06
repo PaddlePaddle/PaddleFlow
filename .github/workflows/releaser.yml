@@ -31,20 +31,11 @@ jobs:
         id: github_context_step
         run: |
           echo '${{ toJSON(github) }}'
-          echo $(uname -m)
-          echo $(uname -s)
+          echo '$(uname -m)'
+          echo '$(uname -s)'
           sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
-      - name: Run build
-        run: |
-          go env
-          make all
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-      - name: Packaging
-        run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
-      - name: Uploading assets
-        uses: actions/upload-artifact@v3
+      - name: Downloading assets
+        uses: actions/download-artifact@v2
         with:
           name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
           path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
