@@ -181,7 +181,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
 	jobTemplateName := ""
 
-	//the footer comment of all type job as the follow:
+	// the footer comment of all type job as the follow:
 	//  single -> single-job, workflow -> workflow-job,
 	//  spark -> spark-job, ray -> ray-job
 	//  paddle with ps mode -> paddle-ps-job
@@ -370,8 +370,16 @@ func BuildPod(pod *corev1.Pod, task schema.Member) error {
 		log.Errorln(err)
 		return err
 	}
+	// patch node name
+	nodeName := task.Conf.GetEnvValue(schema.ENVK3SNodeName)
+	if nodeName != "" {
+		pod.Spec.NodeName = nodeName
+	}
 	// fill volumes
 	fileSystems := task.Conf.GetAllFileSystem()
+	if len(task.Conf.GetProcessedFileSystem()) > 0 {
+		fileSystems = task.Conf.GetProcessedFileSystem()
+	}
 	pod.Spec.Volumes = BuildVolumes(pod.Spec.Volumes, fileSystems)
 	// fill fs affinity
 	if len(fileSystems) != 0 {
@@ -486,8 +494,11 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	// fill image
 	container.Image = task.Image
 	// fill command
-	filesystems := task.Conf.GetAllFileSystem()
-	workDir := getWorkDir(&task, filesystems, task.Env)
+	fileSystems := task.Conf.GetAllFileSystem()
+	if len(task.Conf.GetProcessedFileSystem()) > 0 {
+		fileSystems = task.Conf.GetProcessedFileSystem()
+	}
+	workDir := getWorkDir(&task, fileSystems, task.Env)
 	container.Command = generateContainerCommand(task.Command, workDir)
 
 	// container.Args would be passed
@@ -501,7 +512,7 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	// fill env
 	container.Env = BuildEnvVars(container.Env, task.Env)
 	// fill volumeMount
-	container.VolumeMounts = BuildVolumeMounts(container.VolumeMounts, filesystems)
+	container.VolumeMounts = BuildVolumeMounts(container.VolumeMounts, fileSystems)
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
@@ -511,6 +522,9 @@ func getWorkDir(task *schema.Member, fileSystems []schema.FileSystem, envs map[s
 	// prepare fs and envs
 	if task != nil {
 		fileSystems = task.Conf.GetAllFileSystem()
+		if len(task.Conf.GetProcessedFileSystem()) > 0 {
+			fileSystems = task.Conf.GetProcessedFileSystem()
+		}
 		envs = task.Env
 	}
 	if len(envs) == 0 {
@@ -668,6 +682,7 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 		volume := corev1.Volume{
 			Name: fs.Name,
 		}
+		log.Infof("build volumes, fs info is %v", fs)
 		if fs.Type == schema.PFSTypeLocal {
 			// use hostPath
 			volume.VolumeSource = corev1.VolumeSource{

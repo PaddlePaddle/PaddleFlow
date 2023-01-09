@@ -158,7 +158,7 @@ func validateUpdateClusterRequest(ctx *logger.RequestContext, request *UpdateClu
 
 	request.ClusterType = strings.TrimSpace(request.ClusterType)
 	switch request.ClusterType {
-	case schema.KubernetesType, schema.LocalType:
+	case schema.KubernetesType, schema.LocalType, schema.K3SType:
 		clusterInfo.ClusterType = strings.TrimSpace(request.ClusterType)
 	case "":
 	default:
@@ -528,7 +528,7 @@ func InitDefaultCluster() error {
 		Description: "default cluster",
 		Endpoint:    "127.0.0.1",
 		Source:      "",
-		ClusterType: schema.KubernetesType,
+		ClusterType: schema.K3SType,
 		Version:     "1.16+",
 		Status:      model.ClusterStatusOnLine,
 	}

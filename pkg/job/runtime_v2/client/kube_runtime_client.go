@@ -785,9 +785,9 @@ func (krc *KubeRuntimeClient) Update(resource interface{}, fv pfschema.Framework
 }
 
 // GetTaskLog using pageSize and pageNo to paging logs
-func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string, pageSize, pageNo int) ([]pfschema.TaskLogInfo, error) {
+func getTaskLog(client kubernetes.Interface, namespace, name, logFilePosition string, pageSize, pageNo int) ([]pfschema.TaskLogInfo, error) {
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
-	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return []pfschema.TaskLogInfo{}, nil
 	} else if err != nil {
@@ -795,7 +795,7 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 	}
 	for _, c := range pod.Spec.Containers {
 		podLogOptions := mapToLogOptions(c.Name, logFilePosition)
-		logContent, length, err := krc.getContainerLog(namespace, name, podLogOptions)
+		logContent, length, err := getContainerLog(client, namespace, name, podLogOptions)
 		if err != nil {
 			return []pfschema.TaskLogInfo{}, err
 		}
@@ -846,14 +846,15 @@ func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string
 		taskLogInfoList = append(taskLogInfoList, taskLogInfo)
 	}
 	return taskLogInfoList, nil
-
+}
+func (krc *KubeRuntimeClient) GetTaskLog(namespace, name, logFilePosition string, pageSize, pageNo int) ([]pfschema.TaskLogInfo, error) {
+	return getTaskLog(krc.Client, namespace, name, logFilePosition, pageSize, pageNo)
 }
 
-// GetTaskLogV2 using lineLimit and sizeLimit to paging logs
-func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
+func getTaskLogV2(client kubernetes.Interface, namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
 	log.Infof("Get mixed logs for %s/%s, paging info: %#v", namespace, name, logpage)
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
-	pod, err := krc.Client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return []pfschema.TaskLogInfo{}, nil
 	} else if err != nil {
@@ -864,7 +865,7 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils
 	for _, c := range pod.Spec.Containers {
 		log.Debugf("traverse pod %s-container %s", name, c.Name)
 		podLogOptions := mapToLogOptions(c.Name, logpage.LogFilePosition)
-		logContent, logContentLineNum, err := krc.getContainerLog(namespace, name, podLogOptions)
+		logContent, logContentLineNum, err := getContainerLog(client, namespace, name, podLogOptions)
 		if err != nil {
 			return []pfschema.TaskLogInfo{}, err
 		}
@@ -883,8 +884,8 @@ func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils
 	return taskLogInfoList, nil
 }
 
-func (krc *KubeRuntimeClient) getContainerLog(namespace, name string, logOptions *corev1.PodLogOptions) (string, int, error) {
-	readCloser, err := krc.Client.CoreV1().Pods(namespace).GetLogs(name, logOptions).Stream(context.TODO())
+func getContainerLog(client kubernetes.Interface, namespace, name string, logOptions *corev1.PodLogOptions) (string, int, error) {
+	readCloser, err := client.CoreV1().Pods(namespace).GetLogs(name, logOptions).Stream(context.TODO())
 	if err != nil {
 		log.Errorf("pod[%s] get log stream failed. error: %s", name, err.Error())
 		return err.Error(), 0, nil
@@ -898,8 +899,12 @@ func (krc *KubeRuntimeClient) getContainerLog(namespace, name string, logOptions
 		log.Errorf("pod[%s] read content failed; error: %s", name, err.Error())
 		return "", 0, err
 	}
-
 	return string(result), len(strings.Split(strings.TrimRight(string(result), "\n"), "\n")), nil
+}
+
+// GetTaskLogV2 using lineLimit and sizeLimit to paging logs
+func (krc *KubeRuntimeClient) GetTaskLogV2(namespace, name string, logpage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
+	return getTaskLogV2(krc.Client, namespace, name, logpage)
 }
 
 func mapToLogOptions(container, logFilePosition string) *corev1.PodLogOptions {
