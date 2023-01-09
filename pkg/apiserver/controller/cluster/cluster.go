@@ -528,7 +528,7 @@ func InitDefaultCluster() error {
 		Description: "default cluster",
 		Endpoint:    "127.0.0.1",
 		Source:      "",
-		ClusterType: schema.K3SType,
+		ClusterType: schema.KubernetesType,
 		Version:     "1.16+",
 		Status:      model.ClusterStatusOnLine,
 	}
