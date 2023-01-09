@@ -62,30 +62,6 @@ type K3SRuntimeClient struct {
 	taskClient  framework.JobInterface
 }
 
-func CreateK3SRuntimeClient(config *rest.Config) (framework.RuntimeClientInterface, error) {
-	// new kubernetes typed client
-	k8sClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Errorf("create kubernetes client failed, err: %v", err)
-		return nil, err
-	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		log.Errorf("init dynamic client failed. error:%s", err)
-		return nil, err
-	}
-	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0)
-	// default use service account,so cluster no need to process
-	return &K3SRuntimeClient{
-		Client:          k8sClient,
-		InformerFactory: informers.NewSharedInformerFactory(k8sClient, 0),
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  factory,
-		Config:          config,
-		JobInformerMap:  make(map[schema.GroupVersionResource]cache.SharedIndexInformer),
-	}, nil
-}
-
 func (k3s *K3SRuntimeClient) Cluster() string {
 	if k3s.ClusterInfo != nil {
 		return fmt.Sprintf("cluster %s with type %s", k3s.ClusterInfo.Name, k3s.ClusterInfo.Type)

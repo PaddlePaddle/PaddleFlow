@@ -98,7 +98,7 @@ func (k3srs *K3SRuntimeService) buildConfig() (*rest.Config, error) {
 }
 
 func (k3srs *K3SRuntimeService) Init() error {
-	// new kubernetes typed client
+	// new k3s client
 	if k3srs.cluster == nil {
 		log.Errorf("k3s cluster info is nil, try init k3s client use service account.")
 	}

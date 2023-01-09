@@ -192,6 +192,9 @@ const (
 	EnvRayJobWorkerMinReplicas       = "RAY_JOB_WORKER_MIN_REPLICAS"
 	EnvRayJobWorkerMaxReplicas       = "RAY_JOB_WORKER_MAX_REPLICAS"
 	EnvRayJobWorkerStartParamsPrefix = "RAY_JOB_WORKER_START_PARAMS_"
+
+	// ENVK3SNodeName  makesure schedule without volcano
+	ENVK3SNodeName = "K3S_NODE_NAME"
 )
 
 const (
