@@ -60,21 +60,9 @@ compile: build
 
 build:
 	CGO_ENABLED=1 CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
-
-
-build-macos:
-	CGO_ENABLED=1 CC=gcc GOOS= GOARCH=amd64 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
-	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
-
-
-build-by-xgo:
-	$(GO) install src.techknowlogick.com/xgo@latest
-	$(GOPATH)/bin/xgo -ldflags ${LD_FLAGS} -trimpath -out $(HOMEDIR)/paddleflow -targets $(GOOS)/$(GOARCH) -pkg $(HOMEDIR)/cmd/server/main.go .
+	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
+	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
+	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
 
 # make doc
 doc:
