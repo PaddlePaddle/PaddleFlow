@@ -228,7 +228,6 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 		err = os.MkdirAll(filepath.Join(localPath, subpath), 0755)
 		if err != nil {
 			log.Errorf("exec %s mkdir cmd failed: %v", mountType, err)
-			os.Remove(localPath)
 			return nil, err
 		}
 		err = utils.ManualUnmount(localPath)
