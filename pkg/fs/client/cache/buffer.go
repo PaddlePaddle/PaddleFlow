@@ -59,6 +59,7 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 		var resp io.ReadCloser
 		var err error
 		for i := 0; i < 3; i++ {
+			log.Debugf("initBuffer reader offset %d size %d", offset, size)
 			resp, err = b.ufs.Get(b.path, syscall.O_RDONLY, int64(offset), int64(size))
 			if err != nil {
 				log.Errorf("init ufs reader[%d] with offset[%d] size[%d] error: %v", i, offset, size, err)
