@@ -1,7 +1,7 @@
 FROM paddleflow/ubuntu:latest
 
 ENV WORKDIR /home/paddleflow
-RUN adduser -g paddleflow paddleflow -D
+RUN groupadd paddleflow && useradd -d /home/paddleflow -g paddleflow  paddleflow
 ADD  output/bin/csi-plugin $WORKDIR/csi-plugin
 ADD  output/bin/pfs-fuse $WORKDIR/pfs-fuse
 ADD  output/bin/cache-worker $WORKDIR/cache-worker
