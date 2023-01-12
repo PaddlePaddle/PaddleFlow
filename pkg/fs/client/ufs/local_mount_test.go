@@ -102,6 +102,19 @@ func TestNewLocalMountFileSystem(t *testing.T) {
 				return true
 			},
 		},
+		{
+			name: "unmount fail",
+			args: args{
+				map[string]interface{}{
+					common.Type:    common.CFSType,
+					common.Address: "xxxx.cfs.bj.baidubce.com",
+					common.SubPath: "/abc",
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
 	}
 	var p1 = gomonkey.ApplyFunc(utils.ExecMount, func(sourcePath, targetPath string, args []string) ([]byte, error) {
 		return []byte("ok"), nil
@@ -118,6 +131,17 @@ func TestNewLocalMountFileSystem(t *testing.T) {
 				return []byte("mount fail"), errors.New("mount fail")
 			})
 			defer p3.Reset()
+		}
+		if tt.name == "unmount fail" {
+			var p4 = gomonkey.ApplyFunc(utils.ExecMount, func(sourcePath, targetPath string, args []string) ([]byte, error) {
+				return []byte("ok"), nil
+			})
+			defer p4.Reset()
+
+			var p5 = gomonkey.ApplyFunc(utils.ManualUnmount, func(path string) error {
+				return errors.New("umount fail")
+			})
+			defer p5.Reset()
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := NewLocalMountFileSystem(tt.args.properties)
