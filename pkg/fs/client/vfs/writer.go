@@ -117,7 +117,9 @@ func (f *fileWriter) Fsync(fd int) syscall.Errno {
 }
 
 func (f *fileWriter) Close() {
+	f.Lock()
 	f.release()
+	f.Unlock()
 }
 
 func (f *fileWriter) release() {
