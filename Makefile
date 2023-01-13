@@ -59,10 +59,10 @@ arch:
 compile: build
 
 build:
-	CGO_ENABLED=1 CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
-	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
-	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
-	CC=$(CC) CC_FOR_TARGET=$(CC_FOR_TARGET) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
+	CGO_ENABLED=1 CC=$(CC) $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
+	CC=$(CC)  $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
+	CC=$(CC)  $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
+	CC=$(CC)  $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
 
 # make doc
 doc:
