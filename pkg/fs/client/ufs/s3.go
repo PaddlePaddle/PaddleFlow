@@ -941,10 +941,15 @@ func (fs *s3FileSystem) Get(name string, flags uint32, off, limit int64) (io.Rea
 		request.Range = &r
 	}
 
-	response, err := fs.s3.GetObject(request)
-	if err != nil {
-		log.Errorf("s3 get: s3.GetObject[%s] off[%d] limit[%d] err: %v ", name, off, limit, err)
-		return nil, err
+	var response *s3.GetObjectOutput
+	var err error
+	for i := 0; i < 3; i++ {
+		response, err = fs.s3.GetObject(request)
+		if err != nil {
+			log.Errorf("s3 get[%v]: s3.GetObject[%s] off[%d] limit[%d] err: %v ", i, name, off, limit, err)
+		} else {
+			break
+		}
 	}
 	return response.Body, err
 }
