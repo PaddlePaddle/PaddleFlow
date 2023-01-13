@@ -513,6 +513,8 @@ func (fh *hdfsFileHandle) Write(data []byte, off int64) (uint32, fuse.Status) {
 
 	n, err := fh.writer.Write(data)
 	if err != nil {
+		fh.writer.Close()
+		fh.writer = nil
 		log.Tracef("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
 		return 0, fuse.ToStatus(err)
 	}
