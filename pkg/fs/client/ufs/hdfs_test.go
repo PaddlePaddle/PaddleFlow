@@ -380,6 +380,7 @@ func Test_hdfsFileHandle_Write(t *testing.T) {
 		data []byte
 		off  uint64
 	}
+	writer := &hdfs.FileWriter{}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -398,11 +399,29 @@ func Test_hdfsFileHandle_Write(t *testing.T) {
 				return true
 			},
 		},
+		{
+			name: "write fail 2",
+			fields: fields{
+				name:   "1",
+				fs:     &hdfsFileSystem{client: &hdfs.Client{}},
+				writer: writer,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
 	}
-	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
-		return nil, fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")
+	var p2 = gomonkey.ApplyMethod(reflect.TypeOf(writer), "Write", func(_ *hdfs.FileWriter, b []byte) (int, error) {
+		return 0, fmt.Errorf("write fail")
 	})
 	defer p2.Reset()
+
+	var p3 = gomonkey.ApplyMethod(reflect.TypeOf(writer), "Close", func(_ *hdfs.FileWriter) error {
+		return nil
+	})
+	defer p3.Reset()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fh := &hdfsFileHandle{
