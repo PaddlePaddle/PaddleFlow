@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -24,6 +25,8 @@ const (
 	MockFlavour0    = "default-flavour0"
 	MockFlavour1    = "default-flavour1"
 	MockFlavour2    = "default-flavour2"
+	MockFS1         = "fs1"
+	MockFS2         = "fs2"
 )
 
 var clusterInfo = model.ClusterInfo{
@@ -78,6 +81,14 @@ func TestCreatePFJob(t *testing.T) {
 		Name: MockFlavour2,
 		CPU:  "2",
 		Mem:  "8",
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Filesystem.CreatFileSystem(&model.FileSystem{
+		Model: model.Model{
+			ID: common.ID(mockRootUser, MockFS1),
+		},
+		Name:     MockFS1,
+		UserName: mockRootUser,
 	})
 	assert.Equal(t, nil, err)
 
@@ -175,6 +186,47 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec:  JobSpec{},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "create pod failed, fs is not find",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image: "nginx:latest",
+								FileSystem: schema.FileSystem{
+									Name: MockFS1,
+								},
+								ExtraFileSystems: []schema.FileSystem{
+									{
+										Name:      MockFS2,
+										MountPath: "/home/test",
+									},
+								},
+							},
 							Role:     string(schema.RoleWorker),
 							Replicas: 1,
 						},
