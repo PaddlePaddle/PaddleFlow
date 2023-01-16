@@ -368,11 +368,13 @@ func (wfr *WorkflowRuntime) getStepRuntimeFullNameByStatus(status RuntimeStatus)
 	}
 
 	names := ""
+	prefixLength := len(wfr.WorkflowSource.Name) + 1
 	for _, sr := range runtimes {
 		if names == "" {
-			names = sr.getFullName()
+			names = sr.getFullName()[prefixLength:]
 		} else {
-			names = names + "," + sr.getFullName()
+			// 去掉fullName的前缀
+			names = names + "," + sr.getFullName()[prefixLength:]
 		}
 	}
 

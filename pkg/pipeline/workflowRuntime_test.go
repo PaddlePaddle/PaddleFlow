@@ -318,18 +318,20 @@ func TestGetStepRuntimeFullNameByStatus(t *testing.T) {
 	wfr, err := mockWorkflowRuntime()
 	assert.Nil(t, err)
 
+	wfr.WorkflowSource.Name = "test"
+
 	var drt *DagRuntime
 	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(drt), "getDeepestRuntimeByStatus",
 		func(_ *DagRuntime, status RuntimeStatus, runtimes []componentRuntime) []componentRuntime {
 			runtimes = append(runtimes,
 				&StepRuntime{
-					baseComponentRuntime: &baseComponentRuntime{componentFullName: "et.step1"},
+					baseComponentRuntime: &baseComponentRuntime{componentFullName: "test.et.step1"},
 				},
 				&StepRuntime{
-					baseComponentRuntime: &baseComponentRuntime{componentFullName: "et.step1-0"},
+					baseComponentRuntime: &baseComponentRuntime{componentFullName: "test.et.step1-0"},
 				},
 				&StepRuntime{
-					baseComponentRuntime: &baseComponentRuntime{componentFullName: "et.step2"},
+					baseComponentRuntime: &baseComponentRuntime{componentFullName: "test.et.step2"},
 				},
 			)
 			return runtimes
@@ -341,7 +343,7 @@ func TestGetStepRuntimeFullNameByStatus(t *testing.T) {
 	assert.Equal(t, "et.step1,et.step1-0,et.step2", sn)
 
 	wfr.postProcess = &StepRuntime{
-		baseComponentRuntime: &baseComponentRuntime{componentFullName: "post"},
+		baseComponentRuntime: &baseComponentRuntime{componentFullName: "test.post"},
 	}
 	wfr.postProcess.status = StatusRuntimeFailed
 	sn = wfr.getStepRuntimeFullNameByStatus(StatusRuntimeFailed)
