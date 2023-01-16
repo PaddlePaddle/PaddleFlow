@@ -495,10 +495,9 @@ func validateFileSystems(fs *schema.FileSystem, extraFS []schema.FileSystem, use
 
 func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	fsName := fs.Name
-	fsID := fs.ID
-	if fsID == "" {
+	if fs.ID == "" {
 		// generate fsID by fsName if fsID is nil
-		fsID = common.ID(userName, fsName)
+		fs.ID = common.ID(userName, fsName)
 	}
 	if fs.MountPath == "" {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
@@ -506,18 +505,17 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	}
 	mountPath := utils.MountPathClean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
-		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fsID, fs.MountPath)
+		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fs.ID, fs.MountPath)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
 
-	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fs.ID)
 	if err != nil {
-		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
+		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fs.ID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
 	}
 	// fill back
-	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
 	fs.Type = fileSystem.Type
 	if fileSystem.Type == schema.PFSTypeLocal {

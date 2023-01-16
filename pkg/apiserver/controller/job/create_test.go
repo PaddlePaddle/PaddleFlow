@@ -239,6 +239,47 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
+			name: "create single job with fs",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image: "nginx:latest",
+								FileSystem: schema.FileSystem{
+									Name: MockFS1,
+								},
+								ExtraFileSystems: []schema.FileSystem{
+									{
+										Name:      MockFS1,
+										MountPath: "/home/test",
+									},
+								},
+							},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
 			name: "create paddleJob success request",
 			args: args{
 				ctx: &logger.RequestContext{
@@ -269,7 +310,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -285,7 +326,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -329,7 +370,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
@@ -347,7 +388,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -391,7 +432,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
@@ -409,7 +450,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -450,7 +491,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: "fake",
@@ -471,7 +512,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -512,7 +553,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: MockFlavour0,
@@ -533,7 +574,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -574,7 +615,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: MockFlavour1,
@@ -595,7 +636,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -636,7 +677,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "0", Mem: "3"}},
@@ -654,7 +695,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -699,7 +740,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "3"}},
@@ -717,7 +758,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -761,7 +802,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -777,7 +818,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -821,7 +862,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -837,7 +878,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -907,7 +948,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -923,7 +964,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -964,7 +1005,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -980,7 +1021,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -1021,7 +1062,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -1037,7 +1078,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
