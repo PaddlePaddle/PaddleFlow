@@ -410,9 +410,6 @@ func patchRestartPolicy(podSpec *corev1.PodSpec, task schema.Member) {
 	}
 	// fill restartPolicy
 	restartPolicy := task.GetRestartPolicy()
-	if restartPolicy == "" {
-		return
-	}
 	if restartPolicy == string(corev1.RestartPolicyAlways) ||
 		restartPolicy == string(corev1.RestartPolicyOnFailure) {
 		podSpec.RestartPolicy = corev1.RestartPolicy(restartPolicy)
@@ -492,8 +489,10 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 	}
 	// fill command
 	filesystems := task.Conf.GetAllFileSystem()
-	workDir := getWorkDir(&task, filesystems, task.Env)
-	container.Command = generateContainerCommand(task.Command, workDir)
+	if task.Command != "" {
+		workDir := getWorkDir(&task, filesystems, task.Env)
+		container.Command = generateContainerCommand(task.Command, workDir)
+	}
 
 	// container.Args would be passed
 	// fill resource
