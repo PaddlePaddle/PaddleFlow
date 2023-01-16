@@ -767,9 +767,6 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	}
 
 	var templateJson string
-	if request.ExtensionTemplate == nil {
-		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
-	}
 	var err error
 	templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
