@@ -136,6 +136,11 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 			ctx.Logging().Errorf("validate job resource failed, err: %v", err)
 			return err
 		}
+		// validate fs in members
+		if err := validateMembersFileSystem(request); err != nil {
+			ctx.Logging().Errorf("validate job file systems failed, err: %v", err)
+			return err
+		}
 	} else {
 		// validate members
 		if err := validateJobMembers(ctx, request); err != nil {
@@ -158,6 +163,17 @@ func validateMembersScheduleInfo(ctx *logger.RequestContext, request *CreateJobI
 		// check members priority
 		if err = checkPriority(&member.SchedulingPolicy, &request.SchedulingPolicy); err != nil {
 			ctx.Logging().Errorf("Failed to check priority: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func validateMembersFileSystem(request *CreateJobInfo) error {
+	var err error
+	for idx := range request.Members {
+		err = validateFileSystems(&request.Members[idx].FileSystem, request.Members[idx].ExtraFileSystems, request.UserName)
+		if err != nil {
 			return err
 		}
 	}
@@ -377,7 +393,7 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 		return err
 	}
 	// validate FileSystem
-	if err := validateFileSystems(jobSpec, ctx.UserName); err != nil {
+	if err := validateFileSystems(&jobSpec.FileSystem, jobSpec.ExtraFileSystems, ctx.UserName); err != nil {
 		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
 		return err
 	}
@@ -458,17 +474,17 @@ func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePo
 	return nil
 }
 
-func validateFileSystems(jobSpec *JobSpec, userName string) error {
-	if jobSpec.FileSystem.Name != "" {
-		if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
+func validateFileSystems(fs *schema.FileSystem, extraFS []schema.FileSystem, userName string) error {
+	if fs.Name != "" {
+		if err := validateFileSystem(userName, fs); err != nil {
 			err = fmt.Errorf("validateFileSystem failed, err: %v", err)
 			log.Error(err)
 			return err
 		}
 	}
 
-	for index, _ := range jobSpec.ExtraFileSystems {
-		if err := validateFileSystem(userName, &jobSpec.ExtraFileSystems[index]); err != nil {
+	for index, _ := range extraFS {
+		if err := validateFileSystem(userName, &extraFS[index]); err != nil {
 			err = fmt.Errorf("validate extraFileSystems failed, err: %v", err)
 			log.Error(err)
 			return err
