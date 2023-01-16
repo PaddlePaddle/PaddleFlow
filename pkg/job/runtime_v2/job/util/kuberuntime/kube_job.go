@@ -484,11 +484,15 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 		container.Name = task.Name
 	}
 	// fill image
-	container.Image = task.Image
+	if task.Image != "" {
+		container.Image = task.Image
+	}
 	// fill command
 	filesystems := task.Conf.GetAllFileSystem()
-	workDir := getWorkDir(&task, filesystems, task.Env)
-	container.Command = generateContainerCommand(task.Command, workDir)
+	if task.Command != "" {
+		workDir := getWorkDir(&task, filesystems, task.Env)
+		container.Command = generateContainerCommand(task.Command, workDir)
+	}
 
 	// container.Args would be passed
 	// fill resource
@@ -770,9 +774,10 @@ func KubePriorityClass(priority string) string {
 
 // patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
 // environments for paddle para job:
-//   PF_PADDLE_PARA_JOB: defines the job is a paddle para job
-//   PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
-//   PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
+//
+//	PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+//	PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+//	PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
 func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member) error {
 	// get parameters from user's job config
 	var paddleParaPriority string
