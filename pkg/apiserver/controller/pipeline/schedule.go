@@ -164,7 +164,9 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 	return startAt, endAt, nil
 }
 
-func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err error) {
+func CheckFsAndGetID(ctx *logger.RequestContext, fsUserName, fsName string) (fsID string, err error) {
+	userName := ctx.UserName
+
 	if fsUserName != "" {
 		fsID = common.ID(fsUserName, fsName)
 	} else {
@@ -174,11 +176,13 @@ func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err erro
 	fsService := fs.GetFileSystemService()
 	hasPermission, err := fsService.HasFsPermission(userName, fsID)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("check permission of user[%s] fsID[%s] failed, err: %v", userName, fsID, err)
 		return fsID, err
 	}
 
 	if !hasPermission {
+		ctx.ErrorCode = common.AccessDenied
 		err := fmt.Errorf("user[%s] has no permission to fsName[%s] with fsUser[%s]", userName, fsName, fsUserName)
 		return fsID, err
 	}
@@ -225,7 +229,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	// 校验创建Schedule 的 User是否有Pipline对应的Yaml中所有FSName的权限
 	pplVer, err := storage.Pipeline.GetPipelineVersion(request.PipelineID, request.PipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.PipelineNotFound
 		errMsg := fmt.Sprintf("create schedule failed, get PipelineVersion error:[%s]", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
@@ -240,15 +244,13 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	if request.UserName == "" {
-		if err := checkFs(ctx.UserName, &wfs); err != nil {
-			ctx.ErrorCode = common.InvalidArguments
+		if err := checkFs(ctx, ctx.UserName, &wfs); err != nil {
 			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 		}
 	} else {
-		if err := checkFs(request.UserName, &wfs); err != nil {
-			ctx.ErrorCode = common.InvalidArguments
+		if err := checkFs(ctx, request.UserName, &wfs); err != nil {
 			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
@@ -291,14 +293,12 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	// 校验用户对pplID pplVersionID是否有权限
-	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx.UserName, request.PipelineID, request.PipelineVersionID)
+	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx, ctx.UserName, request.PipelineID, request.PipelineVersionID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("create schedule failed, %s", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	} else if !hasAuth {
-		ctx.ErrorCode = common.AccessDenied
 		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, request.PipelineID)
 		return CreateScheduleResponse{}, err
 	}
@@ -385,7 +385,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的schedule列表
 	if !common.IsRootUser(ctx.UserName) {
 		if len(userFilter) != 0 {
-			ctx.ErrorCode = common.InvalidArguments
+			ctx.ErrorCode = common.AccessDenied
 			errMsg := fmt.Sprint("only root user can set userFilter!")
 			ctx.Logging().Errorf(errMsg)
 			return ListScheduleResponse{}, fmt.Errorf(errMsg)
@@ -446,12 +446,19 @@ func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule
 	ctx.Logging().Debugf("begin get schedule by id. scheduleID:%s", scheduleID)
 	schedule, err := models.GetSchedule(ctx.Logging(), scheduleID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.ScheduleNotFound
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
+
 		ctx.Logging().Errorln(err.Error())
 		return models.Schedule{}, err
 	}
 
 	if !common.IsRootUser(ctx.UserName) && ctx.UserName != schedule.UserName {
 		err := common.NoAccessError(ctx.UserName, common.ResourceTypeSchedule, scheduleID)
+		ctx.ErrorCode = common.AccessDenied
 		ctx.Logging().Errorln(err.Error())
 		return models.Schedule{}, err
 	}
@@ -465,7 +472,6 @@ func GetSchedule(ctx *logger.RequestContext, scheduleID string,
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("get schedule[%s] failed. err:%v", scheduleID, err)
 		ctx.Logging().Errorf(err.Error())
 		return GetScheduleResponse{}, err
@@ -475,7 +481,6 @@ func GetSchedule(ctx *logger.RequestContext, scheduleID string,
 	scheduleIDFilter := []string{scheduleID}
 	listRunResponse, err := ListRun(ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("list run for schedule[%s] failed. err:[%s]", scheduleID, err.Error())
 		return GetScheduleResponse{}, err
 	}
@@ -496,7 +501,7 @@ func StopSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.ScheduleNotFound
 		err := fmt.Errorf("stop schedule[%s] failed. %s", scheduleID, err.Error())
 		ctx.Logging().Errorf(err.Error())
 		return err
@@ -535,7 +540,7 @@ func DeleteSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
+		ctx.ErrorCode = common.ScheduleNotFound
 		err := fmt.Errorf("delete schedule[%s] failed. %s", scheduleID, err.Error())
 		ctx.Logging().Errorf(err.Error())
 		return err
