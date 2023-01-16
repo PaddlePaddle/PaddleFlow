@@ -519,6 +519,8 @@ func (fh *hdfsFileHandle) Write(data []byte, off uint64) (uint32, error) {
 
 	n, err := fh.writer.Write(data)
 	if err != nil {
+		fh.writer.Close()
+		fh.writer = nil
 		log.Errorf("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
 		return 0, err
 	}
