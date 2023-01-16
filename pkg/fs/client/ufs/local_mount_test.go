@@ -14,10 +14,16 @@ limitations under the License.
 package ufs
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 func TestLocalMount(t *testing.T) {
@@ -58,4 +64,91 @@ func TestLocalMount(t *testing.T) {
 	assert.NoError(t, err)
 
 	os.RemoveAll("./mock")
+}
+
+func TestNewLocalMountFileSystem(t *testing.T) {
+	type args struct {
+		properties map[string]interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    UnderFileStorage
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "mount ok",
+			args: args{
+				map[string]interface{}{
+					common.Type:    common.CFSType,
+					common.Address: "xxxx.cfs.bj.baidubce.com",
+					common.SubPath: "/abc",
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+		{
+			name: "mount fail",
+			args: args{
+				map[string]interface{}{
+					common.Type:    common.CFSType,
+					common.Address: "xxxx.cfs.bj.baidubce.com",
+					common.SubPath: "/abc",
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "unmount fail",
+			args: args{
+				map[string]interface{}{
+					common.Type:    common.CFSType,
+					common.Address: "xxxx.cfs.bj.baidubce.com",
+					common.SubPath: "/abc",
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	var p1 = gomonkey.ApplyFunc(utils.ExecMount, func(sourcePath, targetPath string, args []string) ([]byte, error) {
+		return []byte("ok"), nil
+	})
+	defer p1.Reset()
+
+	var p2 = gomonkey.ApplyFunc(utils.ManualUnmount, func(path string) error {
+		return nil
+	})
+	defer p2.Reset()
+	for _, tt := range tests {
+		if tt.name == "mount fail" {
+			var p3 = gomonkey.ApplyFunc(utils.ExecMount, func(sourcePath, targetPath string, args []string) ([]byte, error) {
+				return []byte("mount fail"), errors.New("mount fail")
+			})
+			defer p3.Reset()
+		}
+		if tt.name == "unmount fail" {
+			var p4 = gomonkey.ApplyFunc(utils.ExecMount, func(sourcePath, targetPath string, args []string) ([]byte, error) {
+				return []byte("ok"), nil
+			})
+			defer p4.Reset()
+
+			var p5 = gomonkey.ApplyFunc(utils.ManualUnmount, func(path string) error {
+				return errors.New("umount fail")
+			})
+			defer p5.Reset()
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewLocalMountFileSystem(tt.args.properties)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewLocalMountFileSystem(%v)", tt.args.properties)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewLocalMountFileSystem(%v)", tt.args.properties)
+		})
+	}
 }
