@@ -69,6 +69,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	var createRunInfo pipeline.CreateRunRequest
 
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -78,7 +79,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	// add trace logger
 	trace_logger.Key(requestId).Infof("creating run for request:%+v", createRunInfo)
 	// create run
-	response, err := pipeline.CreateRun(ctx, &createRunInfo, nil)
+	response, err := pipeline.CreateRun(&ctx, &createRunInfo, nil)
 	if err != nil {
 		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
@@ -107,12 +108,12 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Success 201 {object} run.CreateRunResponse "创建运行响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
-// @Router /run/json [POST]
+// @Router /runjson [POST]
 func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidHTTPRequest
 		logger.LoggerForRequest(&ctx).Errorf(
 			"read body failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -121,6 +122,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	// 检查 json 请求体的格式
 	if !json.Valid(bodyBytes) {
+		ctx.ErrorCode = common.MalformedJSON
 		errMsg := "request body json format invalid"
 		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, errMsg)
@@ -130,6 +132,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	bodyUnstructured := unstructured.Unstructured{}
 	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
 		// MissingKindErr不影响Json的解析
+		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"unmarshal body failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -139,7 +142,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request body map:%+v", bodyMap)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx, bodyMap)
+	response, err := pipeline.CreateRunByJson(&ctx, bodyMap)
 	if err != nil {
 		if response.RunID != "" {
 			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
@@ -226,15 +229,15 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
-	runInfo, err := pipeline.GetRunByID(ctx.Logging(), ctx.UserName, runID)
-
-	// 优化RuntimeView结构，使显示结果更友好
-	runInfo.Runtime = runInfo.RemoveOuterDagView(runInfo.Runtime)
+	runInfo, err := pipeline.GetRunByID(&ctx, ctx.UserName, runID)
 
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	// 优化RuntimeView结构，使显示结果更友好
+	runInfo.Runtime = runInfo.RemoveOuterDagView(runInfo.Runtime)
 	common.Render(w, http.StatusOK, runInfo)
 }
 
@@ -261,7 +264,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("get body err: %v", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 	if len(bodyBytes) > 0 {
@@ -270,23 +273,20 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.LoggerForRequest(&ctx).Errorf(
 				"stop run failed to unmarshal body, error:%s", err.Error())
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 			return
 		}
 	}
 
 	switch action {
 	case util.QueryActionStop:
-		err = pipeline.StopRun(ctx.Logging(), ctx.UserName, runID, request)
-		if err != nil {
-			ctx.ErrorCode = common.InternalError
-		}
+		err = pipeline.StopRun(&ctx, ctx.UserName, runID, request)
 	case util.QueryActionRetry:
 		runID, err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidArguments, err.Error())
 		return
 	}
 	if err != nil {
@@ -324,7 +324,7 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"delete run failed to read request body:%+v. error:%s", r.Body, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 	if len(string(bodyByte)) > 0 {
@@ -332,7 +332,7 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.LoggerForRequest(&ctx).Errorf(
 				"delete run failed to unmarshal body, error:%s", err.Error())
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 			return
 		}
 	}

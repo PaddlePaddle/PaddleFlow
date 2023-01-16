@@ -31,7 +31,8 @@ const (
 	InvalidURI           = "InvalidURI"           // URI形式不正确。例如一些服务定义的关键词不匹配等。对于ID不匹配等问题，应定义更加具体的错误码，例如NoSuchKey。
 	MalformedJSON        = "MalformedJSON"        // JSON格式不合法
 	MalformedYaml        = "MalformedYaml"        // Yaml格式不合法
-	InvlidPipeline       = "InvalidPipeline"      // Pipeline校验不通过
+	DecodeBase64         = "Decode base64"        // base64 字符串不合法
+	InvalidPipeline      = "InvalidPipeline"      // Pipeline校验不通过
 	InvalidVersion       = "InvalidVersion"       // URI的版本号不合法
 	FileTypeNotSupported = "FileTypeNotSupported" // 文件类型不支持
 	InvalidNamePattern   = "InvalidNamePattern"   // 命名格式不规范
@@ -84,6 +85,8 @@ const (
 	PipelineNotFound      = "PipelineNotFound"
 	RunCacheNotFound      = "RunCacheNotFound"
 	ArtifactEventNotFound = "ArtifactEventNotFound"
+	ReadYamlFileFailed    = "ReadYamlFileFailed"
+	ScheduleNotFound      = "ScheduleNotFound"
 
 	FlavourNotFound     = "FlavourNotFound"     // 未找到对应的资源套餐
 	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
@@ -136,6 +139,8 @@ var errorHTTPStatus = map[string]int{
 	InvalidURI:           http.StatusBadRequest,
 	MalformedJSON:        http.StatusBadRequest,
 	MalformedYaml:        http.StatusBadRequest,
+	DecodeBase64:         http.StatusBadRequest,
+	InvalidPipeline:      http.StatusBadRequest,
 	FileTypeNotSupported: http.StatusBadRequest,
 	InvalidVersion:       http.StatusNotFound,
 	InvalidNamePattern:   http.StatusBadRequest,
@@ -178,6 +183,8 @@ var errorHTTPStatus = map[string]int{
 	RunNotFound:           http.StatusNotFound,
 	PipelineNotFound:      http.StatusBadRequest,
 	RunCacheNotFound:      http.StatusBadRequest,
+	ReadYamlFileFailed:    http.StatusBadRequest,
+	ScheduleNotFound:      http.StatusNotFound,
 	ArtifactEventNotFound: http.StatusBadRequest,
 
 	GrantResourceTypeNotFound: http.StatusBadRequest,
@@ -235,6 +242,8 @@ var errorMessage = map[string]string{
 	InvalidURI:           "Could not parse the specified URI.",
 	MalformedJSON:        "The JSON provided was not well-formatted",
 	MalformedYaml:        "The yaml provided was not well-formatted",
+	DecodeBase64:         "Could not decode the base64 string",
+	InvalidPipeline:      "The pipeline provided is invalid.",
 	FileTypeNotSupported: "File type not supported",
 	InvalidVersion:       "The API version specified was invalid",
 	InvalidNamePattern:   "Name pattern does not match regex rule",
@@ -278,6 +287,8 @@ var errorMessage = map[string]string{
 	PipelineNotFound:      "Pipeline not found",
 	RunCacheNotFound:      "RunCache not found",
 	ArtifactEventNotFound: "ArtifactEvent not found",
+	ReadYamlFileFailed:    "Read yaml file failed",
+	ScheduleNotFound:      "Schedule not found",
 
 	GrantResourceTypeNotFound: "This kind of resource is not exist",
 	GrantNotFound:             "Grant not found. check the user and resource",

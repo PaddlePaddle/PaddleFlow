@@ -28,8 +28,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
@@ -56,7 +58,7 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyFunc(pipeline.CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(pipeline.CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -73,4 +75,12 @@ func TestCreatePipeline(t *testing.T) {
 	b, _ := json.Marshal(createPplRsp)
 	println("")
 	fmt.Printf("%s\n", b)
+
+	patch3 := gomonkey.ApplyFunc(common.BindJSON, func(*http.Request, interface{}) error {
+		return fmt.Errorf("patch3 error")
+	})
+	defer patch3.Reset()
+
+	res, _ := PerformPostRequest(router, pplUrl, createPplReq)
+	assert.Equal(t, http.StatusBadRequest, res.Code)
 }
