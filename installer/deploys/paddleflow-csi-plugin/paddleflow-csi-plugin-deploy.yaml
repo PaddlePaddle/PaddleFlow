@@ -253,8 +253,13 @@ spec:
             - mountPath: /home/paddleflow/mnt
               mountPropagation: Bidirectional
               name: pfs-mnt
+            - mountPath: /host/etc/paddleflow
+              name: etc-dir
+            - mountPath: /host/usr
+              name: usr-dir
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: true
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
@@ -271,7 +276,7 @@ spec:
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
-            path: /home/paddleflow/log
+            path: /var/log/paddleflow/csi/
             type: DirectoryOrCreate
           name: paddlefow-csi-log
         - hostPath:
@@ -290,6 +295,14 @@ spec:
             path: /var/lib/kubelet/plugins/pfs-csi
             type: DirectoryOrCreate
           name: socket-dir
+        - hostPath:
+            path: /etc/paddleflow/
+            type: DirectoryOrCreate
+          name: etc-dir
+        - hostPath:
+            path: /usr
+            type: DirectoryOrCreate
+          name: usr-dir
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1

@@ -125,6 +125,7 @@ type FileSystemStoreInterface interface {
 	// filesystem
 	CreatFileSystem(fs *model.FileSystem) error
 	GetFileSystemWithFsID(fsID string) (model.FileSystem, error)
+	GetFileSystemWithFsIDs(fsIDs []string) ([]model.FileSystem, error)
 	DeleteFileSystem(tx *gorm.DB, id string) error
 	ListFileSystem(limit int, userName, marker, fsName string) ([]model.FileSystem, error)
 	GetSimilarityAddressList(fsType string, ips []string) ([]model.FileSystem, error)

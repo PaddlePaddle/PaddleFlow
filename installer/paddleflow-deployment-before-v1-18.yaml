@@ -792,6 +792,7 @@ spec:
               name: pfs-mnt
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: true
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}

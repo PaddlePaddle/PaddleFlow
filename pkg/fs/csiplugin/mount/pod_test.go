@@ -29,7 +29,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -77,8 +77,8 @@ var testExist = &k8sCore.Pod{
 }
 
 func TestPFSMountWithCache(t *testing.T) {
-	csiconfig.Namespace = "default"
-	csiconfig.NodeName = "node1"
+	csi.Namespace = "default"
+	csi.NodeName = "node1"
 	fakeClientSet := utils.GetFakeK8sClient()
 	fs := model.FileSystem{
 		Model: model.Model{
@@ -149,10 +149,10 @@ func TestPFSMountWithCache(t *testing.T) {
 			if err := PFSMount(tt.args.volumeID, tt.args.mountInfo); (err != nil) != tt.wantErr {
 				t.Errorf("PodMount() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			newPod, errGetpod := tt.args.mountInfo.K8sClient.GetPod(csiconfig.Namespace, GeneratePodNameByVolumeID(tt.args.volumeID))
+			newPod, errGetpod := tt.args.mountInfo.K8sClient.GetPod(csi.Namespace, GeneratePodNameByVolumeID(tt.args.volumeID))
 			assert.Nil(t, errGetpod)
 			assert.Equal(t, GeneratePodNameByVolumeID(tt.args.volumeID), newPod.Name)
-			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
+			assert.Equal(t, csi.Namespace, newPod.Namespace)
 			assert.Equal(t, testTargetPath, newPod.Annotations[schema.AnnotationKeyMountPrefix+utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
@@ -181,7 +182,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
 	jobTemplateName := ""
 
-	//the footer comment of all type job as the follow:
+	// the footer comment of all type job as the follow:
 	//  single -> single-job, workflow -> workflow-job,
 	//  spark -> spark-job, ray -> ray-job
 	//  paddle with ps mode -> paddle-ps-job
@@ -672,6 +673,7 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 		volume := corev1.Volume{
 			Name: fs.Name,
 		}
+		fsx, _ := storage.Filesystem.GetFileSystemWithFsID(fs.ID)
 		if fs.Type == schema.PFSTypeLocal {
 			// use hostPath
 			volume.VolumeSource = corev1.VolumeSource{
@@ -683,7 +685,7 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 			// use pvc
 			volume.VolumeSource = corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: schema.ConcatenatePVCName(fs.ID),
+					ClaimName: schema.ConcatenatePVCName(fs.ID, strconv.Itoa(fsx.PK), config.GlobalServerConfig.ApiServer.Host, strconv.Itoa(config.GlobalServerConfig.ApiServer.Port)),
 				},
 			}
 		}
@@ -775,9 +777,9 @@ func KubePriorityClass(priority string) string {
 // patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
 // environments for paddle para job:
 //
-//	PF_PADDLE_PARA_JOB: defines the job is a paddle para job
-//	PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
-//	PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
+// 	PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+// 	PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+// 	PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
 func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member) error {
 	// get parameters from user's job config
 	var paddleParaPriority string

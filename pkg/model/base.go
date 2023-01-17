@@ -35,6 +35,7 @@ const (
 )
 
 type Model struct {
+	PK         int       `json:"PK"`
 	ID         string    `json:"id"`
 	CreatedAt  time.Time `json:"-"`
 	UpdatedAt  time.Time `json:"-"`

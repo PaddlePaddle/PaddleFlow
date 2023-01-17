@@ -271,9 +271,7 @@ func ProcessFSInfo(fsInfoBase64 string) (model.FileSystem, error) {
 	if err = json.Unmarshal(fsInfoByte, &fs); err != nil {
 		return model.FileSystem{}, err
 	}
-	if fs.ID == "" ||
-		fs.Type == "" ||
-		fs.ServerAddress == "" {
+	if fs.ID == "" || fs.Type == "" || fs.ServerAddress == "" {
 		err = fmt.Errorf("processFsInfo failed as id or type of server address empty")
 		return model.FileSystem{}, err
 	}
