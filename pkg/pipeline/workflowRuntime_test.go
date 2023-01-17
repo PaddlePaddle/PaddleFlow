@@ -284,7 +284,7 @@ func TestUpdateStatusAccordingComponentStatus(t *testing.T) {
 	wfr.postProcess.done = true
 	wfr.status = common.StatusRunRunning
 
-	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(wfr), "getStepRuntimeFullNameByStatus",
+	patch := gomonkey.ApplyPrivateMethod(reflect.TypeOf(wfr), "getRuntimeFullNameByStatus",
 		func(*WorkflowRuntime, RuntimeStatus) string {
 			return "entry_points.step1, post_process"
 		})
@@ -299,7 +299,7 @@ func TestUpdateStatusAccordingComponentStatus(t *testing.T) {
 	msg = wfr.updateStatusAccordingComponentStatus()
 	assert.Contains(t, msg, "entry_points.step1, post_process")
 	assert.Contains(t, msg, "update status to failed")
-	assert.Contains(t, msg, "cancelled unexpectedly")
+	assert.Contains(t, msg, "terminated unexpectedly")
 
 	wfr.status = common.StatusRunTerminating
 	msg = wfr.updateStatusAccordingComponentStatus()
@@ -314,7 +314,7 @@ func TestUpdateStatusAccordingComponentStatus(t *testing.T) {
 	assert.Contains(t, msg, "Run successfully")
 }
 
-func TestGetStepRuntimeFullNameByStatus(t *testing.T) {
+func TestGetRuntimeFullNameByStatus(t *testing.T) {
 	wfr, err := mockWorkflowRuntime()
 	assert.Nil(t, err)
 
@@ -339,13 +339,13 @@ func TestGetStepRuntimeFullNameByStatus(t *testing.T) {
 	defer patch.Reset()
 
 	wfr.postProcess = nil
-	sn := wfr.getStepRuntimeFullNameByStatus(StatusRuntimeFailed)
+	sn := wfr.getRuntimeFullNameByStatus(StatusRuntimeFailed)
 	assert.Equal(t, "et.step1,et.step1-0,et.step2", sn)
 
 	wfr.postProcess = &StepRuntime{
 		baseComponentRuntime: &baseComponentRuntime{componentFullName: "test.post"},
 	}
 	wfr.postProcess.status = StatusRuntimeFailed
-	sn = wfr.getStepRuntimeFullNameByStatus(StatusRuntimeFailed)
+	sn = wfr.getRuntimeFullNameByStatus(StatusRuntimeFailed)
 	assert.Equal(t, "et.step1,et.step1-0,et.step2,post", sn)
 }

@@ -357,7 +357,7 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	return nil
 }
 
-func (wfr *WorkflowRuntime) getStepRuntimeFullNameByStatus(status RuntimeStatus) string {
+func (wfr *WorkflowRuntime) getRuntimeFullNameByStatus(status RuntimeStatus) string {
 	runtimes := []componentRuntime{}
 	if wfr.entryPoints != nil {
 		runtimes = wfr.entryPoints.getDeepestRuntimeByStatus(status, runtimes)
@@ -414,22 +414,29 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() string {
 
 	if hasFailedComponent {
 		wfr.status = common.StatusRunFailed
-		failedStepRuntimeNames := wfr.getStepRuntimeFullNameByStatus(StatusRuntimeFailed)
-		msg = fmt.Sprintf("update status to failed due some step or dag run failed: %s",
-			failedStepRuntimeNames)
+		failedRuntimeNames := wfr.getRuntimeFullNameByStatus(StatusRuntimeFailed)
+		msg = fmt.Sprintf("update status to failed because some step or dag run failed: %s",
+			failedRuntimeNames)
 	} else if hasTerminatedComponent || hasCancelledComponent {
-		terminatedStepRuntimeNames := wfr.getStepRuntimeFullNameByStatus(StatusRuntimeTerminated)
-		cancelledStepRuntimeNames := wfr.getStepRuntimeFullNameByStatus(StatusRuntimeCancelled)
+		terminatedRuntimeNames := wfr.getRuntimeFullNameByStatus(StatusRuntimeTerminated)
 		if wfr.status == common.StatusRunTerminating {
 			wfr.status = common.StatusRunTerminated
-			msg = fmt.Sprintf("update status to terminated because some step or dag was terminated or "+
-				"cancelled after recive termination singal: %s,%s",
-				terminatedStepRuntimeNames, cancelledStepRuntimeNames)
+			if terminatedRuntimeNames != "" {
+				msg = fmt.Sprintf("update status to terminated because some step or dag was terminated "+
+					"after receive termination singal: %s", terminatedRuntimeNames)
+			} else {
+				msg = "update status to terminated because some step or dag was " +
+					"cancelled after receive termination singal."
+			}
 		} else {
 			wfr.status = common.StatusRunFailed
-			msg = fmt.Sprintf("update status to failed because some step or dag was terminated or "+
-				"cancelled unexpectedly: %s,%s",
-				terminatedStepRuntimeNames, cancelledStepRuntimeNames)
+			if terminatedRuntimeNames != "" {
+				msg = fmt.Sprintf("update status to failed because some step or dag was terminated "+
+					"unexpectedly: %s", terminatedRuntimeNames)
+			} else {
+				// 理论上不会走到这部分逻辑，主要是为了保持逻辑的完备性
+				msg = "update status to failed because some step or dag was cancelled unexpectedly"
+			}
 		}
 	} else {
 		wfr.status = common.StatusRunSucceeded
