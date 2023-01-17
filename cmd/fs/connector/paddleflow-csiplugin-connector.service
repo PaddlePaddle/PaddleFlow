@@ -1,0 +1,13 @@
+[Unit]
+Description=paddleflow csiplugin connector
+
+[Service]
+Type=forking
+ExecStart=/etc/paddleflow/csi-tool/connector
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
