@@ -19,6 +19,7 @@ package runtime_v2
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 
@@ -99,26 +100,32 @@ func (k3srs *K3SRuntimeService) buildConfig() (*rest.Config, error) {
 
 func (k3srs *K3SRuntimeService) Init() error {
 	// new k3s client
-	if k3srs.cluster == nil {
-		log.Errorf("k3s cluster info is nil, try init k3s client use service account.")
+	// 先判断是否已经配置了cluster信息，如果没有则判断是否配置了account service
+	initConfig := &rest.Config{}
+	if k3srs.cluster != nil {
+		config, err := k3srs.buildConfig()
+		if err != nil {
+			log.Errorf("Build k3s config from setting cluster %v, err : %v", k3srs.cluster, err)
+			return err
+		}
+		initConfig = config
+	} else {
+		log.Infof("Begin build k3s config use service account.")
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			log.Errorf("Create k3s client faild, maybe not set "+
+				"account service or not deploy in cluster, err: %v", err)
+			return err
+		}
+		initConfig = config
 	}
-	config, err := k3srs.buildConfig()
-	if err != nil {
-		log.Errorf("Build k3s config from setting cluster %v, err : %v", k3srs.cluster, err)
-	}
-	log.Infof("Begin build k3s config use service account.")
-	config, err = rest.InClusterConfig()
-	if err != nil {
-		log.Errorf("Create k3s client faild, maybe not set "+
-			"account service or not deploy in cluster, err: %v", err)
-		return err
-	}
-	k3sClient, err := kubernetes.NewForConfig(config)
+
+	k3sClient, err := kubernetes.NewForConfig(initConfig)
 	if err != nil {
 		log.Errorf("create k3s client failed, err: %v", err)
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(config)
+	dynamicClient, err := dynamic.NewForConfig(initConfig)
 	if err != nil {
 		log.Errorf("init k3s dynamic client failed. error:%s", err)
 		return err
@@ -130,7 +137,7 @@ func (k3srs *K3SRuntimeService) Init() error {
 		InformerFactory: informers.NewSharedInformerFactory(k3sClient, 0),
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  factory,
-		Config:          config,
+		Config:          initConfig,
 		ClusterInfo:     k3srs.cluster,
 		JobInformerMap:  make(map[schema.GroupVersionResource]cache.SharedIndexInformer),
 	}
@@ -264,6 +271,14 @@ func (k3srs *K3SRuntimeService) DeleteJob(job *api.PFJob) error {
 }
 
 func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
+	if jobLogRequest.JobID == "" {
+		log.Errorf("must set job id, skip get log for job log request[%v]", jobLogRequest)
+		return pfschema.JobLogInfo{}, errors.New(" Must use a right job info.")
+	}
+	if jobLogRequest.JobType != string(pfschema.TypeSingle) {
+		log.Errorf("Unsupport job type, skip get log for job log request[%v].", jobLogRequest)
+		return pfschema.JobLogInfo{}, fmt.Errorf(" Unsupport job type %v", jobLogRequest.JobType)
+	}
 	jobLogInfo := pfschema.JobLogInfo{
 		JobID: jobLogRequest.JobID,
 	}
@@ -273,15 +288,15 @@ func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mix
 	}
 	labelMap, err := metav1.LabelSelectorAsMap(&labelSelector)
 	if err != nil {
-		log.Errorf("job[%s] parse selector to map failed", jobLogRequest.JobID)
+		log.Errorf("job[%s] parse selector to map failed.", jobLogRequest.JobID)
 		return pfschema.JobLogInfo{}, err
 	}
 	listOptions := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap).String(),
 	}
 	podList, err := k3srs.ListPods(jobLogRequest.Namespace, listOptions)
-	if err != nil {
-		log.Errorf("job[%s] get pod list failed", jobLogRequest.JobID)
+	if err != nil || podList.Items == nil {
+		log.Errorf("job[%s] get pod list failed, maybe job is not exist.", jobLogRequest.JobID)
 		return pfschema.JobLogInfo{}, err
 	}
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)

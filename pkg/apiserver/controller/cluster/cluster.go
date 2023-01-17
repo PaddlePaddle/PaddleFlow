@@ -109,7 +109,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.ClusterType = strings.TrimSpace(request.ClusterType)
 	switch request.ClusterType {
-	case schema.KubernetesType, schema.LocalType:
+	case schema.KubernetesType, schema.LocalType, schema.K3SType:
 	case "":
 		return fmt.Errorf("ClusterType should not be empty")
 	default:

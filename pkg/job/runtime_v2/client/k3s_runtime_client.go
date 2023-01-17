@@ -108,6 +108,7 @@ func (k3s *K3SRuntimeClient) Create(resource interface{}, fv pfschema.FrameworkV
 	}
 	newResource, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource)
 	if err != nil {
+		log.Errorf("k3s unstruct resource err: %v", err)
 		return err
 	}
 	obj := &unstructured.Unstructured{
@@ -183,13 +184,12 @@ func (k3s *K3SRuntimeClient) Update(resource interface{}, fv pfschema.FrameworkV
 
 // RegisterListener register single job(task) listener
 func (k3s *K3SRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
+	log.Infof("k3s listener type is %v", listenerType)
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		log.Infof("k3s listener type is %v", pfschema.ListenerTypeJob)
 		err = k3s.registerJobListener(workQueue)
 	case pfschema.ListenerTypeTask:
-		log.Infof("k3s listener type is %v", pfschema.ListenerTypeTask)
 		err = k3s.registerTaskListener(workQueue)
 	case pfschema.ListenerTypeNode:
 		err = k3s.registerNodeListener(workQueue)
