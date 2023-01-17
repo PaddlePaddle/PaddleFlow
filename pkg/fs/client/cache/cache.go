@@ -93,7 +93,15 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		bytesRead += nread
 		blockOff += nread
-
+		// page ready, if write file but not flush will cause reader read empty, we need release this reader and get new reader
+		if nread == 0 && err != nil {
+			r.lock.RLock()
+			if readAheadBuf.Buffer.reader != nil {
+				_ = readAheadBuf.Buffer.reader.Close()
+			}
+			delete(r.buffers, indexOff)
+			r.lock.RUnlock()
+		}
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
 		}
@@ -182,7 +190,6 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 		return nReadFromCache, nil
 	}
 	err = r.readAhead(index)
-	log.Debugf("read buffers map %v", len(r.buffers))
 	if err == nil {
 		n, err = r.readFromReadAhead(off, buf)
 		log.Debugf("readFromReadAhead n is %v err %v", n, err)

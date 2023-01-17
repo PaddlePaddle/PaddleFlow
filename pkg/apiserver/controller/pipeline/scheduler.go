@@ -312,7 +312,7 @@ func (s *Scheduler) createRun(schedule models.Schedule, fsConfig models.FsConfig
 		extra[FinalRunStatus] = status
 		extra[FinalRunMsg] = msg
 	}
-	_, err := CreateRun(ctx, &createRequest, extra)
+	_, err := CreateRun(&ctx, &createRequest, extra)
 	if err != nil {
 		logger.Logger().Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", schedule.ID, s.formatTime(&nextRunAt), err.Error())
 	}
@@ -321,7 +321,11 @@ func (s *Scheduler) createRun(schedule models.Schedule, fsConfig models.FsConfig
 func (s *Scheduler) stopRun(runID string, schedule models.Schedule) {
 	logger.Logger().Infof("start to stop run[%s] for schedule[%s]", runID, schedule.ID)
 	request := UpdateRunRequest{StopForce: false}
-	err := StopRun(logger.Logger(), schedule.UserName, runID, request)
+	ctx := logger.RequestContext{
+		UserName:  schedule.UserName,
+		RequestID: uuid.NewString(),
+	}
+	err := StopRun(&ctx, schedule.UserName, runID, request)
 	if err != nil {
 		logger.Logger().Errorf("stop run[%s] failed for schedule[%s], err:[%s]", runID, schedule.ID, err.Error())
 	}
