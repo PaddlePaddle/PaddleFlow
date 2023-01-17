@@ -188,7 +188,8 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		}
 	}
 	wfr.updateStatusAccordingComponentStatus()
-	wfr.callback("update status after resum")
+	msg := fmt.Sprintf("update status to %s after resum", wfr.status)
+	wfr.callback(msg)
 
 	return
 }
@@ -350,14 +351,37 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 		wfr.schedulePostProcess()
 	}
 
-	wfr.updateStatusAccordingComponentStatus()
-	wfr.callback(event.Message)
+	msg := wfr.updateStatusAccordingComponentStatus()
+	wfr.callback(msg)
 
 	return nil
 }
 
-// TODO: 并发状态下的状态一致性
-func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
+func (wfr *WorkflowRuntime) getRuntimeFullNameByStatus(status RuntimeStatus) string {
+	runtimes := []componentRuntime{}
+	if wfr.entryPoints != nil {
+		runtimes = wfr.entryPoints.getDeepestRuntimeByStatus(status, runtimes)
+	}
+
+	if wfr.postProcess != nil && wfr.postProcess.getStatus() == status {
+		runtimes = append(runtimes, wfr.postProcess)
+	}
+
+	names := ""
+	prefixLength := len(wfr.WorkflowSource.Name) + 1
+	for _, sr := range runtimes {
+		if names == "" {
+			names = sr.getFullName()[prefixLength:]
+		} else {
+			// 去掉fullName的前缀
+			names = names + "," + sr.getFullName()[prefixLength:]
+		}
+	}
+
+	return names
+}
+
+func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() string {
 	// 只有当所有的 节点都处于终态后，此函数才会更新 run 的状态
 	// 有failed step，run 状态为failed
 	// 如果当前状态为 terminating，存在有 cancelled step 或者 terminated step，run 状态为terminated
@@ -365,18 +389,19 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 	// - 有step为 cancelled 状态，要么是因为有节点失败了，要么是用户终止了 Run
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
+	msg := ""
 	if wfr.IsCompleted() {
 		wfr.logger.Errorf("cannot update status for run, because it is already in status[%s]", wfr.status)
-		return
+		return msg
 	}
 
 	if !wfr.entryPoints.isDone() {
-		return
+		return msg
 	}
 
 	if len(wfr.WorkflowSource.PostProcess) != 0 {
 		if wfr.postProcess == nil || !wfr.postProcess.isDone() {
-			return
+			return msg
 		}
 	}
 
@@ -389,18 +414,37 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 
 	if hasFailedComponent {
 		wfr.status = common.StatusRunFailed
+		failedRuntimeNames := wfr.getRuntimeFullNameByStatus(StatusRuntimeFailed)
+		msg = fmt.Sprintf("update status to failed because some step or dag run failed: %s",
+			failedRuntimeNames)
 	} else if hasTerminatedComponent || hasCancelledComponent {
+		terminatedRuntimeNames := wfr.getRuntimeFullNameByStatus(StatusRuntimeTerminated)
 		if wfr.status == common.StatusRunTerminating {
 			wfr.status = common.StatusRunTerminated
+			if terminatedRuntimeNames != "" {
+				msg = fmt.Sprintf("update status to terminated because some step or dag was terminated "+
+					"after receive termination singal: %s", terminatedRuntimeNames)
+			} else {
+				msg = "update status to terminated because some step or dag was " +
+					"cancelled after receive termination singal."
+			}
 		} else {
 			wfr.status = common.StatusRunFailed
+			if terminatedRuntimeNames != "" {
+				msg = fmt.Sprintf("update status to failed because some step or dag was terminated "+
+					"unexpectedly: %s", terminatedRuntimeNames)
+			} else {
+				// 理论上不会走到这部分逻辑，主要是为了保持逻辑的完备性
+				msg = "update status to failed because some step or dag was cancelled unexpectedly"
+			}
 		}
 	} else {
 		wfr.status = common.StatusRunSucceeded
+		msg = "Run successfully"
 	}
 
-	wfr.logger.Infof("workflow %s finished with status[%s]", wfr.WorkflowSource.Name, wfr.status)
-	return
+	wfr.logger.Infof("workflow %s finished with status[%s]: %s", wfr.WorkflowSource.Name, wfr.status, msg)
+	return msg
 }
 
 func (wfr *WorkflowRuntime) callback(msg string) {
