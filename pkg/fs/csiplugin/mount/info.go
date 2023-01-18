@@ -36,6 +36,7 @@ const (
 	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
 	ReadOnly                              = "ro"
+	cfsMountParam                         = "minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
 )
 
 type Info struct {
@@ -95,6 +96,8 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 func (mountInfo *Info) cmdAndArgs() (string, []string) {
 	if mountInfo.FS.Type == common.GlusterFSType {
 		return mountName, mountInfo.glusterArgs()
+	} else if mountInfo.FS.Type == common.CFSType {
+		return mountName, mountInfo.cfsArgs()
 	} else if mountInfo.FS.IndependentMountProcess {
 		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
@@ -104,6 +107,12 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 
 func (mountInfo *Info) glusterArgs() (args []string) {
 	args = append(args, "-t", mountInfo.FS.Type,
+		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
+	return args
+}
+
+func (mountInfo *Info) cfsArgs() (args []string) {
+	args = append(args, "-t", "nfs4", "-o", cfsMountParam,
 		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
 	return args
 }
