@@ -78,7 +78,7 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		K8sClient:   k8sClient,
 	}
 
-	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
+	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
 		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
 		if err != nil {
