@@ -115,32 +115,11 @@ func (sp *KubeSingleJob) customSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	if jobPod == nil || job == nil {
 		return fmt.Errorf("jobSpec or PFJob is nil")
 	}
-	podSpec := &jobPod.Spec
 	if len(job.Tasks) == 0 {
 		log.Debugf("custom singleJob has no tasks")
 		return nil
 	}
-
-	task := job.Tasks[0]
-	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
-		log.Warningf("singleJob without any container")
-		podSpec.Containers = []v1.Container{{}}
-	}
-	container := podSpec.Containers[0]
-	// fill image
-	if task.Image != "" {
-		container.Image = task.Image
-	}
-	// set resource
-	var err error
-	container.Resources, err = kuberuntime.GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
-	if err != nil {
-		log.Errorf("generate resource requirements failed, err: %v", err)
-		return err
-	}
-	podSpec.Containers[0] = container
-	return nil
-
+	return kuberuntime.BuildPod(jobPod, job.Tasks[0])
 }
 
 func (sp *KubeSingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {

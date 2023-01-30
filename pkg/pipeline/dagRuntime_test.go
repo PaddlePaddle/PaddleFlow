@@ -686,3 +686,107 @@ func TestProcessFailureOptions(t *testing.T) {
 
 	assert.Len(t, drt.subComponentRumtimes, 7)
 }
+
+func TestGetDeepestRuntimeByStatus(t *testing.T) {
+	drt := &DagRuntime{
+		baseComponentRuntime: &baseComponentRuntime{
+			componentFullName: "entrypoints",
+			status:            StatusRuntimeFailed,
+		},
+	}
+
+	drt.subComponentRumtimes = map[string][]componentRuntime{}
+	drt.subComponentRumtimes["step1"] = []componentRuntime{
+		&StepRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.step1",
+				status:            StatusRuntimeFailed,
+			},
+		},
+		&StepRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.step1-1",
+				status:            StatusRuntimeFailed,
+			},
+		},
+		&StepRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.step1-2",
+				status:            StatusRuntimeRunning,
+			},
+		},
+	}
+
+	drt.subComponentRumtimes["dag1"] = []componentRuntime{
+		&DagRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag1",
+				status:            StatusRuntimeFailed,
+			},
+		},
+	}
+
+	drt.subComponentRumtimes["dag2"] = []componentRuntime{
+		&DagRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag2",
+				status:            StatusRuntimeFailed,
+			},
+		},
+	}
+
+	drt.subComponentRumtimes["dag2"][0].(*DagRuntime).subComponentRumtimes = map[string][]componentRuntime{}
+	drt.subComponentRumtimes["dag2"][0].(*DagRuntime).subComponentRumtimes["step1"] = []componentRuntime{
+		&StepRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag2.step1-1",
+				status:            StatusRuntimeFailed,
+			},
+		},
+		&StepRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag2.step1-2",
+				status:            StatusRuntimeRunning,
+			},
+		},
+		&DagRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag2.dag1",
+				status:            StatusRuntimeFailed,
+			},
+		},
+	}
+
+	drt.subComponentRumtimes["dag2"][0].(*DagRuntime).subComponentRumtimes["dag3"] = []componentRuntime{
+		&DagRuntime{
+			baseComponentRuntime: &baseComponentRuntime{
+				componentFullName: "et.dag1.dag3",
+				status:            StatusRuntimeRunning,
+			},
+			subComponentRumtimes: map[string][]componentRuntime{
+				"step1": []componentRuntime{
+					&StepRuntime{
+						baseComponentRuntime: &baseComponentRuntime{
+							componentFullName: "et.dag2.step1-2",
+							status:            StatusRuntimeRunning,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var runtimes []componentRuntime
+	runtimes = drt.getDeepestRuntimeByStatus(StatusRuntimeFailed, runtimes)
+	assert.Len(t, runtimes, 5)
+
+	fullNames := map[string]string{}
+	for _, rt := range runtimes {
+		fullNames[rt.getFullName()] = ""
+	}
+
+	for _, name := range []string{"et.step1", "et.step1-1", "et.dag1", "et.dag2.step1-1", "et.dag2.dag1"} {
+		_, ok := fullNames[name]
+		assert.True(t, ok)
+	}
+}

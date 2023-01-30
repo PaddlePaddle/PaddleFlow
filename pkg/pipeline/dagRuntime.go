@@ -1316,3 +1316,28 @@ func (drt *DagRuntime) Stop() {
 		drt.ProcessFailureOptionsWithFailFast()
 	}
 }
+
+// 获取最深层次状态为指定status的Runtime
+// 主要是用于追踪导致Run状态变化最
+func (drt *DagRuntime) getDeepestRuntimeByStatus(status RuntimeStatus, runtimes []componentRuntime) []componentRuntime {
+	if len(drt.subComponentRumtimes) == 0 {
+		if drt.status == status {
+			runtimes = append(runtimes, drt)
+		}
+		return runtimes
+	}
+	for _, subRuntimes := range drt.subComponentRumtimes {
+		if _, ok := subRuntimes[0].(*DagRuntime); ok {
+			for _, subRuntime := range subRuntimes {
+				runtimes = subRuntime.(*DagRuntime).getDeepestRuntimeByStatus(status, runtimes)
+			}
+		} else {
+			for _, subRuntime := range subRuntimes {
+				if subRuntime.getStatus() == status {
+					runtimes = append(runtimes, subRuntime)
+				}
+			}
+		}
+	}
+	return runtimes
+}

@@ -124,10 +124,6 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 	}
 
 	message := wfEvent.Message
-	if prevRun.Message != "" {
-		logging.Infof("skip run message:[%s], only keep the first message for run", message)
-		message = ""
-	}
 
 	activatedAt := sql.NullTime{}
 	if startTime != "" {
