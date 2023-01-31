@@ -816,7 +816,7 @@ func checkFs(ctx *logger.RequestContext, userName string, wfs *schema.WorkflowSo
 
 	for _, mount := range fsMounts {
 		// 检查fs权限
-		_, err := CheckFsAndGetID(ctx, "", mount.Name)
+		_, err := CheckFsAndGetID(ctx, userName, mount.Name)
 		if err != nil {
 			return err
 		}
