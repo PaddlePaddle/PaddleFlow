@@ -144,6 +144,23 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 		ServerAddress: "cfs-abcde.cfs.bj.baidubce.com",
 	}
 
+	afs := model.FileSystem{
+		Model: model.Model{
+			ID:        "fs-root-afs",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		UserName:      "root",
+		Name:          "afs",
+		Type:          common.AFSType,
+		SubPath:       "/abc",
+		ServerAddress: "afs://xxxx.afs.baidu.com:8806",
+		PropertiesMap: map[string]string{
+			common.AFSUser:     "root",
+			common.AFSPassword: "xxx",
+		},
+	}
+
 	fsInde := model.FileSystem{
 		Model: model.Model{
 			ID:        "fs-root-testfs",
@@ -223,6 +240,14 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				TargetPath: targetPath,
 			},
 			want: "mount -t nfs4 -o minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport cfs-abcde.cfs.bj.baidubce.com:abc " + sourcePath,
+		},
+		{
+			name: "test-afs-mount",
+			fields: fields{
+				FS:         afs,
+				TargetPath: targetPath,
+			},
+			want: "/home/paddleflow/afs_mount --username=root --password=xxx afs://xxxx.afs.baidu.com:8806/abc " + sourcePath,
 		},
 		{
 			name: "test-pfs-fuse-no-cache",

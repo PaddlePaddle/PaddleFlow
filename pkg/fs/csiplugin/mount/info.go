@@ -35,6 +35,7 @@ const (
 	mountName                             = "mount"
 	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
+	afsMount                              = "/home/paddleflow/afs_mount"
 	ReadOnly                              = "ro"
 	cfsMountParam                         = "minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
 )
@@ -78,7 +79,7 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		K8sClient:   k8sClient,
 	}
 
-	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType {
+	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType && fs.Type != common.AFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
 		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
 		if err != nil {
@@ -98,6 +99,8 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 		return mountName, mountInfo.glusterArgs()
 	} else if mountInfo.FS.Type == common.CFSType {
 		return mountName, mountInfo.cfsArgs()
+	} else if mountInfo.FS.Type == common.AFSType {
+		return afsMount, mountInfo.afsArgs()
 	} else if mountInfo.FS.IndependentMountProcess {
 		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
@@ -114,6 +117,13 @@ func (mountInfo *Info) glusterArgs() (args []string) {
 func (mountInfo *Info) cfsArgs() (args []string) {
 	args = append(args, "-t", "nfs4", "-o", cfsMountParam,
 		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
+	return args
+}
+
+func (mountInfo *Info) afsArgs() (args []string) {
+	args = append(args, fmt.Sprintf("--%s=%s", common.AFSUser, mountInfo.FS.PropertiesMap[common.AFSUser]))
+	args = append(args, fmt.Sprintf("--%s=%s", common.AFSPassword, mountInfo.FS.PropertiesMap[common.AFSPassword]))
+	args = append(args, mountInfo.FS.ServerAddress+mountInfo.FS.SubPath, mountInfo.SourcePath)
 	return args
 }
 
