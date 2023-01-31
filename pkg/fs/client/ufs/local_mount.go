@@ -218,6 +218,7 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 		sourcePath = addr + ":" + subpath
 		args = []string{"-t", "glusterfs"}
 	case common.CFSType:
+		args = []string{"-t", "nfs4", "-o", cfsMountParam}
 		rootPath := addr + ":/"
 		output, err = utils.ExecMount(rootPath, localPath, args)
 		if err != nil {
@@ -236,7 +237,6 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 			return nil, err
 		}
 		sourcePath = addr + ":" + subpath + "/"
-		args = []string{"-t", "nfs4", "-o", cfsMountParam}
 	default:
 		return nil, fmt.Errorf("type[%s] is not exist", mountType)
 	}

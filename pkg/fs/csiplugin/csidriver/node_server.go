@@ -134,7 +134,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 
 func mountVolume(volumeID string, mountInfo mount.Info) error {
 	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.FS.IndependentMountProcess, mountInfo.ReadOnly)
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
+	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType {
 		// business pods use a separate source path
 		if err := mount.PFSMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)

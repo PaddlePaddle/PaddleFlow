@@ -25,6 +25,7 @@ const (
 	MockType             = "mock"
 	CFSType              = "cfs"
 	GlusterFSType        = "glusterfs"
+	AFSType              = "afs"
 
 	// common
 	Owner = "owner"
@@ -40,6 +41,10 @@ const (
 	UserKey         = "user"
 	BlockSizeKey    = "blockSize"
 	ReplicationKey  = "replication"
+
+	// AFS properties
+	AFSUser     = "username"
+	AFSPassword = "password"
 
 	// HDFS Kerbers properties
 	Realm                  = "kerberos.realm"
