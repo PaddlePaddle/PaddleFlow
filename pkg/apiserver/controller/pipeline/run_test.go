@@ -615,6 +615,7 @@ func TestValidateAndCreateRun(t *testing.T) {
 	ctx.ErrorCode = ""
 }
 
+// go test 需要加上-gcflags=all=-l 参数才会生效
 func TestCheckFs(t *testing.T) {
 	ctx := &logger.RequestContext{
 		UserName: MockRootUser,
@@ -653,9 +654,6 @@ func TestCheckFs(t *testing.T) {
 	})
 	defer patch5.Reset()
 
-	fsHandler, _ := handler.NewFsHandlerWithServer("abc", logger.Logger())
-	fsHandler.Exist("/tmp/a.txt")
-
 	checkFs(ctx, MockRootUser, wfs)
 	assert.Equal(t, common.InternalError, ctx.ErrorCode)
 
@@ -677,6 +675,24 @@ func TestCheckFs(t *testing.T) {
 	defer patch8.Reset()
 	checkFs(ctx, MockRootUser, wfs)
 	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	wfs.FsOptions.MainFS.SubPath = ""
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		fsMounts := []schema.FsMount{
+			schema.FsMount{
+				Name: "abc",
+			},
+		}
+		return fsMounts, nil
+	})
+	defer patch9.Reset()
+
+	patch10 := gomonkey.ApplyFunc(CheckFsAndGetID,
+		func(ctx *logger.RequestContext, fsUserName string, fsName string) (fsID string, err error) {
+			return "abc", nil
+		})
+	defer patch10.Reset()
+	checkFs(ctx, "ahz", wfs)
 }
 
 func TestStopRun(t *testing.T) {
