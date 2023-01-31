@@ -41,6 +41,25 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 )
 
+func TestK3SRuntimeClient_Cluster(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+	assert.NotNil(t, runtimeClient.Cluster())
+	assert.Equal(t, runtimeClient.ClusterName(), "default-cluster")
+	assert.NotNil(t, runtimeClient.ClusterID())
+}
+
+func TestK3SRuntimeClient_ListNodeQuota(t *testing.T) {
+	// todo://add list node quota
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+	_, ret2, err := runtimeClient.ListNodeQuota(context.TODO())
+	assert.Nil(t, ret2)
+	assert.Nil(t, err)
+}
+
 func TestK3SExecutor(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -81,6 +100,9 @@ func TestK3SExecutor(t *testing.T) {
 	assert.Equal(t, nil, err)
 	// patch kubernetes resource with dynamic client
 	err = runtimeClient.Patch(namespace, name, frameworkVersion, patchJSON)
+	assert.Equal(t, nil, err)
+	// update
+	err = runtimeClient.Update(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client
 	_, err = runtimeClient.Get(namespace, name, frameworkVersion)

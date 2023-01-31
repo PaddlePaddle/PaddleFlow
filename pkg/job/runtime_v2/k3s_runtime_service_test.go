@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -126,6 +128,35 @@ func TestK3SRuntimeJob(t *testing.T) {
 	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
 	assert.NoError(t, err)
 	t.SkipNow()
+}
+
+func TestK3SRuntime_Init(t *testing.T) {
+	k3src := K3SRuntimeService{}
+	err := k3src.Init()
+	// build k3s runtime err
+	assert.NotNil(t, err)
+	// set cluster
+	cluster := &schema.Cluster{
+		Name: "default-cluster",
+		ID:   uuid.GenerateID("cluster"),
+		Type: schema.K3SType}
+	k3src.cluster = cluster
+	err = k3src.Init()
+	assert.NotNil(t, err)
+	// use service account,but service account not setting
+	k3src.cluster = nil
+	err = k3src.Init()
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
+	// user service account, set os env, but no token setting
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	urlArr := strings.Split(server.URL, ":")
+
+	os.Setenv("KUBERNETES_SERVICE_HOST", urlArr[0])
+	os.Setenv("KUBERNETES_SERVICE_PORT", urlArr[1])
+	err = k3src.Init()
+	assert.Contains(t, err.Error(), "open /var/run/secrets/kubernetes.io/serviceaccount/token: no such file or directory")
 }
 
 func TestK3SRuntimeNodeResource(t *testing.T) {
@@ -303,6 +334,110 @@ func TestK3SRuntime_GetLog(t *testing.T) {
 
 }
 
+func createMokeNode(client kubernetes.Interface) error {
+	nodeName := "mockNodeName"
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
+				"cpu":    resource.MustParse("22"),
+				"memory": resource.MustParse("22Gi"),
+			},
+			Allocatable: corev1.ResourceList{
+				"cpu":    resource.MustParse("20"),
+				"memory": resource.MustParse("20Gi"),
+			},
+		},
+	}
+	// create node
+	_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	return err
+}
+
+func TestKubeRuntime_SubmitJob(t *testing.T) {
+	err := createSingleJobTemplate()
+	assert.Nil(t, err)
+	currentConfigDir, _ := os.Getwd()
+	filePath := currentConfigDir + "/job_template.yaml"
+	err = config.InitJobTemplate(filePath)
+	assert.Nil(t, err)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeK3SRuntimeClient(server)
+	k3srs := &K3SRuntimeService{
+		cluster: &schema.Cluster{Name: "test-cluster", Type: schema.K3SType},
+		client:  kubeClient,
+	}
+	// create mock node
+	err = createMokeNode(k3srs.clientSet())
+	assert.Nil(t, err)
+	// submit empty job
+	err = k3srs.SubmitJob(nil)
+	assert.Contains(t, err.Error(), "submit job failed, job is nil")
+	pfJob := api.PFJob{}
+	fs := []schema.FileSystem{
+		{
+			Type: "HDFS",
+		},
+		{
+			Type:      schema.PFSTypeLocal,
+			Name:      "fsname",
+			ID:        "fsID",
+			HostPath:  "/tmp",
+			MountPath: "/mnt/test",
+		},
+	}
+	pfJob.Conf.SetProcessedFileSystem(fs)
+	pfJob.JobType = schema.TypeSingle
+	// submit valid pf job
+	err = k3srs.SubmitJob(&pfJob)
+	assert.Contains(t, err.Error(), "job member is nil")
+	// create mock task
+	mem := []schema.Member{
+		{
+			ID: "mockTaskID",
+		},
+	}
+	pfJob.Tasks = mem
+	sc := &config.ServerConfig{}
+	config.GlobalServerConfig = sc
+	config.GlobalServerConfig.Job.SchedulerName = "sss"
+	err = k3srs.SubmitJob(&pfJob)
+	assert.Nil(t, err)
+	os.RemoveAll(filePath)
+}
+
+func createSingleJobTemplate() error {
+	content := `apiVersion: v1
+kind: Pod
+metadata:
+    name: default-name
+    namespace: default
+spec:
+    containers:
+        - image: nginx
+          imagePullPolicy: IfNotPresent
+          name: job-default-name
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    priorityClassName: normal
+    restartPolicy: Never
+    schedulerName: volcano
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+# single-job
+---`
+	err := os.WriteFile("./job_template.yaml", []byte(content), 0666)
+	return err
+}
+
 func mockK3SCreateLog(t *testing.T, kr *K3SRuntimeService) {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -381,4 +516,13 @@ func mockCreateK3SEvents(t *testing.T, kr *K3SRuntimeService, objectName, namesp
 		_, err := kr.clientSet().CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
 		assert.Equal(t, nil, err)
 	}
+}
+
+func TestK3SRuntimeService_QueueRelated(t *testing.T) {
+	k3src := K3SRuntimeService{}
+	k3src.Init()
+	assert.Nil(t, k3src.Queue(schema.FrameworkVersion{}))
+	assert.Nil(t, k3src.CreateQueue(&api.QueueInfo{}))
+	assert.Nil(t, k3src.DeleteQueue(&api.QueueInfo{}))
+	assert.Nil(t, k3src.UpdateQueue(&api.QueueInfo{}))
 }

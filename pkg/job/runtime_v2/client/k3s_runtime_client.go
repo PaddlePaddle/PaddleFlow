@@ -67,7 +67,7 @@ func (k3s *K3SRuntimeClient) Cluster() string {
 		return fmt.Sprintf("cluster %s with type %s", k3s.ClusterInfo.Name, k3s.ClusterInfo.Type)
 	}
 	// default values
-	return fmt.Sprintf("cluster %s with type %s", "k3s", "SingleNode")
+	return fmt.Sprintf("cluster %s with type %s", "K3S", "SingleNode")
 }
 func (k3s *K3SRuntimeClient) ClusterID() string {
 	if k3s.ClusterInfo != nil {
@@ -160,10 +160,9 @@ func (k3s *K3SRuntimeClient) Patch(namespace, name string, fv pfschema.Framework
 func (k3s *K3SRuntimeClient) Update(resource interface{}, fv pfschema.FrameworkVersion) error {
 	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
 	log.Debugf("executor begin to update k3s resource[%s]", gvr.String())
-	if k3s == nil {
+	if k3s.DynamicClient == nil {
 		return fmt.Errorf("dynamic client is nil")
 	}
-
 	newResource, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource)
 	if err != nil {
 		log.Errorf("convert to unstructured failed, err: %v", err)
