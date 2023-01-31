@@ -217,7 +217,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			want: "mount -t glusterfs 127.0.0.1:default-volume " + sourcePath,
 		},
 		{
-			name: "test-cfs",
+			name: "test-cfs-mount",
 			fields: fields{
 				FS:         cfs,
 				TargetPath: targetPath,
