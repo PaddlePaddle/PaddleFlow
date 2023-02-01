@@ -25,9 +25,6 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Install gcc
@@ -46,8 +43,9 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
       - name: build python client
         run: |
-          export LC_ALL=C.UTF-8
-          export LANG=C.UTF-8
+          apt-get update && apt-get install -y software-properties-common gcc && \
+              add-apt-repository -y ppa:deadsnakes/ppa
+          apt-get update && apt-get install -y python3.8 python3-distutils python3-pip python3-apt
           cd client && python3 -m pip install setuptools && python3 setup.py bdist_wheel && cp dist/* output/ && cd ..
       - name: Packaging
         run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
