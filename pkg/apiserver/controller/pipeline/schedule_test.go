@@ -61,7 +61,7 @@ func TestCreateSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -264,7 +264,7 @@ func TestListSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -536,7 +536,7 @@ func TestGetSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -634,7 +634,7 @@ func TestStopSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -728,7 +728,7 @@ func TestDeleteSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 

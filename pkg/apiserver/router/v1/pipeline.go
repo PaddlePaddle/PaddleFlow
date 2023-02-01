@@ -63,7 +63,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 	if err := common.BindJSON(r, &createPplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create pipeline failed parsing request body:%+v. error:%v", r.Body, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 
@@ -142,7 +142,7 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 	if err := common.BindJSON(r, &updatePplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"update pipeline failed parsing request body:%+v. error:%v", r.Body, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
 		return
 	}
 

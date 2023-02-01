@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -24,6 +25,8 @@ const (
 	MockFlavour0    = "default-flavour0"
 	MockFlavour1    = "default-flavour1"
 	MockFlavour2    = "default-flavour2"
+	MockFS1         = "fs1"
+	MockFS2         = "fs2"
 )
 
 var clusterInfo = model.ClusterInfo{
@@ -78,6 +81,14 @@ func TestCreatePFJob(t *testing.T) {
 		Name: MockFlavour2,
 		CPU:  "2",
 		Mem:  "8",
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Filesystem.CreatFileSystem(&model.FileSystem{
+		Model: model.Model{
+			ID: common.ID(mockRootUser, MockFS1),
+		},
+		Name:     MockFS1,
+		UserName: mockRootUser,
 	})
 	assert.Equal(t, nil, err)
 
@@ -187,6 +198,88 @@ func TestCreatePFJob(t *testing.T) {
 			responseCode: 400,
 		},
 		{
+			name: "create pod failed, fs is not find",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image: "nginx:latest",
+								FileSystem: schema.FileSystem{
+									Name: MockFS1,
+								},
+								ExtraFileSystems: []schema.FileSystem{
+									{
+										Name:      MockFS2,
+										MountPath: "/home/test",
+									},
+								},
+							},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      true,
+			responseCode: 400,
+		},
+		{
+			name: "create single job with fs",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: &CreateJobInfo{
+					Members: []MemberSpec{
+						{
+							CommonJobInfo: CommonJobInfo{
+								ID:          uuid.GenerateIDWithLength("job", 5),
+								Name:        "normal",
+								Labels:      map[string]string{},
+								Annotations: map[string]string{},
+								SchedulingPolicy: SchedulingPolicy{
+									Queue: MockQueueName,
+								},
+							},
+							JobSpec: JobSpec{
+								Image: "nginx:latest",
+								FileSystem: schema.FileSystem{
+									Name: MockFS1,
+								},
+								ExtraFileSystems: []schema.FileSystem{
+									{
+										Name:      MockFS1,
+										MountPath: "/home/test",
+									},
+								},
+							},
+							Role:     string(schema.RoleWorker),
+							Replicas: 1,
+						},
+					},
+					Type:      schema.TypeSingle,
+					Framework: schema.FrameworkStandalone,
+				},
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
 			name: "create paddleJob success request",
 			args: args{
 				ctx: &logger.RequestContext{
@@ -217,7 +310,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -233,7 +326,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -277,7 +370,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
@@ -295,7 +388,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -339,7 +432,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "-1", Mem: "3"}},
@@ -357,7 +450,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -398,7 +491,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: "fake",
@@ -419,7 +512,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -460,7 +553,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: MockFlavour0,
@@ -481,7 +574,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -522,7 +615,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Env: map[string]string{
 									schema.EnvJobLimitFlavour: MockFlavour1,
@@ -543,7 +636,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -584,7 +677,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "0", Mem: "3"}},
@@ -602,7 +695,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -647,7 +740,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 								Flavour: schema.Flavour{
 									ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "3"}},
@@ -665,7 +758,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -709,7 +802,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -725,7 +818,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -769,7 +862,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -785,7 +878,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -855,7 +948,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -871,7 +964,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -912,7 +1005,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -928,7 +1021,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -969,7 +1062,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -985,7 +1078,7 @@ func TestCreatePFJob(t *testing.T) {
 								},
 							},
 							JobSpec: JobSpec{
-								Image:   "iregistry.baidu-int.com/bmlc/trainingjob:0.20.0-tf2.3.0-torch1.6.0-mxnet1.5.0-py3.7-cpu",
+								Image:   "nginx:latest",
 								Command: "sleep 20",
 							},
 						},
@@ -1009,6 +1102,80 @@ func TestCreatePFJob(t *testing.T) {
 				assert.Equal(t, nil, err)
 				t.Logf("response: %+v", res)
 			}
+		})
+	}
+
+}
+
+func TestCreateWorkflowJob(t *testing.T) {
+	initTestData(t)
+
+	testCases := []struct {
+		name    string
+		ctx     *logger.RequestContext
+		req     *CreateWfJobRequest
+		wantErr bool
+		err     error
+	}{
+		{
+			name: "create workflow success",
+			ctx: &logger.RequestContext{
+				UserName: mockRootUser,
+			},
+			req: &CreateWfJobRequest{
+				CommonJobInfo: CommonJobInfo{
+					Name: "test-wf",
+				},
+				ExtensionTemplate: map[string]interface{}{
+					"a": "b",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "create workflow failed, extensionTemplate is nil",
+			ctx: &logger.RequestContext{
+				UserName: "test",
+			},
+			req: &CreateWfJobRequest{
+				CommonJobInfo: CommonJobInfo{
+					Name: "test-wf",
+				},
+			},
+			wantErr: true,
+			err:     fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty"),
+		},
+		{
+			name: "create workflow failed, extensionTemplate is nil",
+			ctx: &logger.RequestContext{
+				UserName: "test",
+			},
+			req: &CreateWfJobRequest{
+				CommonJobInfo: CommonJobInfo{
+					ID: "test_name-xxxx.xxx",
+				},
+				ExtensionTemplate: map[string]interface{}{
+					"a": "b",
+				},
+			},
+			wantErr: true,
+			err: fmt.Errorf("ID[test_name-xxxx.xxx] of Job is invalid, err: a lowercase RFC 1123 label must " +
+				"consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric " +
+				"character (regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := CreateWorkflowJob(tc.ctx, tc.req)
+			if tc.wantErr {
+				assert.Equal(t, tc.err, err)
+				t.Logf("name=%s err: %v", tc.name, err)
+			} else {
+				assert.Equal(t, nil, err)
+				t.Logf("response: %+v", res)
+			}
+
 		})
 	}
 
@@ -1134,4 +1301,71 @@ func TestCreatePPLJob(t *testing.T) {
 		})
 	}
 
+}
+
+func initTestData(t *testing.T) {
+	driver.InitMockDB()
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.IsSingleCluster = true
+
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name:        MockClusterName,
+		ClusterType: schema.KubernetesType,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour0,
+		},
+		Name: MockFlavour0,
+		CPU:  "0",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour1,
+		},
+		Name: MockFlavour1,
+		CPU:  "1",
+		Mem:  "1",
+	})
+	assert.Equal(t, nil, err)
+
+	err = storage.Flavour.CreateFlavour(&model.Flavour{
+		Model: model.Model{
+			ID: MockFlavour2,
+		},
+		Name: MockFlavour2,
+		CPU:  "2",
+		Mem:  "8",
+	})
+	assert.Equal(t, nil, err)
+
+	maxRes, err := resources.NewResourceFromMap(map[string]string{
+		resources.ResCPU:    "10",
+		resources.ResMemory: "20Gi",
+		"nvidia.com/gpu":    "500",
+	})
+	assert.Equal(t, nil, err)
+	queueInfo := model.Queue{
+		Model: model.Model{
+			ID: MockQueueID,
+		},
+		Name:         MockQueueName,
+		Namespace:    "default",
+		MaxResources: maxRes,
+		MinResources: maxRes,
+		QuotaType:    schema.TypeVolcanoCapabilityQuota,
+		ClusterId:    MockClusterName,
+		ClusterName:  MockClusterName,
+		Status:       "open",
+	}
+	err = storage.Queue.CreateQueue(&queueInfo)
+	assert.NoError(t, err)
+	return
 }

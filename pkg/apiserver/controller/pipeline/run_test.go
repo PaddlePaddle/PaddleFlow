@@ -20,18 +20,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -177,7 +183,7 @@ func TestGetRunSuccess(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
 
-	runRsp, err := GetRunByID(ctx.Logging(), ctx.UserName, run1.ID)
+	runRsp, err := GetRunByID(ctx, ctx.UserName, run1.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, run1.ID, runRsp.ID)
 	assert.Equal(t, run1.Name, runRsp.Name)
@@ -186,7 +192,7 @@ func TestGetRunSuccess(t *testing.T) {
 	run3 := getMockRun3()
 	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
 	assert.Nil(t, err)
-	runRsp, err = GetRunByID(ctx.Logging(), ctx.UserName, run3.ID)
+	runRsp, err = GetRunByID(ctx, ctx.UserName, run3.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, runRsp.FailureOptions.Strategy, schema.FailureStrategyContinue)
 }
@@ -200,12 +206,12 @@ func TestGetRunFail(t *testing.T) {
 
 	// test non-admin user no access to other users' run
 	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
-	_, err = GetRunByID(ctxOtherNonAdmin.Logging(), ctxOtherNonAdmin.UserName, run1.ID)
+	_, err = GetRunByID(ctxOtherNonAdmin, ctxOtherNonAdmin.UserName, run1.ID)
 	assert.NotNil(t, err)
 	assert.Equal(t, common.NoAccessError("non-admin", common.ResourceTypeRun, run1.ID).Error(), err.Error())
 
 	// test no record
-	_, err = GetRunByID(ctx.Logging(), ctx.UserName, "run-id_non_existed")
+	_, err = GetRunByID(ctx, ctx.UserName, "run-id_non_existed")
 	assert.NotNil(t, err)
 	assert.Equal(t, common.NotFoundError(common.ResourceTypeRun, "run-id_non_existed").Error(), err.Error())
 }
@@ -323,13 +329,73 @@ func TestCreateRunByJson(t *testing.T) {
 	wfPtr, err := newMockWorkflowByRun(run)
 	assert.Nil(t, err)
 	fmt.Println(wfPtr.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
+
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "TransJsonMap2Yaml", func(*schema.Parser, map[string]interface{}) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch.Reset()
+
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "TransJsonMap2Yaml", func(*schema.Parser, map[string]interface{}) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "ParseFsOptions", func(*schema.Parser, map[string]interface{},
+		*schema.FsOptions) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch3.Reset()
+
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(&parser), "ParseFsOptions", func(*schema.Parser, map[string]interface{},
+		*schema.FsOptions) error {
+		return nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(ProcessJsonAttr, func(map[string]interface{}) error {
+		return fmt.Errorf("Unexpected error")
+	})
+	defer patch5.Reset()
+
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyFunc(ProcessJsonAttr, func(map[string]interface{}) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return false
+	})
+	defer patch7.Reset()
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidNamePattern, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyFunc(schema.RunYaml2Map, func([]byte) (map[string]interface{}, error) {
+		return nil, fmt.Errorf("error")
+	})
+	defer patch8.Reset()
+	ctx.ErrorCode = ""
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {
 	driver.InitMockDB()
 	ctx := logger.RequestContext{UserName: MockRootUser}
 
-	patch1 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch1 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 	defer patch1.Reset()
@@ -340,17 +406,17 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw: yamlRaw,
 	}
 
-	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Nil(t, run.FailureOptions)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
 		return CreateRunResponse{}, nil
 	})
 	defer patch2.Reset()
 
-	_, err := CreateRun(ctx, &createRunRequest, map[string]string{})
+	_, err := CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
-	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		return CreateRunResponse{}, nil
@@ -361,7 +427,481 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw:     yamlRaw,
 		FailureOptions: &schema.FailureOptions{Strategy: schema.FailureStrategyContinue},
 	}
-	_, err = CreateRun(ctx, &createRunRequest, map[string]string{})
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
+
+	patch4 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return false
+	})
+	defer patch4.Reset()
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
+	assert.Equal(t, common.InvalidNamePattern, ctx.ErrorCode)
+
+	patch5 := gomonkey.ApplyFunc(schema.CheckReg, func(string, string) bool {
+		return true
+	})
+	defer patch5.Reset()
+
+	createRunRequest.ScheduledAt = "now"
+	_, err = CreateRun(&ctx, &createRunRequest, map[string]string{})
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	createRunRequest.ScheduledAt = ""
+	extra := map[string]string{
+		FinalRunStatus: common.StatusRunPending,
+	}
+	_, err = CreateRun(&ctx, &createRunRequest, extra)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+}
+
+func TestBuildWorkflowSource(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+
+	createRunRequest := CreateRunRequest{
+		RunYamlRaw: "abc",
+	}
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.MalformedYaml, ctx.ErrorCode)
+
+	runYaml := string(loadCase(runYamlPath))
+	yamlRaw := base64.StdEncoding.EncodeToString([]byte(runYaml))
+	createRunRequest = CreateRunRequest{
+		RunYamlRaw: yamlRaw,
+	}
+
+	patch := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("abc")
+	})
+	defer patch.Reset()
+
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, nil
+	})
+	patch2.Reset()
+
+	ctx.ErrorCode = ""
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	createRunRequest = CreateRunRequest{
+		PipelineID: "abc",
+	}
+
+	patch3 := gomonkey.ApplyFunc(CheckPipelineVersionPermission,
+		func(ctx *logger.RequestContext, userName string, pipelineID string, Pv string) (bool, model.Pipeline, model.PipelineVersion, error) {
+			ctx.ErrorCode = common.PipelineNotFound
+			return true, model.Pipeline{}, model.PipelineVersion{}, fmt.Errorf("abc")
+		})
+
+	defer patch3.Reset()
+
+	_, _, _, err := buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.NotNil(t, err)
+	assert.Equal(t, common.PipelineNotFound, ctx.ErrorCode)
+
+	patch4 := gomonkey.ApplyFunc(CheckPipelineVersionPermission,
+		func(ctx *logger.RequestContext, userName string, pipelineID string, Pv string) (bool, model.Pipeline, model.PipelineVersion, error) {
+			ctx.ErrorCode = common.AccessDenied
+			return false, model.Pipeline{}, model.PipelineVersion{}, nil
+		})
+
+	defer patch4.Reset()
+	_, _, _, err = buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.AccessDenied, ctx.ErrorCode)
+	assert.Equal(t, err.Error(), common.NoAccessError("root", "pipeline", "abc").Error())
+
+	createRunRequest = CreateRunRequest{}
+	buildWorkflowSource(ctx, createRunRequest, "")
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	createRunRequest = CreateRunRequest{}
+	patch5 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return []byte{}, fmt.Errorf("abc")
+	})
+	defer patch5.Reset()
+	buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Equal(t, common.ReadYamlFileFailed, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile("../../../../example/wide_and_deep/run.yaml")
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, nil
+	})
+	defer patch7.Reset()
+	_, _, _, err = buildWorkflowSource(ctx, createRunRequest, "abc")
+	assert.Nil(t, err)
+}
+
+func TestRunYamlAndReqToWfs(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	createRunRequest := CreateRunRequest{}
+	patch := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("unexpected error")
+	})
+	defer patch.Reset()
+
+	runYamlAndReqToWfs(ctx, "pipeline", createRunRequest)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		wfs := schema.WorkflowSource{
+			FsOptions: schema.FsOptions{
+				MainFS: schema.FsMount{
+					Name: "abc",
+				},
+			},
+		}
+		return wfs, nil
+	})
+	defer patch2.Reset()
+	createRunRequest = CreateRunRequest{FsName: "abd"}
+	runYamlAndReqToWfs(ctx, "pipeline", createRunRequest)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+}
+
+func TestValidateAndCreateRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	createRunRequest := CreateRunRequest{}
+	r := &models.Run{}
+
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	ctx.RequestID = "abcd"
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return fmt.Errorf("error")
+	})
+	defer patch.Reset()
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, fmt.Errorf("error")
+	})
+	defer patch3.Reset()
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	patch4 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.CreateRun, func(*log.Entry, *models.Run) (string, error) {
+		return "123", fmt.Errorf("error")
+	})
+	defer patch5.Reset()
+	ValidateAndCreateRun(ctx, r, "abc", createRunRequest)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+}
+
+// go test 需要加上-gcflags=all=-l 参数才会生效
+func TestCheckFs(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	wfs := &schema.WorkflowSource{}
+
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		return nil, fmt.Errorf("error")
+	})
+	defer patch.Reset()
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		return nil, nil
+	})
+	defer patch2.Reset()
+
+	wfs.FsOptions.MainFS.SubPath = "/tmp/a.txt"
+	wfs.FsOptions.MainFS.Name = "abcfs"
+	patch3 := gomonkey.ApplyFunc(handler.NewFsHandlerWithServer,
+		func(string, *log.Entry) (*handler.FsHandler, error) {
+			return &handler.FsHandler{}, fmt.Errorf("error patch3")
+		})
+	defer patch3.Reset()
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+
+	var hl *handler.FsHandler
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "Exist", func(*handler.FsHandler, string) (bool, error) {
+		return false, fmt.Errorf("error")
+	})
+	defer patch5.Reset()
+
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "Exist", func(*handler.FsHandler, string) (bool, error) {
+		return true, nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "IsDir", func(*handler.FsHandler, string) (bool, error) {
+		return false, fmt.Errorf("error")
+	})
+	defer patch7.Reset()
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyMethod(reflect.TypeOf(hl), "IsDir", func(*handler.FsHandler, string) (bool, error) {
+		return false, nil
+	})
+	defer patch8.Reset()
+	checkFs(ctx, MockRootUser, wfs)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	wfs.FsOptions.MainFS.SubPath = ""
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(wfs), "GetFsMounts", func(*schema.WorkflowSource) ([]schema.FsMount, error) {
+		fsMounts := []schema.FsMount{
+			schema.FsMount{
+				Name: "abc",
+			},
+		}
+		return fsMounts, nil
+	})
+	defer patch9.Reset()
+
+	patch10 := gomonkey.ApplyFunc(CheckFsAndGetID,
+		func(ctx *logger.RequestContext, fsUserName string, fsName string) (fsID string, err error) {
+			return "abc", nil
+		})
+	defer patch10.Reset()
+	checkFs(ctx, "ahz", wfs)
+}
+
+func TestStopRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+
+	req := UpdateRunRequest{}
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunRunning,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+	ctx.ErrorCode = ""
+
+	wfMap["runID"] = &pipeline.Workflow{}
+
+	patch4 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
+		return fmt.Errorf("patch4 error")
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
+		return nil
+	})
+	defer patch5.Reset()
+
+	var wf *pipeline.Workflow
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(wf), "Stop", func(*pipeline.Workflow, bool) {
+		ctx.ErrorCode = ""
+	})
+	defer patch6.Reset()
+	StopRun(ctx, MockRootUser, "runID", req)
+	assert.Equal(t, "", ctx.ErrorCode)
+}
+
+func TestRetryRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+	RetryRun(ctx, "runid")
+
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	RetryRun(ctx, "runID")
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	patch4 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		return schema.WorkflowSource{}, fmt.Errorf("patch4 error")
+	})
+	defer patch4.Reset()
+	RetryRun(ctx, "runID")
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+}
+
+func TestDeleteRun(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+
+	patch := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		ctx.ErrorCode = common.InvalidArguments
+		return models.Run{}, fmt.Errorf("patch error")
+	})
+	defer patch.Reset()
+
+	req := &DeleteRunRequest{}
+	DeleteRun(ctx, "runid", req)
+
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch2 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminating,
+		}
+		return run, nil
+	})
+	defer patch2.Reset()
+
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+		}
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	req.CheckCache = true
+	var run *models.Run
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(run), "GetRunCacheIDList", func(*models.Run) []string {
+		return []string{"cache1", "cache2", "cache3"}
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.ListRun,
+		func(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) ([]models.Run, error) {
+			run := models.Run{}
+			return []models.Run{run}, nil
+		})
+	defer patch5.Reset()
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.ActionNotAllowed, ctx.ErrorCode)
+
+	req.CheckCache = false
+	patch6 := gomonkey.ApplyFunc(GetRunByID, func(ctx *logger.RequestContext, userName string, runID string) (models.Run, error) {
+		run := models.Run{
+			Status: common.StatusRunTerminated,
+			FsID:   "fs-01",
+		}
+		return run, nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(pplcommon.NewResourceHandler, func(runID string, fsID string, logger *log.Entry) (pplcommon.ResourceHandler, error) {
+		return pplcommon.ResourceHandler{}, fmt.Errorf("patch7 error")
+	})
+	defer patch7.Reset()
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch8 := gomonkey.ApplyFunc(pplcommon.NewResourceHandler, func(runID string, fsID string, logger *log.Entry) (pplcommon.ResourceHandler, error) {
+		return pplcommon.ResourceHandler{}, nil
+	})
+	defer patch8.Reset()
+
+	var rh *pplcommon.ResourceHandler
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(rh), "ClearResource", func(*pplcommon.ResourceHandler) error {
+		return fmt.Errorf("patch9 error")
+	})
+	defer patch9.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch10 := gomonkey.ApplyMethod(reflect.TypeOf(rh), "ClearResource", func(*pplcommon.ResourceHandler) error {
+		return nil
+	})
+	defer patch10.Reset()
+
+	patch11 := gomonkey.ApplyFunc(models.DeleteRun, func(*log.Entry, string) error {
+		return fmt.Errorf("patch11 error")
+	})
+	defer patch11.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
+
+	patch12 := gomonkey.ApplyFunc(models.DeleteRun, func(*log.Entry, string) error {
+		return nil
+	})
+	defer patch12.Reset()
+	ctx.ErrorCode = ""
+	DeleteRun(ctx, "runid", req)
+	assert.Equal(t, "", ctx.ErrorCode)
 
 }
