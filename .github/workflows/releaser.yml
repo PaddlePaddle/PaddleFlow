@@ -48,7 +48,7 @@ jobs:
         run: |
           export LC_ALL=C.UTF-8
           export LANG=C.UTF-8
-          cd client && python3 setup.py bdist_wheel && cp dist/* output/ && cd ..
+          cd client && python3 -m pip install setuptools && python3 setup.py bdist_wheel && cp dist/* output/ && cd ..
       - name: Packaging
         run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
       - name: Uploading assets
