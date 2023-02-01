@@ -471,6 +471,7 @@ func (v *VFS) Open(ctx *meta.Context, ino Ino, flags uint32) (entry *meta.Entry,
 	var errOpen error
 	fh, errOpen = v.newFileHandle(ino, attr.Size, flags, ufs, path)
 	if errOpen != nil {
+		log.Errorf("newFileHandle err %v", errOpen)
 		return entry, fh, utils.ToSyscallErrno(errOpen)
 	}
 	return entry, fh, syscall.F_OK

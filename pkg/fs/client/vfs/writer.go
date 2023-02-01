@@ -117,13 +117,13 @@ func (f *fileWriter) Fsync(fd int) syscall.Errno {
 }
 
 func (f *fileWriter) Close() {
+	f.writer.Lock()
 	f.release()
+	f.writer.Unlock()
 }
 
 func (f *fileWriter) release() {
-	f.writer.Lock()
 	delete(f.writer.files, f.inode)
-	f.writer.Unlock()
 	f.fd.Release()
 }
 
