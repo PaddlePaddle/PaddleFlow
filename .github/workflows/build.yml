@@ -38,7 +38,7 @@ jobs:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
     - name: build python client
-      run: python3 setup.py bdist_wheel && cp dist/* output/
+      run: cd client && python3 setup.py bdist_wheel && cp dist/* output/ && cd ..
     - name: Packaging
       run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
     - name: Uploading assets
