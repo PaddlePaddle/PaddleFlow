@@ -41,7 +41,6 @@ var (
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
-
 	// PodGVR TODO:// add gvr to process and get rid of all gvks in future
 	PodGVR          = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
@@ -72,20 +71,21 @@ func GetJobGVR(framework commomschema.Framework) schema.GroupVersionResource {
 	switch framework {
 	case commomschema.FrameworkStandalone:
 		return PodGVR
-	case commomschema.FrameworkTF:
-		return TFJobGVR
-	case commomschema.FrameworkPytorch:
-		return PyTorchJobGVR
-	case commomschema.FrameworkSpark:
-		return SparkAppGVR
-	case commomschema.FrameworkPaddle:
-		return PaddleJobGVR
-	case commomschema.FrameworkMXNet:
-		return MXNetJobGVR
-	case commomschema.FrameworkMPI:
-		return MPIJobGVR
-	case commomschema.FrameworkRay:
-		return RayJobGVR
+		// TODO://reopen
+		// case commomschema.FrameworkTF:
+		// 	return TFJobGVR
+		// case commomschema.FrameworkPytorch:
+		// 	return PyTorchJobGVR
+		// case commomschema.FrameworkSpark:
+		// 	return SparkAppGVR
+		// case commomschema.FrameworkPaddle:
+		// 	return PaddleJobGVR
+		// case commomschema.FrameworkMXNet:
+		// 	return MXNetJobGVR
+		// case commomschema.FrameworkMPI:
+		// 	return MPIJobGVR
+		// case commomschema.FrameworkRay:
+		// 	return RayJobGVR
 	}
 	// default return pod gvr
 	return PodGVR

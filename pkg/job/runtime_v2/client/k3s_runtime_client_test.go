@@ -30,10 +30,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	fakedynamicclient "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -41,13 +51,74 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 )
 
-func TestK3SRuntimeClient_Cluster(t *testing.T) {
+func mockK3SRuntimeClient(initCluster bool) *K3SRuntimeClient {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	runtimeClient := NewFakeK3SRuntimeClient(server)
+	scheme := runtime.NewScheme()
+	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
+	kubeClient := fakedclient.NewSimpleClientset()
+
+	if initCluster {
+		return &K3SRuntimeClient{
+			Client:          kubeClient,
+			InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
+			DynamicClient:   dynamicClient,
+			DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
+			ClusterInfo: &schema.Cluster{
+				Name: "default-cluster",
+				ID:   uuid.GenerateID("cluster"),
+				Type: schema.K3SType,
+			},
+			Config:         &rest.Config{Host: server.URL},
+			JobInformerMap: make(map[k8sschema.GroupVersionResource]cache.SharedIndexInformer),
+		}
+	} else {
+		return &K3SRuntimeClient{
+			Client:          kubeClient,
+			InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
+			DynamicClient:   dynamicClient,
+			DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
+			Config:          &rest.Config{Host: server.URL},
+			JobInformerMap:  make(map[k8sschema.GroupVersionResource]cache.SharedIndexInformer),
+		}
+	}
+}
+
+func createMockNode(client kubernetes.Interface) error {
+	nodeName := "mockNodeName"
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
+				"cpu":    resource.MustParse("22"),
+				"memory": resource.MustParse("22Gi"),
+			},
+			Allocatable: corev1.ResourceList{
+				"cpu":    resource.MustParse("20"),
+				"memory": resource.MustParse("20Gi"),
+			},
+		},
+	}
+	// create node
+	_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	return err
+}
+
+func TestK3SRuntimeClient_Cluster(t *testing.T) {
+	runtimeClient := mockK3SRuntimeClient(true)
 	assert.NotNil(t, runtimeClient.Cluster())
 	assert.Equal(t, runtimeClient.ClusterName(), "default-cluster")
 	assert.NotNil(t, runtimeClient.ClusterID())
+	runtimeClient = mockK3SRuntimeClient(false)
+	assert.Contains(t, runtimeClient.ClusterID(), "defaultK3SID")
+	assert.Contains(t, runtimeClient.Cluster(), "SingleNode")
+	assert.Contains(t, runtimeClient.ClusterName(), "K3S Get Node Err")
+	// mock node
+	err := createMockNode(runtimeClient.Client)
+	assert.Nil(t, err)
+	assert.Contains(t, runtimeClient.ClusterName(), "mockNodeName")
 }
 
 func TestK3SRuntimeClient_ListNodeQuota(t *testing.T) {

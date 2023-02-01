@@ -334,7 +334,7 @@ func TestK3SRuntime_GetLog(t *testing.T) {
 
 }
 
-func createMokeNode(client kubernetes.Interface) error {
+func createMockNode(client kubernetes.Interface) error {
 	nodeName := "mockNodeName"
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -372,7 +372,7 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 		client:  kubeClient,
 	}
 	// create mock node
-	err = createMokeNode(k3srs.clientSet())
+	err = createMockNode(k3srs.clientSet())
 	assert.Nil(t, err)
 	// submit empty job
 	err = k3srs.SubmitJob(nil)

@@ -83,7 +83,7 @@ func (k3s *K3SRuntimeClient) ClusterName() string {
 	// default return the only node name
 	nodes, err := k3s.Client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil || len(nodes.Items) != 1 {
-		return fmt.Sprintf("K3S Get Node Err %v, nodeLen %v ", err.Error(), len(nodes.Items))
+		return fmt.Sprintf("K3S Get Node Err %v, nodeLen %v ", err, len(nodes.Items))
 	}
 	return nodes.Items[0].Name
 }
