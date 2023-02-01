@@ -325,7 +325,7 @@ func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 func (fs *hdfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	reader, err := fs.client.Open(fs.GetPath(name))
 	if err != nil {
-		log.Debugf("hdfs client open err: %v", err)
+		log.Errorf("hdfs client open err: %v", err)
 		return nil, err
 	}
 	if off > 0 {
