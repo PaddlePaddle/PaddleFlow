@@ -20,6 +20,13 @@ jobs:
       uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go-version }}
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+    - run: |
+        python -V
+        pip -V
+        pip3 -V
     - name: Checkout code
       uses: actions/checkout@v3
     - name: Install gcc
