@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sync"
@@ -187,6 +188,11 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 		},
 	}
 
+	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+		return syscall.O_WRONLY | syscall.O_APPEND
+	})
+	defer p4.Reset()
+
 	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
 		return nil, nil
 	})
@@ -196,10 +202,31 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
-		return syscall.O_WRONLY | syscall.O_APPEND
+	var p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "CreateFile", func(_ *hdfs.Client, name string, replication int, blockSize int64, perm os.FileMode) (*hdfs.FileWriter, error) {
+		return nil, nil
 	})
-	defer p4.Reset()
+	defer p3.Reset()
+
+	var p5 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "RemoveAll", func(_ *hdfs.Client, name string) error {
+		return nil
+	})
+	defer p5.Reset()
+
+	var p6 = gomonkey.ApplyFunc(io.CopyBuffer, func(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+		return 1, nil
+	})
+	defer p6.Reset()
+
+	writer := &hdfs.FileWriter{}
+	var p7 = gomonkey.ApplyMethod(reflect.TypeOf(writer), "Close", func(_ *hdfs.FileWriter) error {
+		return nil
+	})
+	defer p7.Reset()
+
+	var p8 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Rename", func(_ *hdfs.Client, oldpath, newpath string) error {
+		return nil
+	})
+	defer p8.Reset()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
