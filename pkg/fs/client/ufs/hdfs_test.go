@@ -186,6 +186,66 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 				return true
 			},
 		},
+		{
+			name: "flag err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(123),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "CreateFile err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(123),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "io err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(123),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "ok",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(123),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
 	}
 
 	var p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
@@ -229,6 +289,35 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 	defer p8.Reset()
 
 	for _, tt := range tests {
+		if tt.name == "flag err" {
+			p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+				return 1
+			})
+		}
+		if tt.name == "CreateFile err" {
+			p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "CreateFile", func(_ *hdfs.Client, name string, replication int, blockSize int64, perm os.FileMode) (*hdfs.FileWriter, error) {
+				return nil, fmt.Errorf("create file error")
+			})
+		}
+		if tt.name == "io err" {
+			p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "CreateFile", func(_ *hdfs.Client, name string, replication int, blockSize int64, perm os.FileMode) (*hdfs.FileWriter, error) {
+				return nil, nil
+			})
+			p6 = gomonkey.ApplyFunc(io.CopyBuffer, func(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+				return 1, fmt.Errorf("io error")
+			})
+		}
+		if tt.name == "ok" {
+			p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "CreateFile", func(_ *hdfs.Client, name string, replication int, blockSize int64, perm os.FileMode) (*hdfs.FileWriter, error) {
+				return nil, nil
+			})
+			p4 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfsFileSystem{}), "GetOpenFlags", func(_ *hdfsFileSystem, name string, flags uint32) int {
+				return syscall.O_WRONLY | syscall.O_APPEND
+			})
+			p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+				return nil, nil
+			})
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			fs := &hdfsFileSystem{
 				client:      tt.fields.client,
@@ -237,11 +326,10 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 				replication: tt.fields.replication,
 				Mutex:       tt.fields.Mutex,
 			}
-			got, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
+			_, err := fs.Open(tt.args.name, tt.args.flags, tt.args.size)
 			if !tt.wantErr(t, err, fmt.Sprintf("Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)) {
 				return
 			}
-			assert.Equalf(t, tt.want, got, "Open(%v, %v, %v)", tt.args.name, tt.args.flags, tt.args.size)
 		})
 	}
 }
@@ -462,6 +550,57 @@ func Test_hdfsFileHandle_Write(t *testing.T) {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "Write(%v, %v)", tt.args.data, tt.args.off)
+		})
+	}
+}
+
+func Test_hdfsFileSystem_Get(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name  string
+		flags uint32
+		off   int64
+		limit int64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    io.ReadCloser
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "test",
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Open", func(_ *hdfs.Client, name string) (*hdfs.FileReader, error) {
+		return nil, fmt.Errorf("open fail")
+	})
+	defer p1.Reset()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			got, err := fs.Get(tt.args.name, tt.args.flags, tt.args.off, tt.args.limit)
+			if !tt.wantErr(t, err, fmt.Sprintf("Get(%v, %v, %v, %v)", tt.args.name, tt.args.flags, tt.args.off, tt.args.limit)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Get(%v, %v, %v, %v)", tt.args.name, tt.args.flags, tt.args.off, tt.args.limit)
 		})
 	}
 }

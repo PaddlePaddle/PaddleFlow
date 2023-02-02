@@ -389,7 +389,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 	if flag&syscall.O_APPEND != 0 {
 		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
 		writer, err := fs.client.Append(fs.GetPath(name))
-		if fs.shouldRetry(err) {
+		if err != nil && fs.shouldRetry(err) {
 			for i := 0; i < 2; i++ {
 				time.Sleep(100 * time.Millisecond * time.Duration(i*i))
 				writer, err = fs.client.Append(fs.GetPath(name))
@@ -397,7 +397,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 					break
 				}
 			}
-			if fs.shouldRetry(err) {
+			if err != nil && fs.shouldRetry(err) {
 				err = fs.ReleaseAlreadyBeingCreateFile(fs.GetPath(name))
 				if err != nil {
 					log.Errorf("ReleaseAlreadyBeingCreateFile: err[%v]", err)
