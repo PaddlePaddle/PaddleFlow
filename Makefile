@@ -9,15 +9,7 @@ GOMOD   := $(GO) mod
 GOBUILD := $(GO) build
 GOTEST  := $(GO) test -gcflags="-N -l"
 GOPKGS  := $$($(GO) list ./...| grep -vE "vendor" | grep -vE "github.com/PaddlePaddle/PaddleFlow/pkg/fs/fuse/ufs")
-GOARCH := $(shell $(GO) env GOARCH)
-GOOS := $(shell $(GO) env GOOS)
 export PATH := $(GOPATH)/bin/:$(PATH)
-
-# args [CC, CXX, AR] for CGO=1
-CC  := $(shell $(GO) env CC)
-CXX  := $(shell $(GO) env CXX)
-AR  := $(shell $(GO) env AR)
-
 
 # test cover files
 COVPROF := $(HOMEDIR)/covprof.out  # coverage profile
@@ -41,7 +33,7 @@ LD_FLAGS    = " \
 all: prepare compile package
 
 # make prepare, download dependencies
-prepare: gomod arch
+prepare: gomod
 
 gomod:
 	$(GO) env -w GO111MODULE=on
@@ -49,21 +41,11 @@ gomod:
 	$(GO) env -w CGO_ENABLED=0
 	$(GOMOD) download
 
-arch:
-    ifeq ($(GOARCH),amd64)
-		@echo "arch是$(GOARCH)"
-    else
-		@echo "arch是$(GOARCH), GOARCH是arm64时GOARM才有效, 表示arm的版本, 只能是 5, 6, 7 其中之一"
-        CC=aarch64-linux-gnu-gcc
-        CXX=aarch64-linux-gnu-g++
-        AR=aarch64-linux-gnu-ar
-    endif
-
 # make compile
 compile: build
 
 build:
-	CGO_ENABLED=1 CC=$(CC) CXX=$(CXX) AR=$(AR) GOARM=5 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
+	CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go

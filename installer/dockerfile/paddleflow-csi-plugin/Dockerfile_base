@@ -1,0 +1,9 @@
+FROM alpine:3.13
+
+RUN apk add fuse fuse-dev bash
+
+RUN apk --update add tini tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata && \
+    rm -rf /var/cache/apk/*
