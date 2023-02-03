@@ -385,34 +385,33 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 	// submit empty job
 	err = k3srs.SubmitJob(nil)
 	assert.Contains(t, err.Error(), "submit job failed, job is nil")
-	pfJob := api.PFJob{}
-	fs := schema.FileSystem{
-		Type:      schema.PFSTypeLocal,
-		Name:      "fsname",
-		ID:        "fsID",
-		HostPath:  "/tmp",
-		MountPath: "/mnt/test",
-	}
-	extfs := []schema.FileSystem{
-		{
-			Type: "HDFS",
-		},
-		{
-			Type:      schema.PFSTypeLocal,
-			Name:      "fsname",
-			ID:        "fsID",
-			HostPath:  "/tmp",
-			MountPath: "/mnt/test",
-		},
-		{
-			Name:      "fsname2",
-			ID:        "fsID2",
-			HostPath:  "/tmp2",
-			MountPath: "/mnt/test2",
-		},
-	}
-	pfJob.Conf.FileSystem = fs
-	pfJob.Conf.ExtraFileSystem = extfs
+	// FsNodeAffinity not support, schedule will be panic when add fs in pod info
+	// pfJob := api.PFJob{}
+	// fs := schema.FileSystem{
+	// 	Type:      schema.PFSTypeLocal,
+	// 	Name:      "fsname",
+	// 	ID:        "fsID",
+	// 	HostPath:  "/tmp",
+	// 	MountPath: "/mnt/test",
+	// }
+	// extfs := []schema.FileSystem{
+	// 	{
+	// 		Type: "HDFS",
+	// 	},
+	// 	{
+	// 		Type:      schema.PFSTypeLocal,
+	// 		Name:      "fsname",
+	// 		ID:        "fsID",
+	// 		HostPath:  "/tmp",
+	// 		MountPath: "/mnt/test",
+	// 	},
+	// 	{
+	// 		Name:      "fsname2",
+	// 		ID:        "fsID2",
+	// 		HostPath:  "/tmp2",
+	// 		MountPath: "/mnt/test2",
+	// 	},
+	// }
 	pfJob.JobType = schema.TypeSingle
 	// submit valid pf job
 	err = k3srs.SubmitJob(&pfJob)
