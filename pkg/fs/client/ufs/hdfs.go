@@ -39,9 +39,9 @@ import (
 )
 
 const (
-	DefaultBlockSize                 = int64(64 * 1024 * 1024)
-	DefaultReplication               = 3
-	HDFSAlreadyBeingCreatedException = "org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"
+	DefaultBlockSize   = int64(64 * 1024 * 1024)
+	DefaultReplication = 3
+	abcException       = "org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"
 )
 
 var superuser = "hdfs"
@@ -389,7 +389,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 	if flag&syscall.O_APPEND != 0 {
 		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
 		writer, err := fs.client.Append(fs.GetPath(name))
-		if err != nil && fs.shouldRetry(err) {
+		if fs.shouldRetry(err) {
 			for i := 0; i < 2; i++ {
 				time.Sleep(100 * time.Millisecond * time.Duration(i*i))
 				writer, err = fs.client.Append(fs.GetPath(name))
@@ -397,7 +397,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 					break
 				}
 			}
-			if err != nil && fs.shouldRetry(err) {
+			if fs.shouldRetry(err) {
 				err = fs.ReleaseAlreadyBeingCreateFile(fs.GetPath(name))
 				if err != nil {
 					log.Errorf("ReleaseAlreadyBeingCreateFile: err[%v]", err)
@@ -499,6 +499,9 @@ func (fs *hdfsFileSystem) StatFs(name string) *base.StatfsOut {
 }
 
 func (fs *hdfsFileSystem) shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
 	return strings.Contains(err.Error(), "AlreadyBeingCreatedException")
 }
 
@@ -616,7 +619,7 @@ func (fs *hdfsFileSystem) ReleaseAlreadyBeingCreateFile(path string) error {
 	f, err := fs.client.CreateFile(tmp, 3, 128<<20, 0755)
 	if err != nil {
 		if pe, ok := err.(*os.PathError); ok {
-			if remoteErr, ok := pe.Err.(hdfs.Error); ok && remoteErr.Exception() == HDFSAlreadyBeingCreatedException {
+			if remoteErr, ok := pe.Err.(hdfs.Error); ok && remoteErr.Exception() == abcException {
 				pe.Err = os.ErrExist
 			}
 			if pe.Err == os.ErrExist {
