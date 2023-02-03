@@ -39,6 +39,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -73,15 +74,16 @@ func TestK3SRuntimeJob(t *testing.T) {
 	defer server.Close()
 
 	kubeClient := client.NewFakeK3SRuntimeClient(server)
-	kubeRuntime := &KubeRuntime{
-		cluster:    schema.Cluster{Name: "test-cluster", Type: schema.K3SType},
-		kubeClient: kubeClient,
+	kubeRuntime := &K3SRuntimeService{
+		cluster: &schema.Cluster{Name: "default-cluster", Type: schema.K3SType},
+		client:  kubeClient,
 	}
 
 	pfJob := &api.PFJob{
 		ID:                testJobID,
 		Namespace:         "default",
 		JobType:           schema.TypeSingle,
+		Framework:         schema.FrameworkStandalone,
 		ExtensionTemplate: []byte(jobManifest),
 		Conf: schema.Conf{
 			Env: map[string]string{
@@ -124,9 +126,15 @@ func TestK3SRuntimeJob(t *testing.T) {
 	// create kubernetes job
 	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
 	assert.NoError(t, err)
-	// stop kubernetes job
-	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
+	// update job
+	err = kubeRuntime.UpdateJob(pfJob)
 	assert.NoError(t, err)
+	// stop kubernetes job
+	err = kubeRuntime.StopJob(pfJob)
+	assert.NoError(t, err)
+	// update job
+	err = kubeRuntime.DeleteJob(pfJob)
+	assert.Error(t, err)
 	t.SkipNow()
 }
 
@@ -378,7 +386,14 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 	err = k3srs.SubmitJob(nil)
 	assert.Contains(t, err.Error(), "submit job failed, job is nil")
 	pfJob := api.PFJob{}
-	fs := []schema.FileSystem{
+	fs := schema.FileSystem{
+		Type:      schema.PFSTypeLocal,
+		Name:      "fsname",
+		ID:        "fsID",
+		HostPath:  "/tmp",
+		MountPath: "/mnt/test",
+	}
+	extfs := []schema.FileSystem{
 		{
 			Type: "HDFS",
 		},
@@ -389,8 +404,15 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 			HostPath:  "/tmp",
 			MountPath: "/mnt/test",
 		},
+		{
+			Name:      "fsname2",
+			ID:        "fsID2",
+			HostPath:  "/tmp2",
+			MountPath: "/mnt/test2",
+		},
 	}
-	pfJob.Conf.SetProcessedFileSystem(fs)
+	pfJob.Conf.FileSystem = fs
+	pfJob.Conf.ExtraFileSystem = extfs
 	pfJob.JobType = schema.TypeSingle
 	// submit valid pf job
 	err = k3srs.SubmitJob(&pfJob)
@@ -399,6 +421,9 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 	mem := []schema.Member{
 		{
 			ID: "mockTaskID",
+			Conf: schema.Conf{
+				FileSystem: fs,
+			},
 		},
 	}
 	pfJob.Tasks = mem

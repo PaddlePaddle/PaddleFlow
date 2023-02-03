@@ -260,7 +260,7 @@ func (k3srs *K3SRuntimeService) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Stop(context.TODO(), job)
+	return k3srs.Job(pfschema.FrameworkVersion{}).Update(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) DeleteJob(job *api.PFJob) error {
