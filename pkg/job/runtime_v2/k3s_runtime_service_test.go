@@ -386,7 +386,7 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 	err = k3srs.SubmitJob(nil)
 	assert.Contains(t, err.Error(), "submit job failed, job is nil")
 	// FsNodeAffinity not support, schedule will be panic when add fs in pod info
-	// pfJob := api.PFJob{}
+	pfJob := api.PFJob{}
 	// fs := schema.FileSystem{
 	// 	Type:      schema.PFSTypeLocal,
 	// 	Name:      "fsname",
@@ -420,9 +420,6 @@ func TestKubeRuntime_SubmitJob(t *testing.T) {
 	mem := []schema.Member{
 		{
 			ID: "mockTaskID",
-			Conf: schema.Conf{
-				FileSystem: fs,
-			},
 		},
 	}
 	pfJob.Tasks = mem
