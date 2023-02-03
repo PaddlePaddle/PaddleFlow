@@ -458,6 +458,21 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 			},
 		},
 		{
+			name: "append err",
+			fields: fields{
+				client:  &hdfs.Client{},
+				subpath: "./",
+			},
+			args: args{
+				name:  "test",
+				flags: uint32(1),
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
 			name: "CreateFile err",
 			fields: fields{
 				client:  &hdfs.Client{},
@@ -565,7 +580,15 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 					return 1
 				})
 			}
+			if tt.name == "append err" {
+				p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+					return nil, fmt.Errorf("append error")
+				})
+			}
 			if tt.name == "CreateFile err" {
+				p2 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "Append", func(_ *hdfs.Client, name string) (*hdfs.FileWriter, error) {
+					return nil, &os.PathError{Err: fmt.Errorf("org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException")}
+				})
 				p3 = gomonkey.ApplyMethod(reflect.TypeOf(&hdfs.Client{}), "CreateFile", func(_ *hdfs.Client, name string, replication int, blockSize int64, perm os.FileMode) (*hdfs.FileWriter, error) {
 					return nil, fmt.Errorf("AlreadyBeingCreatedException")
 				})
