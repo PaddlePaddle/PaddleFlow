@@ -34,7 +34,6 @@ LD_FLAGS    = " \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitCommit=${GIT_COMMIT}' \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitBranch=${GIT_BRANCH}' \
     -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.BuildDate=${GIT_DATE}' \
-    '-extldflags=-static' \
     -w -s"
 
 # make, make all
@@ -91,7 +90,7 @@ package:
 	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
 	mv $(HOMEDIR)/csi-plugin   $(OUTDIR)/bin
 	mv $(HOMEDIR)/cache-worker $(OUTDIR)/bin
-	mv $(HOMEDIR)/pkg/fs/utils/mount.sh $(OUTDIR)/bin
+	cp $(HOMEDIR)/pkg/fs/utils/mount.sh $(OUTDIR)/bin
 
 # make clean
 clean:
