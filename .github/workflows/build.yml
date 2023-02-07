@@ -49,6 +49,7 @@ jobs:
         else
           echo "branch value is set as ${GITHUB_BASE_REF}"
           echo "branch=${GITHUB_BASE_REF}" >> $GITHUB_ENV
+          echo "test"
         fi
 
 
