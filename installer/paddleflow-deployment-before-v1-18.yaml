@@ -724,8 +724,6 @@ spec:
               mountPropagation: None
               name: registration-dir
         - command:
-            - /sbin/tini
-            - --
             - /bin/sh
             - -c
             - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
@@ -759,9 +757,6 @@ spec:
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
           resources:
-            limits:
-              cpu: 1500m
-              memory: 3G
             requests:
               cpu: "500m"
               memory: 1G

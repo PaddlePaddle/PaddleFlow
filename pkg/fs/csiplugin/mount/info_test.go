@@ -247,7 +247,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				FS:         afs,
 				TargetPath: targetPath,
 			},
-			want: "/home/paddleflow/afs_mount --username=root --password=xxx afs://xxxx.afs.baidu.com:8806/abc " + sourcePath,
+			want: "/home/paddleflow/afs.sh --username=root --password=xxx --conf=/home/paddleflow/afs_mount.conf " + sourcePath + " afs://xxxx.afs.baidu.com:8806/abc",
 		},
 		{
 			name: "test-pfs-fuse-no-cache",
