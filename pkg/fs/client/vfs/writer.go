@@ -143,6 +143,7 @@ type dataWriter struct {
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {
 	fd, err := ufs.Open(path, syscall.O_WRONLY, length)
 	if err != nil {
+		log.Errorf("data writer path[%s] err[%v]", path, err)
 		return nil, err
 	}
 	f := &fileWriter{
