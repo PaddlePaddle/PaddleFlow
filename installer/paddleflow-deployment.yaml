@@ -728,6 +728,8 @@ spec:
               mountPropagation: None
               name: registration-dir
         - command:
+            - tini
+            - --
             - /bin/sh
             - -c
             - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
