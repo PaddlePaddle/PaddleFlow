@@ -261,8 +261,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	}
 
 	if checkIfNeedRemount(mountPath) {
-		log.Infof("nee remount path [%s]", mountPath)
-		if err = remount(volumeMount, mountInfo); err != nil {
+		if err := remount(volumeMount, mountInfo); err != nil {
 			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
 			log.Errorf(err.Error())
 			return err
@@ -300,7 +299,7 @@ func checkIfNeedRemount(path string) bool {
 }
 
 func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
-	log.Infof("remount: mountInfo %+v", mountInfo)
+	log.Tracef("remount: mountInfo %+v", mountInfo)
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType && mountInfo.FS.Type != common.AFSType {
 		// wait for source path ready

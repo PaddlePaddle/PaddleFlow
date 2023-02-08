@@ -3,6 +3,7 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -213,6 +214,15 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},
 		{
+			name: "test-fscache64-error",
+			fields: fields{
+				FS:          fs,
+				CacheConfig: fsCache,
+				TargetPath:  targetPath,
+			},
+			want: "",
+		},
+		{
 			name: "test-pfs-fuse-independent",
 			fields: fields{
 				FS:          fsInde,
@@ -275,20 +285,31 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fsStr, err := json.Marshal(tt.fields.FS)
-			assert.Nil(t, err)
-			fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
+			if tt.name == "test-fscache64-error" {
+				fsStr, err := json.Marshal(tt.fields.FS)
+				assert.Nil(t, err)
+				fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
 
-			fsCacheStr, err := json.Marshal(tt.fields.CacheConfig)
-			assert.Nil(t, err)
-			fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+				fsCacheBase64 := "xxxxxx"
 
-			mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
-			assert.Nil(t, err)
+				_, err = ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+				assert.NotNil(t, err, fmt.Errorf("FS process FS CacheConfig err: illegal base64 data at input byte 4"))
+			} else {
+				fsStr, err := json.Marshal(tt.fields.FS)
+				assert.Nil(t, err)
+				fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
 
-			got := mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
-			if got != tt.want {
-				t.Errorf("cmdAndArgs() = %v, want %v", got, tt.want)
+				fsCacheStr, err := json.Marshal(tt.fields.CacheConfig)
+				assert.Nil(t, err)
+				fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+
+				mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+				assert.Nil(t, err)
+
+				got := mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
+				if got != tt.want {
+					t.Errorf("cmdAndArgs() = %v, want %v", got, tt.want)
+				}
 			}
 		})
 	}
