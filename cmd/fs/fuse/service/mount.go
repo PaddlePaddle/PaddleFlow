@@ -90,7 +90,11 @@ Usage please refer to docs`,
 }
 
 func setup(c *cli.Context) error {
-	logConf.FilePrefix = logConf.FilePrefix + "-" + c.String("fs-id")
+	if c.String("fs-id") != "" {
+		logConf.FilePrefix = logConf.FilePrefix + "-" + c.String("fs-id")
+	} else {
+		logConf.FilePrefix = logConf.FilePrefix + "-" + time.Now().Format(TimeFormat)
+	}
 	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
 		return err
@@ -222,13 +226,19 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 	return registry
 }
 
+func getCurrentGoroutineStack() string {
+	var buf [4096]byte
+	n := runtime.Stack(buf[:], false)
+	return string(buf[:n])
+}
+
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		log.Errorf("panic err: %v", err)
-	// 	}
-	// }()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("panic err: %v %s", err, getCurrentGoroutineStack())
+		}
+	}()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
