@@ -1142,7 +1142,6 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 }
 
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	log.Infof("NewObjectFileSystem: %+v", properties)
 	var dirMode, fileMode int
 	var err error
 	var ok bool
@@ -1189,6 +1188,16 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	log.Infof("object paramers endpoint[%s] ak[%s] bucket[%s] region[%s] subPath[%s] ssl[%v]",
 		endpoint, accessKey, bucket, region, subPath, ssl)
 
+	var secretKey_ string
+	if accessKey != "" && secretKey != "" {
+		secretKey_, err = common.AesDecrypt(secretKey, common.AESEncryptKey)
+		if err != nil {
+			// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
+			log.Debug("secretKey may be not descrypy")
+			secretKey_ = secretKey
+		}
+	}
+
 	switch objectType {
 	case fsCommon.S3Type:
 		awsConfig := &aws.Config{
@@ -1210,15 +1219,8 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				},
 			}
 		}
-		if accessKey != "" && secretKey != "" {
-			secretKey_, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
-			if err != nil {
-				// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
-				log.Debug("secretKey may be not descrypy")
-				secretKey_ = secretKey
-			}
-			awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
-		}
+
+		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
 
 		sess, err := session.NewSession(awsConfig)
 		if err != nil {
@@ -1228,54 +1230,54 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
-		isSts, ok := properties[fsCommon.Sts].(string)
+		_, ok = properties[fsCommon.StsServer].(string)
 		// use stsCredential
-		if ok && isSts == "true" {
-			tmp := properties[fsCommon.BostsDuration].(string)
-			duration, _ := strconv.Atoi(tmp)
-			log.Infof("accke %s sec %s duration %d", accessKey, secretKey, duration)
-			sts, err := object.StsSessionToken(accessKey, secretKey, endpoint, duration)
-			if err != nil {
-				log.Errorf("StsSessionToken: err[%v]", err)
-				return nil, fmt.Errorf("fail to create bos sts client: %v", err)
-			}
-			// 使用申请的临时STS创建BOS服务的Client对象，Endpoint使用默认值
-			bosClient, err := bos.NewClient(sts.AccessKeyId, sts.SecretAccessKey, endpoint)
-			if err != nil {
-				log.Errorf("NewClient: err[%v]", err)
-				return nil, err
-			}
-			stsCredential, err := auth.NewSessionBceCredentials(
-				sts.AccessKeyId,
-				sts.SecretAccessKey,
-				sts.SessionToken)
-			if err != nil {
-				return nil, err
-			}
-			log.Infof("stsCredential %v", stsCredential)
-			bosClient.Config.Credentials = stsCredential
-			go func() {
-				for {
-					sts, err = object.StsSessionToken(accessKey, secretKey, endpoint, duration)
-					if err != nil {
-						log.Errorf("StsSessionToken: err[%v]", err)
-					}
-					stsCredential, err = auth.NewSessionBceCredentials(
-						sts.AccessKeyId,
-						sts.SecretAccessKey,
-						sts.SessionToken)
-					if err != nil {
-						return
-					}
-					bosClient.Config.Credentials = stsCredential
-					time.Sleep(time.Duration(duration-5) * time.Second)
-				}
-			}()
-			storage = object.NewBosClient(bucket, bosClient)
+		if ok {
+			// tmp := properties[fsCommon.BosDuration].(string)
+			// duration, _ := strconv.Atoi(tmp)
+			// sts, err := object.StsSessionToken(accessKey, secretKey, endpoint, duration)
+			// if err != nil {
+			// 	log.Errorf("StsSessionToken: err[%v]", err)
+			// 	return nil, fmt.Errorf("fail to create bos sts client: %v", err)
+			// }
+			// // 使用申请的临时STS创建BOS服务的Client对象，Endpoint使用默认值
+			// bosClient, err := bos.NewClient(sts.AccessKeyId, sts.SecretAccessKey, endpoint)
+			// if err != nil {
+			// 	log.Errorf("NewClient: err[%v]", err)
+			// 	return nil, err
+			// }
+			// stsCredential, err := auth.NewSessionBceCredentials(
+			// 	sts.AccessKeyId,
+			// 	sts.SecretAccessKey,
+			// 	sts.SessionToken)
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// log.Infof("stsCredential %v", stsCredential)
+			// bosClient.Config.Credentials = stsCredential
+			// go func() {
+			// 	for {
+			// 		sts, err = object.StsSessionToken(accessKey, secretKey, endpoint, duration)
+			// 		if err != nil {
+			// 			log.Errorf("StsSessionToken: err[%v]", err)
+			// 		}
+			// 		stsCredential, err = auth.NewSessionBceCredentials(
+			// 			sts.AccessKeyId,
+			// 			sts.SecretAccessKey,
+			// 			sts.SessionToken)
+			// 		if err != nil {
+			// 			return
+			// 		}
+			// 		bosClient.Config.Credentials = stsCredential
+			// 		time.Sleep(time.Duration(duration-5) * time.Second)
+			// 	}
+			// }()
+			// storage = object.NewBosClient(bucket, bosClient)
 		} else {
+			log.Infof("init bos")
 			clientConfig := bos.BosClientConfiguration{
 				Ak:               accessKey,
-				Sk:               secretKey,
+				Sk:               secretKey_,
 				Endpoint:         endpoint,
 				RedirectDisabled: false,
 			}
@@ -1284,6 +1286,18 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			if err != nil {
 				log.Errorf("new bos client fail: %v", err)
 				return nil, fmt.Errorf("fail to create bos client: %v", err)
+			}
+			sessionToken, ok := properties[fsCommon.BosSessionToken].(string)
+			if ok {
+				stsCredential, err := auth.NewSessionBceCredentials(
+					accessKey,
+					secretKey_,
+					sessionToken)
+				if err != nil {
+					log.Errorf("NewSessionBceCredentials err[%v]", err)
+					return nil, err
+				}
+				bosClient.Config.Credentials = stsCredential
 			}
 			storage = object.NewBosClient(bucket, bosClient)
 		}

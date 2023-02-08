@@ -65,9 +65,10 @@ const (
 	S3ForcePathStyle   = "s3ForcePathStyle"
 	DirMode            = "dirMode"
 	FileMode           = "fileMode"
-	Sts                = "sts"
-	BostsDuration      = "duration"
-
+	StsServer          = "stsServer"
+	BosDuration        = "duration"
+	BosACL             = "acl"
+	BosSessionToken    = "sessionToken"
 	// sftp properties
 	Address  = "address"
 	Password = "password"

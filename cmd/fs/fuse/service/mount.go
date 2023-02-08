@@ -59,9 +59,9 @@ var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse-" + time.Now().Format(TimeFormat),
+	FilePrefix:      "pfs-fuse",
 	Level:           "INFO",
-	MaxKeepDays:     90,
+	MaxKeepDays:     3,
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
@@ -90,6 +90,7 @@ Usage please refer to docs`,
 }
 
 func setup(c *cli.Context) error {
+	logConf.FilePrefix = logConf.FilePrefix + "-" + c.String("fs-id")
 	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
 		return err
@@ -223,11 +224,11 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("panic err: %v", err)
-		}
-	}()
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		log.Errorf("panic err: %v", err)
+	// 	}
+	// }()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
@@ -315,7 +316,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		}
 		fsMeta.UfsType = fsMeta.Type
 		fsMeta.Type = "fs"
-		log.Infof("fuse meta is %+v", fsMeta)
 		links = map[string]common.FSMeta{}
 	} else {
 		fsID := c.String("fs-id")

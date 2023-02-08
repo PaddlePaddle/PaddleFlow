@@ -109,7 +109,6 @@ func WithDataCacheConfig(data cache.Config) Option {
 
 func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	config *Config, registry *prometheus.Registry) (*VFS, error) {
-	log.Infof("InitVFS fsMeta %+v config %+v", fsMeta, config)
 	vfs := &VFS{
 		fsMeta:   fsMeta,
 		registry: registry,
