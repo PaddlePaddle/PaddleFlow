@@ -724,7 +724,7 @@ spec:
               mountPropagation: None
               name: registration-dir
         - command:
-            - /sbin/tini
+            - tini
             - --
             - /bin/sh
             - -c
@@ -759,9 +759,6 @@ spec:
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
           resources:
-            limits:
-              cpu: 1500m
-              memory: 3G
             requests:
               cpu: "500m"
               memory: 1G
