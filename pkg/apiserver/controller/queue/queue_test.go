@@ -80,7 +80,7 @@ func TestCreateQueue(t *testing.T) {
 		return nil
 	})
 	defer p3.Reset()
-	var p4 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateObject", func(*unstructured.Unstructured) error {
+	var p4 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace", func(*unstructured.Unstructured) error {
 		return nil
 	})
 	defer p4.Reset()
