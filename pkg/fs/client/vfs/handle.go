@@ -116,7 +116,7 @@ func (v *VFS) newFileHandle(inode Ino, length uint64, flags uint32, ufs ufslib.U
 		h.writer, err = v.writer.Open(inode, length, ufs, path)
 	}
 	if err != nil {
-		log.Error("vfs newFileHandle err[%v]", err)
+		log.Errorf("vfs newFileHandle err[%v]", err)
 	}
 	return h.fh, err
 }
