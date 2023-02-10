@@ -24,6 +24,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -40,7 +41,9 @@ const (
 	MockRootUser    = "root"
 	MockClusterName = "testCn"
 	MockNamespace   = "paddle"
-	MockQueueName   = "mock-q-001"
+	MockQueueName   = "mock-q-000"
+	MockQueueName1  = "mock-q-001"
+	mockRootUser    = "root"
 )
 
 var clusterInfo = model.ClusterInfo{
@@ -59,6 +62,7 @@ var clusterInfo = model.ClusterInfo{
 func TestCreateQueue(t *testing.T) {
 	ServerConf := &config.ServerConfig{}
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
+	assert.NoError(t, err)
 	config.GlobalServerConfig = ServerConf
 
 	driver.InitMockDB()
@@ -76,32 +80,114 @@ func TestCreateQueue(t *testing.T) {
 		return nil
 	})
 	defer p3.Reset()
+	var p4 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateObject", func(*unstructured.Unstructured) error {
+		return nil
+	})
+	defer p4.Reset()
 
-	createQueueReq := CreateQueueRequest{
-		Name:      "mockQueueName",
-		Namespace: MockNamespace,
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "1",
-			Mem: "1G",
+	type args struct {
+		ctx *logger.RequestContext
+		req CreateQueueRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName,
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: nil,
 		},
-		SchedulingPolicy: []string{"s1", "s2"},
-		ClusterName:      MockClusterName,
+		{
+			name: "wrong request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      "aBC",
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: fmt.Errorf("a lowercase RFC 1123 label must consist of"),
+		},
+		{
+			name: "not in the specified values",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName1,
+					Namespace: "new1",
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: fmt.Errorf("not in the specified values"),
+		},
+		{
+			name: "not exist in runtime",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName1,
+					Namespace: "n1",
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: nil,
+		},
 	}
-	// test queue name
-	resp, err := CreateQueue(ctx, &createQueueReq)
-	expectErrMsg := fmt.Sprintf("name[%s] of queue is invalid", createQueueReq.Name)
-	if err != nil {
-		assert.Contains(t, err.Error(), expectErrMsg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			resp, err := CreateQueue(ctx, &tt.args.req)
+			if err != nil {
+				assert.NotNil(t, tt.wantErr)
+				assert.Contains(t, err.Error(), tt.wantErr.Error())
+			} else {
+				assert.Nil(t, tt.wantErr)
+				t.Logf("case[%s] create queue resp=%#v", tt.name, resp)
+			}
+		})
 	}
-
-	// test create queue
-	createQueueReq.Name = MockQueueName
-	err = nil
-	resp, err = CreateQueue(ctx, &createQueueReq)
-	assert.Nil(t, err)
-
-	t.Logf("resp=%v", resp)
 }
 
 func TestGetQueueByName(t *testing.T) {
