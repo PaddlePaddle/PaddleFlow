@@ -663,6 +663,10 @@ func (kr *KubeRuntime) clientset() kubernetes.Interface {
 	return kubeClient.Client
 }
 
+func (kr *KubeRuntime) CreateNamespace(namespace *corev1.Namespace, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+	return kr.clientset().CoreV1().Namespaces().Create(context.TODO(), namespace, opts)
+}
+
 func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*corev1.NamespaceList, error) {
 	return kr.clientset().CoreV1().Namespaces().List(context.TODO(), listOptions)
 }
