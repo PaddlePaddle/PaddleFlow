@@ -26,8 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -313,16 +311,12 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 	// create namespace if not exist in cluster
 	k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
-	nsObj := &corev1.Namespace{
+	coreNs := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: request.Namespace,
 		},
 	}
-	newResource, _ := k8sruntime.DefaultUnstructuredConverter.ToUnstructured(nsObj)
-
-	log.Infof("newResource is %v", newResource)
-	obj := &unstructured.Unstructured{Object: newResource}
-	if err = k8sRuntime.CreateObject(obj); err != nil {
+	if _, err = k8sRuntime.CreateNamespace(coreNs, metav1.CreateOptions{}); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
 			request.Namespace, request.ClusterName, err)
