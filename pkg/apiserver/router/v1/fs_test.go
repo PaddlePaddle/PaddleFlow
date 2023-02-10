@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
@@ -517,4 +518,42 @@ func RandomString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func GetS3TestCreateRequest() {
+
+}
+
+const (
+	SubPathEnv = "sub_path"
+	AkEnv      = "sts_ak"
+	SkEnv      = "sts_sk"
+	TokenEnv   = "sts_token"
+	Bucket     = "buk_name"
+)
+
+func TestRouter_CreateSts(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://paddleflow/luoyuedong_test",
+		Properties: map[string]string{
+			"accessKey": "6109130f43a643b5ba34095e0511554f",
+			"secretKey": "1c572c2f5f7a41b98395e773cd5d5a68",
+			"region":    "bj",
+			"endpoint":  "bj.bcebos.com",
+			"duration":  "1000",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	urlWithFsID := baseUrl + "/fsSts/" + mockFsName
+	result, err = PerformGetRequest(router, urlWithFsID)
+	assert.Nil(t, err)
+	fmt.Println("result", result)
 }

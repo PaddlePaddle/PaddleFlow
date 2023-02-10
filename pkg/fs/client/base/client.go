@@ -92,7 +92,7 @@ func (c *_Client) GetLinks() (map[string]common.FSMeta, error) {
 
 	linkResult, err := api.LinksRequest(params, c.httpClient)
 	if err != nil {
-		log.Errorf("links request failed: %v", err)
+		log.Errorf("LinksRequest: %v", err)
 		return nil, err
 	}
 	linkList := linkResult.LinkList

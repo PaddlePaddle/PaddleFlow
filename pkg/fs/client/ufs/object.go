@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -25,7 +26,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
@@ -1148,18 +1152,18 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	var dirMode_, fileMode_ string
 	var storage object.ObjectStorage
 
-	endpoint := properties[fsCommon.Endpoint].(string)
+	endpoint, _ := properties[fsCommon.Endpoint].(string)
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
 
-	accessKey := properties[fsCommon.AccessKey].(string)
-	secretKey := properties[fsCommon.SecretKey].(string)
+	accessKey, _ := properties[fsCommon.AccessKey].(string)
+	secretKey, _ := properties[fsCommon.SecretKey].(string)
 
-	bucket := properties[fsCommon.Bucket].(string)
+	bucket, _ := properties[fsCommon.Bucket].(string)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
 
-	region := properties[fsCommon.Region].(string)
-	subPath := properties[fsCommon.SubPath].(string)
-	objectType := properties[fsCommon.Type].(string)
+	region, _ := properties[fsCommon.Region].(string)
+	subPath, _ := properties[fsCommon.SubPath].(string)
+	objectType, _ := properties[fsCommon.Type].(string)
 
 	dirMode_, ok = properties[fsCommon.DirMode].(string)
 	if ok {
@@ -1233,46 +1237,79 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		_, ok = properties[fsCommon.StsServer].(string)
 		// use stsCredential
 		if ok {
-			// tmp := properties[fsCommon.BosDuration].(string)
-			// duration, _ := strconv.Atoi(tmp)
-			// sts, err := object.StsSessionToken(accessKey, secretKey, endpoint, duration)
-			// if err != nil {
-			// 	log.Errorf("StsSessionToken: err[%v]", err)
-			// 	return nil, fmt.Errorf("fail to create bos sts client: %v", err)
-			// }
-			// // 使用申请的临时STS创建BOS服务的Client对象，Endpoint使用默认值
-			// bosClient, err := bos.NewClient(sts.AccessKeyId, sts.SecretAccessKey, endpoint)
-			// if err != nil {
-			// 	log.Errorf("NewClient: err[%v]", err)
-			// 	return nil, err
-			// }
-			// stsCredential, err := auth.NewSessionBceCredentials(
-			// 	sts.AccessKeyId,
-			// 	sts.SecretAccessKey,
-			// 	sts.SessionToken)
-			// if err != nil {
-			// 	return nil, err
-			// }
-			// log.Infof("stsCredential %v", stsCredential)
-			// bosClient.Config.Credentials = stsCredential
-			// go func() {
-			// 	for {
-			// 		sts, err = object.StsSessionToken(accessKey, secretKey, endpoint, duration)
-			// 		if err != nil {
-			// 			log.Errorf("StsSessionToken: err[%v]", err)
-			// 		}
-			// 		stsCredential, err = auth.NewSessionBceCredentials(
-			// 			sts.AccessKeyId,
-			// 			sts.SecretAccessKey,
-			// 			sts.SessionToken)
-			// 		if err != nil {
-			// 			return
-			// 		}
-			// 		bosClient.Config.Credentials = stsCredential
-			// 		time.Sleep(time.Duration(duration-5) * time.Second)
-			// 	}
-			// }()
-			// storage = object.NewBosClient(bucket, bosClient)
+			log.Infof("init sts")
+
+			token := properties[fsCommon.Token].(string)
+			pfClient, err := newStsServerClient(properties[fsCommon.StsServer].(string))
+			if err != nil {
+				log.Errorf("newstsClient err[%v]", err)
+				return nil, err
+			}
+
+			sts, err := pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{
+				FsName: properties[fsCommon.FsName].(string),
+			}, token)
+			if err != nil {
+				log.Errorf("newstsClient GetSts err[%v]", err)
+				return nil, err
+			}
+
+			subPath = sts.SubPath
+			bucket = sts.Bucket
+			region = sts.Region
+			duration, _ := strconv.Atoi(sts.Duration)
+
+			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
+			stsCredential, err := auth.NewSessionBceCredentials(
+				sts.AccessKeyId,
+				secretKey_,
+				sts.SessionToken)
+			if err != nil {
+				log.Errorf("NewSessionBceCredentials: err[%v]", err)
+				return nil, err
+			}
+
+			clientConfig := bos.BosClientConfiguration{
+				Ak:               sts.AccessKeyId,
+				Sk:               secretKey_,
+				Endpoint:         sts.Endpoint,
+				RedirectDisabled: false,
+			}
+			// 初始化一个BosClient
+			bosClient, err := bos.NewClientWithConfig(&clientConfig)
+			if err != nil {
+				log.Errorf("NewClientWithConfigl: err[%v]", err)
+				return nil, fmt.Errorf("fail to create bos client: %v", err)
+			}
+			bosClient.Config.Credentials = stsCredential
+
+			// update sts Credentials
+			go func() {
+				for {
+					sts, err = pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{
+						FsName: properties[fsCommon.FsName].(string),
+					}, token)
+					if err != nil {
+						log.Errorf("GetSts: err[%v]", err)
+						time.Sleep(1 * time.Second)
+						continue
+					}
+					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
+
+					stsCredential, err = auth.NewSessionBceCredentials(
+						sts.AccessKeyId,
+						secretKey_,
+						sts.SessionToken)
+					if err != nil {
+						log.Errorf("NewSessionBceCredentials: err[%v]", err)
+						time.Sleep(1 * time.Second)
+						continue
+					}
+					bosClient.Config.Credentials = stsCredential
+					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
+				}
+			}()
+			storage = object.NewBosClient(bucket, bosClient)
 		} else {
 			log.Infof("init bos")
 			clientConfig := bos.BosClientConfiguration{
@@ -1353,4 +1390,19 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	}
 
 	return fs, nil
+}
+
+func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error) {
+	tmp := strings.Split(serverAddress, ":")
+	port, _ := strconv.Atoi(tmp[1])
+	config := &core.PaddleFlowClientConfiguration{
+		Host:                       tmp[0],
+		Port:                       port,
+		ConnectionTimeoutInSeconds: 1,
+	}
+	pfClient, err := service.NewForClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return pfClient, nil
 }

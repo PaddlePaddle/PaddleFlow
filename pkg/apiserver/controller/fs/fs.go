@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	// "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
@@ -122,6 +126,20 @@ type FileSystemResponse struct {
 
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
+}
+
+type GetStsResponse struct {
+	AccessKeyId     string `json:"accessKey"`
+	SecretAccessKey string `json:"secretKey"`
+	SessionToken    string `json:"sessionToken"`
+	CreateTime      string `json:"createTime"`
+	Expiration      string `json:"expiration"`
+	UserId          string `json:"userId"`
+	Bucket          string `json:"bucket"`
+	SubPath         string `json:"subPath"`
+	Endpoint        string `json:"endpoint"`
+	Region          string `json:"region"`
+	Duration        string `json:"duration"`
 }
 
 func MountPodController(mountPodExpire, interval time.Duration,
@@ -526,4 +544,42 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	}
 
 	return items, "", err
+}
+
+// SessionToken get sts token from bos
+func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsResponse, error) {
+	modelsFs, err := storage.Filesystem.GetFileSystemWithFsID(common.ID(username, fsName))
+	if err != nil {
+		log.Errorf("get filesystem[%s] under username[%s] err[%v]", fsName, username, err)
+		return nil, err
+	}
+	if modelsFs.Type != fsCommon.BosType {
+		log.Errorf("modefsType error %s", modelsFs.Type)
+		return nil, fmt.Errorf("sts must bos type")
+	}
+	properties := modelsFs.PropertiesMap
+	ak := properties[fsCommon.AccessKey]
+	sk := properties[fsCommon.SecretKey]
+	sk, _ = common.AesDecrypt(sk, common.AESEncryptKey)
+	duration_ := properties[fsCommon.StsDuration]
+	duration, _ := strconv.Atoi(duration_)
+	acl := properties[fsCommon.StsACL]
+	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
+	if err != nil {
+		log.Errorf("StsSessionToken: %v", err)
+	}
+	result := &GetStsResponse{
+		AccessKeyId:     stsResult.AccessKeyId,
+		SecretAccessKey: stsResult.SecretAccessKey,
+		SessionToken:    stsResult.SessionToken,
+		CreateTime:      stsResult.CreateTime,
+		Expiration:      stsResult.Expiration,
+		UserId:          stsResult.UserId,
+		Bucket:          properties[fsCommon.Bucket],
+		SubPath:         modelsFs.SubPath,
+		Endpoint:        properties[fsCommon.Endpoint],
+		Region:          properties[fsCommon.Region],
+		Duration:        properties[fsCommon.StsDuration],
+	}
+	return result, nil
 }

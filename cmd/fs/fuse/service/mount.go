@@ -370,13 +370,23 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 			return err
 		}
-		fsMeta, err = fuseClient.GetFSMeta()
-		if err != nil {
-			log.Errorf("get fs[%s] meta from pfs server[%s] failed: %v",
-				fsID, server, err)
-			return err
+
+		if c.Bool("sts") {
+			fsMeta.Properties = map[string]string{
+				common.StsServer: server,
+				common.Token:     fuseClient.Token,
+				common.FsName:    fuseClient.FsName,
+			}
+			fsMeta.Name = fuseClient.FsName
+			fsMeta.UfsType = common.BosType
+		} else {
+			fsMeta, err = fuseClient.GetFSMeta()
+			if err != nil {
+				log.Errorf("get fs[%s] meta from pfs server[%s] failed: %v",
+					fsID, server, err)
+				return err
+			}
 		}
-		fuseClient.FsName = fsMeta.Name
 		links, err = fuseClient.GetLinks()
 		if err != nil {
 			log.Errorf("get fs[%s] links from pfs server[%s] failed: %v",

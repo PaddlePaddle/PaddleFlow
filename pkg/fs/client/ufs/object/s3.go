@@ -253,21 +253,19 @@ func (storage S3Storage) CompleteUpload(key string, uploadID string, parts []*Pa
 	return err
 }
 
-func StsSessionToken(ak string, sk string, endpoint string, duration int) (*api.GetSessionTokenResult, error) {
-	// 创建STS服务的Client对象，Endpoint使用默认值
+func StsSessionToken(ak string, sk string, duration int, acl string) (*api.GetSessionTokenResult, error) {
 	stsClient, err := sts.NewClient(ak, sk)
 	if err != nil {
-		log.Errorf("create sts client object : %v", err)
+		log.Errorf("create sts client object: %v", err)
 		return nil, err
 	}
 
-	// 获取临时认证token，有效期为60秒，ACL为空
-	stsClient_, err := stsClient.GetSessionToken(duration, "")
+	result, err := stsClient.GetSessionToken(duration, acl)
 	if err != nil {
 		log.Errorf("get session token failed: %v", err)
 		return nil, err
 	}
-	return stsClient_, nil
+	return result, nil
 }
 
 func metadataToLower(m map[string]*string) map[string]*string {

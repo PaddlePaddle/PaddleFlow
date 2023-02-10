@@ -27,7 +27,7 @@ import (
 
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "",
+		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -36,29 +36,36 @@ func main() {
 		panic(err)
 	}
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "",
-		Password: "",
+		UserName: "root",
+		Password: "paddleflow",
 	})
 	if err != nil {
 		panic(err)
 	}
 	token := data.Authorization
-	name := "pfstest"
-	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &v1.CreateFileSystemRequest{
-		Name:       name,
-		Url:        "",
-		Properties: map[string]string{},
-	}, token)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("create fs result %v", createResult)
+	name := "bos1"
+	// createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &v1.CreateFileSystemRequest{
+	// 	Name:       name,
+	// 	Url:        "",
+	// 	Properties: map[string]string{},
+	// }, token)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Printf("create fs result %v", createResult)
 
 	getResult, err := pfClient.APIV1().FileSystem().Get(context.TODO(), &v1.GetFileSystemRequest{FsName: name}, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("get fs result %v", getResult)
+	fmt.Printf("get fs result %v \n\n\n\n\n", getResult)
+
+	stsResult, err := pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{FsName: name}, token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("get sts result %v", stsResult)
+	return
 
 	err = pfClient.APIV1().FileSystem().Delete(context.TODO(), &v1.DeleteFileSystemRequest{FsName: name}, token)
 	if err != nil {
