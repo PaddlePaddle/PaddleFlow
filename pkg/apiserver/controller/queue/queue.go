@@ -272,6 +272,32 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		}
 	}
 
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
+		ctx.ErrorCode = common.QueueResourceNotMatch
+		ctx.ErrorMessage = err.Error()
+		deleteErr := storage.Queue.DeleteQueue(request.Name)
+		if deleteErr != nil {
+			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
+		}
+		return CreateQueueResponse{}, err
+	}
+
+	// create namespace if not exist in cluster
+	k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+	coreNs := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: request.Namespace,
+		},
+	}
+	if _, err = k8sRuntime.CreateNamespaceIfNotExist(coreNs, metav1.CreateOptions{}); err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
+			request.Namespace, request.ClusterName, err)
+		return CreateQueueResponse{}, err
+	}
+
 	request.Status = schema.StatusQueueCreating
 	queueInfo := model.Queue{
 		Model: model.Model{
@@ -298,30 +324,6 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, err
 	}
 
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
-		ctx.ErrorCode = common.QueueResourceNotMatch
-		ctx.ErrorMessage = err.Error()
-		deleteErr := storage.Queue.DeleteQueue(request.Name)
-		if deleteErr != nil {
-			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
-		}
-		return CreateQueueResponse{}, err
-	}
-	// create namespace if not exist in cluster
-	k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
-	coreNs := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: request.Namespace,
-		},
-	}
-	if _, err = k8sRuntime.CreateNamespace(coreNs, metav1.CreateOptions{}); err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
-			request.Namespace, request.ClusterName, err)
-		return CreateQueueResponse{}, err
-	}
 	// create queue in cluster
 	rQ := api.NewQueueInfo(queueInfo)
 	err = runtimeSvc.CreateQueue(rQ)
