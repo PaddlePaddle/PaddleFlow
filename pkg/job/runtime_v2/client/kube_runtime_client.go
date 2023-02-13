@@ -504,16 +504,22 @@ func isAllocatedPod(pod *corev1.Pod) bool {
 }
 
 func isResourcesChanged(oldPod, newPod *corev1.Pod) bool {
-	hasChanged := false
 	if oldPod == nil || newPod == nil ||
 		len(oldPod.Spec.Containers) != len(newPod.Spec.Containers) {
-		return hasChanged
+		return false
 	}
 	for idx := range newPod.Spec.Containers {
 		oldContainerReq := oldPod.Spec.Containers[idx].Resources.Requests
 		if !reflect.DeepEqual(oldContainerReq, newPod.Spec.Containers[idx].Resources.Requests) {
+			return true
+		}
+	}
+	// check weather gpu is changed
+	hasChanged := false
+	if oldPod.Annotations != nil && newPod.Annotations != nil {
+		if oldPod.Annotations[k8s.GPUCorePodKey] != newPod.Annotations[k8s.GPUCorePodKey] ||
+			oldPod.Annotations[k8s.GPUMemPodKey] != newPod.Annotations[k8s.GPUMemPodKey] {
 			hasChanged = true
-			break
 		}
 	}
 	return hasChanged
