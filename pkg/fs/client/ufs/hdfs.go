@@ -19,6 +19,7 @@ package ufs
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -37,13 +38,21 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-var superuser = "hdfs"
-var supergroup = "supergroup"
-
 const (
 	DefaultBlockSize   = int64(64 * 1024 * 1024)
 	DefaultReplication = 3
+	abcException       = "org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"
 )
+
+var superuser = "hdfs"
+var supergroup = "supergroup"
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		buf := make([]byte, 32<<10)
+		return &buf
+	},
+}
 
 type hdfsFileSystem struct {
 	client      *hdfs.Client
@@ -325,7 +334,7 @@ func (fs *hdfsFileSystem) GetOpenFlags(name string, flags uint32) int {
 func (fs *hdfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	reader, err := fs.client.Open(fs.GetPath(name))
 	if err != nil {
-		log.Debugf("hdfs client open err: %v", err)
+		log.Errorf("hdfs client open err: %v", err)
 		return nil, err
 	}
 	if off > 0 {
@@ -379,24 +388,41 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 
 	if flag&syscall.O_APPEND != 0 {
 		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
-		for i := 0; i < 3; i++ {
-			writer, err := fs.client.Append(fs.GetPath(name))
-			if err != nil {
-				if fs.shouldRetry(err) {
-					time.Sleep(100 * time.Millisecond * time.Duration(i*i))
-					continue
+		writer, err := fs.client.Append(fs.GetPath(name))
+		if fs.shouldRetry(err) {
+			for i := 0; i < 2; i++ {
+				time.Sleep(100 * time.Millisecond * time.Duration(i*i))
+				writer, err = fs.client.Append(fs.GetPath(name))
+				if err == nil {
+					break
 				}
-				log.Errorf("hdfs client append err: %v", err)
+			}
+			if fs.shouldRetry(err) {
+				err = fs.ReleaseAlreadyBeingCreateFile(fs.GetPath(name))
+				if err != nil {
+					log.Errorf("ReleaseAlreadyBeingCreateFile: err[%v]", err)
+					return nil, err
+				}
+				writer, err = fs.client.Append(fs.GetPath(name))
+			}
+			if err != nil {
+				log.Errorf("fs.client.Append: err[%v]", err)
 				return nil, err
 			}
-			return &hdfsFileHandle{
-				name:   name,
-				reader: nil,
-				fs:     fs,
-				writer: writer,
-			}, nil
 		}
+		if err != nil {
+			log.Errorf("Append err[%v]", err)
+			return nil, err
+		}
+		return &hdfsFileHandle{
+			name:   name,
+			reader: nil,
+			fs:     fs,
+			writer: writer,
+		}, nil
 	}
+
+	log.Errorf("flag[%d] not correct", flag)
 	return nil, syscall.ENOTSUP
 }
 
@@ -473,6 +499,9 @@ func (fs *hdfsFileSystem) StatFs(name string) *base.StatfsOut {
 }
 
 func (fs *hdfsFileSystem) shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
 	return strings.Contains(err.Error(), "AlreadyBeingCreatedException")
 }
 
@@ -583,6 +612,42 @@ func (fh *hdfsFileHandle) Truncate(size uint64) error {
 
 func (fh *hdfsFileHandle) Allocate(off uint64, size uint64, mode uint32) error {
 	return fmt.Errorf("hdfs allocate: not suported")
+}
+
+func (fs *hdfsFileSystem) ReleaseAlreadyBeingCreateFile(path string) error {
+	tmp := filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.tmp.%d", filepath.Base(path), rand.Int()))
+	f, err := fs.client.CreateFile(tmp, 3, 128<<20, 0755)
+	if err != nil {
+		if pe, ok := err.(*os.PathError); ok {
+			if remoteErr, ok := pe.Err.(hdfs.Error); ok && remoteErr.Exception() == abcException {
+				pe.Err = os.ErrExist
+			}
+			if pe.Err == os.ErrExist {
+				_ = fs.client.Remove(tmp)
+				f, err = fs.client.CreateFile(tmp, 3, 128<<20, 0755)
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	defer func() { _ = fs.client.RemoveAll(tmp) }()
+	in, err := fs.client.Open(path)
+	if err != nil {
+		return err
+	}
+	buf := bufPool.Get().(*[]byte)
+	defer bufPool.Put(buf)
+	_, err = io.CopyBuffer(f, in, *buf)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return fs.client.Rename(tmp, path)
 }
 
 func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {

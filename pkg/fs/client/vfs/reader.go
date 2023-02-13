@@ -205,6 +205,7 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	if d.store == nil {
 		fd, err := ufs.Open(path, syscall.O_RDONLY, length)
 		if err != nil {
+			log.Errorf("data reader path[%s] err[%v]", path, err)
 			return nil, err
 		}
 		f.fd = fd

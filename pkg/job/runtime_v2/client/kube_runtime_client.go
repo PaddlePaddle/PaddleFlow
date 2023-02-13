@@ -503,6 +503,28 @@ func isAllocatedPod(pod *corev1.Pod) bool {
 	return false
 }
 
+func isResourcesChanged(oldPod, newPod *corev1.Pod) bool {
+	if oldPod == nil || newPod == nil ||
+		len(oldPod.Spec.Containers) != len(newPod.Spec.Containers) {
+		return false
+	}
+	for idx := range newPod.Spec.Containers {
+		oldContainerReq := oldPod.Spec.Containers[idx].Resources.Requests
+		if !reflect.DeepEqual(oldContainerReq, newPod.Spec.Containers[idx].Resources.Requests) {
+			return true
+		}
+	}
+	// check weather gpu is changed
+	hasChanged := false
+	if oldPod.Annotations != nil && newPod.Annotations != nil {
+		if oldPod.Annotations[k8s.GPUCorePodKey] != newPod.Annotations[k8s.GPUCorePodKey] ||
+			oldPod.Annotations[k8s.GPUMemPodKey] != newPod.Annotations[k8s.GPUMemPodKey] {
+			hasChanged = true
+		}
+	}
+	return hasChanged
+}
+
 func (n *NodeTaskHandler) AddPod(obj interface{}) {
 	pod := obj.(*corev1.Pod)
 
@@ -540,6 +562,11 @@ func (n *NodeTaskHandler) UpdatePod(old, new interface{}) {
 		} else {
 			n.addQueue(newPod, pfschema.Update, model.TaskTerminating, nil)
 		}
+	}
+	// 3. pod is allocated and pod resource is updated
+	if newPodAllocated && isResourcesChanged(oldPod, newPod) {
+		// update pod resources
+		n.addQueue(newPod, pfschema.Update, model.TaskRunning, nil)
 	}
 }
 

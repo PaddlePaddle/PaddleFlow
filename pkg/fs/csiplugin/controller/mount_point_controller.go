@@ -177,7 +177,6 @@ func (m *MountPointController) RemovePod(podUID string) {
 
 // UpdatePodMap Synchronize all pod information of the node from kubelet
 func (m *MountPointController) UpdatePodMap() error {
-	log.Debug("begin to update pods map")
 	client, err := utils.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
@@ -302,7 +301,7 @@ func checkIfNeedRemount(path string) bool {
 func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	log.Tracef("remount: mountInfo %+v", mountInfo)
 
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
+	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType && mountInfo.FS.Type != common.AFSType {
 		// wait for source path ready
 		if !waitForBindSourceReady(schema.GetBindSource(mountInfo.FS.ID)) {
 			return nil
