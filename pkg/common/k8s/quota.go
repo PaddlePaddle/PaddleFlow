@@ -39,6 +39,7 @@ const (
 
 var (
 	GPUCorePodKey = "GPU_CORE_POD"
+	GPUMemPodKey  = "GPU_MEM_POD"
 	GPUIdxKey     = "GPU_IDX"
 
 	GPURNamePrefix = "/gpu"
@@ -50,6 +51,10 @@ func init() {
 	gpuCorePod := os.Getenv("PF_GPU_CORE_POD")
 	if gpuCorePod != "" {
 		GPUCorePodKey = gpuCorePod
+	}
+	gpuMemPod := os.Getenv("PF_GPU_MEM_POD")
+	if gpuMemPod != "" {
+		GPUMemPodKey = gpuMemPod
 	}
 	gpuIDX := os.Getenv("PF_GPU_IDX")
 	if gpuIDX != "" {

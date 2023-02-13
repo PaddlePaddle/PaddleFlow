@@ -120,15 +120,9 @@ func (cpc *ClusterPodCache) UpdatePod(podID string, podInfo *model.PodInfo) erro
 				return err
 			}
 		}
-		return nil
-	})
-}
-
-func (cpc *ClusterPodCache) UpdatePodResources(podID string, podInfo *model.PodInfo) error {
-	log.Debugf("begin to update pod. pod id:%s", podID)
-	return WithTransaction(cpc.dbCache, func(tx *gorm.DB) error {
-		if podInfo.Resources != nil && len(podInfo.Resources) > 0 {
-			err := tx.Unscoped().Where("pod_id = ?", podID).Delete(&model.ResourceInfo{}).Error
+		if podInfo.Status == int(model.TaskRunning) && podInfo.Resources != nil && len(podInfo.Resources) > 0 {
+			log.Debugf("begin to update pod resource. pod id:%s", podID)
+			err = tx.Unscoped().Where("pod_id = ?", podID).Delete(&model.ResourceInfo{}).Error
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				log.Errorf("delete pod resources failed. pod id:%s, error:%s", podID, err)
 				return err
