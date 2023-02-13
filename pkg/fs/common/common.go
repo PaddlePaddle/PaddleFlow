@@ -26,6 +26,7 @@ const (
 	CFSType              = "cfs"
 	GlusterFSType        = "glusterfs"
 	AFSType              = "afs"
+	BosType              = "bos"
 
 	// common
 	Owner = "owner"
@@ -64,6 +65,8 @@ const (
 	S3ForcePathStyle   = "s3ForcePathStyle"
 	DirMode            = "dirMode"
 	FileMode           = "fileMode"
+	Sts                = "sts"
+	BostsDuration      = "duration"
 
 	// sftp properties
 	Address  = "address"
