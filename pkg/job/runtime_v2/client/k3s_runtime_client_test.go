@@ -337,9 +337,17 @@ func TestK3SNodeListener(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "startListenerErr",
+			name: "ListenerTypeQueue",
 			args: args{
-				listenerType:      pfschema.ListenerTypeNode,
+				listenerType:     pfschema.ListenerTypeQueue,
+				startListenerErr: fmt.Errorf("is not supported"),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "timeout",
+			args: args{
+				listenerType:      pfschema.ListenerTypeJob,
 				startListenerErr:  nil,
 				cachetListenerErr: fmt.Errorf("timed out waiting for"),
 			},
@@ -388,12 +396,15 @@ func TestK3SNodeListener(t *testing.T) {
 				}
 				close(stopCh)
 			} else if tt.args.cachetListenerErr != nil {
-				var p1 = gomonkey.ApplyFunc(cache.WaitForCacheSync, func(stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+				var p1 = gomonkey.ApplyFunc(cache.WaitForCacheSync, func(_ <-chan struct{}, _ ...cache.InformerSynced) bool {
 					return false
 				})
 				defer p1.Reset()
 				// start node listener
 				stopCh := make(chan struct{})
+
+				gvr := k8s.GetJobGVR(pfschema.Framework(schema.FrameworkStandalone))
+				runtimeClient.podInformer = runtimeClient.DynamicFactory.ForResource(gvr).Informer()
 				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
 				if err != nil {
 					assert.Error(t, tt.args.cachetListenerErr)

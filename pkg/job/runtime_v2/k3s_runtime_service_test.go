@@ -547,3 +547,27 @@ func TestK3SRuntimeService_QueueRelated(t *testing.T) {
 	assert.Nil(t, k3src.DeleteQueue(&api.QueueInfo{}))
 	assert.Nil(t, k3src.UpdateQueue(&api.QueueInfo{}))
 }
+
+func TestK3SNewK3SRuntime(t *testing.T) {
+	type args struct {
+		cluster schema.Cluster
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "init fail",
+			args: args{
+				cluster: schema.Cluster{
+					Type: schema.K3SType,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			NewK3SRuntime(tt.args.cluster)
+		})
+	}
+}
