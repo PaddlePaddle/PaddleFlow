@@ -19,11 +19,14 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -306,6 +309,44 @@ func TestK3SNodeListener(t *testing.T) {
 	}
 
 	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		name              string
+		listenerType      string
+		startListenerErr  error
+		cachetListenerErr error
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success",
+			args: args{
+				listenerType: pfschema.ListenerTypeNode,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "startListenerErr",
+			args: args{
+				listenerType:     pfschema.ListenerTypeNode,
+				startListenerErr: fmt.Errorf("timed out waiting for"),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "startListenerErr",
+			args: args{
+				listenerType:      pfschema.ListenerTypeNode,
+				startListenerErr:  nil,
+				cachetListenerErr: fmt.Errorf("timed out waiting for"),
+			},
+			wantErr: nil,
+		},
+	}
+
 	// init 2k nodes
 	var nodeCount = 2000
 	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList)
@@ -315,20 +356,142 @@ func TestK3SNodeListener(t *testing.T) {
 	// register node listener
 	err = runtimeClient.RegisterListener(pfschema.ListenerTypeNode, nodeQueue)
 	assert.Equal(t, nil, err)
-	// start node listener
-	stopCh := make(chan struct{})
-	err = runtimeClient.StartListener(pfschema.ListenerTypeNode, stopCh)
-	assert.Equal(t, nil, err)
 
-	go wait.Until(func() {
-		for process(nodeQueue) {
-		}
-	}, 0, stopCh)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.startListenerErr != nil {
+				//WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+				var p1 = gomonkey.ApplyMethodFunc(reflect.TypeOf(runtimeClient.InformerFactory), "WaitForCacheSync",
+					func(b <-chan struct{}) map[reflect.Type]bool {
+						m := make(map[reflect.Type]bool)
+						m[reflect.TypeOf(pfschema.ListenerTypeNode)] = false
+						m[reflect.TypeOf(pfschema.ListenerTypeNodeTask)] = false
+						return m
+					})
+				defer p1.Reset()
+				// start node listener
+				stopCh := make(chan struct{})
+				//defer close(stopCh)
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				if err != nil {
+					assert.Error(t, tt.args.startListenerErr)
+					assert.Contains(t, err.Error(), tt.args.startListenerErr.Error())
+				}
 
-	for nodeQueue.Len() != 0 {
-		time.Sleep(10 * time.Millisecond)
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			} else if tt.args.cachetListenerErr != nil {
+				var p1 = gomonkey.ApplyFunc(cache.WaitForCacheSync, func(stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) bool {
+					return false
+				})
+				defer p1.Reset()
+				// start node listener
+				stopCh := make(chan struct{})
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				if err != nil {
+					assert.Error(t, tt.args.cachetListenerErr)
+					assert.Contains(t, err.Error(), tt.args.cachetListenerErr.Error())
+				}
+
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			} else {
+				// start node listener
+				stopCh := make(chan struct{})
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				assert.Equal(t, nil, err)
+
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			}
+		})
 	}
-	close(stopCh)
+
+}
+
+func TestK3SGetJobTypeFramework(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		fv              pfschema.FrameworkVersion
+		expectJobType   pfschema.JobType
+		expectFramework pfschema.Framework
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "success",
+			args: args{
+				fv:              schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+				expectJobType:   schema.TypeSingle,
+				expectFramework: schema.FrameworkStandalone,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jobType, framework := runtimeClient.GetJobTypeFramework(tt.args.fv)
+			assert.Equal(t, tt.args.expectJobType, jobType)
+			assert.Equal(t, tt.args.expectFramework, framework)
+		})
+	}
+}
+
+func TestK3SJobFrameworkVersion(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		fv        pfschema.FrameworkVersion
+		jobType   pfschema.JobType
+		framework pfschema.Framework
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "success",
+			args: args{
+				fv:        schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+				jobType:   schema.TypeSingle,
+				framework: schema.FrameworkStandalone,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := runtimeClient.JobFrameworkVersion(tt.args.jobType, tt.args.framework)
+			assert.Equal(t, tt.args.fv, fv)
+		})
+	}
 }
 
 func TestK3SGetTaskLogV2(t *testing.T) {
