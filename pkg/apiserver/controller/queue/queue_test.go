@@ -43,6 +43,7 @@ const (
 	MockNamespace   = "paddle"
 	MockQueueName   = "mock-q-000"
 	MockQueueName1  = "mock-q-001"
+	MockQueueName2  = "mock-q-002"
 	mockRootUser    = "root"
 )
 
@@ -86,8 +87,9 @@ func TestCreateQueue(t *testing.T) {
 	defer p4.Reset()
 
 	type args struct {
-		ctx *logger.RequestContext
-		req CreateQueueRequest
+		ctx              *logger.RequestContext
+		req              CreateQueueRequest
+		createRuntimeErr error
 	}
 	tests := []struct {
 		name    string
@@ -174,14 +176,45 @@ func TestCreateQueue(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "createRuntimeErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName2,
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				createRuntimeErr: fmt.Errorf("mock init failed"),
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			if tt.args.createRuntimeErr != nil {
+				var p5 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
+					return fmt.Errorf("mock init failed")
+				})
+				defer p5.Reset()
+			}
 			resp, err := CreateQueue(ctx, &tt.args.req)
 			if err != nil {
-				assert.NotNil(t, tt.wantErr)
-				assert.Contains(t, err.Error(), tt.wantErr.Error())
+				if tt.args.createRuntimeErr != nil {
+					assert.Contains(t, err.Error(), tt.args.createRuntimeErr.Error())
+				} else {
+					assert.NotNil(t, tt.wantErr)
+					assert.Contains(t, err.Error(), tt.wantErr.Error())
+				}
 			} else {
 				assert.Nil(t, tt.wantErr)
 				t.Logf("case[%s] create queue resp=%#v", tt.name, resp)
