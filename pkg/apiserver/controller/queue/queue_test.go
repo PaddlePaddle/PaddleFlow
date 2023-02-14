@@ -50,18 +50,32 @@ const (
 	mockRootUser    = "root"
 )
 
-var clusterInfo = model.ClusterInfo{
-	Name:          MockClusterName,
-	Description:   "Description",
-	Endpoint:      "Endpoint",
-	Source:        "Source",
-	ClusterType:   schema.KubernetesType,
-	Version:       "1.16",
-	Status:        model.ClusterStatusOnLine,
-	Credential:    "credential",
-	Setting:       "Setting",
-	NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
-}
+var (
+	clusterInfo = model.ClusterInfo{
+		Name:          MockClusterName,
+		Description:   "Description",
+		Endpoint:      "Endpoint",
+		Source:        "Source",
+		ClusterType:   schema.KubernetesType,
+		Version:       "1.16",
+		Status:        model.ClusterStatusOnLine,
+		Credential:    "credential",
+		Setting:       "Setting",
+		NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
+	}
+	mockClusterInfo = model.ClusterInfo{
+		Name:          "mock",
+		Description:   "Description",
+		Endpoint:      "Endpoint",
+		Source:        "Source",
+		ClusterType:   schema.LocalType,
+		Version:       "1.16",
+		Status:        model.ClusterStatusOnLine,
+		Credential:    "credential",
+		Setting:       "Setting",
+		NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
+	}
+)
 
 func TestCreateQueue(t *testing.T) {
 	ServerConf := &config.ServerConfig{}
@@ -73,10 +87,7 @@ func TestCreateQueue(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
-	clusterInfo.Name = "mock"
-	clusterInfo.Pk = 3
-	clusterInfo.ClusterType = "mock"
-	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
+	assert.Nil(t, storage.Cluster.CreateCluster(&mockClusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
