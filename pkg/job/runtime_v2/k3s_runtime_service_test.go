@@ -19,6 +19,7 @@ package runtime_v2
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/rest"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -148,6 +149,8 @@ func TestK3SRuntime_Init(t *testing.T) {
 		Name: "default-cluster",
 		ID:   uuid.GenerateID("cluster"),
 		Type: schema.K3SType}
+	NewK3SRuntime(*cluster)
+
 	k3src.cluster = cluster
 	err = k3src.Init()
 	assert.NotNil(t, err)
@@ -557,7 +560,7 @@ func TestK3SNewK3SRuntime(t *testing.T) {
 		args args
 	}{
 		{
-			name: "init fail",
+			name: "init success",
 			args: args{
 				cluster: schema.Cluster{
 					Type: schema.K3SType,
@@ -568,6 +571,64 @@ func TestK3SNewK3SRuntime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			NewK3SRuntime(tt.args.cluster)
+		})
+	}
+}
+
+func TestK3SInit(t *testing.T) {
+
+	type args struct {
+		rs            K3SRuntimeService
+		clientInitErr error
+		configErr     error
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "invalid configuration",
+			args: args{
+				rs: K3SRuntimeService{
+					cluster: &schema.Cluster{
+						Type: schema.K3SType,
+					},
+				},
+				configErr: fmt.Errorf("invalid configuration"),
+			},
+		},
+		{
+			name: "cluster nil, no such file or directory",
+			args: args{
+				rs:            K3SRuntimeService{},
+				clientInitErr: fmt.Errorf("no such file or directory"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.configErr == nil {
+				var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+				defer server.Close()
+				urlArr := strings.Split(server.URL, ":")
+				os.Setenv("KUBERNETES_SERVICE_HOST", urlArr[0])
+				os.Setenv("KUBERNETES_SERVICE_PORT", urlArr[1])
+			}
+			if tt.args.clientInitErr != nil {
+				var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&tt.args.rs), "buildConfig", func() (*rest.Config, error) {
+					return &rest.Config{}, nil
+				})
+				defer p2.Reset()
+			}
+			err := tt.args.rs.Init()
+			if tt.args.configErr != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.args.configErr.Error())
+			}
+			if tt.args.clientInitErr != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.args.clientInitErr.Error())
+			}
 		})
 	}
 }
