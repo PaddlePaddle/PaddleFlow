@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"k8s.io/client-go/rest"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -34,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -577,12 +578,12 @@ func TestK3SNewK3SRuntime(t *testing.T) {
 }
 
 func TestK3SInit(t *testing.T) {
-
 	type args struct {
 		rs                           K3SRuntimeService
 		passBuildConfig              bool
 		passDecode                   bool
 		passRESTConfigFromKubeConfig bool
+		passBuildConfigFromFlags     bool
 		clientInitErr                error
 		configErr                    error
 	}
@@ -629,7 +630,7 @@ func TestK3SInit(t *testing.T) {
 			},
 		},
 		{
-			name: "config is not nil",
+			name: "decode pass",
 			args: args{
 				rs: K3SRuntimeService{
 					cluster: &schema.Cluster{
@@ -645,6 +646,23 @@ func TestK3SInit(t *testing.T) {
 				},
 				passDecode:    true,
 				clientInitErr: fmt.Errorf("couldn't get version"),
+			},
+		},
+		{
+			name: "build config success",
+			args: args{
+				rs: K3SRuntimeService{
+					cluster: &schema.Cluster{
+						Name: "mockname",
+						Type: schema.K3SType,
+						ClientOpt: schema.ClientOptions{
+							Master: "127.0.0.1:6443",
+							QPS:    1000,
+							Burst:  1000,
+						},
+					},
+				},
+				passBuildConfigFromFlags: true,
 			},
 		},
 	}
@@ -664,12 +682,20 @@ func TestK3SInit(t *testing.T) {
 				defer p2.Reset()
 			}
 			//base64.StdEncoding.DecodeString(k3srs.cluster.ClientOpt.Config)
-			stde := base64.StdEncoding
 			if tt.args.passDecode {
+				stde := base64.StdEncoding
 				var p3 = gomonkey.ApplyMethodFunc(reflect.TypeOf(stde), "DecodeString", func(s string) ([]byte, error) {
 					return []byte("mock"), nil
 				})
 				defer p3.Reset()
+			}
+			if tt.args.passBuildConfigFromFlags {
+				clientcmd.BuildConfigFromFlags("", "")
+				var p4 = gomonkey.ApplyFunc(clientcmd.BuildConfigFromFlags,
+					func(_, _ string) (*rest.Config, error) {
+						return &rest.Config{}, nil
+					})
+				defer p4.Reset()
 			}
 			err := tt.args.rs.Init()
 			if tt.args.configErr != nil {
