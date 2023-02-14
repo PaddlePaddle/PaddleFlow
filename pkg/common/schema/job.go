@@ -63,9 +63,11 @@ const (
 	EnvJobWorkerCommand   = "PF_JOB_WORKER_COMMAND"
 
 	// EnvJobModeCollective env
-	EnvJobModeCollective = "Collective"
-	EnvJobReplicas       = "PF_JOB_REPLICAS"
-	EnvJobFlavour        = "PF_JOB_FLAVOUR"
+	EnvJobModeCollective   = "Collective"
+	EnvJobReplicas         = "PF_JOB_REPLICAS"
+	EnvJobFlavour          = "PF_JOB_FLAVOUR"
+	EnvJobLimitFlavour     = "PF_JOB_LIMIT_FLAVOUR"
+	EnvJobLimitFlavourNone = "NONE"
 
 	// EnvJobModePod env reuse EnvJobReplicas and EnvJobFlavour
 	EnvJobModePod = "Pod"
@@ -229,6 +231,7 @@ type PFJobConf interface {
 	GetUserName() string
 	GetNamespace() string
 	GetFlavour() string
+	GetLimitFlavour() string
 
 	SetQueueID(string)
 	SetClusterID(string)
@@ -247,11 +250,12 @@ type Conf struct {
 	FileSystem      FileSystem   `json:"fs,omitempty"`
 	ExtraFileSystem []FileSystem `json:"extraFS,omitempty"`
 	// 计算资源
-	Flavour   Flavour `json:"flavour,omitempty"`
-	Priority  string  `json:"priority"`
-	ClusterID string  `json:"clusterID"`
-	QueueID   string  `json:"queueID"`
-	QueueName string  `json:"queueName,omitempty"`
+	Flavour      Flavour `json:"flavour,omitempty"`
+	LimitFlavour Flavour `json:"limitFlavour,omitempty"`
+	Priority     string  `json:"priority"`
+	ClusterID    string  `json:"clusterID"`
+	QueueID      string  `json:"queueID"`
+	QueueName    string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
@@ -372,6 +376,11 @@ func (c *Conf) GetJobMode() string {
 func (c *Conf) GetFlavour() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobFlavour]
+}
+
+func (c *Conf) GetLimitFlavour() string {
+	c.preCheckEnv()
+	return c.Env[EnvJobLimitFlavour]
 }
 
 func (c *Conf) SetFlavour(flavourKey string) {

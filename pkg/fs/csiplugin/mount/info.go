@@ -35,7 +35,10 @@ const (
 	mountName                             = "mount"
 	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
+	afsMount                              = "/home/paddleflow/afs.sh"
+	afsConfig                             = "/home/paddleflow/afs_mount.conf"
 	ReadOnly                              = "ro"
+	cfsMountParam                         = "minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
 )
 
 type Info struct {
@@ -60,12 +63,15 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		return Info{}, retErr
 	}
 
-	// FS CacheConfig config
-	cacheConfig, err := utils.ProcessCacheConfig(fsCacheBase64)
-	if err != nil {
-		retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
-		log.Errorf(retErr.Error())
-		return Info{}, retErr
+	var cacheConfig model.FSCacheConfig
+	if fsCacheBase64 != "" {
+		// FS CacheConfig config
+		cacheConfig, err = utils.ProcessCacheConfig(fsCacheBase64)
+		if err != nil {
+			retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
+			log.Errorf(retErr.Error())
+			return Info{}, retErr
+		}
 	}
 
 	info := Info{
@@ -77,7 +83,7 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		K8sClient:   k8sClient,
 	}
 
-	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
+	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType && fs.Type != common.AFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
 		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
 		if err != nil {
@@ -95,6 +101,10 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 func (mountInfo *Info) cmdAndArgs() (string, []string) {
 	if mountInfo.FS.Type == common.GlusterFSType {
 		return mountName, mountInfo.glusterArgs()
+	} else if mountInfo.FS.Type == common.CFSType {
+		return mountName, mountInfo.cfsArgs()
+	} else if mountInfo.FS.Type == common.AFSType {
+		return afsMount, mountInfo.afsArgs()
 	} else if mountInfo.FS.IndependentMountProcess {
 		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
@@ -105,6 +115,23 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 func (mountInfo *Info) glusterArgs() (args []string) {
 	args = append(args, "-t", mountInfo.FS.Type,
 		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
+	return args
+}
+
+func (mountInfo *Info) cfsArgs() (args []string) {
+	args = append(args, "-t", "nfs4", "-o", cfsMountParam,
+		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
+	return args
+}
+
+func (mountInfo *Info) afsArgs() (args []string) {
+	if mountInfo.ReadOnly {
+		args = append(args, "-r")
+	}
+	args = append(args, fmt.Sprintf("--%s=%s", common.AFSUser, mountInfo.FS.PropertiesMap[common.AFSUser]))
+	args = append(args, fmt.Sprintf("--%s=%s", common.AFSPassword, mountInfo.FS.PropertiesMap[common.AFSPassword]))
+	args = append(args, "--conf="+afsConfig)
+	args = append(args, mountInfo.SourcePath, mountInfo.FS.ServerAddress+mountInfo.FS.SubPath)
 	return args
 }
 

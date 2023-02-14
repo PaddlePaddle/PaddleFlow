@@ -1,8 +1,7 @@
-FROM paddleflow/pfs-csi:base
+FROM paddleflow/ubuntu:18.04
 
-RUN echo "Asia/shanghai" > /etc/timezone
 ENV WORKDIR /home/paddleflow
-RUN adduser -g paddleflow paddleflow -D
+RUN groupadd paddleflow && useradd -d /home/paddleflow -g paddleflow  paddleflow
 ADD  output/bin/csi-plugin $WORKDIR/csi-plugin
 ADD  output/bin/pfs-fuse $WORKDIR/pfs-fuse
 ADD  output/bin/cache-worker $WORKDIR/cache-worker

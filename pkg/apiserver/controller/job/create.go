@@ -102,6 +102,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 }
 
 func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	log.Debugf("validateJob request %v", request)
 	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
 		ctx.Logging().Errorf("validateCommonJobInfo failed, err: %v", err)
 		return err
@@ -135,6 +136,11 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 			ctx.Logging().Errorf("validate job resource failed, err: %v", err)
 			return err
 		}
+		// validate fs in members
+		if err := validateMembersFileSystem(request); err != nil {
+			ctx.Logging().Errorf("validate job file systems failed, err: %v", err)
+			return err
+		}
 	} else {
 		// validate members
 		if err := validateJobMembers(ctx, request); err != nil {
@@ -163,35 +169,81 @@ func validateMembersScheduleInfo(ctx *logger.RequestContext, request *CreateJobI
 	return nil
 }
 
+func validateMembersFileSystem(request *CreateJobInfo) error {
+	var err error
+	for idx := range request.Members {
+		err = validateFileSystems(&request.Members[idx].FileSystem, request.Members[idx].ExtraFileSystems, request.UserName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func parseFlavourResource(flavour schema.Flavour) (*resources.Resource, error) {
+	memberRes, err := resources.NewResourceFromMap(flavour.ResourceInfo.ToMap())
+	if err != nil {
+		log.Errorf("Failed to get resourceInfo from flavour %v, err: %v", flavour, err)
+		return nil, err
+	}
+
+	if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
+		err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+		log.Errorf("Failed to check flavour: %v", err)
+		return nil, err
+	}
+	return memberRes, nil
+}
+
 func validateMembersResource(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	var err error
 	sumResource := resources.EmptyResource()
+
 	for index, member := range request.Members {
-		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
-		if err != nil {
+		var limitResource, requestResource *resources.Resource
+		var limitFlavour schema.Flavour
+		// validate LimitFlavour when env is set
+		limitFlavourName := member.Env[schema.EnvJobLimitFlavour]
+		if limitFlavourName != "" {
+			// if env is schema.EnvJobLimitFlavourNone, only set name=None, which mean resource.limit is nil
+			// else query flavour in db and set resource.limit to a specified flavour
+			limitFlavour = schema.Flavour{Name: limitFlavourName}
+			if strings.ToUpper(limitFlavourName) != schema.EnvJobLimitFlavourNone {
+				if limitFlavour, err = flavour.GetFlavourWithCheck(limitFlavour); err != nil {
+					log.Errorf("get limit flavour[%s] failed, err:%v", limitFlavourName, err)
+					return err
+				}
+				if limitResource, err = parseFlavourResource(limitFlavour); err != nil {
+					log.Errorf("parse Flavour resource failed, err:%v", err)
+					return err
+				}
+			}
+			request.Members[index].LimitFlavour = limitFlavour
+		}
+
+		// validate Flavour and validate total Resource
+		if member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour); err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
 			return err
 		}
 		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
-		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
-		if err != nil {
-			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
-			ctx.ErrorCode = common.JobInvalidField
+		if requestResource, err = parseFlavourResource(member.Flavour); err != nil {
+			log.Errorf("parse Flavour resource failed, err:%v", err)
 			return err
 		}
-		ctx.Logging().Debugf("member resource info %v", member.Flavour.ResourceInfo)
-		if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
-			err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+		// compare limit and request
+		if limitResource != nil && !requestResource.LessEqual(limitResource) {
+			err = fmt.Errorf("request %#v is greater than limit %#v", requestResource, limitResource)
 			ctx.Logging().Errorf("Failed to check flavour: %v", err)
 			return err
 		}
-		memberRes.Multi(member.Replicas)
-		sumResource.Add(memberRes)
+
+		requestResource.Multi(member.Replicas)
+		sumResource.Add(requestResource)
 	}
 	// validate queue and total-member-resource
-	// if EnvSkipRV is set, it will pass the validation for 0-Capability volcano queue
-	skipResValidate := IsSkipResourceValidate &&
-		request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
+	// It will pass the validation for 0-Capability volcano queue or EnvSkipRV is set
+	skipResValidate := IsSkipResourceValidate || request.SchedulingPolicy.QueueType == schema.TypeVolcanoCapabilityQuota &&
 		request.SchedulingPolicy.MaxResources.IsZero()
 	if !skipResValidate && !sumResource.LessEqual(request.SchedulingPolicy.MaxResources) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, request.SchedulingPolicy.MaxResources)
@@ -341,7 +393,7 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 		return err
 	}
 	// validate FileSystem
-	if err := validateFileSystems(jobSpec, ctx.UserName); err != nil {
+	if err := validateFileSystems(&jobSpec.FileSystem, jobSpec.ExtraFileSystems, ctx.UserName); err != nil {
 		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
 		return err
 	}
@@ -422,17 +474,17 @@ func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePo
 	return nil
 }
 
-func validateFileSystems(jobSpec *JobSpec, userName string) error {
-	if jobSpec.FileSystem.Name != "" {
-		if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
+func validateFileSystems(fs *schema.FileSystem, extraFS []schema.FileSystem, userName string) error {
+	if fs.Name != "" {
+		if err := validateFileSystem(userName, fs); err != nil {
 			err = fmt.Errorf("validateFileSystem failed, err: %v", err)
 			log.Error(err)
 			return err
 		}
 	}
 
-	for index, _ := range jobSpec.ExtraFileSystems {
-		if err := validateFileSystem(userName, &jobSpec.ExtraFileSystems[index]); err != nil {
+	for index, _ := range extraFS {
+		if err := validateFileSystem(userName, &extraFS[index]); err != nil {
 			err = fmt.Errorf("validate extraFileSystems failed, err: %v", err)
 			log.Error(err)
 			return err
@@ -443,10 +495,9 @@ func validateFileSystems(jobSpec *JobSpec, userName string) error {
 
 func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	fsName := fs.Name
-	fsID := fs.ID
-	if fsID == "" {
+	if fs.ID == "" {
 		// generate fsID by fsName if fsID is nil
-		fsID = common.ID(userName, fsName)
+		fs.ID = common.ID(userName, fsName)
 	}
 	if fs.MountPath == "" {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
@@ -454,18 +505,17 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	}
 	mountPath := utils.MountPathClean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
-		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fsID, fs.MountPath)
+		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fs.ID, fs.MountPath)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
 
-	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fs.ID)
 	if err != nil {
-		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
+		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fs.ID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
 	}
 	// fill back
-	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
 	fs.Type = fileSystem.Type
 	if fileSystem.Type == schema.PFSTypeLocal {
@@ -567,7 +617,7 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 
 // buildJob build a models job
 func buildJob(request *CreateJobInfo) (*model.Job, error) {
-	log.Debugf("begin build job with info: %#v", request)
+	log.Debugf("begin build job with request: %#v", request)
 	// build main job config
 	conf := buildMainConf(request)
 	// convert job members if necessary
@@ -576,6 +626,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	var err error
 	if len(request.Members) != 0 {
 		members = buildMembers(request)
+		log.Debugf("members is %v", members)
 	}
 	if len(request.ExtensionTemplate) != 0 {
 		templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
@@ -601,6 +652,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 }
 
 func buildMainConf(request *CreateJobInfo) *schema.Conf {
+	log.Debugf("buildMainConf request %v", request)
 	var conf = &schema.Conf{
 		Name: request.Name,
 	}
@@ -630,9 +682,11 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 }
 
 func buildMembers(request *CreateJobInfo) []schema.Member {
+	log.Debugf("buildMembers %v", request)
 	members := make([]schema.Member, 0)
-	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
+	log.Infof("build members for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
+		log.Debugf("reqMember %#v, role is %s", reqMember, reqMember.Role)
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
 		buildCommonInfo(&member.Conf, &request.CommonJobInfo)
 		members = append(members, member)
@@ -656,15 +710,17 @@ func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 
 // newMember convert request.Member to models.member
 func newMember(member MemberSpec, role schema.MemberRole) schema.Member {
+	log.Debugf("newMember is %#v", member)
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
 		FileSystem:      member.FileSystem,
 		ExtraFileSystem: member.ExtraFileSystems,
 		// 计算资源
-		Flavour:  member.Flavour,
-		Priority: member.SchedulingPolicy.Priority,
-		QueueID:  member.SchedulingPolicy.QueueID,
+		Flavour:      member.Flavour,
+		LimitFlavour: member.LimitFlavour,
+		Priority:     member.SchedulingPolicy.Priority,
+		QueueID:      member.SchedulingPolicy.QueueID,
 		// 运行时需要的参数
 		Labels:      member.Labels,
 		Annotations: member.Annotations,
@@ -711,9 +767,6 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	}
 
 	var templateJson string
-	if request.ExtensionTemplate == nil {
-		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
-	}
 	var err error
 	templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
@@ -868,6 +921,9 @@ func fillStandaloneJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) {
 			JobSpec: JobSpec{
 				Flavour: schema.Flavour{
 					Name: conf.GetFlavour(),
+				},
+				LimitFlavour: schema.Flavour{
+					Name: conf.GetLimitFlavour(),
 				},
 				FileSystem:       conf.GetFileSystem(),
 				ExtraFileSystems: conf.GetExtraFS(),

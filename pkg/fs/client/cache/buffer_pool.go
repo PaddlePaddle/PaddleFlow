@@ -182,10 +182,12 @@ func (p *Page) setCache() {
 
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	if int(offset) > cap(p.buffer) {
+		log.Errorf("offset > cap(p.buffer) with offset %d cap(p.fuffer) %d", offset, cap(p.buffer))
 		return 0, io.EOF
 	}
 	if int(offset) > len(p.buffer) || int(offset) >= p.writeLength {
 		if p.ready {
+			log.Debugf("read from buffer empty with offset %d b.fuffer %d writelength %d", offset, cap(p.buffer), p.writeLength)
 			return 0, io.EOF
 		}
 		// page not ready
@@ -202,7 +204,14 @@ func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	if p.writeLength >= cap(p.buffer) {
 		return 0, err
 	}
-	n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+	for i := 0; i < 3; i++ {
+		n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+			log.Errorf("WriteFrom reader read[%d] err %v", i, err)
+		} else {
+			break
+		}
+	}
 	p.lock.Lock()
 	p.writeLength += n
 	p.lock.Unlock()
@@ -272,6 +281,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 			b.reader, b.err = r()
 			b.cond.Broadcast()
 			if b.err != nil {
+				log.Errorf("reader with err: %v", b.err)
 				b.mu.Unlock()
 				break
 			}
@@ -322,7 +332,14 @@ func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 			return 0, errors.New("reader and err are both nil")
 		}
 		err = b.err
+		if err != nil {
+			log.Errorf("reader nil with err: %v", b.err)
+		}
 		return
+	}
+	if b.err != nil && b.err != io.EOF && b.err != io.ErrUnexpectedEOF {
+		log.Errorf("read from io reader with err %v", err)
+		return n, b.err
 	}
 
 	if b.page != nil {

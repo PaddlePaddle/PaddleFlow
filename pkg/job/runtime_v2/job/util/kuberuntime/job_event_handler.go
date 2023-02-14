@@ -178,6 +178,7 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 }
 
 func TaskUpdate(oldObj, newObj interface{}, taskQueue, jobQueue workqueue.RateLimitingInterface) {
+	oldPodObj := oldObj.(*unstructured.Unstructured)
 	newPodObj := newObj.(*unstructured.Unstructured)
 	jobName := getJobByTask(newPodObj)
 	if len(jobName) == 0 {
@@ -185,17 +186,19 @@ func TaskUpdate(oldObj, newObj interface{}, taskQueue, jobQueue workqueue.RateLi
 		return
 	}
 
-	oldStatus, err := k8s.ConvertToStatus(oldObj, k8s.PodGVK)
-	if err != nil {
+	oldPod := &v1.Pod{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(oldPodObj.Object, oldPod); err != nil {
+		log.Errorf("convert unstructured object [%+v] to pod failed. error: %s", oldPodObj.Object, err.Error())
 		return
 	}
-	oldPodStatus := oldStatus.(*v1.PodStatus)
+	oldPodStatus := &oldPod.Status
 
-	newStatus, err := k8s.ConvertToStatus(newObj, k8s.PodGVK)
-	if err != nil {
+	newPod := &v1.Pod{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newPodObj.Object, newPod); err != nil {
+		log.Errorf("convert unstructured object [%+v] to pod failed. error: %s", newPodObj.Object, err.Error())
 		return
 	}
-	newPodStatus := newStatus.(*v1.PodStatus)
+	newPodStatus := &newPod.Status
 
 	if oldPodStatus.Phase != newPodStatus.Phase {
 		// update pod status when pod phase is changed
@@ -209,7 +212,7 @@ func TaskUpdate(oldObj, newObj interface{}, taskQueue, jobQueue workqueue.RateLi
 			TaskUpdateFunc(newObj, schema.Update, taskQueue)
 		}
 		if newPodStatus.Phase == v1.PodPending {
-			handlePendingPod(newPodStatus, jobName, newPodObj, jobQueue)
+			handlePendingPod(newPodStatus, jobName, newPodObj.GetName(), newPodObj.GetNamespace(), jobQueue)
 		}
 	}
 }
@@ -239,7 +242,7 @@ func isValidWaitingState(s *v1.ContainerStateWaiting) bool {
 	return false
 }
 
-func handlePendingPod(podStatus *v1.PodStatus, jobName string, newPodObj *unstructured.Unstructured, jobQueue workqueue.RateLimitingInterface) {
+func handlePendingPod(podStatus *v1.PodStatus, jobName, podName, namespace string, jobQueue workqueue.RateLimitingInterface) {
 	message := ""
 	isValidWaiting := false
 	for _, containerStatus := range podStatus.InitContainerStatuses {
@@ -260,7 +263,7 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName string, newPodObj *unstru
 		return
 	}
 	log.Infof("update pod. newPodName: %s, namespace: %s, jobName: %s, message: %s",
-		newPodObj.GetName(), newPodObj.GetNamespace(), jobName, message)
+		podName, namespace, jobName, message)
 	jobInfo := &api.JobSyncInfo{
 		ID:      jobName,
 		Message: message,
@@ -279,7 +282,7 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName string, newPodObj *unstru
 	if config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds > 0 {
 		terminateDuration = config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds
 	}
-	log.Infof("terminate job. namespace: %s, jobName: %s", newPodObj.GetNamespace(), jobName)
+	log.Infof("terminate job. namespace: %s, jobName: %s", namespace, jobName)
 	jobQueue.AddAfter(terminateJobInfo, time.Duration(terminateDuration)*time.Second)
 }
 
@@ -303,12 +306,12 @@ func TaskUpdateFunc(obj interface{}, action schema.ActionType, taskQueue workque
 	// TODO: get role name from pod
 
 	// convert to task status
-	taskStatus, err := k8s.GetTaskStatus(&pod.Status)
+	taskStatus, err := GetTaskStatus(&pod.Status)
 	if err != nil {
 		log.Errorf("convert to task status for pod %s/%s failed, err: %v", namespace, name, err)
 		return
 	}
-	message := k8s.GetTaskMessage(&pod.Status)
+	message := GetTaskMessage(&pod.Status)
 
 	taskInfo := &api.TaskSyncInfo{
 		ID:        string(uid),
@@ -353,4 +356,109 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 		return jobName
 	}
 	return ""
+}
+
+func GetTaskStatus(podStatus *v1.PodStatus) (schema.TaskStatus, error) {
+	status := schema.TaskStatus("")
+	if podStatus == nil {
+		return status, fmt.Errorf("the status of pod is nil")
+	}
+	switch podStatus.Phase {
+	case v1.PodPending:
+		status = schema.StatusTaskPending
+	case v1.PodRunning:
+		status = schema.StatusTaskRunning
+	case v1.PodSucceeded:
+		status = schema.StatusTaskSucceeded
+	case v1.PodFailed, v1.PodUnknown:
+		status = schema.StatusTaskFailed
+	default:
+		return status, fmt.Errorf("unexpected task status: %s", podStatus.Phase)
+	}
+	return status, nil
+}
+
+type PodStatusMessage struct {
+	Phase             v1.PodPhase              `json:"phase,omitempty"`
+	Message           string                   `json:"message,omitempty"`
+	Reason            string                   `json:"reason,omitempty"`
+	ContainerMessages []ContainerStatusMessage `json:"containerMessages,omitempty"`
+}
+
+func (ps *PodStatusMessage) String() string {
+	msg := fmt.Sprintf("pod phase is %s", ps.Phase)
+	if len(ps.Reason) != 0 {
+		msg += fmt.Sprintf(" with reason %s", ps.Reason)
+	}
+	if len(ps.Message) != 0 {
+		msg += fmt.Sprintf(", detail message: %s", ps.Message)
+	}
+	// Container status message
+	if len(ps.ContainerMessages) != 0 {
+		msg += ". Containers status:"
+	}
+	for _, cs := range ps.ContainerMessages {
+		msg += fmt.Sprintf(" %s;", cs.String())
+	}
+	return msg
+}
+
+type ContainerStatusMessage struct {
+	Name            string                       `json:"name,omitempty"`
+	ContainerID     string                       `json:"containerID,omitempty"`
+	RestartCount    int32                        `json:"restartCount,omitempty"`
+	WaitingState    *v1.ContainerStateWaiting    `json:"waitingState,omitempty"`
+	TerminatedState *v1.ContainerStateTerminated `json:"terminatedState,omitempty"`
+}
+
+func (cs *ContainerStatusMessage) String() string {
+	msg := fmt.Sprintf("container %s with restart count %d", cs.Name, cs.RestartCount)
+	if len(cs.ContainerID) != 0 {
+		msg += fmt.Sprintf(", id is %s", cs.ContainerID)
+	}
+	if cs.WaitingState != nil {
+		msg += fmt.Sprintf(", wating with reason %s", cs.WaitingState.Reason)
+		if len(cs.WaitingState.Message) != 0 {
+			msg += fmt.Sprintf(", message: %s", cs.WaitingState.Message)
+		}
+	}
+	if cs.TerminatedState != nil {
+		msg += fmt.Sprintf(", terminated with exitCode %d, reason is %s", cs.TerminatedState.ExitCode, cs.TerminatedState.Reason)
+		if len(cs.TerminatedState.Message) != 0 {
+			msg += fmt.Sprintf(", message: %s", cs.TerminatedState.Message)
+		}
+	}
+	return msg
+}
+
+// GetTaskMessage construct message from pod status
+func GetTaskMessage(podStatus *v1.PodStatus) string {
+	if podStatus == nil {
+		return ""
+	}
+	statusMessage := PodStatusMessage{
+		Phase:             podStatus.Phase,
+		Reason:            podStatus.Reason,
+		Message:           podStatus.Message,
+		ContainerMessages: []ContainerStatusMessage{},
+	}
+	for _, initCS := range podStatus.InitContainerStatuses {
+		statusMessage.ContainerMessages = append(statusMessage.ContainerMessages, ContainerStatusMessage{
+			Name:            initCS.Name,
+			ContainerID:     initCS.ContainerID,
+			RestartCount:    initCS.RestartCount,
+			WaitingState:    initCS.State.Waiting,
+			TerminatedState: initCS.State.Terminated,
+		})
+	}
+	for _, cs := range podStatus.ContainerStatuses {
+		statusMessage.ContainerMessages = append(statusMessage.ContainerMessages, ContainerStatusMessage{
+			Name:            cs.Name,
+			ContainerID:     cs.ContainerID,
+			RestartCount:    cs.RestartCount,
+			WaitingState:    cs.State.Waiting,
+			TerminatedState: cs.State.Terminated,
+		})
+	}
+	return statusMessage.String()
 }

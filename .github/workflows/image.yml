@@ -1,0 +1,213 @@
+name: pushImage
+on:
+  push:
+    tags:
+      - '*'
+
+env:
+  BASE_REPO: paddleflow
+  PF_SERVER: paddleflow-server
+  PF_CSI: pfs-csi-plugin
+jobs:
+  push_image:
+    strategy:
+      matrix:
+        go-version: [1.18.x]
+        goos: [linux] # 需要打包的系统
+        goarch: [amd64, arm64] # 需要打包的架构
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump GitHub context
+        id: github_context_step
+        run: |
+          echo '${{ toJSON(github) }}'
+          echo '$(uname -m)'
+          echo '$(uname -s)'
+          sudo apt-get install -y gcc automake autoconf libtool make
+      - name: Dump event context
+        id: github_event_step
+        run: cat /home/runner/work/_temp/_github_workflow/event.json
+      - name: Install go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install gcc
+        id: install_gcc
+        run: |
+          sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
+      - name: Run build
+        run: make all
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+      - name: Packaging
+        run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
+      - name: Uploading assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+      # 0. 获取当前分支branch_name信息
+      - id: get_branch_name
+        name: get branch name
+        run: |
+          # push
+          echo "GITHUB_REF=${GITHUB_REF}"
+          echo "GITHUB_REF_NAME=${GITHUB_REF_NAME}"
+          # pull_request
+          echo "GITHUB_HEAD_REF=${GITHUB_HEAD_REF}"
+          echo "GITHUB_BASE_REF=${GITHUB_BASE_REF}"
+          event_name=${{ github.event_name }}
+          if [[ "$event_name" == "push" ]]; then
+            echo "branch value is set as ${GITHUB_REF_NAME}"
+            echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          else
+            echo "branch value is set as ${GITHUB_BASE_REF}"
+            echo "branch=${GITHUB_BASE_REF}" >> $GITHUB_ENV
+          fi
+
+
+      # 1. 获取当前分支tag信息
+      - id: branch-name
+        name: Get tag info
+        with:
+          strip_tag_prefix: true
+        env:
+          strip_tag_prefix: true
+        uses: tj-actions/branch-names@v6
+      # 打印当前分支tag信息, is_tag代表分支是否被设置tag, tag代表具体的tag值
+      - name: print is_tag and tag
+        run: |
+          echo "is_tag=${{ steps.branch-name.outputs.is_tag }}"
+          echo "tag=${{ steps.branch-name.outputs.tag }}"
+          # 千万别用steps.branch-name.outputs.base_ref_branch,一直是空值
+          echo "当前分支为 ${{ env.branch }}"
+
+
+      # 2. 获取commit hash
+      - id: commit
+        name: get commit hash
+        uses: pr-mpt/actions-commit-hash@v2
+      - name: print commit hash
+        run: |
+          echo "${{ steps.commit.outputs.short }}"
+
+
+      # 3.获取build-image-enabled代表是否构建镜像,version-fragment取值{alpha, rc},current-version根据当前分支名/tag计算
+      #  当前仅构建Release分支,若要放开,则改为if [[ $current_branch =~ ^(release|dev|master|main).* ]];then
+      - name: get build-image-enabled, version-fragment and current-version
+        run: |
+          build_image_enabled=false
+          event_name=${{ github.event_name }}
+          if [[ $event_name != 'push' ]]; then
+            echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+            exit 0
+          fi
+          cur_version=${{ env.branch }}
+          echo "current_branch is [$cur_version]"
+
+          if [[ $cur_version =~ ^(release).* ]];then
+            echo "cur_version needs to build image"
+            echo "event_name is [$event_name]"
+            build_image_enabled=true
+
+            echo "计算版本tag cur_version"
+            cur_version=${cur_version#*release}
+            cur_version=${cur_version#*/}
+            cur_version=${cur_version#*-}
+          fi
+
+          echo "cur_version is [$cur_version]"
+          echo "cur_version=$cur_version" >> $GITHUB_ENV
+
+          # 有tag则按照tag来
+          if [ ${{ env.is_tag }} == "false" ]; then
+            echo "current branch without tag"
+          else
+            build_image_enabled=true
+            echo "current branch has tag, build_image_enabled set true"
+          fi
+          echo "打印build_image_enabled值 [$build_image_enabled] 并存储到环境变量"
+          echo "build_image_enabled=$build_image_enabled" >> $GITHUB_ENV
+
+
+      # 设置最终tag={镜像仓库前缀}/{镜像名称}:{分支号},{镜像仓库前缀}/{镜像名称}:{分支号}-6位commit
+      - name: Set Image Tag Name, only release
+        if: env.build_image_enabled=='true'
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          current_version=${{ env.cur_version }}
+          tag=${{ env.tag }}
+          ps_repo=${{ env.BASE_REPO }}/${{ env.PF_SERVER }}
+          csi_repo=${{ env.BASE_REPO }}/${{ env.PF_CSI }}
+
+          arch=${{ matrix.goarch }}
+          if [[ !($arch =~ amd.*) ]]; then
+               ps_repo=$ps_repo-$arch
+               csi_repo=$csi_repo-$arch
+          fi
+
+          repo_array[0]=$ps_repo
+          repo_array[1]=$csi_repo
+          tag_array[0]=tag_pf
+          tag_array[1]=tag_csi
+          index=0
+          for repo in ${repo_array[*]}
+          do
+            echo "set ${tag_array[index]}, repo: $repo, current_version=$current_version"
+            if [ ${{ env.is_tag }} == "false" ]; then
+              echo "image tag will be $repo:$current_version and commitID"
+              echo "${tag_array[index]}=$repo:$current_version,$repo:$current_version-${{ steps.commit.outputs.short }}"
+              echo "${tag_array[index]}=$repo:$current_version,$repo:$current_version-${{ steps.commit.outputs.short }}" >> $GITHUB_ENV
+            else
+              echo "current branch has tag $tag"
+              echo "${tag_array[index]}=$repo:$current_version"
+              echo "${tag_array[index]}=$repo:$current_version" >> $GITHUB_ENV
+            fi
+            echo "loop $index completed"
+            index=$[$index+1];
+          done
+
+
+      # 登录到docker hub
+      - name: Login to DockerHub
+        if: env.build_image_enabled=='true'
+        uses: docker/login-action@v2
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
+      # build paddleflow-server 并推送镜像到hub
+      - name: Build and push paddleflow-server
+        if: env.tag_pf!='null' && env.build_image_enabled=='true'
+        uses: docker/build-push-action@v3
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        with:
+          context: .
+          file: ./installer/dockerfile/paddleflow-server/Dockerfile
+          platforms: ${{ matrix.goarch }}
+          push: true
+          tags: ${{ env.tag_pf }}
+      # build paddleflow-csi-plugin 并推送镜像到hub
+      - name: Build and push pfs-csi-plugin
+        if: env.tag_csi!='null' && env.build_image_enabled=='true'
+        uses: docker/build-push-action@v3
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        with:
+          context: .
+          file: ./installer/dockerfile/paddleflow-csi-plugin/Dockerfile
+          platforms: ${{ matrix.goarch }}
+          push: true
+          tags: ${{ env.tag_csi }}

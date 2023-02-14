@@ -181,6 +181,10 @@ func TestNodeTaskListener(t *testing.T) {
 	fakePod.Status.Phase = corev1.PodRunning
 	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
+	// update pod resources
+	fakePod.Spec.Containers[0].Resources.Requests = reqList[1]
+	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
+	assert.Equal(t, nil, err)
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
 	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})

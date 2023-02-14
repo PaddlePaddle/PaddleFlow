@@ -27,8 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -46,22 +44,13 @@ var (
 
 // KubeRayJob is a struct that runs a ray job
 type KubeRayJob struct {
-	GVK              schema.GroupVersionKind
-	frameworkVersion pfschema.FrameworkVersion
-	runtimeClient    framework.RuntimeClientInterface
-	jobQueue         workqueue.RateLimitingInterface
+	kuberuntime.KubeBaseJob
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeRayJob{
-		runtimeClient:    kubeClient,
-		GVK:              JobGVK,
-		frameworkVersion: KubeRayFwVersion,
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeRayFwVersion, kubeClient),
 	}
-}
-
-func (rj *KubeRayJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", rj.GVK.String(), name, rj.runtimeClient.Cluster())
 }
 
 func (rj *KubeRayJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -91,7 +80,7 @@ func (rj *KubeRayJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", rj.String(jobName), rayJob)
-	err = rj.runtimeClient.Create(rayJob, rj.frameworkVersion)
+	err = rj.RuntimeClient.Create(rayJob, rj.FrameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", rj.String(jobName), err)
 		return err
@@ -292,100 +281,15 @@ func (rj *KubeRayJob) customRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, job *
 	return nil
 }
 
-func (rj *KubeRayJob) Stop(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to stop %s", rj.String(jobName))
-	if err := rj.runtimeClient.Delete(job.Namespace, job.ID, rj.frameworkVersion); err != nil {
-		log.Errorf("stop %s failed, err: %v", rj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (rj *KubeRayJob) Update(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to update %s", rj.String(jobName))
-	if err := kuberuntime.UpdateKubeJob(job, rj.runtimeClient, rj.frameworkVersion); err != nil {
-		log.Errorf("update %s failed, err: %v", rj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (rj *KubeRayJob) Delete(ctx context.Context, job *api.PFJob) error {
-	if job == nil {
-		return fmt.Errorf("job is nil")
-	}
-	jobName := job.NamespacedName()
-	log.Infof("begin to delete %s ", rj.String(jobName))
-	if err := rj.runtimeClient.Delete(job.Namespace, job.ID, rj.frameworkVersion); err != nil {
-		log.Errorf("delete %s failed, err %v", rj.String(jobName), err)
-		return err
-	}
-	return nil
-}
-
-func (rj *KubeRayJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: add get log logic
-	return pfschema.JobLogInfo{}, nil
-}
-
 func (rj *KubeRayJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = rj.addJobEventListener(ctx, jobQueue, listener)
+		err = rj.AddJobEventListener(ctx, jobQueue, listener, rj.JobStatus, nil)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
-}
-
-func (rj *KubeRayJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
-	if jobQueue == nil || listener == nil {
-		return fmt.Errorf("add job event listener failed, err: listener is nil")
-	}
-	rj.jobQueue = jobQueue
-	informer := listener.(cache.SharedIndexInformer)
-	informer.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: kuberuntime.ResponsibleForJob,
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    rj.addJob,
-			UpdateFunc: rj.updateJob,
-			DeleteFunc: rj.deleteJob,
-		},
-	})
-	return nil
-}
-
-func (rj *KubeRayJob) addJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobAddFunc(obj, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
-}
-
-func (rj *KubeRayJob) updateJob(old, new interface{}) {
-	jobSyncInfo, err := kuberuntime.JobUpdateFunc(old, new, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
-}
-
-func (rj *KubeRayJob) deleteJob(obj interface{}) {
-	jobSyncInfo, err := kuberuntime.JobDeleteFunc(obj, rj.JobStatus)
-	if err != nil {
-		return
-	}
-	rj.jobQueue.Add(jobSyncInfo)
 }
 
 // JobStatus get the statusInfo of PyTorch job, including origin status, PaddleFlow status and message

@@ -105,14 +105,8 @@ func (kv *KVTxn) ScanValues(prefix []byte) (map[string][]byte, error) {
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
 		k := item.Key()
-
-		err := item.Value(func(v []byte) error {
-			result[string(k)] = v
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
+		v := kv.Get(k)
+		result[string(k)] = v
 	}
 	return result, nil
 }

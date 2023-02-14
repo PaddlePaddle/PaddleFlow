@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -28,11 +29,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -70,7 +74,7 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -224,7 +228,7 @@ func TestUpdatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(*logger.RequestContext, string, string) (string, error) {
 		return "", nil
 	})
 
@@ -903,4 +907,71 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersion6.Pk, int64(6))
 	assert.Equal(t, pplVersionID6, pplVersion6.ID)
 	assert.Equal(t, pplVersionID6, "4")
+}
+
+func TestValidateWorkflowForPipeline(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	_, err := validateWorkflowForPipeline(ctx, "", "root", "root")
+	assert.NotEqual(t, err, nil)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		wfs := schema.WorkflowSource{}
+		wfs.FsOptions.MainFS = schema.FsMount{
+			Name: "abc",
+		}
+		return wfs, nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(fs.GetFileSystemService, func() *fs.FileSystemService {
+		return &fs.FileSystemService{}
+	})
+	defer patch2.Reset()
+
+	var fsService *fs.FileSystemService
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(fsService), "HasFsPermission",
+		func(_ *fs.FileSystemService, userName string, fsName string) (bool, error) {
+			return false, fmt.Errorf("error")
+		})
+	defer patch3.Reset()
+
+	_, err = validateWorkflowForPipeline(ctx, "", "root", "root")
+	assert.NotEqual(t, err, nil)
+	assert.Equal(t, common.InvalidArguments, ctx.ErrorCode)
+
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(fsService), "HasFsPermission",
+		func(_ *fs.FileSystemService, userName string, fsName string) (bool, error) {
+			return false, nil
+		})
+	defer patch4.Reset()
+
+	_, err = validateWorkflowForPipeline(ctx, "", "root", "root")
+	assert.NotEqual(t, err, nil)
+	assert.Equal(t, common.AccessDenied, ctx.ErrorCode)
+
+	patch5 := gomonkey.ApplyFunc(schema.GetWorkflowSource, func([]byte) (schema.WorkflowSource, error) {
+		wfs := schema.WorkflowSource{}
+		return wfs, nil
+	})
+	defer patch5.Reset()
+
+	patch6 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return nil, fmt.Errorf("unexpected error")
+	})
+	defer patch6.Reset()
+
+	_, err = validateWorkflowForPipeline(ctx, "", "root", "root")
+	assert.NotEqual(t, err, nil)
+	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	patch7 := gomonkey.ApplyFunc(pipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
+		callbacks pipeline.WorkflowCallbacks) (*pipeline.Workflow, error) {
+		return nil, nil
+	})
+	defer patch7.Reset()
+	_, err = validateWorkflowForPipeline(ctx, "", "root", "root")
+	assert.NotEqual(t, err, nil)
+	assert.Equal(t, common.InternalError, ctx.ErrorCode)
 }
