@@ -19,6 +19,8 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
 
@@ -41,6 +43,7 @@ const (
 	MockRootUser    = "root"
 	MockClusterName = "testCn"
 	MockNamespace   = "paddle"
+	MockNamespace1  = "n"
 	MockQueueName   = "mock-q-000"
 	MockQueueName1  = "mock-q-001"
 	MockQueueName2  = "mock-q-002"
@@ -57,7 +60,7 @@ var clusterInfo = model.ClusterInfo{
 	Status:        model.ClusterStatusOnLine,
 	Credential:    "credential",
 	Setting:       "Setting",
-	NamespaceList: []string{"n1", "n2", MockNamespace},
+	NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
 }
 
 func TestCreateQueue(t *testing.T) {
@@ -69,6 +72,10 @@ func TestCreateQueue(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
+	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
+	clusterInfo.Name = "mock"
+	clusterInfo.Pk = 3
+	clusterInfo.ClusterType = "mock"
 	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
@@ -87,9 +94,11 @@ func TestCreateQueue(t *testing.T) {
 	defer p4.Reset()
 
 	type args struct {
-		ctx              *logger.RequestContext
-		req              CreateQueueRequest
-		createRuntimeErr error
+		ctx                       *logger.RequestContext
+		req                       CreateQueueRequest
+		createRuntimeErr          error
+		mockGetOrCreateRuntimeErr error
+		mockCreateNSErr           error
 	}
 	tests := []struct {
 		name    string
@@ -197,10 +206,98 @@ func TestCreateQueue(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "GetOrCreateRuntimeErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 3),
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				mockGetOrCreateRuntimeErr: fmt.Errorf("mock init failed"),
+			},
+			wantErr: fmt.Errorf("mock error"),
+		},
+		{
+			name: "mockCreateNSErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 4),
+					Namespace: fmt.Sprintf("%s%d", MockNamespace1, 2),
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				mockCreateNSErr: fmt.Errorf("mockCreateNSErr"),
+			},
+			wantErr: fmt.Errorf("mockCreateNSErr"),
+		},
+		{
+			name: "ClusterType unknown",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 4),
+					Namespace: fmt.Sprintf("%s%d", MockNamespace1, 2),
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      "mock",
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			if tt.args.mockGetOrCreateRuntimeErr != nil {
+				var p5 = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime,
+					func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+						return runtime.NewKubeRuntime(schema.Cluster{}), fmt.Errorf("mock error")
+					})
+				defer p5.Reset()
+			} else {
+				var p6 = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime,
+					func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+						return runtime.NewKubeRuntime(schema.Cluster{}), nil
+					})
+				defer p6.Reset()
+			}
+			if tt.args.mockCreateNSErr != nil {
+				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
+					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+						return &corev1.Namespace{}, tt.args.mockCreateNSErr
+					})
+				defer p7.Reset()
+			} else {
+				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
+					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+						return &corev1.Namespace{}, nil
+					})
+				defer p7.Reset()
+			}
 			if tt.args.createRuntimeErr != nil {
 				var p5 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
 					return fmt.Errorf("mock init failed")
