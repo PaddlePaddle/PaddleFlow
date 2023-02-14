@@ -50,6 +50,7 @@ func TestPodCache(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	updatedPod1 := &model.PodInfo{
+		ID:     mockPodID,
 		Status: int(model.TaskTerminating),
 		Labels: map[string]string{
 			"xxx/queue-name": "default-queue",
@@ -58,15 +59,24 @@ func TestPodCache(t *testing.T) {
 	err = PodCache.UpdatePod(mockPodID, updatedPod1)
 	assert.Equal(t, nil, err)
 
-	updatedPod2 := &model.PodInfo{
+	// test update pod resources
+	updatedPod1_1 := &model.PodInfo{
+		ID:     mockPodID,
+		Status: int(model.TaskRunning),
+		Labels: map[string]string{
+			"xxx/queue-name": "default-queue",
+		},
 		Resources: map[string]int64{
 			"cpu":            2000,
-			"memory":         2 * 1024 * 1024 * 1024,
+			"memory":         512 * 1024 * 1024,
 			"nvidia.com/gpu": 1,
 		},
 	}
-	err = PodCache.UpdatePodResources(mockPodID, updatedPod2)
+	err = PodCache.UpdatePod(mockPodID, updatedPod1_1)
 	assert.Equal(t, nil, err)
+	ansPod, err := PodCache.(*ClusterPodCache).GetPod(mockPodID)
+	assert.Equal(t, nil, err)
+	t.Logf("pod resoruces: %v", ansPod.Resources)
 
 	err = PodCache.DeletePod(mockPodID)
 	assert.Equal(t, nil, err)
