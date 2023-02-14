@@ -27,7 +27,7 @@ import (
 
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com",
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
