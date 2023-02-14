@@ -18,6 +18,7 @@ package runtime_v2
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"k8s.io/client-go/rest"
 	"net/http/httptest"
@@ -578,9 +579,12 @@ func TestK3SNewK3SRuntime(t *testing.T) {
 func TestK3SInit(t *testing.T) {
 
 	type args struct {
-		rs            K3SRuntimeService
-		clientInitErr error
-		configErr     error
+		rs                           K3SRuntimeService
+		passBuildConfig              bool
+		passDecode                   bool
+		passRESTConfigFromKubeConfig bool
+		clientInitErr                error
+		configErr                    error
 	}
 	tests := []struct {
 		name string
@@ -600,8 +604,47 @@ func TestK3SInit(t *testing.T) {
 		{
 			name: "cluster nil, no such file or directory",
 			args: args{
-				rs:            K3SRuntimeService{},
-				clientInitErr: fmt.Errorf("no such file or directory"),
+				rs:              K3SRuntimeService{},
+				passBuildConfig: true,
+				clientInitErr:   fmt.Errorf("no such file or directory"),
+			},
+		},
+		{
+			name: "invalid leading UTF-8",
+			args: args{
+				rs: K3SRuntimeService{
+					cluster: &schema.Cluster{
+						Name: "mockname",
+						Type: schema.K3SType,
+						ClientOpt: schema.ClientOptions{
+							Master: "127.0.0.1:6443",
+							Config: "mock",
+							QPS:    1000,
+							Burst:  1000,
+						},
+					},
+				},
+				passDecode:    false,
+				clientInitErr: fmt.Errorf("invalid leading UTF-8"),
+			},
+		},
+		{
+			name: "config is not nil",
+			args: args{
+				rs: K3SRuntimeService{
+					cluster: &schema.Cluster{
+						Name: "mockname",
+						Type: schema.K3SType,
+						ClientOpt: schema.ClientOptions{
+							Master: "127.0.0.1:6443",
+							Config: "mock",
+							QPS:    1000,
+							Burst:  1000,
+						},
+					},
+				},
+				passDecode:    true,
+				clientInitErr: fmt.Errorf("couldn't get version"),
 			},
 		},
 	}
@@ -614,11 +657,19 @@ func TestK3SInit(t *testing.T) {
 				os.Setenv("KUBERNETES_SERVICE_HOST", urlArr[0])
 				os.Setenv("KUBERNETES_SERVICE_PORT", urlArr[1])
 			}
-			if tt.args.clientInitErr != nil {
+			if tt.args.passBuildConfig {
 				var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(&tt.args.rs), "buildConfig", func() (*rest.Config, error) {
 					return &rest.Config{}, nil
 				})
 				defer p2.Reset()
+			}
+			//base64.StdEncoding.DecodeString(k3srs.cluster.ClientOpt.Config)
+			stde := base64.StdEncoding
+			if tt.args.passDecode {
+				var p3 = gomonkey.ApplyMethodFunc(reflect.TypeOf(stde), "DecodeString", func(s string) ([]byte, error) {
+					return []byte("mock"), nil
+				})
+				defer p3.Reset()
 			}
 			err := tt.args.rs.Init()
 			if tt.args.configErr != nil {
