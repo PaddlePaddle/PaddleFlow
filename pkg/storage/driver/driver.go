@@ -39,7 +39,8 @@ const (
 	Mysql  = "mysql"
 	Sqlite = "sqlite"
 	// data init for sqllite
-	dsn              = "file:paddleflow.db?cache=shared&mode=rwc"
+	// default busy timeout 2 min
+	dsn              = "file:paddleflow.db?cache=shared&mode=rwc&_busy_timeout=120000"
 	rootUserName     = "root"
 	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
 )
@@ -52,7 +53,11 @@ func InitStorage(conf *config.StorageConfig, logLevel string) error {
 		storage.DB = initMysqlDB(conf, gormConf)
 	default:
 		// 若配置文件没有设置，则默认使用SQLLite
+		// fix table lock
 		storage.DB = initSQLiteDB(gormConf)
+		// set 1 connection
+		conf.MaxOpenConns = new(int)
+		*conf.MaxOpenConns = 1
 	}
 
 	if storage.DB == nil {

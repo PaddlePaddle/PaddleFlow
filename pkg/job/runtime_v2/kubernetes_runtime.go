@@ -649,7 +649,7 @@ func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
 	})
 	var formatedEvents []string
 	for _, event := range events {
-		//Type-Reason-Timestamp-Message
+		// Type-Reason-Timestamp-Message
 		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
 			event.Type, event.Reason, event.CreationTimestamp.Format("2006-01-02 15:04:05"), event.Message)
 		formatedEvents = append(formatedEvents, str)
@@ -748,7 +748,11 @@ func (kr *KubeRuntime) listNodes(listOptions metav1.ListOptions) (*corev1.NodeLi
 }
 
 func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions) (*corev1.PodList, error) {
-	return kr.clientset().CoreV1().Pods(namespace).List(context.TODO(), listOptions)
+	return listPods(kr.clientset(), namespace, listOptions)
+}
+
+func listPods(client kubernetes.Interface, namespace string, listOptions metav1.ListOptions) (*corev1.PodList, error) {
+	return client.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
 func (kr *KubeRuntime) DeletePod(namespace, name string) error {

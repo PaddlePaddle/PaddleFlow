@@ -59,7 +59,7 @@ func GetJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion) 
 	var jobPlugin JobPlugin
 	var found bool
 	switch runtimeType {
-	case schema.KubernetesType:
+	case schema.KubernetesType, schema.K3SType:
 		kubeJobMutex.RLock()
 		defer kubeJobMutex.RUnlock()
 		jobPlugin, found = kubeJobMaps[frameworkVersion]

@@ -56,3 +56,23 @@ func NewFakeKubeRuntimeClient(server *httptest.Server) *KubeRuntimeClient {
 		QueueInformerMap: make(map[k8sschema.GroupVersionKind]cache.SharedIndexInformer),
 	}
 }
+
+func NewFakeK3SRuntimeClient(server *httptest.Server) *K3SRuntimeClient {
+	scheme := runtime.NewScheme()
+	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
+	kubeClient := fakedclient.NewSimpleClientset()
+
+	return &K3SRuntimeClient{
+		Client:          kubeClient,
+		InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
+		DynamicClient:   dynamicClient,
+		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
+		ClusterInfo: &schema.Cluster{
+			Name: "default-cluster",
+			ID:   uuid.GenerateID("cluster"),
+			Type: schema.K3SType,
+		},
+		Config:         &rest.Config{Host: server.URL},
+		JobInformerMap: make(map[k8sschema.GroupVersionResource]cache.SharedIndexInformer),
+	}
+}
