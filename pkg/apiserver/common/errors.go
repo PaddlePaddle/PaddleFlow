@@ -179,13 +179,13 @@ var errorHTTPStatus = map[string]int{
 	QueueInvalidField:            http.StatusBadRequest,
 	QueueUpdateFailed:            http.StatusBadRequest,
 
+	ReadYamlFileFailed:    http.StatusBadRequest,
 	RunNameDuplicated:     http.StatusBadRequest,
 	RunNotFound:           http.StatusNotFound,
-	PipelineNotFound:      http.StatusBadRequest,
-	RunCacheNotFound:      http.StatusBadRequest,
-	ReadYamlFileFailed:    http.StatusBadRequest,
+	PipelineNotFound:      http.StatusNotFound,
+	RunCacheNotFound:      http.StatusNotFound,
 	ScheduleNotFound:      http.StatusNotFound,
-	ArtifactEventNotFound: http.StatusBadRequest,
+	ArtifactEventNotFound: http.StatusNotFound,
 
 	GrantResourceTypeNotFound: http.StatusBadRequest,
 	GrantNotFound:             http.StatusBadRequest,
