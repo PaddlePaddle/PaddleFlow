@@ -448,6 +448,7 @@ func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.ScheduleNotFound
+			err = common.NotFoundError(common.ResourceTypeSchedule, scheduleID)
 		} else {
 			ctx.ErrorCode = common.InternalError
 		}
