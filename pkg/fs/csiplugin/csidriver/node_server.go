@@ -76,7 +76,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	}
 
 	mountInfo, err := mount.ConstructMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
-		targetPath, k8sClient, req.GetReadonly())
+		targetPath, k8sClient, req.GetReadonly() || req.VolumeCapability.AccessMode.GetMode() == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY)
 	if err != nil {
 		log.Errorf("ConstructMountInfo err: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
@@ -134,7 +134,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 
 func mountVolume(volumeID string, mountInfo mount.Info) error {
 	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.FS.IndependentMountProcess, mountInfo.ReadOnly)
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType {
+	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType && mountInfo.FS.Type != common.AFSType {
 		// business pods use a separate source path
 		if err := mount.PFSMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)

@@ -35,7 +35,8 @@ const (
 	mountName                             = "mount"
 	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
-	afsMount                              = "/home/paddleflow/afs_mount"
+	afsMount                              = "/home/paddleflow/afs.sh"
+	afsConfig                             = "/home/paddleflow/afs_mount.conf"
 	ReadOnly                              = "ro"
 	cfsMountParam                         = "minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
 )
@@ -62,12 +63,15 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		return Info{}, retErr
 	}
 
-	// FS CacheConfig config
-	cacheConfig, err := utils.ProcessCacheConfig(fsCacheBase64)
-	if err != nil {
-		retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
-		log.Errorf(retErr.Error())
-		return Info{}, retErr
+	var cacheConfig model.FSCacheConfig
+	if fsCacheBase64 != "" {
+		// FS CacheConfig config
+		cacheConfig, err = utils.ProcessCacheConfig(fsCacheBase64)
+		if err != nil {
+			retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
+			log.Errorf(retErr.Error())
+			return Info{}, retErr
+		}
 	}
 
 	info := Info{
@@ -121,9 +125,13 @@ func (mountInfo *Info) cfsArgs() (args []string) {
 }
 
 func (mountInfo *Info) afsArgs() (args []string) {
+	if mountInfo.ReadOnly {
+		args = append(args, "-r")
+	}
 	args = append(args, fmt.Sprintf("--%s=%s", common.AFSUser, mountInfo.FS.PropertiesMap[common.AFSUser]))
 	args = append(args, fmt.Sprintf("--%s=%s", common.AFSPassword, mountInfo.FS.PropertiesMap[common.AFSPassword]))
-	args = append(args, mountInfo.FS.ServerAddress+mountInfo.FS.SubPath, mountInfo.SourcePath)
+	args = append(args, "--conf="+afsConfig)
+	args = append(args, mountInfo.SourcePath, mountInfo.FS.ServerAddress+mountInfo.FS.SubPath)
 	return args
 }
 

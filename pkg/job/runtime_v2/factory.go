@@ -95,9 +95,11 @@ func CreateRuntime(clusterInfo model.ClusterInfo) (RuntimeService, error) {
 	cluster := newClusterConfig(clusterInfo)
 	switch cluster.Type {
 	case schema.LocalType:
-		//runtimeSvc = NewLocalRuntime(cluster)
+		// runtimeSvc = NewLocalRuntime(cluster)
 	case schema.KubernetesType:
 		runtimeSvc = NewKubeRuntime(cluster)
+	case schema.K3SType:
+		runtimeSvc = NewK3SRuntime(cluster)
 	default:
 		return nil, fmt.Errorf("cluster type[%s] is not support", cluster.Type)
 	}

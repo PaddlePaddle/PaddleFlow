@@ -19,21 +19,34 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	fakedynamicclient "k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	fakedclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"net/http/httptest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -41,21 +54,94 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 )
 
-const (
-	mockNS         = "default"
-	mockPodName    = "fakePod"
-	mockDeployName = "fakeDeployName"
-	nodeName       = "node1"
-)
-
-func TestExecutor(t *testing.T) {
+func mockK3SRuntimeClient(initCluster bool) *K3SRuntimeClient {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	runtimeClient := NewFakeKubeRuntimeClient(server)
+	scheme := runtime.NewScheme()
+	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
+	kubeClient := fakedclient.NewSimpleClientset()
+
+	if initCluster {
+		return &K3SRuntimeClient{
+			Client:          kubeClient,
+			InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
+			DynamicClient:   dynamicClient,
+			DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
+			ClusterInfo: &schema.Cluster{
+				Name: "default-cluster",
+				ID:   uuid.GenerateID("cluster"),
+				Type: schema.K3SType,
+			},
+			Config:         &rest.Config{Host: server.URL},
+			JobInformerMap: make(map[k8sschema.GroupVersionResource]cache.SharedIndexInformer),
+		}
+	} else {
+		return &K3SRuntimeClient{
+			Client:          kubeClient,
+			InformerFactory: informers.NewSharedInformerFactory(kubeClient, 0),
+			DynamicClient:   dynamicClient,
+			DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
+			Config:          &rest.Config{Host: server.URL},
+			JobInformerMap:  make(map[k8sschema.GroupVersionResource]cache.SharedIndexInformer),
+		}
+	}
+}
+
+func createMockNode(client kubernetes.Interface) error {
+	nodeName := "mockNodeName"
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nodeName,
+		},
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
+				"cpu":    resource.MustParse("22"),
+				"memory": resource.MustParse("22Gi"),
+			},
+			Allocatable: corev1.ResourceList{
+				"cpu":    resource.MustParse("20"),
+				"memory": resource.MustParse("20Gi"),
+			},
+		},
+	}
+	// create node
+	_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
+	return err
+}
+
+func TestK3SRuntimeClient_Cluster(t *testing.T) {
+	runtimeClient := mockK3SRuntimeClient(true)
+	assert.NotNil(t, runtimeClient.Cluster())
+	assert.Equal(t, runtimeClient.ClusterName(), "default-cluster")
+	assert.NotNil(t, runtimeClient.ClusterID())
+	runtimeClient = mockK3SRuntimeClient(false)
+	assert.Contains(t, runtimeClient.ClusterID(), "defaultK3SID")
+	assert.Contains(t, runtimeClient.Cluster(), "SingleNode")
+	assert.Contains(t, runtimeClient.ClusterName(), "K3S Get Node Err")
+	// mock node
+	err := createMockNode(runtimeClient.Client)
+	assert.Nil(t, err)
+	assert.Contains(t, runtimeClient.ClusterName(), "mockNodeName")
+}
+
+func TestK3SRuntimeClient_ListNodeQuota(t *testing.T) {
+	// todo://add list node quota
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+	_, ret2, err := runtimeClient.ListNodeQuota(context.TODO())
+	assert.Nil(t, ret2)
+	assert.Nil(t, err)
+}
+
+func TestK3SExecutor(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
 
 	// create namespaced kubernetes resource
-	gvk := k8s.VCJobGVK
-	name := "vcjob"
+	gvk := k8s.PodGVK
+	name := "pod"
 	namespace := "default"
 
 	obj := &unstructured.Unstructured{
@@ -89,6 +175,9 @@ func TestExecutor(t *testing.T) {
 	// patch kubernetes resource with dynamic client
 	err = runtimeClient.Patch(namespace, name, frameworkVersion, patchJSON)
 	assert.Equal(t, nil, err)
+	// update
+	err = runtimeClient.Update(obj, frameworkVersion)
+	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client
 	_, err = runtimeClient.Get(namespace, name, frameworkVersion)
 	assert.Equal(t, nil, err)
@@ -99,36 +188,13 @@ func TestExecutor(t *testing.T) {
 	// kubernetes resource is not found
 	err = runtimeClient.Delete(namespace, name, frameworkVersion)
 	assert.NotEqual(t, nil, err)
-
-	// create non namespaced kubernetes resource
-	gvk = k8s.VCQueueGVK
-	obj = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": gvk.GroupVersion().String(),
-			"kind":       gvk.Kind,
-			"metadata": map[string]interface{}{
-				"name": name,
-			},
-			"status": make(map[string]interface{}),
-		},
-	}
-	// create kubernetes resource with dynamic client
-	frameworkVersion = pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-	err = runtimeClient.Create(obj, frameworkVersion)
-	assert.Equal(t, nil, err)
-	// get kubernetes resource with dynamic client
-	_, err = runtimeClient.Get(namespace, name, frameworkVersion)
-	assert.Equal(t, nil, err)
-	// delete kubernetes resource with dynamic client
-	err = runtimeClient.Delete(namespace, name, frameworkVersion)
-	assert.Equal(t, nil, err)
 }
 
-func TestNodeTaskListener(t *testing.T) {
+func TestK3SNodeTaskListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	runtimeClient := NewFakeKubeRuntimeClient(server)
+	runtimeClient := NewFakeK3SRuntimeClient(server)
 	// init 2w pods
 	var err error
 	var mockPodName = "test-pod-name"
@@ -181,10 +247,6 @@ func TestNodeTaskListener(t *testing.T) {
 	fakePod.Status.Phase = corev1.PodRunning
 	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
 	assert.Equal(t, nil, err)
-	// update pod resources
-	fakePod.Spec.Containers[0].Resources.Requests = reqList[1]
-	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
-	assert.Equal(t, nil, err)
 	// update pod DeletionGracePeriodSeconds
 	fakePod.ObjectMeta.DeletionGracePeriodSeconds = &mockDeletionGracePeriod
 	fakePod, err = runtimeClient.Client.CoreV1().Pods(mockPodNamespace).Update(context.TODO(), fakePod, metav1.UpdateOptions{})
@@ -203,7 +265,7 @@ func TestNodeTaskListener(t *testing.T) {
 	close(stopCh)
 }
 
-func TestNodeListener(t *testing.T) {
+func TestK3SNodeListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
@@ -246,7 +308,53 @@ func TestNodeListener(t *testing.T) {
 		return true
 	}
 
-	runtimeClient := NewFakeKubeRuntimeClient(server)
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		name              string
+		listenerType      string
+		startListenerErr  error
+		cachetListenerErr error
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success",
+			args: args{
+				listenerType: pfschema.ListenerTypeNode,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "startListenerErr",
+			args: args{
+				listenerType:     pfschema.ListenerTypeNode,
+				startListenerErr: fmt.Errorf("timed out waiting for"),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ListenerTypeQueue",
+			args: args{
+				listenerType:     pfschema.ListenerTypeQueue,
+				startListenerErr: fmt.Errorf("is not supported"),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "timeout",
+			args: args{
+				listenerType:      pfschema.ListenerTypeJob,
+				startListenerErr:  nil,
+				cachetListenerErr: fmt.Errorf("timed out waiting for"),
+			},
+			wantErr: nil,
+		},
+	}
+
 	// init 2k nodes
 	var nodeCount = 2000
 	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList)
@@ -256,33 +364,158 @@ func TestNodeListener(t *testing.T) {
 	// register node listener
 	err = runtimeClient.RegisterListener(pfschema.ListenerTypeNode, nodeQueue)
 	assert.Equal(t, nil, err)
-	// start node listener
-	stopCh := make(chan struct{})
-	err = runtimeClient.StartListener(pfschema.ListenerTypeNode, stopCh)
-	assert.Equal(t, nil, err)
 
-	go wait.Until(func() {
-		for process(nodeQueue) {
-		}
-	}, 0, stopCh)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.startListenerErr != nil {
+				//WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+				var p1 = gomonkey.ApplyMethodFunc(reflect.TypeOf(runtimeClient.InformerFactory), "WaitForCacheSync",
+					func(b <-chan struct{}) map[reflect.Type]bool {
+						m := make(map[reflect.Type]bool)
+						m[reflect.TypeOf(pfschema.ListenerTypeNode)] = false
+						m[reflect.TypeOf(pfschema.ListenerTypeNodeTask)] = false
+						return m
+					})
+				defer p1.Reset()
+				// start node listener
+				stopCh := make(chan struct{})
+				//defer close(stopCh)
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				if err != nil {
+					assert.Error(t, tt.args.startListenerErr)
+					assert.Contains(t, err.Error(), tt.args.startListenerErr.Error())
+				}
 
-	for nodeQueue.Len() != 0 {
-		time.Sleep(10 * time.Millisecond)
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			} else if tt.args.cachetListenerErr != nil {
+				var p1 = gomonkey.ApplyFunc(cache.WaitForCacheSync, func(_ <-chan struct{}, _ ...cache.InformerSynced) bool {
+					return false
+				})
+				defer p1.Reset()
+				// start node listener
+				stopCh := make(chan struct{})
+
+				gvr := k8s.GetJobGVR(pfschema.Framework(schema.FrameworkStandalone))
+				runtimeClient.podInformer = runtimeClient.DynamicFactory.ForResource(gvr).Informer()
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				if err != nil {
+					assert.Error(t, tt.args.cachetListenerErr)
+					assert.Contains(t, err.Error(), tt.args.cachetListenerErr.Error())
+				}
+
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			} else {
+				// start node listener
+				stopCh := make(chan struct{})
+				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
+				assert.Equal(t, nil, err)
+
+				go wait.Until(func() {
+					for process(nodeQueue) {
+					}
+				}, 0, stopCh)
+
+				for nodeQueue.Len() != 0 {
+					time.Sleep(10 * time.Millisecond)
+				}
+				close(stopCh)
+			}
+		})
 	}
-	close(stopCh)
+
 }
 
-func TestGetTaskLogV2(t *testing.T) {
+func TestK3SGetJobTypeFramework(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		fv              pfschema.FrameworkVersion
+		expectJobType   pfschema.JobType
+		expectFramework pfschema.Framework
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "success",
+			args: args{
+				fv:              schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+				expectJobType:   schema.TypeSingle,
+				expectFramework: schema.FrameworkStandalone,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jobType, framework := runtimeClient.GetJobTypeFramework(tt.args.fv)
+			assert.Equal(t, tt.args.expectJobType, jobType)
+			assert.Equal(t, tt.args.expectFramework, framework)
+		})
+	}
+}
+
+func TestK3SJobFrameworkVersion(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+
+	type args struct {
+		fv        pfschema.FrameworkVersion
+		jobType   pfschema.JobType
+		framework pfschema.Framework
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "success",
+			args: args{
+				fv:        schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+				jobType:   schema.TypeSingle,
+				framework: schema.FrameworkStandalone,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fv := runtimeClient.JobFrameworkVersion(tt.args.jobType, tt.args.framework)
+			assert.Equal(t, tt.args.fv, fv)
+		})
+	}
+}
+
+func TestK3SGetTaskLogV2(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 
-	runtimeClient := NewFakeKubeRuntimeClient(server)
-	createMockLog(t, runtimeClient)
+	runtimeClient := NewFakeK3SRuntimeClient(server)
+	createK3SMockLog(t, runtimeClient)
 	type args struct {
 		namespace     string
 		name          string
 		logpage       utils.LogPage
-		RuntimeClient *KubeRuntimeClient
+		RuntimeClient *K3SRuntimeClient
 	}
 	tests := []struct {
 		name    string
@@ -318,7 +551,7 @@ func TestGetTaskLogV2(t *testing.T) {
 				name:          "test",
 				namespace:     "default",
 				logpage:       utils.LogPage{},
-				RuntimeClient: &KubeRuntimeClient{},
+				RuntimeClient: &K3SRuntimeClient{},
 			},
 			wantErr: false,
 			errMsg:  "",
@@ -354,7 +587,29 @@ func TestGetTaskLogV2(t *testing.T) {
 	}
 }
 
-func createMockLog(t *testing.T, krc *KubeRuntimeClient) {
+func createK3SEvents(t *testing.T, krc *K3SRuntimeClient, objectName, namespace string) {
+	for i := 0; i < 10; i++ {
+		mockEventName := uuid.GenerateIDWithLength("randomName", 5)
+		event := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mockEventName,
+				Namespace: namespace,
+			},
+			InvolvedObject: corev1.ObjectReference{
+				Name:      objectName,
+				Namespace: namespace,
+			},
+			Reason:         "start",
+			Message:        "end msg",
+			FirstTimestamp: metav1.NewTime(time.Now()),
+			LastTimestamp:  metav1.NewTime(time.Now()),
+		}
+		_, err := krc.Client.CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
+		assert.Equal(t, nil, err)
+	}
+}
+
+func createK3SMockLog(t *testing.T, krc *K3SRuntimeClient) {
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -428,28 +683,6 @@ func createMockLog(t *testing.T, krc *KubeRuntimeClient) {
 	_, err = krc.Client.AppsV1().Deployments(mockNS).Create(context.TODO(), deploy, metav1.CreateOptions{})
 	assert.Equal(t, nil, err)
 	// create random events
-	createEvents(t, krc, mockPodName, mockNS)
-	createEvents(t, krc, mockDeployName, mockNS)
-}
-
-func createEvents(t *testing.T, krc *KubeRuntimeClient, objectName, namespace string) {
-	for i := 0; i < 10; i++ {
-		mockEventName := uuid.GenerateIDWithLength("randomName", 5)
-		event := &corev1.Event{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      mockEventName,
-				Namespace: namespace,
-			},
-			InvolvedObject: corev1.ObjectReference{
-				Name:      objectName,
-				Namespace: namespace,
-			},
-			Reason:         "start",
-			Message:        "end msg",
-			FirstTimestamp: metav1.NewTime(time.Now()),
-			LastTimestamp:  metav1.NewTime(time.Now()),
-		}
-		_, err := krc.Client.CoreV1().Events(namespace).Create(context.TODO(), event, metav1.CreateOptions{})
-		assert.Equal(t, nil, err)
-	}
+	createK3SEvents(t, krc, mockPodName, mockNS)
+	createK3SEvents(t, krc, mockDeployName, mockNS)
 }
