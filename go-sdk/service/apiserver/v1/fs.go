@@ -28,6 +28,7 @@ const (
 	FsApi       = Prefix + "/fs"
 	StsApi      = Prefix + "/fsSts"
 	KeyUsername = "username"
+	StsDuration = "duration"
 )
 
 type fileSystem struct {
@@ -82,7 +83,7 @@ type GetStsResponse struct {
 	CreateTime      string `json:"createTime"`
 	Expiration      string `json:"expiration"`
 	UserId          string `json:"userId"`
-	Duration        string `json:"duration"`
+	Duration        int    `json:"duration"`
 }
 
 func (f *fileSystem) Create(ctx context.Context, request *CreateFileSystemRequest,

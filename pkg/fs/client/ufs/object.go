@@ -1257,7 +1257,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			subPath = sts.SubPath
 			bucket = sts.Bucket
 			region = sts.Region
-			duration, _ := strconv.Atoi(sts.Duration)
 
 			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
 			stsCredential, err := auth.NewSessionBceCredentials(
@@ -1286,6 +1285,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			// update sts Credentials
 			go func() {
 				for {
+					duration := sts.Duration
+					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
+
 					sts, err = pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{
 						FsName: properties[fsCommon.FsName].(string),
 					}, token)
@@ -1302,11 +1304,10 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 						sts.SessionToken)
 					if err != nil {
 						log.Errorf("NewSessionBceCredentials: err[%v]", err)
-						time.Sleep(1 * time.Second)
+						time.Sleep(2 * time.Second)
 						continue
 					}
 					bosClient.Config.Credentials = stsCredential
-					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
 				}
 			}()
 			storage = object.NewBosClient(bucket, bosClient)

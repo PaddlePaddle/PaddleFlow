@@ -42,19 +42,21 @@ const (
 )
 
 type Info struct {
-	CacheConfig model.FSCacheConfig
-	FS          model.FileSystem
-	FSBase64Str string
-	TargetPath  string
-	SourcePath  string
-	Cmd         string
-	Args        []string
-	ReadOnly    bool
-	K8sClient   utils.Client
-	PodResource corev1.ResourceRequirements
+	CacheConfig   model.FSCacheConfig
+	FS            model.FileSystem
+	Password      string
+	ServerAddress string
+	FSBase64Str   string
+	TargetPath    string
+	SourcePath    string
+	Cmd           string
+	Args          []string
+	ReadOnly      bool
+	K8sClient     utils.Client
+	PodResource   corev1.ResourceRequirements
 }
 
-func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
+func ConstructMountInfo(serverAddress, fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
 	// FS info
 	fs, err := utils.ProcessFSInfo(fsInfoBase64)
 	if err != nil {
@@ -75,15 +77,16 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 	}
 
 	info := Info{
-		CacheConfig: cacheConfig,
-		FS:          fs,
-		FSBase64Str: fsInfoBase64,
-		TargetPath:  targetPath,
-		ReadOnly:    readOnly,
-		K8sClient:   k8sClient,
+		CacheConfig:   cacheConfig,
+		FS:            fs,
+		FSBase64Str:   fsInfoBase64,
+		TargetPath:    targetPath,
+		ReadOnly:      readOnly,
+		K8sClient:     k8sClient,
+		ServerAddress: serverAddress,
 	}
 
-	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType && fs.Type != common.AFSType {
+	if false && !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType && fs.Type != common.AFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
 		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
 		if err != nil {
@@ -95,6 +98,7 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		info.SourcePath = utils.GetSourceMountPath(filepath.Dir(info.TargetPath))
 	}
 	info.Cmd, info.Args = info.cmdAndArgs()
+	log.Infof("info cmd is %s and args %s info %+v", info.Cmd, info.Args, info)
 	return info, nil
 }
 
@@ -105,10 +109,8 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 		return mountName, mountInfo.cfsArgs()
 	} else if mountInfo.FS.Type == common.AFSType {
 		return afsMount, mountInfo.afsArgs()
-	} else if mountInfo.FS.IndependentMountProcess {
-		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
-		return pfsFuseMountPodCMDName, mountInfo.podMountArgs()
+		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	}
 }
 
@@ -176,7 +178,14 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 func (mountInfo *Info) commonOptions() []string {
 	var options []string
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
-	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
+	if mountInfo.FS.PropertiesMap[common.Sts] == "true" && mountInfo.FS.Type == common.BosType {
+		options = append(options, "--sts=true")
+		options = append(options, fmt.Sprintf("--%s=%s", "user-name", "root"))
+		options = append(options, fmt.Sprintf("--%s=%s", "password", "paddleflow"))
+		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
+	} else {
+		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
+	}
 
 	if mountInfo.ReadOnly {
 		options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))

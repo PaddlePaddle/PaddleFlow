@@ -32,6 +32,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
@@ -82,6 +83,11 @@ type ListFileSystemRequest struct {
 }
 
 type GetFileSystemRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+type GetSessionRequest struct {
 	FsName   string `json:"fsName"`
 	Username string `json:"username"`
 }
@@ -139,7 +145,7 @@ type GetStsResponse struct {
 	SubPath         string `json:"subPath"`
 	Endpoint        string `json:"endpoint"`
 	Region          string `json:"region"`
-	Duration        string `json:"duration"`
+	Duration        int    `json:"duration"`
 }
 
 func MountPodController(mountPodExpire, interval time.Duration,
@@ -562,11 +568,32 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	sk := properties[fsCommon.SecretKey]
 	sk, _ = common.AesDecrypt(sk, common.AESEncryptKey)
 	duration_ := properties[fsCommon.StsDuration]
+	if duration_ == "" {
+		duration_ = util.StsDurationDefault
+	}
 	duration, _ := strconv.Atoi(duration_)
 	acl := properties[fsCommon.StsACL]
+	subpath := modelsFs.SubPath
+	subpath = formatSubpath(subpath)
+
+	if acl == "" {
+		acl = fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s/%s*"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
+	}
 	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
 	if err != nil {
 		log.Errorf("StsSessionToken: %v", err)
+		return nil, err
 	}
 	result := &GetStsResponse{
 		AccessKeyId:     stsResult.AccessKeyId,
@@ -579,7 +606,20 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 		SubPath:         modelsFs.SubPath,
 		Endpoint:        properties[fsCommon.Endpoint],
 		Region:          properties[fsCommon.Region],
-		Duration:        properties[fsCommon.StsDuration],
+		Duration:        duration,
 	}
 	return result, nil
+}
+
+func formatSubpath(subpath string) string {
+	if !strings.HasSuffix(subpath, "/") {
+		subpath = subpath + "/"
+	}
+	if strings.HasPrefix(subpath, "/") {
+		subpath = strings.TrimPrefix(subpath, "/")
+	}
+	if subpath == "/" {
+		subpath = ""
+	}
+	return subpath
 }

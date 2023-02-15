@@ -311,14 +311,13 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 			return common.InvalidField("properties", "url bucket is empty")
 		}
 		if req.Properties[fsCommon.Region] == "" {
-			req.Properties[fsCommon.Region] = ""
+			req.Properties[fsCommon.Region] = "bj"
 		}
 
 		if req.Properties[fsCommon.Sts] == "true" {
 			duration, _ := strconv.Atoi(req.Properties[fsCommon.StsDuration])
 			if duration < 60 {
-				duration = 60
-				req.Properties[fsCommon.StsDuration] = "60"
+				req.Properties[fsCommon.StsDuration] = util.StsDurationDefault
 			}
 			_, err := object.StsSessionToken(req.Properties[fsCommon.AccessKey], req.Properties[fsCommon.SecretKey], 10, req.Properties[fsCommon.StsACL])
 			if err != nil {
@@ -618,7 +617,7 @@ func (pr *PFSRouter) getStsSessionToken(w http.ResponseWriter, r *http.Request) 
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
-	getRequest := api.GetFileSystemRequest{
+	getRequest := api.GetSessionRequest{
 		Username: r.URL.Query().Get(util.QueryKeyUserName),
 	}
 	log.Infof("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
@@ -639,7 +638,14 @@ func (pr *PFSRouter) getStsSessionToken(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	sk, _ := common.AesEncrypt(result.SecretAccessKey, common.AESEncryptKey)
+	sk, err := common.AesEncrypt(result.SecretAccessKey, common.AESEncryptKey)
+	if err != nil {
+		log.Errorf("AesEncrypt err: %v", err)
+		ctx.ErrorCode = common.InternalError
+		ctx.ErrorMessage = err.Error()
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
 	result.SecretAccessKey = sk
 	common.Render(w, http.StatusOK, result)
 }
