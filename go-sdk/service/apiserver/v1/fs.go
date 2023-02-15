@@ -34,10 +34,11 @@ type fileSystem struct {
 }
 
 type CreateFileSystemRequest struct {
-	Name       string            `json:"name"`
-	Url        string            `json:"url"`
-	Properties map[string]string `json:"properties"`
-	Username   string            `json:"username"`
+	Name                    string            `json:"name"`
+	Url                     string            `json:"url"`
+	Properties              map[string]string `json:"properties"`
+	Username                string            `json:"username"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 type CreateFileSystemResponse struct {
