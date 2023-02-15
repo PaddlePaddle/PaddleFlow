@@ -663,6 +663,22 @@ func (kr *KubeRuntime) clientset() kubernetes.Interface {
 	return kubeClient.Client
 }
 
+// CreateNamespace Create namespace if not exist
+func (kr *KubeRuntime) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+	coreNs := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	ns, err := kr.clientset().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, err
+	} else if ns != nil && err == nil {
+		return ns, nil
+	}
+	return kr.clientset().CoreV1().Namespaces().Create(context.TODO(), coreNs, opts)
+}
+
 func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*corev1.NamespaceList, error) {
 	return kr.clientset().CoreV1().Namespaces().List(context.TODO(), listOptions)
 }

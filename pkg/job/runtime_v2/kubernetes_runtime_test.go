@@ -291,6 +291,40 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 	t.Logf("get object: %v", obj)
 }
 
+func TestKubeRuntime_CreateNamespace(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	type args struct {
+		namespace string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{"test-namespace", args{"test"}, nil},
+		{"repeat-namespace", args{"test"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ns, err := kubeRuntime.CreateNamespace(tt.args.namespace, metav1.CreateOptions{})
+			if err != nil {
+				assert.NotNil(t, tt.wantErr)
+				assert.Contains(t, err.Error(), tt.wantErr.Error())
+			} else {
+				assert.Nil(t, tt.wantErr)
+				t.Logf("case[%s] create ns resp=%#v", tt.name, ns)
+			}
+		})
+	}
+}
+
 func TestKubeRuntimeVCQueue(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
