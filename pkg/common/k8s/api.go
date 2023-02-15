@@ -38,9 +38,20 @@ var (
 	MXNetJobGVK   = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MXJob"}
 	XGBoostJobGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "XGBoostJob"}
 	RayJobGVK     = schema.GroupVersionKind{Group: "ray.io", Version: "v1alpha1", Kind: "RayJob"}
-
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
+
+	// PodGVR TODO:// add gvr to process and get rid of all gvks in future
+	PodGVR          = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
+	PaddleJobGVR    = schema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
+	PyTorchJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
+	TFJobGVR        = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "tfjobs"}
+	MPIJobGVR       = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mpijobs"}
+	MXNetJobGVR     = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "mxjobs"}
+	XGBoostJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
+	RayJobGVR       = schema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
+	ArgoWorkflowGVR = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
 
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
 	GVKJobStatusMap = map[schema.GroupVersionKind]bool{
@@ -55,6 +66,30 @@ var (
 		RayJobGVK:       true,
 	}
 )
+
+func GetJobGVR(framework commomschema.Framework) schema.GroupVersionResource {
+	switch framework {
+	case commomschema.FrameworkStandalone:
+		return PodGVR
+		// TODO://reopen
+		// case commomschema.FrameworkTF:
+		// 	return TFJobGVR
+		// case commomschema.FrameworkPytorch:
+		// 	return PyTorchJobGVR
+		// case commomschema.FrameworkSpark:
+		// 	return SparkAppGVR
+		// case commomschema.FrameworkPaddle:
+		// 	return PaddleJobGVR
+		// case commomschema.FrameworkMXNet:
+		// 	return MXNetJobGVR
+		// case commomschema.FrameworkMPI:
+		// 	return MPIJobGVR
+		// case commomschema.FrameworkRay:
+		// 	return RayJobGVR
+	}
+	// default return pod gvr
+	return PodGVR
+}
 
 func GetJobFrameworkVersion(jobType commomschema.JobType, framework commomschema.Framework) commomschema.FrameworkVersion {
 	if jobType == commomschema.TypeWorkflow {

@@ -192,6 +192,9 @@ const (
 	EnvRayJobWorkerMinReplicas       = "RAY_JOB_WORKER_MIN_REPLICAS"
 	EnvRayJobWorkerMaxReplicas       = "RAY_JOB_WORKER_MAX_REPLICAS"
 	EnvRayJobWorkerStartParamsPrefix = "RAY_JOB_WORKER_START_PARAMS_"
+
+	// ENVK3SNodeName  makesure schedule without volcano
+	ENVK3SNodeName = "K3S_NODE_NAME"
 )
 
 const (
@@ -249,6 +252,7 @@ type Conf struct {
 	// 存储资源
 	FileSystem      FileSystem   `json:"fs,omitempty"`
 	ExtraFileSystem []FileSystem `json:"extraFS,omitempty"`
+	processedFS     []FileSystem `json:"-"`
 	// 计算资源
 	Flavour      Flavour `json:"flavour,omitempty"`
 	LimitFlavour Flavour `json:"limitFlavour,omitempty"`
@@ -467,6 +471,17 @@ func (c *Conf) GetAllFileSystem() []FileSystem {
 	}
 	fileSystems = append(fileSystems, c.ExtraFileSystem...)
 	return fileSystems
+}
+
+func (c *Conf) SetProcessedFileSystem(fs []FileSystem) {
+	c.processedFS = fs
+}
+
+func (c *Conf) GetProcessedFileSystem() []FileSystem {
+	if c.processedFS == nil {
+		return []FileSystem{}
+	}
+	return c.processedFS
 }
 
 /**

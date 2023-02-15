@@ -23,6 +23,7 @@ import (
 const (
 	LocalType      = "Local"
 	KubernetesType = "Kubernetes"
+	K3SType        = "K3S"
 )
 
 // ClientOptions used to build rest config.
