@@ -203,7 +203,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 	}
 	err = checkStorageConnectivity(fsMeta)
 	if err != nil {
-		ctx.Logging().Errorf("check fs[%s] connectivity failed with req[%v] and err[%v]", req.Name, req, err)
+		ctx.Logging().Errorf("check fs[%s] connectivity failed and err[%v]", req.Name, err)
 		ctx.ErrorCode = common.ConnectivityFailed
 		return err
 	}
@@ -213,7 +213,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 func checkStorageConnectivity(fsMeta fsCommon.FSMeta) error {
 	_, err := fuse.NewFileSystem(fsMeta, nil, true, false, config.GlobalServerConfig.Fs.LinkMetaDirPrefix, nil)
 	if err != nil {
-		log.Errorf("new a fileSystem with fsMeta [%+v] failed: %v", fsMeta, err)
+		log.Errorf("new a fileSystem with fsMeta failed: %v", err)
 		return err
 	}
 	return nil
