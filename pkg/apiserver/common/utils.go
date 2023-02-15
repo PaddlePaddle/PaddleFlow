@@ -144,7 +144,7 @@ func InformationFromURL(url string, properties map[string]string) (fileSystemTyp
 	case common.SFTPType:
 		serverAddress = urlSplit[ServerAddressSplit]
 		subPath = "/" + SubPathFromUrl(urlSplit, HDFSSplit)
-	case common.S3Type:
+	case common.S3Type, common.BosType:
 		serverAddress = properties[common.Endpoint]
 		subPath = "/" + SubPathFromUrl(urlSplit, S3Split)
 	case common.CFSType:

@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +32,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	// "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
@@ -82,6 +87,11 @@ type GetFileSystemRequest struct {
 	Username string `json:"username"`
 }
 
+type GetSessionRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
 type DeleteFileSystemRequest struct {
 	FsName   string `json:"fsName"`
 	Username string `json:"username"`
@@ -122,6 +132,20 @@ type FileSystemResponse struct {
 
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
+}
+
+type GetStsResponse struct {
+	AccessKeyId     string `json:"accessKey"`
+	SecretAccessKey string `json:"secretKey"`
+	SessionToken    string `json:"sessionToken"`
+	CreateTime      string `json:"createTime"`
+	Expiration      string `json:"expiration"`
+	UserId          string `json:"userId"`
+	Bucket          string `json:"bucket"`
+	SubPath         string `json:"subPath"`
+	Endpoint        string `json:"endpoint"`
+	Region          string `json:"region"`
+	Duration        int    `json:"duration"`
 }
 
 func MountPodController(mountPodExpire, interval time.Duration,
@@ -526,4 +550,76 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	}
 
 	return items, "", err
+}
+
+// SessionToken get sts token from bos
+func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsResponse, error) {
+	modelsFs, err := storage.Filesystem.GetFileSystemWithFsID(common.ID(username, fsName))
+	if err != nil {
+		log.Errorf("get filesystem[%s] under username[%s] err[%v]", fsName, username, err)
+		return nil, err
+	}
+	if modelsFs.Type != fsCommon.BosType {
+		log.Errorf("modefsType error %s", modelsFs.Type)
+		return nil, fmt.Errorf("sts must bos type")
+	}
+	properties := modelsFs.PropertiesMap
+	ak := properties[fsCommon.AccessKey]
+	sk := properties[fsCommon.SecretKey]
+	sk, _ = common.AesDecrypt(sk, common.AESEncryptKey)
+	duration_ := properties[fsCommon.StsDuration]
+	if duration_ == "" {
+		duration_ = util.StsDurationDefault
+	}
+	duration, _ := strconv.Atoi(duration_)
+	acl := properties[fsCommon.StsACL]
+	subpath := modelsFs.SubPath
+	subpath = formatSubpath(subpath)
+
+	if acl == "" {
+		acl = fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s/%s*"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
+	}
+	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
+	if err != nil {
+		log.Errorf("StsSessionToken: %v", err)
+		return nil, err
+	}
+	result := &GetStsResponse{
+		AccessKeyId:     stsResult.AccessKeyId,
+		SecretAccessKey: stsResult.SecretAccessKey,
+		SessionToken:    stsResult.SessionToken,
+		CreateTime:      stsResult.CreateTime,
+		Expiration:      stsResult.Expiration,
+		UserId:          stsResult.UserId,
+		Bucket:          properties[fsCommon.Bucket],
+		SubPath:         modelsFs.SubPath,
+		Endpoint:        properties[fsCommon.Endpoint],
+		Region:          properties[fsCommon.Region],
+		Duration:        duration,
+	}
+	return result, nil
+}
+
+func formatSubpath(subpath string) string {
+	if !strings.HasSuffix(subpath, "/") {
+		subpath = subpath + "/"
+	}
+	if strings.HasPrefix(subpath, "/") {
+		subpath = strings.TrimPrefix(subpath, "/")
+	}
+	if subpath == "/" {
+		subpath = ""
+	}
+	return subpath
 }

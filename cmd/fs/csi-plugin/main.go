@@ -42,7 +42,7 @@ var logConf = logger.LogConfig{
 	Dir:             "./log",
 	FilePrefix:      "./pfs-csi-plugin",
 	Level:           "INFO",
-	MaxKeepDays:     90,
+	MaxKeepDays:     3,
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,

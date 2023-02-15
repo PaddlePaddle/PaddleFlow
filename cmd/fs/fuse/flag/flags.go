@@ -45,6 +45,11 @@ func BasicFlags() []cli.Flag {
 			Value: "",
 			Usage: "filesystem ID",
 		},
+		&cli.BoolFlag{
+			Name:  "sts",
+			Value: false,
+			Usage: "use bos sts credentials mount",
+		},
 		&cli.StringFlag{
 			Name:  "config",
 			Value: "",
