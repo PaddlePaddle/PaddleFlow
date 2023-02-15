@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -183,34 +184,15 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, errors.New(errMsg)
 	}
 	// validate namespace
-	if request.Namespace == "" {
+	if err = validateNamespace(request.Namespace, clusterInfo); err != nil {
 		ctx.ErrorCode = common.NamespaceNotFound
-		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
-		return CreateQueueResponse{}, errors.New("namespace is not found")
+		ctx.Logging().Errorf("create request failed. error: namespace[%s] is invalid, err: %v", request.Namespace, err)
+		return CreateQueueResponse{}, err
 	}
-	if len(clusterInfo.NamespaceList) != 0 {
-		isExist := false
-		for _, ns := range clusterInfo.NamespaceList {
-			if request.Namespace == ns {
-				isExist = true
-				break
-			}
-		}
-		if !isExist {
-			return CreateQueueResponse{}, fmt.Errorf(
-				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
-				request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
-		}
-	} else {
-		// check namespace format
-		if errStr := common.IsDNS1123Label(request.Namespace); len(errStr) != 0 {
-			return CreateQueueResponse{}, fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
-				request.Namespace, strings.Join(errStr, ","))
-		}
-	}
+
 	if errStr := common.IsDNS1123Label(request.Name); len(errStr) != 0 {
 		ctx.ErrorCode = common.InvalidNamePattern
-		log.Errorf("CreateQueue failed when check name[%s] isDNS1123Label. err: %v.", request.Name, err)
+		log.Errorf("CreateQueue failed when check name[%s] isDNS1123Label. err: %s.", request.Name, errStr)
 		return CreateQueueResponse{}, fmt.Errorf("name[%s] of queue is invalid, err: %s",
 			request.Name, strings.Join(errStr, ","))
 	}
@@ -289,6 +271,32 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		}
 	}
 
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.Logging().Errorf("create queue %s failed. error:%s", request.Name, err.Error())
+		ctx.ErrorCode = common.QueueResourceNotMatch
+		ctx.ErrorMessage = err.Error()
+		deleteErr := storage.Queue.DeleteQueue(request.Name)
+		if deleteErr != nil {
+			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
+		}
+		return CreateQueueResponse{}, err
+	}
+
+	// create namespace if not exist in cluster
+	switch clusterInfo.ClusterType {
+	case schema.KubernetesType:
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		if _, err = k8sRuntime.CreateNamespace(request.Namespace, metav1.CreateOptions{}); err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
+				request.Namespace, request.ClusterName, err)
+			return CreateQueueResponse{}, err
+		}
+	default:
+		ctx.Logging().Warningf("pass create namespace on %s", clusterInfo.ClusterType)
+	}
+
 	request.Status = schema.StatusQueueCreating
 	queueInfo := model.Queue{
 		Model: model.Model{
@@ -315,18 +323,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, err
 	}
 
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
-		ctx.ErrorCode = common.QueueResourceNotMatch
-		ctx.ErrorMessage = err.Error()
-		deleteErr := storage.Queue.DeleteQueue(request.Name)
-		if deleteErr != nil {
-			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
-		}
-		return CreateQueueResponse{}, err
-	}
-
+	// create queue in cluster
 	rQ := api.NewQueueInfo(queueInfo)
 	err = runtimeSvc.CreateQueue(rQ)
 	if err != nil && k8serrors.IsAlreadyExists(err) {
@@ -359,6 +356,33 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		QueueName: request.Name,
 	}
 	return response, nil
+}
+
+func validateNamespace(namespace string, clusterInfo model.ClusterInfo) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	// check namespace format
+	if errStr := common.IsDNS1123Label(namespace); len(errStr) != 0 {
+		return fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
+			namespace, strings.Join(errStr, ","))
+	}
+	// check NamespaceList rules
+	if len(clusterInfo.NamespaceList) != 0 {
+		isExist := false
+		for _, ns := range clusterInfo.NamespaceList {
+			if namespace == ns {
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			return fmt.Errorf(
+				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
+				namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
+		}
+	}
+	return nil
 }
 
 func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (UpdateQueueResponse, error) {

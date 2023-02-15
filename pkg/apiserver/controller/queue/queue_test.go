@@ -24,6 +24,9 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -40,31 +43,51 @@ const (
 	MockRootUser    = "root"
 	MockClusterName = "testCn"
 	MockNamespace   = "paddle"
-	MockQueueName   = "mock-q-001"
+	MockNamespace1  = "n"
+	MockQueueName   = "mock-q-000"
+	MockQueueName1  = "mock-q-001"
+	MockQueueName2  = "mock-q-002"
+	mockRootUser    = "root"
 )
 
-var clusterInfo = model.ClusterInfo{
-	Name:          MockClusterName,
-	Description:   "Description",
-	Endpoint:      "Endpoint",
-	Source:        "Source",
-	ClusterType:   schema.KubernetesType,
-	Version:       "1.16",
-	Status:        model.ClusterStatusOnLine,
-	Credential:    "credential",
-	Setting:       "Setting",
-	NamespaceList: []string{"n1", "n2", MockNamespace},
-}
+var (
+	clusterInfo = model.ClusterInfo{
+		Name:          MockClusterName,
+		Description:   "Description",
+		Endpoint:      "Endpoint",
+		Source:        "Source",
+		ClusterType:   schema.KubernetesType,
+		Version:       "1.16",
+		Status:        model.ClusterStatusOnLine,
+		Credential:    "credential",
+		Setting:       "Setting",
+		NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
+	}
+	mockClusterInfo = model.ClusterInfo{
+		Name:          "mock",
+		Description:   "Description",
+		Endpoint:      "Endpoint",
+		Source:        "Source",
+		ClusterType:   schema.LocalType,
+		Version:       "1.16",
+		Status:        model.ClusterStatusOnLine,
+		Credential:    "credential",
+		Setting:       "Setting",
+		NamespaceList: []string{"n1", "n2", "n3", "n4", MockNamespace},
+	}
+)
 
 func TestCreateQueue(t *testing.T) {
 	ServerConf := &config.ServerConfig{}
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
+	assert.NoError(t, err)
 	config.GlobalServerConfig = ServerConf
 
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
+	assert.Nil(t, storage.Cluster.CreateCluster(&mockClusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
@@ -76,32 +99,236 @@ func TestCreateQueue(t *testing.T) {
 		return nil
 	})
 	defer p3.Reset()
+	var p4 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace", func(*unstructured.Unstructured) error {
+		return nil
+	})
+	defer p4.Reset()
 
-	createQueueReq := CreateQueueRequest{
-		Name:      "mockQueueName",
-		Namespace: MockNamespace,
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "1",
-			Mem: "1G",
+	type args struct {
+		ctx                       *logger.RequestContext
+		req                       CreateQueueRequest
+		createRuntimeErr          error
+		mockGetOrCreateRuntimeErr error
+		mockCreateNSErr           error
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "success request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName,
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: nil,
 		},
-		SchedulingPolicy: []string{"s1", "s2"},
-		ClusterName:      MockClusterName,
+		{
+			name: "wrong request",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      "aBC",
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: fmt.Errorf("a lowercase RFC 1123 label must consist of"),
+		},
+		{
+			name: "not in the specified values",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName1,
+					Namespace: "new1",
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: fmt.Errorf("not in the specified values"),
+		},
+		{
+			name: "not exist in runtime",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName1,
+					Namespace: "n1",
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "createRuntimeErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      MockQueueName2,
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				createRuntimeErr: fmt.Errorf("mock init failed"),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "GetOrCreateRuntimeErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 3),
+					Namespace: MockNamespace,
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				mockGetOrCreateRuntimeErr: fmt.Errorf("mock init failed"),
+			},
+			wantErr: fmt.Errorf("mock error"),
+		},
+		{
+			name: "mockCreateNSErr",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 4),
+					Namespace: fmt.Sprintf("%s%d", MockNamespace1, 2),
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      MockClusterName,
+				},
+				mockCreateNSErr: fmt.Errorf("mockCreateNSErr"),
+			},
+			wantErr: fmt.Errorf("mockCreateNSErr"),
+		},
+		{
+			name: "ClusterType unknown",
+			args: args{
+				ctx: &logger.RequestContext{
+					UserName: mockRootUser,
+				},
+				req: CreateQueueRequest{
+					Name:      fmt.Sprintf("mock-q-00%d", 4),
+					Namespace: fmt.Sprintf("%s%d", MockNamespace1, 2),
+					QuotaType: schema.TypeVolcanoCapabilityQuota,
+					MaxResources: schema.ResourceInfo{
+						CPU: "1",
+						Mem: "1G",
+					},
+					SchedulingPolicy: []string{"s1", "s2"},
+					ClusterName:      "mock",
+				},
+			},
+			wantErr: nil,
+		},
 	}
-	// test queue name
-	resp, err := CreateQueue(ctx, &createQueueReq)
-	expectErrMsg := fmt.Sprintf("name[%s] of queue is invalid", createQueueReq.Name)
-	if err != nil {
-		assert.Contains(t, err.Error(), expectErrMsg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			if tt.args.mockGetOrCreateRuntimeErr != nil {
+				var p5 = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime,
+					func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+						return runtime.NewKubeRuntime(schema.Cluster{}), fmt.Errorf("mock error")
+					})
+				defer p5.Reset()
+			} else {
+				var p6 = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime,
+					func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
+						return runtime.NewKubeRuntime(schema.Cluster{}), nil
+					})
+				defer p6.Reset()
+			}
+			if tt.args.mockCreateNSErr != nil {
+				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
+					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+						return &corev1.Namespace{}, tt.args.mockCreateNSErr
+					})
+				defer p7.Reset()
+			} else {
+				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
+					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+						return &corev1.Namespace{}, nil
+					})
+				defer p7.Reset()
+			}
+			if tt.args.createRuntimeErr != nil {
+				var p5 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
+					return fmt.Errorf("mock init failed")
+				})
+				defer p5.Reset()
+			}
+			resp, err := CreateQueue(ctx, &tt.args.req)
+			if err != nil {
+				if tt.args.createRuntimeErr != nil {
+					assert.Contains(t, err.Error(), tt.args.createRuntimeErr.Error())
+				} else {
+					assert.NotNil(t, tt.wantErr)
+					assert.Contains(t, err.Error(), tt.wantErr.Error())
+				}
+			} else {
+				assert.Nil(t, tt.wantErr)
+				t.Logf("case[%s] create queue resp=%#v", tt.name, resp)
+			}
+		})
 	}
-
-	// test create queue
-	createQueueReq.Name = MockQueueName
-	err = nil
-	resp, err = CreateQueue(ctx, &createQueueReq)
-	assert.Nil(t, err)
-
-	t.Logf("resp=%v", resp)
 }
 
 func TestGetQueueByName(t *testing.T) {
