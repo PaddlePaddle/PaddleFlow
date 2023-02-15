@@ -25,9 +25,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
@@ -42,7 +40,7 @@ var logConf = logger.LogConfig{
 	Dir:             "./log",
 	FilePrefix:      "./pfs-csi-plugin",
 	Level:           "INFO",
-	MaxKeepDays:     90,
+	MaxKeepDays:     7,
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
@@ -50,11 +48,11 @@ var logConf = logger.LogConfig{
 
 // init() obtain csi-plugin pod, to assign same parameters to mount pods in csiconfig
 func init() {
-	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
-	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
+	csi.Namespace = os.Getenv("CSI_NAMESPACE")
+	csi.PodName = os.Getenv("CSI_POD_NAME")
 
-	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
-		log.Errorf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
+	if csi.PodName == "" || csi.Namespace == "" {
+		log.Errorf("Pod name[%s] & namespace[%s] can't be null\n", csi.PodName, csi.Namespace)
 		return
 	}
 
@@ -63,25 +61,25 @@ func init() {
 		log.Errorf("get k8s client failed: %v", err)
 		return
 	}
-	pod, err := k8sClient.GetPod(csiconfig.Namespace, csiconfig.PodName)
+	pod, err := k8sClient.GetPod(csi.Namespace, csi.PodName)
 	if err != nil {
-		log.Errorf("Can't get pod %s: %v", csiconfig.PodName, err)
+		log.Errorf("Can't get pod %s: %v", csi.PodName, err)
 		return
 	}
-	csiconfig.CSIPod = *pod
-	csiconfig.NodeName = pod.Spec.NodeName
+	csi.CSIPod = *pod
+	csi.NodeName = pod.Spec.NodeName
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
-			csiconfig.MountImage = pod.Spec.Containers[i].Image
+			csi.MountImage = pod.Spec.Containers[i].Image
 		}
 	}
 	for _, v := range pod.Spec.Volumes {
 		if v.Name == VolumeNameMnt {
-			csiconfig.HostMntDir = v.HostPath.Path
+			csi.HostMntDir = v.HostPath.Path
 		}
 	}
-	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
-		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
+	if csi.HostMntDir == "" || csi.MountImage == "" {
+		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csi.PodName)
 		return
 	}
 }
@@ -134,11 +132,11 @@ func act(c *cli.Context) error {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	ctrl := controller.GetMountPointController(c.String("node-id"))
-	go ctrl.Start(stopChan)
-	defer ctrl.Stop()
+	// ctrl := controller.GetMountPointController(c.String("node-id"))
+	// go ctrl.Start(stopChan)
+	// defer ctrl.Stop()
 
-	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"))
+	d := csi.NewDriver(c.String("node-id"), c.String("unix-endpoint"))
 	d.Run()
 	return nil
 }

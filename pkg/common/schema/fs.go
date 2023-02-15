@@ -24,16 +24,23 @@ import (
 const (
 	PFSTypeLocal = "local"
 
-	PVNameTemplate  = "pfs-$(pfs.fs.id)-$(namespace)-pv"
-	PVCNameTemplate = "pfs-$(pfs.fs.id)-pvc"
+	PVNameTemplate  = "pfs-$(pfs.fs.id)-$(namespace)-$(pk)-$(host)-$(port)-pv"
+	PVCNameTemplate = "pfs-$(pfs.fs.id)-$(pk)-$(host)-$(port)-pvc"
 	FSIDFormat      = "$(pfs.fs.id)"
+	PKFormat        = "$(pk)"
+	HostFormat      = "$(host)"
+	PortFormat      = "$(port)"
 	NameSpaceFormat = "$(namespace)"
 
-	PFSID        = "pfs.fs.id"
-	PFSInfo      = "pfs.fs.info"
-	PFSCache     = "pfs.fs.cache"
-	PFSServer    = "pfs.server"
-	PFSClusterID = "pfs.cluster.id"
+	PFSID           = "pfs.fs.id"
+	PFSType         = "pfs.type"
+	PFSMountOptions = "pfs.mount.options"
+	PFSInfo         = "pfs.info"
+	PFSAddress      = "pfs.mount.address"
+	PFSCache        = "pfs.cache"
+	PFSServer       = "pfs.server"
+	PFSMountMethod  = "pfs.mount.method"
+	PFSClusterID    = "pfs.cluster.id"
 
 	FusePodMntDir = "/home/paddleflow/mnt"
 
@@ -69,12 +76,19 @@ func GetBindSource(fsID string) string {
 	return path.Join(FusePodMntDir, fsID, "storage")
 }
 
-func ConcatenatePVName(namespace, fsID string) string {
+func ConcatenatePVName(namespace, fsID, pk, host, port string) string {
 	pvName := strings.Replace(PVNameTemplate, FSIDFormat, fsID, -1)
 	pvName = strings.Replace(pvName, NameSpaceFormat, namespace, -1)
+	pvName = strings.Replace(pvName, PKFormat, pk, -1)
+	pvName = strings.Replace(pvName, HostFormat, host, -1)
+	pvName = strings.Replace(pvName, PortFormat, port, -1)
 	return pvName
 }
 
-func ConcatenatePVCName(fsID string) string {
-	return strings.Replace(PVCNameTemplate, FSIDFormat, fsID, -1)
+func ConcatenatePVCName(fsID, pk, host, port string) string {
+	pvcName := strings.Replace(PVCNameTemplate, FSIDFormat, fsID, -1)
+	pvcName = strings.Replace(pvcName, PKFormat, pk, -1)
+	pvcName = strings.Replace(pvcName, HostFormat, host, -1)
+	pvcName = strings.Replace(pvcName, PortFormat, port, -1)
+	return pvcName
 }

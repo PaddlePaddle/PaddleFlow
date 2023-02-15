@@ -59,9 +59,8 @@ var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse-" + time.Now().Format(TimeFormat),
 	Level:           "INFO",
-	MaxKeepDays:     90,
+	MaxKeepDays:     3,
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
@@ -90,6 +89,8 @@ Usage please refer to docs`,
 }
 
 func setup(c *cli.Context) error {
+	logConf.FilePrefix = "./pfs-fuse-" + c.String("fs-id") + "-" + time.Now().Format(TimeFormat)
+
 	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
 		return err

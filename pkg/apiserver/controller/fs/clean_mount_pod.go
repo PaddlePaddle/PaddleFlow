@@ -25,7 +25,7 @@ import (
 	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csi"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -81,7 +81,7 @@ func expiredMountedPodsSingleCluster(cluster model.ClusterInfo, expireDuration t
 	}
 	k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 	// label indicating a mount pod
-	label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount
+	label := csi.PodTypeKey + "=" + csi.PodMount
 	listOptions := k8sMeta.ListOptions{
 		LabelSelector: label,
 	}

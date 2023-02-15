@@ -50,6 +50,12 @@ func (fss *FilesystemStore) GetFileSystemWithFsID(fsID string) (model.FileSystem
 	return fileSystem, result.Error
 }
 
+func (fss *FilesystemStore) GetFileSystemWithFsIDs(fsIDs []string) ([]model.FileSystem, error) {
+	fileSystems := make([]model.FileSystem, 0)
+	result := fss.db.Model(&model.FileSystem{}).Where(fmt.Sprintf(QueryInWithParam, ID), fsIDs).Find(&fileSystems)
+	return fileSystems, result.Error
+}
+
 func (fss *FilesystemStore) DeleteFileSystem(tx *gorm.DB, id string) error {
 	if tx == nil {
 		tx = fss.db

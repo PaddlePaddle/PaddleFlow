@@ -47,12 +47,14 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -141,13 +143,32 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 	for _, task := range job.Tasks {
 		jobFileSystems = append(jobFileSystems, task.Conf.GetAllFileSystem()...)
 	}
+	var fsIDs []string
+	for _, fs := range jobFileSystems {
+		fsIDs = append(fsIDs, fs.ID)
+	}
+	fsInfos, err := storage.Filesystem.GetFileSystemWithFsIDs(fsIDs)
+	log.Infof("fsInfos %+v and len infos %d joffilelen %d fsIds %v", fsInfos, len(fsInfos), len(jobFileSystems), fsIDs)
+	if err != nil {
+		log.Errorf("get filesystems err: %v", err)
+		return err
+	}
+	var fsInfosMap map[string]model.FileSystem
+	for _, fsInfo := range fsInfos {
+		fsInfosMap[fsInfo.ID] = fsInfo
+	}
 	for _, fs := range jobFileSystems {
 		if fs.Type == pfschema.PFSTypeLocal {
 			log.Infof("skip create pv/pvc, fs type is local")
 			continue
 		}
 		fsID := common.ID(job.UserName, fs.Name)
-		pvName, err := kr.CreatePV(job.Namespace, fsID)
+		fsInfo, ok := fsInfosMap[fsID]
+		if !ok {
+			log.Errorf("get fsID[%s] info empty", fsID)
+			continue
+		}
+		pvName, err := kr.CreatePV(job.Namespace, fsID, strconv.Itoa(fsInfo.PK))
 		if err != nil {
 			log.Errorf("create pv for job[%s] failed, err: %v", job.ID, err)
 			return err
@@ -155,7 +176,7 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 		msg = fmt.Sprintf("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
 		log.Infof(msg)
 		traceLogger.Infof(msg)
-		err = kr.CreatePVC(job.Namespace, fsID, pvName)
+		err = kr.CreatePVC(job.Namespace, fsID, pvName, strconv.Itoa(fsInfo.PK))
 		if err != nil {
 			log.Errorf("create pvc for job[%s] failed, err: %v", job.ID, err)
 			return err
@@ -164,7 +185,7 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 	// submit job
 	traceLogger.Infof("submit kubernetes job")
 	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	err := kr.Job(fwVersion).Submit(context.TODO(), job)
+	err = kr.Job(fwVersion).Submit(context.TODO(), job)
 	if err != nil {
 		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
 		return err
@@ -378,9 +399,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk schema.GroupVers
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsID string, pk string) (string, error) {
 	pv := config.DefaultPV
-	pv.Name = pfschema.ConcatenatePVName(namespace, fsID)
+	pv.Name = pfschema.ConcatenatePVName(namespace, fsID, pk, config.GlobalServerConfig.ApiServer.Host, strconv.Itoa(config.GlobalServerConfig.ApiServer.Port))
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return pv.Name, nil
@@ -397,6 +418,10 @@ func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 		log.Errorf(err.Error())
 		return "", err
 	}
+	if newPV.Labels == nil {
+		newPV.Labels = map[string]string{}
+	}
+	newPV.Labels["fsID"] = fsID
 	if err := kr.buildPV(newPV, fsID); err != nil {
 		log.Errorf(err.Error())
 		return "", err
@@ -435,19 +460,27 @@ func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
 		log.Errorf(retErr.Error())
 		return retErr
 	}
+	mountType := csi.ProcessMount
+	if fsCacheConfig.FsID != "" {
+		mountType = csi.PodMount
+	}
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSID] = fsID
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSClusterID] = kr.cluster.ID
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSType] = fs.Type
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSMountMethod] = mountType
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSServer] = config.GetServiceAddress()
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSAddress] = fs.ServerAddress + ":" + fs.SubPath
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
+func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv, pk string) error {
 	pvc := config.DefaultPVC
-	pvcName := pfschema.ConcatenatePVCName(fsId)
+	pvcName := pfschema.ConcatenatePVCName(fsId, pk, config.GlobalServerConfig.ApiServer.Host, strconv.Itoa(config.GlobalServerConfig.ApiServer.Port))
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
 		return nil
@@ -649,7 +682,7 @@ func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
 	})
 	var formatedEvents []string
 	for _, event := range events {
-		//Type-Reason-Timestamp-Message
+		// Type-Reason-Timestamp-Message
 		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
 			event.Type, event.Reason, event.CreationTimestamp.Format("2006-01-02 15:04:05"), event.Message)
 		formatedEvents = append(formatedEvents, str)

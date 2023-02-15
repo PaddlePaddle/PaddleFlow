@@ -33,7 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -305,7 +305,7 @@ func checkFsMountedSingleCluster(cluster model.ClusterInfo, fsID string) (bool, 
 	}
 	k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 	// label indicating a mount pod
-	label := csiconfig.PodTypeKey + "=" + csiconfig.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
+	label := csi.PodTypeKey + "=" + csi.PodMount + "," + schema.LabelKeyFsID + "=" + fsID
 	listOptions := k8sMeta.ListOptions{
 		LabelSelector: label,
 	}
@@ -447,37 +447,37 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 }
 
 func patchAndDeletePvcPv(k8sRuntime *runtime.KubeRuntime, namespace, fsID string) error {
-	pvcName := schema.ConcatenatePVCName(fsID)
-	pvc, err := k8sRuntime.GetPersistentVolumeClaims(namespace, pvcName, k8sMeta.GetOptions{})
-	if k8sErrors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		err := fmt.Errorf("get pvc[%s/%s] err: %v", namespace, pvcName, err)
-		log.Errorf(err.Error())
-		return err
-	}
+	// pvcName := schema.ConcatenatePVCName(fsID)
+	// pvc, err := k8sRuntime.GetPersistentVolumeClaims(namespace, pvcName, k8sMeta.GetOptions{})
+	// if k8sErrors.IsNotFound(err) {
+	// 	return nil
+	// }
+	// if err != nil {
+	// 	err := fmt.Errorf("get pvc[%s/%s] err: %v", namespace, pvcName, err)
+	// 	log.Errorf(err.Error())
+	// 	return err
+	// }
+	//
+	// if len(pvc.Finalizers) > 0 {
+	// 	if err := k8sRuntime.PatchPVCFinalizerNull(namespace, pvcName); err != nil {
+	// 		err := fmt.Errorf("PatchPVCFinalizerNull [%s/%s] err: %v", namespace, pvcName, err)
+	// 		log.Errorf(err.Error())
+	// 		return err
+	// 	}
+	// }
 
-	if len(pvc.Finalizers) > 0 {
-		if err := k8sRuntime.PatchPVCFinalizerNull(namespace, pvcName); err != nil {
-			err := fmt.Errorf("PatchPVCFinalizerNull [%s/%s] err: %v", namespace, pvcName, err)
-			log.Errorf(err.Error())
-			return err
-		}
-	}
-
-	// delete pvc manually. pv will be deleted automatically
-	if err := k8sRuntime.DeletePersistentVolumeClaim(namespace, pvcName, k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-		err := fmt.Errorf("delete pvc[%s/%s] err: %v", namespace, pvcName, err)
-		log.Errorf(err.Error())
-		return err
-	}
-	// delete pv in case pv not deleted
-	if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(namespace, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-		err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(namespace, fsID), err)
-		log.Errorf(err.Error())
-		return err
-	}
+	// // delete pvc manually. pv will be deleted automatically
+	// if err := k8sRuntime.DeletePersistentVolumeClaim(namespace, pvcName, k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+	// 	err := fmt.Errorf("delete pvc[%s/%s] err: %v", namespace, pvcName, err)
+	// 	log.Errorf(err.Error())
+	// 	return err
+	// }
+	// // delete pv in case pv not deleted
+	// if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(namespace, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+	// 	err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(namespace, fsID), err)
+	// 	log.Errorf(err.Error())
+	// 	return err
+	// }
 	return nil
 }
 
