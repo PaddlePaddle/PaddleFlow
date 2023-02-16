@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -15,6 +16,101 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
+
+var (
+	nodeLabelsList = []map[string]string{
+		{
+			v1beta1.QuotaLabelKey: "public",
+		},
+		{
+			v1beta1.QuotaLabelKey: "test-q1",
+		},
+	}
+	clusterNames = []string{"test-1", "test-2", "test-3", "test-4", "test-5", "test-6", "test-7", "test-8"}
+	capacities   = []map[string]string{
+		{
+			"cpu":            "56",
+			"memory":         "256Gi",
+			"nvidia.com/gpu": "8",
+		},
+		{
+			"cpu":            "64",
+			"memory":         "512Gi",
+			"nvidia.com/gpu": "8",
+		},
+		{
+			"cpu":            "80",
+			"memory":         "512Gi",
+			"nvidia.com/gpu": "8",
+		},
+		{
+			"cpu":            "96",
+			"memory":         "768Gi",
+			"nvidia.com/gpu": "8",
+		},
+	}
+	rList = []map[string]int64{
+		{
+			"cpu":    1000,
+			"memory": 1 * 1024 * 1024 * 1024,
+		},
+		{
+			"cpu":    2000,
+			"memory": 4 * 1024 * 1024 * 1024,
+		},
+		{
+			"cpu":    4000,
+			"memory": 8 * 1024 * 1024 * 1024,
+		},
+		{
+			"cpu":            8000,
+			"memory":         16 * 1024 * 1024 * 1024,
+			"nvidia.com/gpu": 1,
+		},
+	}
+	rNames = []string{"cpu", "memory"}
+)
+
+func fakeNodeResourceInfo(count int, clusterNameList []string, rNames []string, capacities []map[string]string) ([]model.NodeInfo, []model.ResourceInfo) {
+	var nodeInfoList []model.NodeInfo
+	var resourceList []model.ResourceInfo
+	clusterLen := len(clusterNameList)
+	capLen := len(capacities)
+
+	rand.Seed(time.Now().Unix())
+	for idx := 0; idx < count; idx++ {
+		clusterName := clusterNameList[rand.Intn(clusterLen)]
+		nodeName := fmt.Sprintf("instance-%d", idx)
+		nodeID := fmt.Sprintf("node-%d", idx)
+		nodeInfoList = append(nodeInfoList,
+			model.NodeInfo{
+				ID:          nodeID,
+				Name:        nodeName,
+				ClusterID:   fmt.Sprintf("cluster-%s", clusterName),
+				ClusterName: clusterName,
+				Status:      "Ready",
+				Capacity:    capacities[rand.Intn(capLen)],
+			})
+
+		for _, rName := range rNames {
+			resourceList = append(resourceList, model.ResourceInfo{
+				Name:     rName,
+				Value:    int64(rand.Intn(10000)),
+				NodeName: nodeName,
+				NodeID:   nodeID,
+			})
+		}
+		if rand.Intn(100) < 2 {
+			resourceList = append(resourceList, model.ResourceInfo{
+				Name:     "nvidia.com/gpu",
+				Value:    1,
+				NodeName: nodeName,
+				NodeID:   nodeID,
+			})
+		}
+	}
+	return nodeInfoList, resourceList
+}
 
 func createFakePodInfo(count int, nodeID, nodeName string, reList []map[string]int64) error {
 	statusList := []model.TaskAllocateStatus{
@@ -47,6 +143,7 @@ func createFakePodInfo(count int, nodeID, nodeName string, reList []map[string]i
 func createFakeNodeInfo(nodeCount, podCount int, clusterList []string, rList []map[string]int64) error {
 	clusterLen := len(clusterList)
 	capaLen := len(capacities)
+	nodeLabelLen := len(nodeLabelsList)
 
 	var err error
 	rand.Seed(time.Now().Unix())
@@ -54,6 +151,7 @@ func createFakeNodeInfo(nodeCount, podCount int, clusterList []string, rList []m
 		nodeID := uuid.GenerateIDWithLength("node", 16)
 		nodeName := fmt.Sprintf("instance-%d", idx)
 		clusterName := clusterList[rand.Intn(clusterLen)]
+		labels := nodeLabelsList[rand.Intn(nodeLabelLen)]
 		info := &model.NodeInfo{
 			ID:          nodeID,
 			Name:        nodeName,
@@ -61,6 +159,7 @@ func createFakeNodeInfo(nodeCount, podCount int, clusterList []string, rList []m
 			ClusterName: clusterName,
 			Status:      "Ready",
 			Capacity:    capacities[rand.Intn(capaLen)],
+			Labels:      labels,
 		}
 		err = storage.NodeCache.AddNode(info)
 		if err != nil {
@@ -88,19 +187,70 @@ func TestListClusterResources(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "list resources by physical queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q1",
+			},
+			err: nil,
+		},
+		{
+			name: "list resources by logic queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			err: nil,
+		},
 	}
 
-	err := driver.InitCache("DEBUG")
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name: MockClusterName,
+	})
 	assert.Equal(t, nil, err)
-	var nodeCount = 100
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q1",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypePhysical,
+		},
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q-public",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypeLogical,
+		},
+	})
+	assert.Equal(t, nil, err)
+
+	err = driver.InitCache("DEBUG")
+	assert.Equal(t, nil, err)
+	var nodeCount = 500
 	var podCount = 20
-	err = createFakeNodeInfo(nodeCount, podCount, clusterNames, rList)
+	err = createFakeNodeInfo(nodeCount, podCount, []string{MockClusterName, "cn1"}, rList)
 	assert.Equal(t, nil, err)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err = ListClusterResources(ctx, tc.req)
+			res, err := ListClusterResources(ctx, tc.req)
 			assert.Equal(t, tc.err, err)
+			resJSON, err := json.Marshal(res)
+			if err == nil {
+				t.Logf("cluster resources: %s", string(resJSON))
+			}
 		})
 	}
 }
@@ -203,7 +353,7 @@ func TestConstructClusterResources(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := ConstructClusterResources(tc.nodes, tc.resources)
+			result, err := ConstructClusterResources(tc.nodes, tc.resources, "")
 			assert.Equal(t, tc.err, err)
 			data, err := json.Marshal(result)
 			assert.Equal(t, nil, err)
@@ -211,93 +361,6 @@ func TestConstructClusterResources(t *testing.T) {
 		})
 	}
 }
-
-func fakeNodeResourceInfo(count int, clusterNames []string, rNames []string, capacities []map[string]string) ([]model.NodeInfo, []model.ResourceInfo) {
-	var nodeInfoList []model.NodeInfo
-	var resourceList []model.ResourceInfo
-	clusterLen := len(clusterNames)
-	capLen := len(capacities)
-
-	rand.Seed(time.Now().Unix())
-	for idx := 0; idx < count; idx++ {
-		clusterName := clusterNames[rand.Intn(clusterLen)]
-		nodeName := fmt.Sprintf("instance-%d", idx)
-		nodeID := fmt.Sprintf("node-%d", idx)
-		nodeInfoList = append(nodeInfoList,
-			model.NodeInfo{
-				ID:          nodeID,
-				Name:        nodeName,
-				ClusterID:   fmt.Sprintf("cluster-%s", clusterName),
-				ClusterName: clusterName,
-				Status:      "Ready",
-				Capacity:    capacities[rand.Intn(capLen)],
-			})
-
-		for _, rName := range rNames {
-			resourceList = append(resourceList, model.ResourceInfo{
-				Name:     rName,
-				Value:    int64(rand.Intn(10000)),
-				NodeName: nodeName,
-				NodeID:   nodeID,
-			})
-		}
-		if rand.Intn(100) < 2 {
-			resourceList = append(resourceList, model.ResourceInfo{
-				Name:     "nvidia.com/gpu",
-				Value:    1,
-				NodeName: nodeName,
-				NodeID:   nodeID,
-			})
-		}
-	}
-	return nodeInfoList, resourceList
-}
-
-var (
-	clusterNames = []string{"test-1", "test-2", "test-3", "test-4", "test-5", "test-6", "test-7", "test-8"}
-	capacities   = []map[string]string{
-		{
-			"cpu":            "56",
-			"memory":         "256Gi",
-			"nvidia.com/gpu": "8",
-		},
-		{
-			"cpu":            "64",
-			"memory":         "512Gi",
-			"nvidia.com/gpu": "8",
-		},
-		{
-			"cpu":            "80",
-			"memory":         "512Gi",
-			"nvidia.com/gpu": "8",
-		},
-		{
-			"cpu":            "96",
-			"memory":         "768Gi",
-			"nvidia.com/gpu": "8",
-		},
-	}
-	rList = []map[string]int64{
-		{
-			"cpu":    1000,
-			"memory": 1 * 1024 * 1024 * 1024,
-		},
-		{
-			"cpu":    2000,
-			"memory": 4 * 1024 * 1024 * 1024,
-		},
-		{
-			"cpu":    4000,
-			"memory": 8 * 1024 * 1024 * 1024,
-		},
-		{
-			"cpu":            8000,
-			"memory":         16 * 1024 * 1024 * 1024,
-			"nvidia.com/gpu": 1,
-		},
-	}
-	rNames = []string{"cpu", "memory"}
-)
 
 func BenchmarkListClusterResources(b *testing.B) {
 	ctx := &logger.RequestContext{
@@ -339,35 +402,35 @@ func BenchmarkConstructClusterResources(b *testing.B) {
 
 	b.Run("test 1k node", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ConstructClusterResources(nodes1k, resources1k)
+			_, err := ConstructClusterResources(nodes1k, resources1k, "")
 			assert.Equal(b, nil, err)
 		}
 	})
 
 	b.Run("test 5k node", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ConstructClusterResources(nodes5k, resources5k)
+			_, err := ConstructClusterResources(nodes5k, resources5k, "")
 			assert.Equal(b, nil, err)
 		}
 	})
 
 	b.Run("test 7k node", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ConstructClusterResources(nodes7k, resources7k)
+			_, err := ConstructClusterResources(nodes7k, resources7k, "")
 			assert.Equal(b, nil, err)
 		}
 	})
 
 	b.Run("test 1w node", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ConstructClusterResources(nodes1w, resources1w)
+			_, err := ConstructClusterResources(nodes1w, resources1w, "")
 			assert.Equal(b, nil, err)
 		}
 	})
 
 	b.Run("test 10w node", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ConstructClusterResources(nodes10w, resources10w)
+			_, err := ConstructClusterResources(nodes10w, resources10w, "")
 			assert.Equal(b, nil, err)
 		}
 	})
