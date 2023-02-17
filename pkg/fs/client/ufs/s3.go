@@ -1484,10 +1484,6 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	return fs, nil
 }
 
-func init() {
-	RegisterUFS(fsCommon.S3Type, NewS3FileSystem)
-}
-
 // ------ mpu ------//
 
 func (fh *s3FileHandle) multipartCreate() error {

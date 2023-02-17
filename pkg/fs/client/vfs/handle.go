@@ -20,6 +20,8 @@ import (
 	"sync"
 	"syscall"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
@@ -112,6 +114,9 @@ func (v *VFS) newFileHandle(inode Ino, length uint64, flags uint32, ufs ufslib.U
 	case syscall.O_RDWR:
 		h.reader, err = v.reader.Open(inode, length, ufs, path)
 		h.writer, err = v.writer.Open(inode, length, ufs, path)
+	}
+	if err != nil {
+		log.Errorf("vfs newFileHandle err[%v]", err)
 	}
 	return h.fh, err
 }

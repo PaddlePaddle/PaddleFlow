@@ -47,9 +47,10 @@ var checkerStopChan = make(chan bool)
 var checkerUpdateChan = make(chan bool)
 
 type pvParams struct {
-	fsID    string
-	fsInfo  string
-	fsCache string
+	fsID          string
+	fsInfo        string
+	fsCache       string
+	serverAddress string
 }
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
@@ -253,7 +254,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 
 	// pods need to restore source mount path mountpoints
 	mountPath := utils.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	mountInfo, err := mount.ConstructMountInfo(pvParams_.fsInfo, pvParams_.fsCache, mountPath, nil, volumeMount.ReadOnly)
+	mountInfo, err := mount.ConstructMountInfo(pvParams_.serverAddress, pvParams_.fsInfo, pvParams_.fsCache, mountPath, nil, volumeMount.ReadOnly)
 	if err != nil {
 		err := fmt.Errorf("ConstructMountInfo from pvParams: %+v failed: %v", pvParams_, err)
 		log.Errorf(err.Error())
@@ -301,7 +302,7 @@ func checkIfNeedRemount(path string) bool {
 func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	log.Tracef("remount: mountInfo %+v", mountInfo)
 
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType && mountInfo.FS.Type != common.AFSType {
+	if false && !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType && mountInfo.FS.Type != common.CFSType && mountInfo.FS.Type != common.AFSType {
 		// wait for source path ready
 		if !waitForBindSourceReady(schema.GetBindSource(mountInfo.FS.ID)) {
 			return nil

@@ -518,3 +518,19 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+func GetS3TestCreateRequest() {
+
+}
+
+const (
+	SubPathEnv = "sub_path"
+	AkEnv      = "sts_ak"
+	SkEnv      = "sts_sk"
+	TokenEnv   = "sts_token"
+	Bucket     = "buk_name"
+)
+
+func TestRouter_CreateSts(t *testing.T) {
+
+}

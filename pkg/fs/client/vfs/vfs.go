@@ -109,7 +109,6 @@ func WithDataCacheConfig(data cache.Config) Option {
 
 func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	config *Config, registry *prometheus.Registry) (*VFS, error) {
-	log.Infof("InitVFS fsMeta %+v config %+v", fsMeta, config)
 	vfs := &VFS{
 		fsMeta:   fsMeta,
 		registry: registry,
@@ -471,6 +470,7 @@ func (v *VFS) Open(ctx *meta.Context, ino Ino, flags uint32) (entry *meta.Entry,
 	var errOpen error
 	fh, errOpen = v.newFileHandle(ino, attr.Size, flags, ufs, path)
 	if errOpen != nil {
+		log.Errorf("newFileHandle err %v", errOpen)
 		return entry, fh, utils.ToSyscallErrno(errOpen)
 	}
 	return entry, fh, syscall.F_OK

@@ -36,14 +36,15 @@ func main() {
 		panic(err)
 	}
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "",
-		Password: "",
+		UserName: "root",
+		Password: "paddleflow",
 	})
 	if err != nil {
 		panic(err)
 	}
 	token := data.Authorization
-	name := "pfstest"
+	name := "bos"
+
 	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &v1.CreateFileSystemRequest{
 		Name:       name,
 		Url:        "",
@@ -58,7 +59,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("get fs result %v", getResult)
+	fmt.Printf("get fs result %v \n\n\n\n\n", getResult)
+
+	stsResult, err := pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{FsName: name}, token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("get sts result %v", stsResult)
 
 	err = pfClient.APIV1().FileSystem().Delete(context.TODO(), &v1.DeleteFileSystemRequest{FsName: name}, token)
 	if err != nil {
