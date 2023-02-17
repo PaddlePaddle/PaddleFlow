@@ -469,7 +469,7 @@ func TestGetPipeline(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "user2"}
 	resp, err = GetPipeline(ctx, "ppl-000001", "", 10, []string{})
 	assert.NotNil(t, err)
-	assert.Equal(t, "user[user2] has no access to resource[pipeline] with Name[ppl-000001]", err.Error())
+	assert.Equal(t, "user[user2] has no access to resource[pipeline] with ID[ppl-000001]", err.Error())
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 

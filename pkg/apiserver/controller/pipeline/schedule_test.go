@@ -212,7 +212,7 @@ func TestCreateSchedule(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "another_user"}
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("user[another_user] has no access to resource[pipeline] with Name[ppl-000001]"), err)
+	assert.Equal(t, fmt.Errorf("user[another_user] has no access to resource[pipeline] with ID[ppl-000001]"), err)
 
 	// 失败: pipelineID不存在
 	ctx = &logger.RequestContext{UserName: MockRootUser}
@@ -598,7 +598,7 @@ func TestGetSchedule(t *testing.T) {
 	scheduleID = "schedule-000002"
 	getScheduleResp, err = GetSchedule(ctx, scheduleID, marker, maxKeys, runFilter, statusFilter)
 	assert.NotNil(t, err)
-	assert.Equal(t, "get schedule[schedule-000002] failed. err:user[user1] has no access to resource[schedule] with Name[schedule-000002]", err.Error())
+	assert.Equal(t, "get schedule[schedule-000002] failed. err:user[user1] has no access to resource[schedule] with ID[schedule-000002]", err.Error())
 	b, _ = json.Marshal(getScheduleResp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -608,7 +608,7 @@ func TestGetSchedule(t *testing.T) {
 	scheduleID = "schedule-000001"
 	getScheduleResp, err = GetSchedule(ctx, scheduleID, marker, maxKeys, runFilter, statusFilter)
 	assert.NotNil(t, err)
-	assert.Equal(t, "get schedule[schedule-000001] failed. err:user[another_user] has no access to resource[schedule] with Name[schedule-000001]", err.Error())
+	assert.Equal(t, "get schedule[schedule-000001] failed. err:user[another_user] has no access to resource[schedule] with ID[schedule-000001]", err.Error())
 	b, _ = json.Marshal(getScheduleResp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -618,7 +618,7 @@ func TestGetSchedule(t *testing.T) {
 	scheduleID = "schedule-noExist"
 	getScheduleResp, err = GetSchedule(ctx, scheduleID, marker, maxKeys, runFilter, statusFilter)
 	assert.NotNil(t, err)
-	assert.Equal(t, "get schedule[schedule-noExist] failed. err:schedule[schedule-noExist] not found!", err.Error())
+	assert.Equal(t, "get schedule[schedule-noExist] failed. err:resouceType[schedule] with ID[schedule-noExist] not found", err.Error())
 	b, _ = json.Marshal(getScheduleResp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -681,7 +681,7 @@ func TestStopSchedule(t *testing.T) {
 	// 失败: schedule不存在
 	err = StopSchedule(ctx, "schedule-000004")
 	assert.NotNil(t, err)
-	assert.Equal(t, "stop schedule[schedule-000004] failed. schedule[schedule-000004] not found!", err.Error())
+	assert.Equal(t, "stop schedule[schedule-000004] failed. resouceType[schedule] with ID[schedule-000004] not found", err.Error())
 
 	// root用户 stop 普通用户创建的schedule 成功
 	err = StopSchedule(ctx, "schedule-000002")
@@ -700,7 +700,7 @@ func TestStopSchedule(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "wrongUser"}
 	err = StopSchedule(ctx, "schedule-000001")
 	assert.NotNil(t, err)
-	assert.Equal(t, "stop schedule[schedule-000001] failed. user[wrongUser] has no access to resource[schedule] with Name[schedule-000001]", err.Error())
+	assert.Equal(t, "stop schedule[schedule-000001] failed. user[wrongUser] has no access to resource[schedule] with ID[schedule-000001]", err.Error())
 
 	// 成功: 普通用户stop自己创建的schedule
 	ctx = &logger.RequestContext{UserName: MockNormalUser}
@@ -715,7 +715,7 @@ func TestStopSchedule(t *testing.T) {
 	// 失败: 普通用户没有root用户创建的schedule权限
 	err = StopSchedule(ctx, "schedule-000003")
 	assert.NotNil(t, err)
-	assert.Equal(t, "stop schedule[schedule-000003] failed. user[user1] has no access to resource[schedule] with Name[schedule-000003]", err.Error())
+	assert.Equal(t, "stop schedule[schedule-000003] failed. user[user1] has no access to resource[schedule] with ID[schedule-000003]", err.Error())
 }
 
 func TestDeleteSchedule(t *testing.T) {
@@ -789,7 +789,7 @@ func TestDeleteSchedule(t *testing.T) {
 	// 失败: schedule不存在
 	err = DeleteSchedule(ctx, "schedule-000005")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000005] failed. schedule[schedule-000005] not found!", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000005] failed. resouceType[schedule] with ID[schedule-000005] not found", err.Error())
 
 	// 失败: 不是终态
 	err = DeleteSchedule(ctx, createResp1.ScheduleID)
@@ -800,13 +800,13 @@ func TestDeleteSchedule(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "wrongUser"}
 	err = DeleteSchedule(ctx, createResp1.ScheduleID)
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000001] failed. user[wrongUser] has no access to resource[schedule] with Name[schedule-000001]", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000001] failed. user[wrongUser] has no access to resource[schedule] with ID[schedule-000001]", err.Error())
 
 	// 失败: 普通用户没有root用户创建的schedule权限
 	ctx = &logger.RequestContext{UserName: MockNormalUser}
 	err = DeleteSchedule(ctx, createResp4.ScheduleID)
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000004] failed. user[user1] has no access to resource[schedule] with Name[schedule-000004]", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000004] failed. user[user1] has no access to resource[schedule] with ID[schedule-000004]", err.Error())
 
 	// 成功: 普通用户删除自己创建的schedule
 	err = DeleteSchedule(ctx, createResp2.ScheduleID)
@@ -815,7 +815,7 @@ func TestDeleteSchedule(t *testing.T) {
 	// 失败: 删除后已经不存在
 	err = DeleteSchedule(ctx, createResp2.ScheduleID)
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000002] failed. schedule[schedule-000002] not found!", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000002] failed. resouceType[schedule] with ID[schedule-000002] not found", err.Error())
 
 	// 成功: root用户删除普通用户创建的schedule
 	ctx = &logger.RequestContext{UserName: MockRootUser}
@@ -825,7 +825,7 @@ func TestDeleteSchedule(t *testing.T) {
 	// 失败: 已经是终态
 	err = DeleteSchedule(ctx, createResp3.ScheduleID)
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000003] failed. schedule[schedule-000003] not found!", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000003] failed. resouceType[schedule] with ID[schedule-000003] not found", err.Error())
 
 	// 成功: root用户删除自己创建的schedule
 	err = DeleteSchedule(ctx, createResp4.ScheduleID)
@@ -834,5 +834,5 @@ func TestDeleteSchedule(t *testing.T) {
 	// 失败: 已经是终态
 	err = DeleteSchedule(ctx, createResp4.ScheduleID)
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete schedule[schedule-000004] failed. schedule[schedule-000004] not found!", err.Error())
+	assert.Equal(t, "delete schedule[schedule-000004] failed. resouceType[schedule] with ID[schedule-000004] not found", err.Error())
 }

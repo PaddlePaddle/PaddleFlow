@@ -343,11 +343,11 @@ func GetHttpStatusByCode(code string) int {
 }
 
 func NoAccessError(user, resourceType, resourceID string) error {
-	return fmt.Errorf("user[%s] has no access to resource[%s] with Name[%s]", user, resourceType, resourceID)
+	return fmt.Errorf("user[%s] has no access to resource[%s] with ID[%s]", user, resourceType, resourceID)
 }
 
 func NotFoundError(resourceType, ID string) error {
-	return fmt.Errorf("resouceType[%s] with Name[%s] not found", resourceType, ID)
+	return fmt.Errorf("resouceType[%s] with ID[%s] not found", resourceType, ID)
 }
 
 func InvalidMaxKeysError(maxKeys string) error {
