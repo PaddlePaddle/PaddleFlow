@@ -448,6 +448,7 @@ func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.ScheduleNotFound
+			err = common.NotFoundError(common.ResourceTypeSchedule, scheduleID)
 		} else {
 			ctx.ErrorCode = common.InternalError
 		}
@@ -501,7 +502,6 @@ func StopSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	// check schedule exist && user access right
 	schedule, err := getSchedule(ctx, scheduleID)
 	if err != nil {
-		ctx.ErrorCode = common.ScheduleNotFound
 		err := fmt.Errorf("stop schedule[%s] failed. %s", scheduleID, err.Error())
 		ctx.Logging().Errorf(err.Error())
 		return err

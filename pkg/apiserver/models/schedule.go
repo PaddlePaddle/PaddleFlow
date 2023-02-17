@@ -19,7 +19,6 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -309,13 +308,8 @@ func GetSchedule(logEntry *log.Entry, scheduleID string) (Schedule, error) {
 	var schedule Schedule
 	result := storage.DB.Model(&Schedule{}).Where("id = ?", scheduleID).First(&schedule)
 	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			errMsg := fmt.Sprintf("schedule[%s] not found!", scheduleID)
-			logEntry.Errorf(errMsg)
-			return Schedule{}, fmt.Errorf(errMsg)
-		} else {
-			return Schedule{}, result.Error
-		}
+		logEntry.Errorf("get schedule failed. error:%s", result.Error.Error())
+		return Schedule{}, result.Error
 	}
 
 	return schedule, nil
