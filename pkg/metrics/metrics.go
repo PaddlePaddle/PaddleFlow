@@ -53,8 +53,10 @@ func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
 	registry = prometheus.NewRegistry()
 	jobCollector := NewJobMetricsCollector(Job, jobFunc)
 	queueCollector := NewQueueMetricsCollector(queueFunc)
+	pipelineCollector := NewPipelineMetricsCollector()
 	registry.MustRegister(jobCollector)
 	registry.MustRegister(queueCollector)
+	registry.MustRegister(pipelineCollector)
 }
 
 func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc) string {

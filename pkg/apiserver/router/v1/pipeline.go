@@ -18,6 +18,7 @@ package v1
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 )
 
 type PipelineRouter struct{}
@@ -59,6 +61,10 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "createPipeline", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "createPipeline",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	var createPplReq pipeline.CreatePipelineRequest
 	if err := common.BindJSON(r, &createPplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
@@ -96,6 +102,11 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline [GET]
 func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "listPipeline", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "listPipeline",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
@@ -136,6 +147,10 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "updatePipeline", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "updatePipeline",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 
 	var updatePplReq pipeline.UpdatePipelineRequest
@@ -173,6 +188,10 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 
 	ctx := common.GetRequestContext(r)
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipeline", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipeline",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
@@ -211,6 +230,11 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline/{pipelineID} [DELETE]
 func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "deletePipeline", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "deletePipeline",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	err := pipeline.DeletePipeline(&ctx, pipelineID)
 	if err != nil {
@@ -235,6 +259,10 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline/{pipelineID}/{versionID} [GET]
 func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipelineVersion", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipelineVersion",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
@@ -262,6 +290,10 @@ func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Requ
 // @Router /pipeline/{pipelineID} [DELETE]
 func (pr *PipelineRouter) deletePipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipelineVersion", r.Method)
+	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipelineVersion",
+		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 

@@ -24,6 +24,9 @@ const (
 	MetricJobTime    = "pf_metric_job_time"
 	MetricQueueInfo  = "pf_metric_queue_info"
 	MetricJobGPUInfo = "pf_metric_job_gpu_info"
+
+	MetricPipelineRequest  = "pf_pipeline_request"
+	MetricPipelineResponse = "pf_pipeline_response"
 )
 
 func toHelp(name string) string {
@@ -41,4 +44,9 @@ const (
 	ResourceLabel       = "resource"
 	TypeLabel           = "type"
 	BaiduGpuIndexLabel  = "baidu_com_gpu_idx"
+
+	RequestIDLabel     = "requestID"
+	ApiNameLabel       = "apiName"
+	RequestMethodLabel = "method"
+	ResponseCodeLabel  = "code"
 )
