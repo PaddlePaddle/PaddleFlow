@@ -1,0 +1,418 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: paddleflow
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-node-sa
+  namespace: paddleflow
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-csi-plugin-clusterrole
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "pods" ]
+    verbs: [ "create", "get", "list", "watch", "update", "bind", "delete", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [""]
+    resources: ["nodes/proxy"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pfs-csi-provisioner
+  namespace: paddleflow
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: external-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotcontents"]
+    verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: pfs-csi-provisioner
+    namespace: paddleflow
+roleRef:
+  kind: ClusterRole
+  name: external-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: paddleflow
+  name: external-provisioner-cfg
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-provisioner-role-cfg
+  namespace: paddleflow
+subjects:
+  - kind: ServiceAccount
+    name: pfs-csi-provisioner
+    namespace: paddleflow
+roleRef:
+  kind: Role
+  name: external-provisioner-cfg
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: pfs-csi-provisioner
+  labels:
+    app: pfs-csi-provisioner
+spec:
+  selector:
+    app: pfs-csi-provisioner
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-csi-node-binding
+subjects:
+  - kind: ServiceAccount
+    name: csi-node-sa
+    namespace: paddleflow
+roleRef:
+  kind: ClusterRole
+  name: paddleflow-csi-plugin-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pfs-csi-plugin
+  namespace: paddleflow
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: pfs-csi-plugin
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: pfs-csi-plugin
+    spec:
+      containers:
+        - args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/pfs-csi/csi.sock
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: MOUNT_POINT_INTERVAL_TIME
+              value: "10"
+          image: paddleflow/csi-driver-registrar:1.2.0
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock
+          name: pfs-csi-plugin
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+            - mountPath: /registration
+              mountPropagation: None
+              name: registration-dir
+        - command:
+            - tini
+            - --
+            - /bin/sh
+            - -c
+            - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
+              --node-id=$(KUBE_NODE_NAME) --log-dir=./log/csidriver --username=root --password=paddleflow
+              --log-level=debug
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: DEFAULT_GID_ENV
+              value: "601"
+            - name: DEFAULT_UID_ENV
+              value: "601"
+            - name: KUBELET_DATA_PATH
+              value: /var/lib/kubelet
+            - name: CSI_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CSI_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          image: paddleflow/pfs-csi-plugin:1.4.2
+          imagePullPolicy: IfNotPresent
+          name: csi-storage-driver
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 1G
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
+            privileged: true
+            runAsGroup: 0
+            runAsUser: 0
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /home/paddleflow/log
+              mountPropagation: None
+              name: paddlefow-csi-log
+            - mountPath: /home/paddleflow/mnt
+              mountPropagation: Bidirectional
+              name: pfs-mnt
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: csi-node-sa
+      serviceAccountName: csi-node-sa
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - hostPath:
+            path: /dev/fuse
+            type: File
+          name: fuse
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /home/paddleflow/log
+            type: DirectoryOrCreate
+          name: paddlefow-csi-log
+        - hostPath:
+            path: /var/lib/kubelet/data/paddleflow-fs/mnt
+            type: DirectoryOrCreate
+          name: pfs-mnt
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: DirectoryOrCreate
+          name: plugins-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: DirectoryOrCreate
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins/pfs-csi
+            type: DirectoryOrCreate
+          name: socket-dir
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    app: pfs-csi-provisioner
+  labels:
+    app: pfs-csi-provisioner
+  name: pfs-csi-provisioner
+  namespace: paddleflow
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: pfs-csi-provisioner
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        app: pfs-csi-provisioner
+      labels:
+        app: pfs-csi-provisioner
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - pfs-csi-plugin
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - args:
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            - --feature-gates=Topology=true
+          image: paddleflow/csi-provisioner:1.4.0
+          imagePullPolicy: IfNotPresent
+          name: pfs-csi-provisioner
+          ports:
+            - containerPort: 12345
+              name: port-0
+              protocol: TCP
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: pfs-csi-provisioner
+      serviceAccountName: pfs-csi-provisioner
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/pfs-csi
+            type: DirectoryOrCreate
+          name: socket-dir
+---
+kind: CustomResourceDefinition
+metadata:
+  name: csidrivers.csi.storage.k8s.io
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+spec:
+  group: csi.storage.k8s.io
+  names:
+    kind: CSIDriver
+    plural: csidrivers
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: Specification of the CSI Driver.
+          properties:
+            attachRequired:
+              description: Indicates this CSI volume driver requires an attach operation,
+                and that Kubernetes should call attach and wait for any attach operation
+                to complete before proceeding to mount.
+              type: boolean
+            podInfoOnMountVersion:
+              description: Indicates this CSI volume driver requires additional pod
+                information (like podName, podUID, etc.) during mount operations.
+              type: string
+  version: v1alpha1
+---
+apiVersion: csi.storage.k8s.io/v1alpha1
+kind: CSIDriver
+metadata:
+  name: paddleflowstorage
+spec:
+  attachRequired: false
+  podInfoOnMount: false
