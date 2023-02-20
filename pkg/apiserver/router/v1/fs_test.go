@@ -527,7 +527,69 @@ func RandomString(n int) string {
 	return string(b)
 }
 
-func TestGetSts(t *testing.T) {
+func TestCreteBos(t *testing.T) {
+	ak := os.Getenv(Ori_ak)
+	sk := os.Getenv(Ori_sk)
+	bucket := os.Getenv(Ori_Bucket)
+	if bucket == "" || sk == "" || ak == "" {
+		log.Info("no ak or sk")
+		return
+	}
+	router, baseUrl := prepareDBAndAPI(t)
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "s3.bj.bcebos.com",
+			"region":    "bj",
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "s3.bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+}
+
+func TestStsAPI(t *testing.T) {
 	ak := os.Getenv(Ori_ak)
 	sk := os.Getenv(Ori_sk)
 	bucket := os.Getenv(Ori_Bucket)
@@ -559,8 +621,8 @@ func TestGetSts(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	ak = "bad"
-	sk = "bad"
+	ak_ := "bad"
+	sk_ := "bad"
 
 	fsUrl = baseUrl + "/fs"
 
@@ -568,10 +630,10 @@ func TestGetSts(t *testing.T) {
 		Name: mockFsName,
 		Url:  "bos://" + bucket + "/" + Test_SubPath,
 		Properties: map[string]string{
-			"accessKey": ak,
+			"accessKey": ak_,
 			"endpoint":  "s3.bj.bcebos.com",
 			"region":    "bj",
-			"secretKey": sk,
+			"secretKey": sk_,
 			"sts":       "true",
 			"duration":  "70",
 		},
@@ -579,4 +641,30 @@ func TestGetSts(t *testing.T) {
 	result, err = PerformPostRequest(router, fsUrl, createFsReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/no"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, result.Code)
+
+	creates3Req := fs.CreateFileSystemRequest{
+		Name: mockFsName + "1",
+		Url:  "s3://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "s3.bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, creates3Req)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/" + mockFsName + "1"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusInternalServerError, result.Code)
 }
