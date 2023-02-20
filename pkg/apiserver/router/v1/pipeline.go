@@ -61,12 +61,21 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	var err error
 	metrics.AddPipelineResquestMetrics(ctx.RequestID, "createPipeline", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "createPipeline",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "createPipeline",
+			errCode, r.Method)
+	}()
 
 	var createPplReq pipeline.CreatePipelineRequest
-	if err := common.BindJSON(r, &createPplReq); err != nil {
+	if err = common.BindJSON(r, &createPplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create pipeline failed parsing request body:%+v. error:%v", r.Body, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
@@ -103,9 +112,18 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
+	var err error
 	metrics.AddPipelineResquestMetrics(ctx.RequestID, "listPipeline", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "listPipeline",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "listPipeline",
+			errCode, r.Method)
+	}()
 
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
@@ -147,14 +165,23 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	metrics.AddPipelineResquestMetrics(ctx.RequestID, "updatePipeline", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "updatePipeline",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
-
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 
+	var err error
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "updatePipeline", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "updatePipeline",
+			errCode, r.Method)
+	}()
+
 	var updatePplReq pipeline.UpdatePipelineRequest
-	if err := common.BindJSON(r, &updatePplReq); err != nil {
+	if err = common.BindJSON(r, &updatePplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"update pipeline failed parsing request body:%+v. error:%v", r.Body, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
@@ -188,9 +215,19 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 
 	ctx := common.GetRequestContext(r)
+
+	var err error
 	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipeline", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipeline",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipeline",
+			errCode, r.Method)
+	}()
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
@@ -231,12 +268,21 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
+	var err error
 	metrics.AddPipelineResquestMetrics(ctx.RequestID, "deletePipeline", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "deletePipeline",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "deletePipeline",
+			errCode, r.Method)
+	}()
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	err := pipeline.DeletePipeline(&ctx, pipelineID)
+	err = pipeline.DeletePipeline(&ctx, pipelineID)
 	if err != nil {
 		ctx.Logging().Errorf("delete pipeline failed.  error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -259,9 +305,19 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline/{pipelineID}/{versionID} [GET]
 func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
 	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipelineVersion", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipelineVersion",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipelineVersion",
+			errCode, r.Method)
+	}()
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
@@ -290,14 +346,24 @@ func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Requ
 // @Router /pipeline/{pipelineID} [DELETE]
 func (pr *PipelineRouter) deletePipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	metrics.AddPipelineResquestMetrics(ctx.RequestID, "getPipelineVersion", r.Method)
-	defer metrics.AddPipelineResponseMetrics(ctx.RequestID, "getPipelineVersion",
-		strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode)), r.Method)
+
+	var err error
+	metrics.AddPipelineResquestMetrics(ctx.RequestID, "deletePipelineVersion", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddPipelineResponseMetrics(ctx.RequestID, "deletePipelineVersion",
+			errCode, r.Method)
+	}()
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
-	err := pipeline.DeletePipelineVersion(&ctx, pipelineID, pipelineVersionID)
+	err = pipeline.DeletePipelineVersion(&ctx, pipelineID, pipelineVersionID)
 	if err != nil {
 		ctx.Logging().Errorf("delete pipeline[%s] version[%s] failed. error:%s", pipelineID, pipelineVersionID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
