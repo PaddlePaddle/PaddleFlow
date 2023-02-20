@@ -52,13 +52,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("create fs result %v", createResult)
+	fmt.Printf("create fs result %v \n", createResult)
 
 	getResult, err := pfClient.APIV1().FileSystem().Get(context.TODO(), &v1.GetFileSystemRequest{FsName: name}, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("get fs result %v", getResult)
+	fmt.Printf("get fs result %v \n", getResult)
+
+	stsResult, err := pfClient.APIV1().Sts().GetSts(context.TODO(), &v1.GetStsRequest{FsName: name}, token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("get sts result %v", stsResult)
 
 	err = pfClient.APIV1().FileSystem().Delete(context.TODO(), &v1.DeleteFileSystemRequest{FsName: name}, token)
 	if err != nil {

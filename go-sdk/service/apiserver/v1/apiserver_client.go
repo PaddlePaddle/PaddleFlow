@@ -37,6 +37,10 @@ type APIV1Client struct {
 	restClient *core.PaddleFlowClient
 }
 
+func (c *APIV1Client) Sts() StsInterface {
+	return newFileSystem(c)
+}
+
 func (c *APIV1Client) User() UserInterface {
 	return newUsers(c)
 }
