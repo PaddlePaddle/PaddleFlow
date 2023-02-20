@@ -541,7 +541,7 @@ func TestCreteBos(t *testing.T) {
 		Url:  "bos://" + bucket + "/" + Test_SubPath,
 		Properties: map[string]string{
 			"accessKey": ak,
-			"endpoint":  "s3.bj.bcebos.com",
+			"endpoint":  "bj.bcebos.com",
 			"region":    "bj",
 			"sts":       "true",
 			"duration":  "70",
@@ -575,7 +575,7 @@ func TestCreteBos(t *testing.T) {
 		Url:  "bos://" + Test_SubPath,
 		Properties: map[string]string{
 			"accessKey": ak,
-			"endpoint":  "s3.bj.bcebos.com",
+			"endpoint":  "bj.bcebos.com",
 			"region":    "bj",
 			"secretKey": sk,
 			"sts":       "true",
@@ -603,7 +603,7 @@ func TestStsAPI(t *testing.T) {
 		Url:  "bos://" + bucket + "/" + Test_SubPath,
 		Properties: map[string]string{
 			"accessKey": ak,
-			"endpoint":  "s3.bj.bcebos.com",
+			"endpoint":  "bj.bcebos.com",
 			"region":    "bj",
 			"secretKey": sk,
 			"sts":       "true",
@@ -631,7 +631,7 @@ func TestStsAPI(t *testing.T) {
 		Url:  "bos://" + bucket + "/" + Test_SubPath,
 		Properties: map[string]string{
 			"accessKey": ak_,
-			"endpoint":  "s3.bj.bcebos.com",
+			"endpoint":  "bj.bcebos.com",
 			"region":    "bj",
 			"secretKey": sk_,
 			"sts":       "true",
