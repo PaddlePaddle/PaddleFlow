@@ -65,11 +65,11 @@ func main() {
 	}
 	fmt.Printf("get fs result %v \n", getResult)
 
-	// stsResult, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{FsName: name}, token)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Printf("get sts result %v", stsResult)
+	stsResult, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{FsName: name}, token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("get sts result %v", stsResult)
 
 	err = pfClient.APIV1().FileSystemCache().Create(context.TODO(), &v1.CreateFileSystemCacheRequest{
 		FsName:     name,
