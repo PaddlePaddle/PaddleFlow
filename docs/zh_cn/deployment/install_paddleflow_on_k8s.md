@@ -96,7 +96,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/deve
 # kube-controller-manager启动参数:
 --feature-gates=CSIDriverRegistry=true
 # kubelet启动参数
---feature-gates=CSIPersistentVolume=true
+--feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml
 ```
@@ -113,7 +113,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 # kube-controller-manager启动参数:
 --feature-gates=CSIDriverRegistry=true
 # kubelet启动参数
---feature-gates=CSIPersistentVolume=true
+--feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f -
 ```
