@@ -55,8 +55,7 @@ func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
 	queueCollector := NewQueueMetricsCollector(queueFunc)
 	pipelineCollector := NewPipelineMetricsCollector()
 	registry.MustRegister(jobCollector)
-	registry.MustRegister(queueCollector)
-	registry.MustRegister(pipelineCollector)
+	registry.MustRegister(queueCollector, pipelineCollector)
 }
 
 func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc) string {
