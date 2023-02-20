@@ -23,6 +23,7 @@ import (
 type APIV1Interface interface {
 	UserGetter
 	FileSystemGetter
+	FileSystemCacheGetter
 	ClusterGetter
 	QueueGetter
 	FlavourGetter
@@ -37,16 +38,16 @@ type APIV1Client struct {
 	restClient *core.PaddleFlowClient
 }
 
-func (c *APIV1Client) Sts() StsInterface {
-	return newFileSystem(c)
-}
-
 func (c *APIV1Client) User() UserInterface {
 	return newUsers(c)
 }
 
 func (c *APIV1Client) FileSystem() FileSystemInterface {
 	return newFileSystem(c)
+}
+
+func (c *APIV1Client) FileSystemCache() FileSystemCacheInterface {
+	return newFileSystemCache(c)
 }
 
 func (c *APIV1Client) Cluster() ClusterInterface {

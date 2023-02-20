@@ -26,6 +26,7 @@ import (
 
 const (
 	FsApi       = Prefix + "/fs"
+	FsCacheApi  = Prefix + "/fsCache"
 	StsApi      = Prefix + "/fsSts"
 	KeyUsername = "username"
 	StsDuration = "duration"
@@ -125,7 +126,7 @@ func (f *fileSystem) Delete(ctx context.Context, request *DeleteFileSystemReques
 	return
 }
 
-func (f *fileSystem) GetSts(ctx context.Context, request *GetStsRequest,
+func (f *fileSystem) Sts(ctx context.Context, request *GetStsRequest,
 	token string) (result *GetStsResponse, err error) {
 	result = &GetStsResponse{}
 	err = core.NewRequestBuilder(f.client).
@@ -143,17 +144,13 @@ func (f *fileSystem) GetSts(ctx context.Context, request *GetStsRequest,
 
 type FileSystemGetter interface {
 	FileSystem() FileSystemInterface
-	Sts() StsInterface
 }
 
 type FileSystemInterface interface {
 	Create(ctx context.Context, request *CreateFileSystemRequest, token string) (*CreateFileSystemResponse, error)
 	Get(ctx context.Context, request *GetFileSystemRequest, token string) (*GetFileSystemResponse, error)
 	Delete(ctx context.Context, request *DeleteFileSystemRequest, token string) error
-}
-
-type StsInterface interface {
-	GetSts(ctx context.Context, request *GetStsRequest, token string) (*GetStsResponse, error)
+	Sts(ctx context.Context, request *GetStsRequest, token string) (*GetStsResponse, error)
 }
 
 // newFileSystem returns a fileSystem.
