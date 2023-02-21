@@ -27,6 +27,12 @@ const (
 
 	MetricPipelineRequest  = "pf_pipeline_request"
 	MetricPipelineResponse = "pf_pipeline_response"
+
+	MetricRunRequest   = "pf_run_request"
+	MetricRUNResponse  = "pf_run_response"
+	MetricRunStartTime = "pf_run_start_time"
+	MetricRunEndTime   = "pf_run_end_time"
+	MetricRunStage     = "pf_run_stage"
 )
 
 func toHelp(name string) string {
@@ -49,4 +55,8 @@ const (
 	ApiNameLabel       = "apiName"
 	RequestMethodLabel = "method"
 	ResponseCodeLabel  = "code"
+	RunIDLabel         = "runID"
+	RunStageLabel      = "runStage"
+	RunStepNameLabel   = "runStepName"
+	RunJobIDLabel      = "runJobID"
 )
