@@ -213,9 +213,9 @@ func (storage S3Storage) List(input *ListInput) (*ListBlobsOutput, error) {
 			StorageClass: storageClass,
 		})
 	}
-	var continuationToken string
+	var nextContinuationToken string
 	if resp.NextContinuationToken != nil {
-		continuationToken = *resp.ContinuationToken
+		nextContinuationToken = *resp.NextContinuationToken
 	}
 	var IsTruncated bool
 	if resp.IsTruncated != nil {
@@ -225,7 +225,7 @@ func (storage S3Storage) List(input *ListInput) (*ListBlobsOutput, error) {
 	return &ListBlobsOutput{
 		Prefixes:              prefixes,
 		Items:                 items,
-		NextContinuationToken: continuationToken,
+		NextContinuationToken: nextContinuationToken,
 		IsTruncated:           IsTruncated,
 	}, nil
 }
