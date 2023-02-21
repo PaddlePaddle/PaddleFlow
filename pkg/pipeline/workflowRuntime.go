@@ -136,6 +136,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
 
+		wfr.logger.Infof("++++ Resume with UserName %s", wfr.entryPoints.userName)
 		if runStatus == string(StatusRuntimeTerminating) {
 			wfr.entryPointsCtx.Done()
 		}
