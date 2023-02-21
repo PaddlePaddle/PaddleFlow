@@ -483,7 +483,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	for _, name := range sorted {
 		views, ok := dagView.EntryPoints[name]
 		if !ok {
-			// 说面当前节点还没有运行，在此处不进行处理
+			// 说明当前节点还没有运行，在此处不进行处理
 			continue
 		}
 
@@ -669,9 +669,10 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 
 	step := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceStep)
 	stepPtr := &step
+	drt.logger.Infof("+++++++++++, creatStepRuntimeAccordingView %s", drt.userName)
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-
+	drt.logger.Infof("+++++++++++, After creatStepRuntimeAccordingView %s", drt.userName)
 	// 如果 view 的状态是的 succeeded 或者 running，则据此更新 runtime 的 output Artifact 字段下游节点会使用
 	// 对于 command， env， condition 字段，此处可以不更新，因为不会再次写库
 	if view.Status == StatusRuntimeSucceeded {
@@ -734,7 +735,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			continue
 		}
 
-		// restart 时，所有子节点rumtine都处于终态，可以分成三类：
+		// restart 时，所有子节点rumtime都处于终态，可以分成三类：
 		// succeeded, skipped: 对于这类runtime无需重启，在 subruntime 中记录即可
 		// failed， terminated: 需要重启
 		// cancelled: 分两种情况：
