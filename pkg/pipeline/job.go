@@ -77,6 +77,7 @@ type PaddleFlowJob struct {
 }
 
 func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
+	fmt.Printf("++++++++++ stepName[%s], UserName[%s] \n", name, userName)
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
@@ -225,6 +226,7 @@ func (pfj *PaddleFlowJob) Stop() error {
 	logCtx := &logger.RequestContext{
 		UserName: pfj.userName,
 	}
+	fmt.Printf("++++++++stop job %s with UserName %s\n", pfj.ID, pfj.userName)
 	err := job.StopJob(logCtx, pfj.ID)
 	if err != nil {
 		return err
