@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -132,13 +133,30 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 		log.Debugf("s3.Head key[%s] error: %v", key, err)
 		return nil, err
 	}
+	var etag, storageClass string
+	var lastModified time.Time
+	var size uint64
+
+	if response.ETag != nil {
+		etag = *response.ETag
+	}
+	if response.LastModified != nil {
+		lastModified = *response.LastModified
+	}
+	if response.ContentLength != nil {
+		size = uint64(*response.ContentLength)
+	}
+	if response.StorageClass != nil {
+		storageClass = *response.StorageClass
+	}
+
 	return &HeadObjectOutput{
 		ItemOutput: ItemOutput{
 			Key:          key,
-			ETag:         *response.ETag,
-			LastModified: *response.LastModified,
-			Size:         uint64(*response.ContentLength),
-			StorageClass: *response.StorageClass,
+			ETag:         etag,
+			LastModified: lastModified,
+			Size:         size,
+			StorageClass: storageClass,
 		},
 		ContentType: *response.ContentType,
 		Metadata:    metadataToLower(response.Metadata),
@@ -168,13 +186,31 @@ func (storage S3Storage) List(input *ListInput) (*ListBlobsOutput, error) {
 	for _, p := range resp.CommonPrefixes {
 		prefixes = append(prefixes, PrefixOutput{Prefix: *p.Prefix})
 	}
+	var key, etag, storageClass string
+	var lastModified time.Time
+	var size uint64
 	for _, i := range resp.Contents {
+		if i.Key != nil {
+			key = *i.Key
+		}
+		if i.ETag != nil {
+			etag = *i.ETag
+		}
+		if i.LastModified != nil {
+			lastModified = *i.LastModified
+		}
+		if i.Size != nil {
+			size = uint64(*i.Size)
+		}
+		if i.StorageClass != nil {
+			storageClass = *i.StorageClass
+		}
 		items = append(items, ItemOutput{
-			Key:          *i.Key,
-			ETag:         *i.ETag,
-			LastModified: *i.LastModified,
-			Size:         uint64(*i.Size),
-			StorageClass: *i.StorageClass,
+			Key:          key,
+			ETag:         etag,
+			LastModified: lastModified,
+			Size:         size,
+			StorageClass: storageClass,
 		})
 	}
 	var continuationToken string
@@ -206,9 +242,13 @@ func (storage S3Storage) CreateMultipartUpload(key string) (*MultipartCommitOutP
 		log.Errorf("s3.CreateMultipartUpload key[%s] err: %v", key, err)
 		return nil, err
 	}
+	var uploadId string
+	if resp.UploadId != nil {
+		uploadId = *resp.UploadId
+	}
 	return &MultipartCommitOutPut{
 		Key:      key,
-		UploadId: *resp.UploadId,
+		UploadId: uploadId,
 		Parts:    make([]*string, 10000), // at most 10K parts
 	}, nil
 }
