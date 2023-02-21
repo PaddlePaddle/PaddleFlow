@@ -1166,6 +1166,7 @@ func (wf *Workflow) NewWorkflowRuntime() error {
 	}
 
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
+	logger.LoggerForRun(wf.RunID).Debugf("+++++ userName[%s]", wf.Extra[WfExtraInfoKeyFSUserName])
 	runConf := NewRunConfig(&wf.Source, &wf.Source.FsOptions.MainFS, wf.Extra[WfExtraInfoKeyFSUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
 	wf.runtime = NewWorkflowRuntime(runConf)
