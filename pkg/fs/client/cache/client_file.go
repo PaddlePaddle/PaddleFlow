@@ -237,7 +237,7 @@ func (c *fileDataCache) exist(key string) bool {
 func (c *fileDataCache) updateCapacity() error {
 	output, err := utils.ExecCmdWithTimeout("df", []string{"-k", c.dir})
 	if err != nil {
-		log.Errorf("df %s %v ", c.dir, err)
+		log.Debugf("df %s %v ", c.dir, err)
 		return err
 	}
 

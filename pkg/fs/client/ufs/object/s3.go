@@ -177,12 +177,20 @@ func (storage S3Storage) List(input *ListInput) (*ListBlobsOutput, error) {
 			StorageClass: *i.StorageClass,
 		})
 	}
+	var continuationToken string
+	if resp.NextContinuationToken != nil {
+		continuationToken = *resp.ContinuationToken
+	}
+	var IsTruncated bool
+	if resp.IsTruncated != nil {
+		IsTruncated = *resp.IsTruncated
+	}
 
 	return &ListBlobsOutput{
 		Prefixes:              prefixes,
 		Items:                 items,
-		NextContinuationToken: *resp.NextContinuationToken,
-		IsTruncated:           *resp.IsTruncated,
+		NextContinuationToken: continuationToken,
+		IsTruncated:           IsTruncated,
 	}, nil
 }
 

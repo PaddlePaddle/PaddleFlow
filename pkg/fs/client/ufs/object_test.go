@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kubeflow/common/pkg/util"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
@@ -26,9 +27,10 @@ func TestBOS(t *testing.T) {
 	defer os.RemoveAll("./tmp")
 
 	properties := make(map[string]interface{})
-	// if os.Getenv(Ori_ak) == "" {
-	// 	t.SkipNow()
-	// }
+	if os.Getenv(Ori_ak) == "" {
+		log.Info("bos no ak")
+		t.SkipNow()
+	}
 	properties[fsCommon.Type] = fsCommon.BosType
 	properties[fsCommon.Region] = "bj"
 	properties[fsCommon.Endpoint] = "bj.bcebos.com"
@@ -50,7 +52,8 @@ func TestBOS(t *testing.T) {
 func TestS3(t *testing.T) {
 	defer os.RemoveAll("./tmp")
 	properties := make(map[string]interface{})
-	if os.Getenv("s3_regin") == "" {
+	if os.Getenv(Ori_ak) == "" {
+		log.Info("s3 no ak")
 		t.SkipNow()
 	}
 	properties[fsCommon.Type] = fsCommon.S3Type
