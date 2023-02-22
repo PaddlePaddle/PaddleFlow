@@ -201,10 +201,8 @@ func (srt *StepRuntime) Start() {
 	srt.Execute()
 }
 
-// Restart: 根据 jobView 来重启step
-// 如果 jobView 中的状态为 Succeeded, 则直接返回，无需重启
-// 如果 jobView 中的状态为 Running, 则进入监听即可
-// 否则 创建一个新的job并开始调度执行
+// Restart: 根据 jobView 来重新运行step
+// 只有step的状态为failed，terminated的时候，才会重新运行
 func (srt *StepRuntime) Restart(view *schema.JobView) {
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
 	defer srt.processJobLock.Unlock()
@@ -231,7 +229,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 	defer srt.catchPanic()
 
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName)
 
 	srt.pk = view.PK
 	err := srt.updateStatus(view.Status)

@@ -762,7 +762,7 @@ func TestStopRun(t *testing.T) {
 	assert.Equal(t, common.InternalError, ctx.ErrorCode)
 	ctx.ErrorCode = ""
 
-	wfMap["runID"] = &pipeline.Workflow{}
+	wfMap.Store("runID", &pipeline.Workflow{})
 
 	patch4 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
 		return fmt.Errorf("patch4 error")
@@ -931,4 +931,91 @@ func TestDeleteRun(t *testing.T) {
 	DeleteRun(ctx, "runid", req)
 	assert.Equal(t, "", ctx.ErrorCode)
 
+}
+
+func TestStartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	wfptr := &pipeline.Workflow{}
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "NewWorkflowRuntime", func(*pipeline.Workflow) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Start", func(*pipeline.Workflow) {
+		return
+	})
+	defer patch3.Reset()
+
+	StartWf(ctx, &run, wfptr)
+	_, ok := wfMap.Load(run.ID)
+	assert.True(t, ok)
+}
+
+func TestRestartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+	wfptr := &pipeline.Workflow{}
+
+	patch := gomonkey.ApplyFunc(newWorkflowByRun, func(run models.Run) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Restart", func(*pipeline.Workflow, *schema.DagView, schema.PostProcessView) {
+		return
+	})
+	defer patch3.Reset()
+
+	patch4 := gomonkey.ApplyFunc(models.GetRunJobsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunJob, error) {
+		return nil, nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.GetRunDagsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunDag, error) {
+		return nil, nil
+	})
+	defer patch5.Reset()
+
+	var r *models.Run
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(models.CreateRun, func(logEntry *log.Entry, run *models.Run) (string, error) {
+		return "", nil
+	})
+	defer patch7.Reset()
+
+	patch8 := gomonkey.ApplyFunc(models.CreateRunDag, func(logEntry *log.Entry, runDag *models.RunDag) (int64, error) {
+		return 234, nil
+	})
+	defer patch8.Reset()
+
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(r), "InitRuntime", func(_ *models.Run, jobs []models.RunJob, dags []models.RunDag) error {
+		return nil
+	})
+	defer patch9.Reset()
+
+	id, err := RestartWf(run, false)
+	assert.Nil(t, err)
+	_, ok := wfMap.Load(id)
+	assert.True(t, ok)
 }
