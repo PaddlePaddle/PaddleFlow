@@ -395,8 +395,14 @@ func TestStopRun(t *testing.T) {
 	})
 	defer patch2.Reset()
 
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(logEntry *log.Entry, userName string, runID string) (models.Run, error) {
+		return run, nil
+	})
+	defer patch3.Reset()
+
 	req := UpdateRunRequest{StopForce: false}
-	StopRun(ctx.Logging(), "root", runID, req)
+	err = StopRun(ctx.Logging(), "root", runID, req)
+	assert.Nil(t, err)
 }
 
 func TestStartWf(t *testing.T) {

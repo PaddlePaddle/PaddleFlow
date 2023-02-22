@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -92,7 +94,13 @@ func TestUpdateRunByWfEvent(t *testing.T) {
 		},
 		Message: "mesg",
 	}
-	UpdateRunByWfEvent(runID, event)
+
+	patch5 := gomonkey.ApplyFunc(models.GetRunByID, func(logEntry *log.Entry, runID string) (models.Run, error) {
+		return run, nil
+	})
+	defer patch5.Reset()
+	_, flag := UpdateRunByWfEvent(runID, event)
+	assert.True(t, flag)
 
 	_, ok := wfMap.Load(runID)
 	assert.False(t, ok)
