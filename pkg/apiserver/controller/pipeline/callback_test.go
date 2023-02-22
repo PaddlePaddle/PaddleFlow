@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -72,4 +73,27 @@ func TestGetJobByRun(t *testing.T) {
 	jobView, err := GetJobByRun("job-run-post")
 	assert.Nil(t, err)
 	assert.Equal(t, "job-run-post", jobView.JobID)
+}
+
+func TestUpdateRunByWfEvent(t *testing.T) {
+	driver.InitMockDB()
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	run := getMockRunWithoutRuntime()
+	runID, err := models.CreateRun(ctx.Logging(), &run)
+	assert.Nil(t, err)
+
+	wfMap.Store(runID, "abc")
+	event := &pipeline.WorkflowEvent{
+		Event: pipeline.WfEventRunUpdate,
+		Extra: map[string]interface{}{
+			common.WfEventKeyRunID:     runID,
+			common.WfEventKeyStatus:    common.StatusRunSucceeded,
+			common.WfEventKeyStartTime: "2022-09-09 10:00:09",
+		},
+		Message: "mesg",
+	}
+	UpdateRunByWfEvent(runID, event)
+
+	_, ok := wfMap.Load(runID)
+	assert.False(t, ok)
 }
