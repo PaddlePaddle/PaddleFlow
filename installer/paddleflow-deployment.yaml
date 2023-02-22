@@ -1612,7 +1612,7 @@ spec:
       serviceAccountName: csi-node-sa
       containers:
       - name: pfs-csi-plugin
-        image: "iregistry.baidu-int.com/bmlc/csi-driver-registrar:1.2.0"
+        image: "paddleflow/csi-driver-registrar:1.2.0"
         imagePullPolicy: "IfNotPresent"
         lifecycle:
           preStop:
@@ -1654,7 +1654,7 @@ spec:
           subPath: 
 
       - name: csi-storage-driver
-        image: iregistry.baidu-int.com/bmlc/pfs-csi-plugin:TCtest_PR990_commit_6c56c5_commit_6c56c5_2023-0220-22-03
+        image: paddleflow/pfs-csi-plugin:1.4.5.2
         imagePullPolicy: 
         command:
         - /sbin/tini
@@ -1801,7 +1801,7 @@ spec:
       serviceAccountName: paddleflow-server
       containers:
       - name: paddleflow-server
-        image: "iregistry.baidu-int.com/bmlc/paddleflow-server:TCtest_PR990_commit_6c56c5_commit_6c56c5_2023-0220-22-03"
+        image: "paddleflow/paddleflow-server:1.4.5.2"
         imagePullPolicy: "IfNotPresent"
         command:
         - /bin/sh
@@ -1918,7 +1918,7 @@ spec:
       serviceAccountName: pfs-csi-provisioner
       containers:
       - name: pfs-csi-provisioner
-        image: "iregistry.baidu-int.com/bmlc/csi-provisioner:1.4.0"
+        image: "paddleflow/csi-provisioner:1.4.0"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -1990,7 +1990,7 @@ spec:
       serviceAccountName: volcano-admission
       containers:
       - name: volcano-admission
-        image: "iregistry.baidu-int.com/bmlc/vc-webhook-manager:20220630_1656556670316"
+        image: "paddleflow/vc-webhook-manager:pf1.4-vc1.3-rc1"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -2094,7 +2094,7 @@ spec:
       serviceAccountName: volcano-controllers
       containers:
       - name: volcano-controller
-        image: "iregistry.baidu-int.com/bmlc/vc-controller-manager:pf1.4-vc1.3-rc1"
+        image: "paddleflow/vc-controller-manager:pf1.4-vc1.3-rc1"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -2170,7 +2170,7 @@ spec:
       serviceAccountName: volcano-scheduler
       containers:
       - name: volcano-scheduler
-        image: "iregistry.baidu-int.com/bmlc/vc-scheduler:pf1.4-vc1.3-rc1"
+        image: "paddleflow/vc-scheduler:pf1.4-vc1.3-rc1"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -2250,7 +2250,7 @@ spec:
       serviceAccountName: volcano-admission
       containers:
       - name: volcano-admission-init
-        image: "iregistry.baidu-int.com/bmlc/vc-webhook-manager:20220630_1656556670316"
+        image: "paddleflow/vc-webhook-manager:pf1.4-vc1.3-rc1"
         imagePullPolicy: "IfNotPresent"
         command:
         - ./gen-admission-secret.sh
