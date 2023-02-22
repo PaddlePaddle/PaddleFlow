@@ -669,10 +669,9 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 
 	step := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceStep)
 	stepPtr := &step
-	drt.logger.Infof("+++++++++++, creatStepRuntimeAccordingView %s", drt.userName)
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-	drt.logger.Infof("+++++++++++, After creatStepRuntimeAccordingView %s", drt.userName)
+
 	// 如果 view 的状态是的 succeeded 或者 running，则据此更新 runtime 的 output Artifact 字段下游节点会使用
 	// 对于 command， env， condition 字段，此处可以不更新，因为不会再次写库
 	if view.Status == StatusRuntimeSucceeded {

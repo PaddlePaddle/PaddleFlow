@@ -1238,7 +1238,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyFSUserName: run.RunOptions.FSUsername,
 		pplcommon.WfExtraInfoKeyFsName:     run.FsName,
 	}
-	logger.LoggerForRun(run.ID).Infof("++++, username: %s", run.RunOptions.FSUsername)
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
