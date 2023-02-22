@@ -99,6 +99,7 @@ func TestUpdateRunByWfEvent(t *testing.T) {
 		return run, nil
 	})
 	defer patch5.Reset()
+
 	_, flag := UpdateRunByWfEvent(runID, event)
 	assert.True(t, flag)
 
