@@ -202,6 +202,7 @@ func createLocalFile(t *testing.T, fileType bool) int {
 	} else {
 		fileSize = (500 + rand.Intn(1500)) * 1024 // 500k-2MB
 	}
+	log.Infof("fileType %v and fileSize %v", fileType, fileSize)
 
 	var name string
 	if fileType {
@@ -268,6 +269,7 @@ func testMkdirAndList(t *testing.T, client FSClient) {
 	assert.Equal(t, nil, err)
 	num := 1 + rand.Intn(50)
 	fileSize := 4096 + rand.Intn(100)*4096 + rand.Intn(4096)
+	log.Infof("fileSize %v", fileSize)
 	for i := 0; i < num; i++ {
 		f, err := client.Create(filepath.Join(dirName, strconv.Itoa(i)))
 		assert.Equal(t, nil, err)
