@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/kubeflow/common/pkg/util"
@@ -36,6 +38,8 @@ func TestBOS(t *testing.T) {
 	properties[fsCommon.SubPath] = "test_ut_" + util.RandString(10)
 	properties[fsCommon.AccessKey] = os.Getenv(Ori_ak)
 	properties[fsCommon.SecretKey] = os.Getenv(Ori_sk)
+	properties[fsCommon.Group] = "root-group"
+	properties[fsCommon.Owner] = "root"
 
 	bosfs, err := NewObjectFileSystem(properties)
 	assert.Nil(t, err)
@@ -44,7 +48,27 @@ func TestBOS(t *testing.T) {
 		testDir:          "test",
 	}
 	testObjectStorage(t, &fs)
+}
 
+func TestSTS(t *testing.T) {
+	defer os.RemoveAll("./tmp")
+
+	properties := make(map[string]interface{})
+	properties[fsCommon.Type] = fsCommon.BosType
+	properties[fsCommon.Region] = "bj"
+	properties[fsCommon.Endpoint] = "bj.bcebos.com"
+	properties[fsCommon.Bucket] = "zxx"
+	properties[fsCommon.SubPath] = "test_ut_" + util.RandString(10)
+	properties[fsCommon.AccessKey] = "1111"
+	properties[fsCommon.SecretKey] = "abasdfsadfgdfgadfsagsdgdsg"
+	properties[fsCommon.Token] = "fsadgsadgasdgasdgasdg"
+	properties[fsCommon.FsName] = "fsbb"
+	properties[fsCommon.Group] = "root-group"
+	properties[fsCommon.Owner] = "root"
+	properties[fsCommon.StsServer] = "127.0.0.1:8999"
+
+	_, err := NewObjectFileSystem(properties)
+	assert.NotNil(t, err, nil)
 }
 
 func TestS3(t *testing.T) {
@@ -286,4 +310,32 @@ func (fs *TestObj) testTruncat(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int64(22), finfo.Size)
 	assert.Nil(t, fs.Unlink(file))
+}
+
+func Test_newStsServerClient(t *testing.T) {
+	type args struct {
+		serverAddress string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *service.PaddleFlowClient
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "test-err",
+			args: args{"127.0.0.1:8999"},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newStsServerClient(tt.args.serverAddress)
+			if !tt.wantErr(t, err, fmt.Sprintf("newStsServerClient(%v)", tt.args.serverAddress)) {
+				return
+			}
+		})
+	}
 }
