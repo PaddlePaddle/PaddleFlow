@@ -8,19 +8,17 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/kubeflow/common/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
-	Ori_ak       = "ori_ak"
-	Ori_sk       = "ori_sk"
-	Ori_Bucket   = "ori_bucket"
-	Test_SubPath = "testpath"
+	Ori_ak     = "ori_ak"
+	Ori_sk     = "ori_sk"
+	Ori_Bucket = "ori_bucket"
 )
 
 func TestBOS(t *testing.T) {

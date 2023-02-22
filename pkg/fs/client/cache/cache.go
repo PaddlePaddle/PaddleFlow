@@ -26,11 +26,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-
 	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -120,6 +119,10 @@ func (r *rCache) readAhead(index int) (err error) {
 	// first we get small readAhead size
 	if r.seqReadAmount <= READAHEAD_CHUNK {
 		readAheadAmount = utils.Max(int(READAHEAD_CHUNK), blockSize)
+	}
+
+	if readAheadAmount < blockSize {
+		readAheadAmount = blockSize
 	}
 	existingReadAhead := 0
 	for readAheadAmount-existingReadAhead >= blockSize {
