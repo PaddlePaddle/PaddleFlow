@@ -306,25 +306,26 @@ func buildMountContainer(mountContainer k8sCore.Container, mountInfo Info) k8sCo
 		},
 	}
 
-	mp := k8sCore.MountPropagationBidirectional
+	mountPropagationBidirectional := k8sCore.MountPropagationBidirectional
+	mountPropagationNone := k8sCore.MountPropagationNone
 	volumeMounts := []k8sCore.VolumeMount{
 		{
 			Name:             VolumesKeyMount,
 			MountPath:        schema.FusePodMntDir,
 			SubPath:          mountInfo.FS.ID,
-			MountPropagation: &mp,
+			MountPropagation: &mountPropagationBidirectional,
 		},
 	}
 	if mountInfo.CacheConfig.CacheDir != "" {
 		dataCacheVM := k8sCore.VolumeMount{
 			Name:             VolumesKeyDataCache,
 			MountPath:        FusePodCachePath + DataCacheDir,
-			MountPropagation: &mp,
+			MountPropagation: &mountPropagationNone,
 		}
 		metaCacheVM := k8sCore.VolumeMount{
 			Name:             VolumesKeyMetaCache,
 			MountPath:        FusePodCachePath + MetaCacheDir,
-			MountPropagation: &mp,
+			MountPropagation: &mountPropagationNone,
 		}
 		volumeMounts = append(volumeMounts, dataCacheVM, metaCacheVM)
 	}
@@ -375,7 +376,7 @@ func buildCacheWorkerContainer(cacheContainer k8sCore.Container, mountInfo Info)
 	cacheContainer.Name = ContainerNameCacheWorker
 	cacheContainer.Command = []string{"sh", "-c", mountInfo.CacheWorkerCmd()}
 	if mountInfo.CacheConfig.CacheDir != "" {
-		mp := k8sCore.MountPropagationBidirectional
+		mp := k8sCore.MountPropagationNone
 		volumeMounts := []k8sCore.VolumeMount{
 			{
 				Name:             VolumesKeyDataCache,
