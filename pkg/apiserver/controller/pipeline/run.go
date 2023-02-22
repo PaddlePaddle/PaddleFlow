@@ -44,7 +44,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
-// var wfMap = make(map[string]*pipeline.Workflow, 0)
 var wfMap = sync.Map{}
 
 const (
