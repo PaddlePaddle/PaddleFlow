@@ -247,6 +247,7 @@ func testRead(t *testing.T, client FSClient, name string, md5sum string) {
 func testMkdirAndList(t *testing.T, client FSClient) {
 	dirNamePrefix := "smallDirs"
 	dirName := "smallDirs/a/b/c/d/e"
+	renameName := "smallDirs/a/b/c/d/h"
 	err := client.Mkdir(dirNamePrefix, 0755)
 	assert.Equal(t, nil, err)
 	defer func() {
@@ -288,5 +289,8 @@ func testMkdirAndList(t *testing.T, client FSClient) {
 	for _, file := range listDir {
 		assert.Equal(t, fileSize, int(file.Size()))
 	}
+	err = client.Rename(dirName, renameName)
+	assert.Equal(t, nil, err)
 	err = client.RemoveAll(dirNamePrefix)
+	assert.Equal(t, nil, err)
 }
