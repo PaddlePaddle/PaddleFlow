@@ -306,7 +306,7 @@ func buildMountContainer(mountContainer k8sCore.Container, mountInfo Info) k8sCo
 		},
 	}
 
-	mp := k8sCore.MountPropagationBidirectional
+	mp := k8sCore.MountPropagationNone
 	volumeMounts := []k8sCore.VolumeMount{
 		{
 			Name:             VolumesKeyMount,
@@ -375,7 +375,7 @@ func buildCacheWorkerContainer(cacheContainer k8sCore.Container, mountInfo Info)
 	cacheContainer.Name = ContainerNameCacheWorker
 	cacheContainer.Command = []string{"sh", "-c", mountInfo.CacheWorkerCmd()}
 	if mountInfo.CacheConfig.CacheDir != "" {
-		mp := k8sCore.MountPropagationBidirectional
+		mp := k8sCore.MountPropagationNone
 		volumeMounts := []k8sCore.VolumeMount{
 			{
 				Name:             VolumesKeyDataCache,
