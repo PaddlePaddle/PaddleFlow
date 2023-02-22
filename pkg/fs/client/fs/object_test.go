@@ -30,6 +30,10 @@ var testBigFileName = "random-big-file.bin"
 var testSmallFileName = "random-small-file.bin"
 
 func TestS3(t *testing.T) {
+	if os.Getenv(Ori_ak) == "" {
+		log.Info("bos no ak")
+		t.SkipNow()
+	}
 	rand.Seed(time.Now().UnixNano())
 	d := cache.Config{
 		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
@@ -40,6 +44,7 @@ func TestS3(t *testing.T) {
 			CachePath: "./mock-cache",
 		},
 	}
+	log.Infof("test s3 cache %+v", d)
 	SetDataCache(d)
 	client := getS3Client(t)
 	defer func() {
@@ -58,6 +63,10 @@ func TestS3(t *testing.T) {
 }
 
 func TestBos(t *testing.T) {
+	if os.Getenv(Ori_ak) == "" {
+		log.Info("bos no ak")
+		t.SkipNow()
+	}
 	rand.Seed(time.Now().UnixNano())
 	d := cache.Config{
 		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
@@ -68,6 +77,7 @@ func TestBos(t *testing.T) {
 			CachePath: "./mock-cache",
 		},
 	}
+	log.Infof("test s3 cache %+v", d)
 	SetDataCache(d)
 	client := getBosClient(t)
 	defer func() {
