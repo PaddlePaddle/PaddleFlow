@@ -354,7 +354,7 @@ func getCacheVolumes(cache model.FSCacheConfig) ([]k8sCore.Volume, []k8sCore.Vol
 	volumes := make([]k8sCore.Volume, 0)
 	volumeMounts := make([]k8sCore.VolumeMount, 0)
 	typeDir := k8sCore.HostPathDirectoryOrCreate
-	mpBi := k8sCore.MountPropagationBidirectional
+	mpBi := k8sCore.MountPropagationNone
 
 	if cache.CacheDir != "" {
 		// todo:: meta CacheConfig dir and data CacheConfig dir distinguish
@@ -402,7 +402,7 @@ func getCacheVolumes(cache model.FSCacheConfig) ([]k8sCore.Volume, []k8sCore.Vol
 func buildCacheWorkerContainer(cmd string) k8sCore.Container {
 	cacheContainer := getBaseContainer(ContainerNameCacheWorker)
 	cacheContainer.Command = []string{"sh", "-c", cmd}
-	mp := k8sCore.MountPropagationHostToContainer
+	mp := k8sCore.MountPropagationNone
 	volumeMounts := []k8sCore.VolumeMount{
 		{
 			Name:             VolumesKeyDataCache,
