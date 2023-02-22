@@ -76,10 +76,15 @@ func (storage Bos) Put(key string, in io.Reader) error {
 
 func (storage Bos) Deletes(keys []string) error {
 	log.Tracef("bos.Deletes keys[%v]", keys)
-	err, _ := storage.bosClient.DeleteMultipleObjectsFromKeyList(storage.bucket, keys)
+	numObjs := len(keys)
+	if numObjs == 0 {
+		log.Errorf("delete keys empty")
+		return fmt.Errorf("delete keys empty")
+	}
+	_, err := storage.bosClient.DeleteMultipleObjectsFromKeyList(storage.bucket, keys)
 	if err != nil {
 		log.Errorf("bos.Deletes keys[%v] err: %v", keys, err)
-		return fmt.Errorf("delete error")
+		return err
 	}
 	return nil
 }
