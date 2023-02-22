@@ -357,7 +357,6 @@ func getCacheVolumes(cache model.FSCacheConfig) ([]k8sCore.Volume, []k8sCore.Vol
 	mpBi := k8sCore.MountPropagationNone
 
 	if cache.CacheDir != "" {
-		// todo:: meta CacheConfig dir and data CacheConfig dir distinguish
 		// data CacheConfig
 		dataCacheVolume := k8sCore.Volume{
 			Name: VolumesKeyDataCache,
