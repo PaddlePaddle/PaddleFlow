@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -32,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -68,7 +70,20 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	requestId := ctx.RequestID
 	var createRunInfo pipeline.CreateRunRequest
 
-	if err := common.BindJSON(r, &createRunInfo); err != nil {
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "createRun", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "createRun",
+			errCode, r.Method)
+	}()
+
+	if err = common.BindJSON(r, &createRunInfo); err != nil {
 		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -111,6 +126,20 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Router /runjson [POST]
 func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "createRunByJson", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "createRunByJson",
+			errCode, r.Method)
+	}()
+
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
@@ -174,6 +203,20 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 // @Router /run [GET]
 func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "listRun", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "listRun",
+			errCode, r.Method)
+	}()
+
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
@@ -228,6 +271,20 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [GET]
 func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "getRunByID", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "getRunByID",
+			errCode, r.Method)
+	}()
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	runInfo, err := pipeline.GetRunByID(&ctx, ctx.UserName, runID)
 
@@ -256,10 +313,23 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [PUT]
 func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "updateRun", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "updateRun",
+			errCode, r.Method)
+	}()
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
-	var err error
 	request := pipeline.UpdateRunRequest{}
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -315,6 +385,20 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [DELETE]
 func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	metrics.AddRunResquestMetrics(ctx.RequestID, "deleteRun", r.Method)
+	defer func() {
+		var errCode string
+		if err != nil {
+			errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+		} else {
+			errCode = strconv.Itoa(http.StatusOK)
+		}
+		metrics.AddRunResponseMetrics(ctx.RequestID, "deleteRun",
+			errCode, r.Method)
+	}()
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	request := pipeline.DeleteRunRequest{
 		CheckCache: true, // 默认为true

@@ -62,7 +62,7 @@ var RUNSTAGE = prometheus.NewGaugeVec(
 	[]string{RunIDLabel, RunStageLabel, RequestIDLabel, RunStepNameLabel, RunJobIDLabel},
 )
 
-func AddRUNResponseMetrics(requestID, apiName, code, method string) {
+func AddRunResponseMetrics(requestID, apiName, code, method string) {
 	RUNRESPONSE.With(prometheus.Labels{
 		RequestIDLabel:     requestID,
 		ApiNameLabel:       apiName,
@@ -71,7 +71,7 @@ func AddRUNResponseMetrics(requestID, apiName, code, method string) {
 	}).Set(float64(time.Now().UnixMicro()))
 }
 
-func AddRUNResquestMetrics(requestID, apiName, method string) {
+func AddRunResquestMetrics(requestID, apiName, method string) {
 	RUNREQUEST.With(prometheus.Labels{
 		RequestIDLabel:     requestID,
 		ApiNameLabel:       apiName,
