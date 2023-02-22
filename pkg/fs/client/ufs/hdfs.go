@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+  http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -359,12 +359,45 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32, size uint64) (FileHand
 	fs.Lock()
 	defer fs.Unlock()
 
-	return &hdfsFileHandle{
-		name:   name,
-		reader: nil,
-		fs:     fs,
-		writer: nil,
-	}, nil
+	// read only
+	if flag&syscall.O_ACCMODE == syscall.O_RDONLY {
+		reader, err := fs.client.Open(fs.GetPath(name))
+		if err != nil {
+			log.Errorf("hdfs client open err: %v", err)
+			return nil, err
+		}
+
+		return &hdfsFileHandle{
+			name:   name,
+			reader: reader,
+			fs:     fs,
+			writer: nil,
+		}, nil
+	}
+
+	// append only
+
+	if flag&syscall.O_APPEND != 0 {
+		// hdfs nameNode maybe not release fh, has error: org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException
+		for i := 0; i < 3; i++ {
+			writer, err := fs.client.Append(fs.GetPath(name))
+			if err != nil {
+				if fs.shouldRetry(err) {
+					time.Sleep(100 * time.Millisecond * time.Duration(i*i))
+					continue
+				}
+				log.Errorf("hdfs client append err: %v", err)
+				return nil, err
+			}
+			return &hdfsFileHandle{
+				name:   name,
+				reader: nil,
+				fs:     fs,
+				writer: writer,
+			}, nil
+		}
+	}
+	return nil, syscall.ENOTSUP
 }
 
 func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd FileHandle, err error) {
@@ -455,12 +488,9 @@ var _ FileHandle = &hdfsFileHandle{}
 func (fh *hdfsFileHandle) Read(buf []byte, off uint64) (int, error) {
 	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
 	if fh.reader == nil {
-		reader, err := fh.fs.client.Open(fh.fs.GetPath(fh.name))
-		if err != nil {
-			log.Errorf("hdfs client open err: %v", err)
-			return 0, err
-		}
-		fh.reader = reader
+		err := fmt.Errorf("hdfs read: file[%s] bad file descriptor reader==nil", fh.name)
+		log.Errorf(err.Error())
+		return 0, err
 	}
 	n, err := fh.reader.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
@@ -482,11 +512,9 @@ func (fh *hdfsFileHandle) Write(data []byte, off uint64) (uint32, error) {
 	log.Tracef("hdfs write: fh.name[%s], dataLength[%d], offset[%d], fh[%+v]", fh.name, len(data), off, fh)
 	var err error
 	if fh.writer == nil {
-		fh.writer, err = fh.fs.client.Append(fh.fs.GetPath(fh.name))
-		if err != nil {
-			log.Errorf("hdfs client append err: %v", err)
-			return 0, err
-		}
+		err = fmt.Errorf("hdfs write: file[%s] bad file descriptor writer==nil", fh.name)
+		log.Errorf(err.Error())
+		return 0, err
 	}
 
 	n, err := fh.writer.Write(data)
