@@ -78,3 +78,27 @@ func AddRUNResquestMetrics(requestID, apiName, method string) {
 		RequestMethodLabel: method,
 	})
 }
+
+func AddRunStartTimeMetrics(requestID, runID string) {
+	RUNSTARTTIME.With(prometheus.Labels{
+		RequestIDLabel: requestID,
+		RunIDLabel:     runID,
+	})
+}
+
+func AddRunENDTimeMetrics(requestID, runID string) {
+	RUNENDTIME.With(prometheus.Labels{
+		RequestIDLabel: requestID,
+		RunIDLabel:     runID,
+	})
+}
+
+func AddRunStageMetrics(runID, runStage, stepName, jobID, requestID string) {
+	RUNSTAGE.With(prometheus.Labels{
+		RunIDLabel:       runID,
+		RunStageLabel:    runStage,
+		RunJobIDLabel:    jobID,
+		RunStepNameLabel: stepName,
+		RequestIDLabel:   requestID,
+	})
+}

@@ -52,5 +52,5 @@ func AddPipelineResquestMetrics(requestID, apiName, method string) {
 		RequestIDLabel:     requestID,
 		ApiNameLabel:       apiName,
 		RequestMethodLabel: method,
-	})
+	}).Set(float64(time.Now().UnixMicro()))
 }
