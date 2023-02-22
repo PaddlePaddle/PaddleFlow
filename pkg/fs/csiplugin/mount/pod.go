@@ -70,7 +70,7 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 	}
 	// if mount pod not exists. might be process mount
 	if pod == nil {
-		//log.Infof("PodUnmount: Mount pod %s not exists.", podName)
+		// log.Infof("PodUnmount: Mount pod %s not exists.", podName)
 		return nil
 	}
 
@@ -402,7 +402,7 @@ func getCacheVolumes(cache model.FSCacheConfig) ([]k8sCore.Volume, []k8sCore.Vol
 func buildCacheWorkerContainer(cmd string) k8sCore.Container {
 	cacheContainer := getBaseContainer(ContainerNameCacheWorker)
 	cacheContainer.Command = []string{"sh", "-c", cmd}
-	mp := k8sCore.MountPropagationBidirectional
+	mp := k8sCore.MountPropagationHostToContainer
 	volumeMounts := []k8sCore.VolumeMount{
 		{
 			Name:             VolumesKeyDataCache,
