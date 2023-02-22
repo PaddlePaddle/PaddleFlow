@@ -1477,7 +1477,7 @@ spec:
   ports:
   - name: port-0
     port: 8999
-    nodePort: 30999
+    nodePort: 8999
     protocol: TCP
     targetPort: 8999
   selector:
