@@ -109,7 +109,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 	}
 	if common.IsRunFinalStatus(status) {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
+		wfMap.Delete(runID)
 	}
 	startTime, ok := wfEvent.Extra[common.WfEventKeyStartTime].(string)
 	if !ok {
@@ -152,7 +152,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 
 	if common.IsRunFinalStatus(status) {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
+		wfMap.Delete(runID)
 
 		// 给scheduler发concurrency channel信号
 		if prevRun.ScheduleID != "" {

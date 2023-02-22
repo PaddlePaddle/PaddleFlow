@@ -483,7 +483,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	for _, name := range sorted {
 		views, ok := dagView.EntryPoints[name]
 		if !ok {
-			// 说面当前节点还没有运行，在此处不进行处理
+			// 说明当前节点还没有运行，在此处不进行处理
 			continue
 		}
 
@@ -734,7 +734,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			continue
 		}
 
-		// restart 时，所有子节点rumtine都处于终态，可以分成三类：
+		// restart 时，所有子节点rumtime都处于终态，可以分成三类：
 		// succeeded, skipped: 对于这类runtime无需重启，在 subruntime 中记录即可
 		// failed， terminated: 需要重启
 		// cancelled: 分两种情况：
