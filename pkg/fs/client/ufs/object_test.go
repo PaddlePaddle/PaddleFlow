@@ -2,16 +2,22 @@ package ufs
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/kubeflow/common/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -336,6 +342,457 @@ func Test_newStsServerClient(t *testing.T) {
 			if !tt.wantErr(t, err, fmt.Sprintf("newStsServerClient(%v)", tt.args.serverAddress)) {
 				return
 			}
+		})
+	}
+}
+
+func Test_objectFileHandle_Read(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		dest []byte
+		off  uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "off >= len(dest)",
+			fields: fields{},
+			args: args{
+				dest: []byte("12"),
+				off:  5,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+			want: 0,
+		},
+		{
+			name: "fh size == 0 ",
+			fields: fields{
+				size: 0,
+			},
+			args: args{
+				dest: []byte("414244444"),
+				off:  5,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+			want: 0,
+		},
+		{
+			name: "endpos > size ",
+			fields: fields{
+				size:    3,
+				storage: object.S3Storage{},
+			},
+			args: args{
+				dest: []byte("414244444"),
+				off:  5,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+			want: 0,
+		},
+	}
+
+	a := &object.S3Storage{}
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(a), "Get",
+		func(a *object.S3Storage, key string, off, limit int64) (io.ReadCloser, error) {
+			return nil, fmt.Errorf("get err")
+		})
+	defer p1.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			got, err := fh.Read(tt.args.dest, tt.args.off)
+			if !tt.wantErr(t, err, fmt.Sprintf("Read(%v, %v)", tt.args.dest, tt.args.off)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "Read(%v, %v)", tt.args.dest, tt.args.off)
+		})
+	}
+}
+
+func Test_objectFileHandle_Write(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		data []byte
+		off  uint64
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		args        args
+		wantWritten uint32
+		wantErr     assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "write empty",
+			fields: fields{},
+			args: args{
+				data: []byte{},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name:   "writeTmpfile empty",
+			fields: fields{},
+			args: args{
+				data: []byte("1245"),
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			gotWritten, err := fh.Write(tt.args.data, tt.args.off)
+			if !tt.wantErr(t, err, fmt.Sprintf("Write(%v, %v)", tt.args.data, tt.args.off)) {
+				return
+			}
+			assert.Equalf(t, tt.wantWritten, gotWritten, "Write(%v, %v)", tt.args.data, tt.args.off)
+		})
+	}
+}
+
+func Test_objectFileHandle_Release(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				writeDirty: false,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			fh.Release()
+		})
+	}
+}
+
+func Test_objectFileHandle_Fsync(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		flags int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "ok",
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			tt.wantErr(t, fh.Fsync(tt.args.flags), fmt.Sprintf("Fsync(%v)", tt.args.flags))
+		})
+	}
+}
+
+func Test_objectFileHandle_Truncate(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		size uint64
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "writeTmpfile err",
+			fields: fields{},
+			args:   args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			tt.wantErr(t, fh.Truncate(tt.args.size), fmt.Sprintf("Truncate(%v)", tt.args.size))
+		})
+	}
+}
+
+func Test_objectFileHandle_Allocate(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		off  uint64
+		size uint64
+		mode uint32
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "ok",
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			tt.wantErr(t, fh.Allocate(tt.args.off, tt.args.size, tt.args.mode), fmt.Sprintf("Allocate(%v, %v, %v)", tt.args.off, tt.args.size, tt.args.mode))
+		})
+	}
+}
+
+func Test_objectFileSystem_Utimens(t *testing.T) {
+	type fields struct {
+		subPath     string
+		dirMode     int
+		fileMode    int
+		storage     object.ObjectStorage
+		defaultTime time.Time
+		Mutex       sync.Mutex
+		chunkPool   *sync.Pool
+	}
+	type args struct {
+		name  string
+		Atime *time.Time
+		Mtime *time.Time
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "ok",
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &objectFileSystem{
+				subPath:     tt.fields.subPath,
+				dirMode:     tt.fields.dirMode,
+				fileMode:    tt.fields.fileMode,
+				storage:     tt.fields.storage,
+				defaultTime: tt.fields.defaultTime,
+				Mutex:       tt.fields.Mutex,
+				chunkPool:   tt.fields.chunkPool,
+			}
+			tt.wantErr(t, fs.Utimens(tt.args.name, tt.args.Atime, tt.args.Mtime), fmt.Sprintf("Utimens(%v, %v, %v)", tt.args.name, tt.args.Atime, tt.args.Mtime))
+		})
+	}
+}
+
+func Test_objectFileSystem_String(t *testing.T) {
+	type fields struct {
+		subPath     string
+		dirMode     int
+		fileMode    int
+		storage     object.ObjectStorage
+		defaultTime time.Time
+		Mutex       sync.Mutex
+		chunkPool   *sync.Pool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "ok",
+			want: "object",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &objectFileSystem{
+				subPath:     tt.fields.subPath,
+				dirMode:     tt.fields.dirMode,
+				fileMode:    tt.fields.fileMode,
+				storage:     tt.fields.storage,
+				defaultTime: tt.fields.defaultTime,
+				Mutex:       tt.fields.Mutex,
+				chunkPool:   tt.fields.chunkPool,
+			}
+			assert.Equalf(t, tt.want, fs.String(), "String()")
 		})
 	}
 }
