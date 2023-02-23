@@ -81,8 +81,9 @@ func (storage Bos) Deletes(keys []string) error {
 		log.Errorf("delete keys empty")
 		return fmt.Errorf("delete keys empty")
 	}
-	_, err := storage.bosClient.DeleteMultipleObjectsFromKeyList(storage.bucket, keys)
-	if err != nil {
+	result, err := storage.bosClient.DeleteMultipleObjectsFromKeyList(storage.bucket, keys)
+	// bos delete ok return eof
+	if result != nil && len(result.Errors) != 0 {
 		log.Errorf("bos.Deletes keys[%v] err: %v", keys, err)
 		return err
 	}

@@ -30,8 +30,8 @@ var testBigFileName = "random-big-file.bin"
 var testSmallFileName = "random-small-file.bin"
 
 func TestS3(t *testing.T) {
-	if os.Getenv(Ori_ak) == "" {
-		log.Info("bos no ak")
+	if os.Getenv(Ori_ak) == "" || os.Getenv(Ori_subpath) == "" || os.Getenv(Ori_subpath) == "/" {
+		log.Info("not ready")
 		t.SkipNow()
 	}
 	rand.Seed(time.Now().UnixNano())
@@ -57,14 +57,15 @@ func TestS3(t *testing.T) {
 		os.RemoveAll("./tmp")
 		os.RemoveAll("./mock-cache")
 	}()
+	client.RemoveAll("/")
 	testBigFile(t, client)
 	testSmallFile(t, client)
 	testMkdirAndList(t, client)
 }
 
 func TestBos(t *testing.T) {
-	if os.Getenv(Ori_ak) == "" {
-		log.Info("bos no ak")
+	if os.Getenv(Ori_ak) == "" || os.Getenv(Ori_subpath) == "" || os.Getenv(Ori_subpath) == "/" {
+		log.Info("not ready")
 		t.SkipNow()
 	}
 	rand.Seed(time.Now().UnixNano())
@@ -90,15 +91,13 @@ func TestBos(t *testing.T) {
 		os.RemoveAll("./tmp")
 		os.RemoveAll("./mock-cache")
 	}()
+	client.RemoveAll("/")
 	testBigFile(t, client)
 	testSmallFile(t, client)
+	testMkdirAndList(t, client)
 }
 
 func getBosClient(t *testing.T) FSClient {
-	if os.Getenv(Ori_ak) == "" {
-		log.Info("bos no ak")
-		t.SkipNow()
-	}
 	testFsMeta := common.FSMeta{
 		UfsType: common.BosType,
 		Type:    common.BosType,
@@ -120,10 +119,6 @@ func getBosClient(t *testing.T) FSClient {
 }
 
 func getS3Client(t *testing.T) FSClient {
-	if os.Getenv(Ori_ak) == "" {
-		log.Info("bos no ak")
-		t.SkipNow()
-	}
 	testFsMeta := common.FSMeta{
 		UfsType: common.S3Type,
 		Type:    common.S3Type,

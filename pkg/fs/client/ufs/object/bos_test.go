@@ -114,7 +114,14 @@ func TestBos_Deletes(t *testing.T) {
 	a := &bos.Client{}
 	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(a), "DeleteMultipleObjectsFromKeyList",
 		func(a *bos.Client, bucket string, keyList []string) (*api2.DeleteMultipleObjectsResult, error) {
-			return nil, fmt.Errorf("delete err")
+			return &api2.DeleteMultipleObjectsResult{
+				Errors: []api2.DeleteObjectResult{
+					{
+						Code:    "124",
+						Message: "err",
+					},
+				},
+			}, fmt.Errorf("delete err")
 		})
 	defer p1.Reset()
 	for _, tt := range tests {

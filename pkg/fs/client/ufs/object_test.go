@@ -796,3 +796,171 @@ func Test_objectFileSystem_String(t *testing.T) {
 		})
 	}
 }
+
+func Test_objectFileHandle_partAndChunkSize(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	type args struct {
+		fileSize int64
+	}
+	tests := []struct {
+		name              string
+		fields            fields
+		args              args
+		wantPartSize      int64
+		wantChunkSize     int64
+		wantPartsPerChunk int64
+	}{
+		{
+			name:   "<8gib",
+			fields: fields{},
+			args: args{
+				7 * GiB,
+			},
+			wantPartSize:      8 * MiB,
+			wantChunkSize:     MPUChunkSize,
+			wantPartsPerChunk: 128,
+		},
+		{
+			name:   "72gib",
+			fields: fields{},
+			args: args{
+				72 * GiB,
+			},
+			wantPartSize:      64 * MiB,
+			wantChunkSize:     MPUChunkSize,
+			wantPartsPerChunk: 16,
+		},
+		{
+			name:   "1024gib",
+			fields: fields{},
+			args: args{
+				1024 * GiB,
+			},
+			wantPartSize:      512 * MiB,
+			wantChunkSize:     MPUChunkSize,
+			wantPartsPerChunk: 2,
+		},
+		{
+			name:   "3tb",
+			fields: fields{},
+			args: args{
+				3 * 1024 * GiB,
+			},
+			wantPartSize:      1 * GiB,
+			wantChunkSize:     MPUChunkSize,
+			wantPartsPerChunk: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			gotPartSize, gotChunkSize, gotPartsPerChunk := fh.partAndChunkSize(tt.args.fileSize)
+			assert.Equalf(t, tt.wantPartSize, gotPartSize, "partAndChunkSize(%v)", tt.args.fileSize)
+			assert.Equalf(t, tt.wantChunkSize, gotChunkSize, "partAndChunkSize(%v)", tt.args.fileSize)
+			assert.Equalf(t, tt.wantPartsPerChunk, gotPartsPerChunk, "partAndChunkSize(%v)", tt.args.fileSize)
+		})
+	}
+}
+
+func Test_objectFileHandle_MPU(t *testing.T) {
+	type fields struct {
+		mpuInfo        mpuInfo
+		storage        object.ObjectStorage
+		name           string
+		key            string
+		size           uint64
+		flags          uint32
+		writeTmpfile   *os.File
+		canWrite       chan struct{}
+		writeSrcReader io.ReadCloser
+		mu             sync.RWMutex
+		writeDirty     bool
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "err1",
+			fields: fields{
+				storage: object.S3Storage{},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "err2",
+			fields: fields{
+				storage: object.S3Storage{},
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+
+	a := &object.S3Storage{}
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(a), "CreateMultipartUpload",
+		func(a *object.S3Storage, key string) (*object.MultipartCommitOutPut, error) {
+			return nil, fmt.Errorf("createMultipartUpload err")
+		})
+	defer p1.Reset()
+
+	b := &objectFileHandle{}
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(b), "serialMPUTillEnd",
+		func(a *objectFileHandle, key string) error {
+			return fmt.Errorf("serialMPUTillEnd err")
+		})
+	defer p2.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fh := &objectFileHandle{
+				mpuInfo:        tt.fields.mpuInfo,
+				storage:        tt.fields.storage,
+				name:           tt.fields.name,
+				key:            tt.fields.key,
+				size:           tt.fields.size,
+				flags:          tt.fields.flags,
+				writeTmpfile:   tt.fields.writeTmpfile,
+				canWrite:       tt.fields.canWrite,
+				writeSrcReader: tt.fields.writeSrcReader,
+				mu:             tt.fields.mu,
+				writeDirty:     tt.fields.writeDirty,
+			}
+			tt.wantErr(t, fh.MPU(), fmt.Sprintf("MPU()"))
+		})
+		if tt.name == "err1" {
+			p1 = gomonkey.ApplyMethod(reflect.TypeOf(a), "CreateMultipartUpload",
+				func(a *object.S3Storage, key string) (*object.MultipartCommitOutPut, error) {
+					return &object.MultipartCommitOutPut{UploadId: "t"}, nil
+				})
+		}
+	}
+}

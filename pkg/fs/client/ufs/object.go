@@ -40,6 +40,9 @@ func init() {
 	RegisterUFS(fsCommon.BosType, NewObjectFileSystem)
 }
 
+const MiB int64 = 1024 * 1024
+const GiB int64 = 1024 * 1024 * 1024
+
 var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChunkSize) }}
 
 type objectFileSystem struct {
@@ -997,9 +1000,7 @@ func (fh *objectFileHandle) multipartCommit() error {
 
 func (fh *objectFileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
 	chunkSize = MPUChunkSize // chunk size = 1 GiB
-	const MiB int64 = 1024 * 1024
-	const GiB int64 = 1024 * 1024 * 1024
-	if fileSize <= 8*GiB { // fileSize <= 8 GiB
+	if fileSize <= 8*GiB {   // fileSize <= 8 GiB
 		// 8 MiB, 128 parts/chunk, total: 0 ~ 1,000 parts & chunks <= 8
 		partSize, partsPerChunk = 8*MiB, 128
 	} else if fileSize <= 256*GiB { // fileSize 8 GiB ~ 256 GiB
@@ -1257,6 +1258,11 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			region = sts.Region
 
 			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
+			if err != nil {
+				log.Errorf("AesDecrypt: err[%v]", err)
+				return nil, err
+			}
+
 			stsCredential, err := auth.NewSessionBceCredentials(
 				sts.AccessKeyId,
 				secretKey_,
