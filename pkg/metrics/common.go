@@ -23,15 +23,13 @@ import (
 )
 
 const (
-	MetricJobTime    = "pf_metric_job_time"
-	MetricQueueInfo  = "pf_metric_queue_info"
-	MetricJobGPUInfo = "pf_metric_job_gpu_info"
-
-	MetricPipelineRequest  = "pf_pipeline_request"
-	MetricPipelineResponse = "pf_pipeline_response"
-
-	MetricApiDuration = "pf_api_duration_millisecond"
-	MetricRunStage    = "pf_run_stage"
+	MetricJobTime        = "pf_metric_job_time"
+	MetricQueueInfo      = "pf_metric_queue_info"
+	MetricJobGPUInfo     = "pf_metric_job_gpu_info"
+	MetricApiDuration    = "pf_metric_api_duration_millisecond"
+	MetricRunDuration    = "pf_metric_run_duration_millisecond"
+	MetricStepDuration   = "pf_metric_step_duration_millisecond"
+	MetricRunJobDuration = "pf_metric_runJob_duration_millisecond"
 )
 
 func toHelp(name string) string {
@@ -56,7 +54,10 @@ const (
 	RunIDLabel         = "runID"
 	RunStageLabel      = "runStage"
 	RunStepNameLabel   = "runStepName"
-	RunJobIDLabel      = "runJobID"
+	RunJobNameLabel    = "runJobName"
+	RunStepStageLabel  = "runStepStage"
+	RunJobStageLabel   = "runJobStage"
+	RequestIDLabel     = "requestID"
 )
 
 var APiDurationSummary = prometheus.NewSummaryVec(
