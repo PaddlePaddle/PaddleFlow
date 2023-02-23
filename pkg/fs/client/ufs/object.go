@@ -15,14 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -33,6 +25,15 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 func init() {
@@ -1301,7 +1302,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 						continue
 					}
 					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
-
 					stsCredential, err = auth.NewSessionBceCredentials(
 						sts.AccessKeyId,
 						secretKey_,

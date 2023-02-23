@@ -13,14 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/kubeflow/common/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
@@ -931,7 +932,6 @@ func Test_objectFileHandle_MPU(t *testing.T) {
 			return nil, fmt.Errorf("createMultipartUpload err")
 		})
 	defer p1.Reset()
-
 	b := &objectFileHandle{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(b), "serialMPUTillEnd",
 		func(a *objectFileHandle, key string) error {
