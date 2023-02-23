@@ -410,3 +410,27 @@ func Test_FileSystem(t *testing.T) {
 	err = svc.DeleteFileSystem(ctx, mockFSID)
 	assert.Nil(t, err)
 }
+
+func Test_formatSubpath(t *testing.T) {
+	type args struct {
+		subpath string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "/",
+			args: args{
+				subpath: "/",
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, formatSubpath(tt.args.subpath), "formatSubpath(%v)", tt.args.subpath)
+		})
+	}
+}

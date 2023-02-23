@@ -59,9 +59,8 @@ var opts *libfuse.MountOptions
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
-	FilePrefix:      "./pfs-fuse-" + time.Now().Format(TimeFormat),
 	Level:           "INFO",
-	MaxKeepDays:     90,
+	MaxKeepDays:     3,
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
@@ -90,6 +89,11 @@ Usage please refer to docs`,
 }
 
 func setup(c *cli.Context) error {
+	if c.String("fs-id") != "" {
+		logConf.FilePrefix = "./pfs-fuse-" + c.String("fs-id")
+	} else {
+		logConf.FilePrefix = "./pfs-fuse-" + time.Now().Format(TimeFormat)
+	}
 	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
 		return err
@@ -225,7 +229,7 @@ func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
 	defer func() {
 		if err := recover(); err != nil {
-			log.Errorf("panic err: %v", err)
+			log.Errorf("panic err: %v %s", err, getCurrentGoroutineStack())
 		}
 	}()
 	if err := setup(c); err != nil {
@@ -437,4 +441,10 @@ func signalHandle(mp string) {
 			}()
 		}
 	}()
+}
+
+func getCurrentGoroutineStack() string {
+	var buf [4096]byte
+	n := runtime.Stack(buf[:], false)
+	return string(buf[:n])
 }

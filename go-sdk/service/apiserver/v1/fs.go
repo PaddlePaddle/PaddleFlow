@@ -26,7 +26,10 @@ import (
 
 const (
 	FsApi       = Prefix + "/fs"
+	FsCacheApi  = Prefix + "/fsCache"
+	StsApi      = Prefix + "/fsSts"
 	KeyUsername = "username"
+	StsDuration = "duration"
 )
 
 type fileSystem struct {
@@ -63,6 +66,25 @@ type GetFileSystemResponse struct {
 type DeleteFileSystemRequest struct {
 	FsName   string `json:"fsName"`
 	Username string `json:"username"`
+}
+
+type GetStsRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+type GetStsResponse struct {
+	AccessKeyId     string `json:"accessKey"`
+	SecretAccessKey string `json:"secretKey"`
+	SessionToken    string `json:"sessionToken"`
+	Bucket          string `json:"bucket"`
+	SubPath         string `json:"subPath"`
+	Endpoint        string `json:"endpoint"`
+	Region          string `json:"region"`
+	CreateTime      string `json:"createTime"`
+	Expiration      string `json:"expiration"`
+	UserId          string `json:"userId"`
+	Duration        int    `json:"duration"`
 }
 
 func (f *fileSystem) Create(ctx context.Context, request *CreateFileSystemRequest,
@@ -104,6 +126,22 @@ func (f *fileSystem) Delete(ctx context.Context, request *DeleteFileSystemReques
 	return
 }
 
+func (f *fileSystem) Sts(ctx context.Context, request *GetStsRequest,
+	token string) (result *GetStsResponse, err error) {
+	result = &GetStsResponse{}
+	err = core.NewRequestBuilder(f.client).
+		WithHeader(common.HeaderKeyAuthorization, token).
+		WithURL(StsApi+"/"+request.FsName).
+		WithQueryParam(KeyUsername, request.Username).
+		WithMethod(http.GET).
+		WithResult(result).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
 type FileSystemGetter interface {
 	FileSystem() FileSystemInterface
 }
@@ -112,6 +150,7 @@ type FileSystemInterface interface {
 	Create(ctx context.Context, request *CreateFileSystemRequest, token string) (*CreateFileSystemResponse, error)
 	Get(ctx context.Context, request *GetFileSystemRequest, token string) (*GetFileSystemResponse, error)
 	Delete(ctx context.Context, request *DeleteFileSystemRequest, token string) error
+	Sts(ctx context.Context, request *GetStsRequest, token string) (*GetStsResponse, error)
 }
 
 // newFileSystem returns a fileSystem.

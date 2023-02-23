@@ -54,11 +54,18 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
-# Kubernetes version < v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
-# For x86_64: todo
-# For arm64: todo
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+# Kubernetes v1.13<version< v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
+# 为了在kubernetes == v1.13的集群中部署scsi插件，kubernetes集群需要满足以下配置。
+# kube-apiserver启动参数:
+--feature-gates=CSIDriverRegistry=true
+# kube-controller-manager启动参数:
+--feature-gates=CSIDriverRegistry=true
+# kubelet启动参数
+--feature-gates=CSIDriverRegistry=true
+# 1.13环境中的csi安装命令
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml
 ```
 
 #### 2.3.3 安装volcano
