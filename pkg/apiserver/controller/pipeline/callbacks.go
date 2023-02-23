@@ -107,10 +107,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 		logging.Errorf("get run status from extra in callback failed")
 		return 0, false
 	}
-	if common.IsRunFinalStatus(status) {
-		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
-	}
+
 	startTime, ok := wfEvent.Extra[common.WfEventKeyStartTime].(string)
 	if !ok {
 		logging.Errorf("get run startTime from extra in callback failed")

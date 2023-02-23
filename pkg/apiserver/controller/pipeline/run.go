@@ -493,6 +493,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
 		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
 	*/
+
 	if extra == nil {
 		extra = map[string]string{}
 	}

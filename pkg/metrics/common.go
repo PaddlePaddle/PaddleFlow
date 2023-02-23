@@ -18,6 +18,8 @@ package metrics
 
 import (
 	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -28,11 +30,8 @@ const (
 	MetricPipelineRequest  = "pf_pipeline_request"
 	MetricPipelineResponse = "pf_pipeline_response"
 
-	MetricRunRequest   = "pf_run_request"
-	MetricRUNResponse  = "pf_run_response"
-	MetricRunStartTime = "pf_run_start_time"
-	MetricRunEndTime   = "pf_run_end_time"
-	MetricRunStage     = "pf_run_stage"
+	MetricApiDuration = "pf_api_duration_millisecond"
+	MetricRunStage    = "pf_run_stage"
 )
 
 func toHelp(name string) string {
@@ -51,7 +50,6 @@ const (
 	TypeLabel           = "type"
 	BaiduGpuIndexLabel  = "baidu_com_gpu_idx"
 
-	RequestIDLabel     = "requestID"
 	ApiNameLabel       = "apiName"
 	RequestMethodLabel = "method"
 	ResponseCodeLabel  = "code"
@@ -60,3 +58,11 @@ const (
 	RunStepNameLabel   = "runStepName"
 	RunJobIDLabel      = "runJobID"
 )
+
+var APiDurationSummary = prometheus.NewSummaryVec(
+	prometheus.SummaryOpts{
+		Name:       "MetricApiDuration",
+		Help:       toHelp(MetricApiDuration),
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001, 1: 0},
+	},
+	[]string{ApiNameLabel, RequestMethodLabel, ResponseCodeLabel})
