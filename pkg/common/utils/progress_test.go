@@ -1,9 +1,10 @@
 package utils
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/vbauerster/mpb/v7"
-	"testing"
 )
 
 func TestNewDynProgressBar(t *testing.T) {
@@ -26,7 +27,7 @@ func TestNewDynProgressBar(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := NewDynProgressBar(tt.args.title, tt.args.quiet)
+			got, got1 := NewDynProgressBar(tt.args.title, tt.args.quiet, 10)
 			assert.NotNil(t, got)
 			assert.NotNil(t, got1)
 		})
