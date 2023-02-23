@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -14,8 +15,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
+const (
+	publicQueue = "public"
+)
+
 type ListClusterResourcesRequest struct {
-	ClusterNameList []string `json:"clusterNames"`
+	ClusterNameList []string `json:"clusterNames"` // list resources by cluster
+	QueueName       string   `json:"queueName"`    // list resources by queue
 	Labels          string   `json:"labels"`
 	LabelType       string   `json:"-"`
 	PageNo          int      `json:"pageNo"`
@@ -26,11 +32,12 @@ type NodeResourcesResponse struct {
 	Allocatable map[string]map[string]interface{} `json:"allocatable"`
 	Capacity    map[string]map[string]string      `json:"capacity"`
 	Labels      map[string]map[string]string      `json:"labels"`
-	ClusterName string                            `json:"clusterName"`
+	ClusterName string                            `json:"clusterName,omitempty"`
+	QueueName   string                            `json:"queueName,omitempty"`
 }
 
 // ListClusterResources return the node resources in clusters, lists can be filtered by labels in pods or nodes
-func ListClusterResources(ctx *logger.RequestContext, req ListClusterResourcesRequest) (map[string]NodeResourcesResponse, error) {
+func ListClusterResources(ctx *logger.RequestContext, req ListClusterResourcesRequest) (map[string]*NodeResourcesResponse, error) {
 	log.Infof("list cluster resources request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -39,8 +46,7 @@ func ListClusterResources(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	// 1. list nodes
-	offset := (req.PageNo - 1) * req.PageSize
-	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, req.Labels, req.PageSize, offset)
+	nodes, queueName, err := listClusterNodes(req)
 	if err != nil {
 		err = fmt.Errorf("list node from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
@@ -60,10 +66,34 @@ func ListClusterResources(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 	ctx.Logging().Debugf("list node resources: %v", result)
 	// 3. construct response
-	return ConstructClusterResources(nodes, result)
+	return ConstructClusterResources(nodes, result, queueName)
 }
 
-func ConstructClusterResources(nodes []model.NodeInfo, nodeResources []model.ResourceInfo) (map[string]NodeResourcesResponse, error) {
+func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string, error) {
+	offset := (req.PageNo - 1) * req.PageSize
+	labels := req.Labels
+	queueName := ""
+	if len(req.ClusterNameList) == 0 && len(req.QueueName) != 0 {
+		// query cluster resources by queue
+		q, err := storage.Queue.GetQueueByName(req.QueueName)
+		if err != nil {
+			return []model.NodeInfo{}, "", err
+		}
+		queueName = req.QueueName
+		if q.Location != nil && q.Location[v1beta1.QuotaTypeKey] == v1beta1.QuotaTypePhysical {
+			labels = fmt.Sprintf("%s=%s", v1beta1.QuotaLabelKey, queueName)
+		} else {
+			req.ClusterNameList = []string{q.ClusterName}
+			labels = fmt.Sprintf("%s=%s", v1beta1.QuotaLabelKey, publicQueue)
+		}
+	}
+
+	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, labels, req.PageSize, offset)
+	return nodes, queueName, err
+}
+
+func ConstructClusterResources(nodes []model.NodeInfo,
+	nodeResources []model.ResourceInfo, queueName string) (map[string]*NodeResourcesResponse, error) {
 	var nodeUsed = map[string]map[string]int64{}
 	for _, rInfo := range nodeResources {
 		nodeUsedResources, find := nodeUsed[rInfo.NodeID]
@@ -75,20 +105,23 @@ func ConstructClusterResources(nodes []model.NodeInfo, nodeResources []model.Res
 	}
 
 	var err error
-	var clusterResources = map[string]NodeResourcesResponse{}
+	var clusterResources = map[string]*NodeResourcesResponse{}
 	for _, node := range nodes {
 		cQuotaResponse, find := clusterResources[node.ClusterName]
 		if !find {
-			cQuotaResponse = NodeResourcesResponse{
+			cQuotaResponse = &NodeResourcesResponse{
 				Allocatable: make(map[string]map[string]interface{}),
 				Capacity:    make(map[string]map[string]string),
 				Labels:      make(map[string]map[string]string),
 				ClusterName: node.ClusterName,
 			}
+			if len(queueName) != 0 {
+				cQuotaResponse.QueueName = queueName
+			}
+			clusterResources[node.ClusterName] = cQuotaResponse
 		}
-		cQuotaResponse.Capacity[node.Name] = node.Capacity
-		cQuotaResponse.Labels[node.Name] = node.Labels
-		// set node allocatable
+
+		// set node allocatable, capacity, and labels
 		used, ok := nodeUsed[node.ID]
 		if !ok {
 			used = map[string]int64{}
@@ -98,9 +131,9 @@ func ConstructClusterResources(nodes []model.NodeInfo, nodeResources []model.Res
 		if err != nil {
 			break
 		}
+		cQuotaResponse.Capacity[node.Name] = node.Capacity
+		cQuotaResponse.Labels[node.Name] = node.Labels
 		cQuotaResponse.Allocatable[node.Name] = allocatable
-
-		clusterResources[node.ClusterName] = cQuotaResponse
 	}
 	log.Debugf("cluster resources: %+v", clusterResources)
 	return clusterResources, err
