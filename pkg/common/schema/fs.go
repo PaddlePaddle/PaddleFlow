@@ -38,6 +38,7 @@ const (
 	FsMetaDefault = "default"
 	FsMetaMemory  = "mem"
 	FsMetaLevelDB = "leveldb"
+	FsMetaDisk    = "disk"
 	FsMetaNutsDB  = "nutsdb"
 
 	FuseKeyFsInfo = "fs-info"
@@ -51,7 +52,7 @@ const (
 
 func IsValidFsMetaDriver(metaDriver string) bool {
 	switch metaDriver {
-	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB:
+	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB, FsMetaDisk:
 		return true
 	default:
 		return false

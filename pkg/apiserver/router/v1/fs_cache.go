@@ -63,6 +63,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
 	// validate request
 	if err := validateCacheConfigCreate(&ctx, &createRequest.UpdateFileSystemCacheRequest); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -99,7 +100,7 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSy
 		return err
 	}
 	// must assign cacheDir when cache in use
-	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaLevelDB {
+	if req.CacheDir == "" && (req.MetaDriver == schema.FsMetaLevelDB || req.MetaDriver == schema.FsMetaDisk) {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
