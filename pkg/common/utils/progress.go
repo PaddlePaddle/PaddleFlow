@@ -81,14 +81,14 @@ func NewProgress(quiet, showSpeed bool) *Progress {
 }
 
 // NewDynProgressBar init a dynamic progress bar,the title will appears at the head of the progress bar
-func NewDynProgressBar(title string, quiet bool) (*mpb.Progress, *mpb.Bar) {
+func NewDynProgressBar(title string, quiet bool, total int64) (*mpb.Progress, *mpb.Bar) {
 	var progress *mpb.Progress
 	if !quiet && isatty.IsTerminal(os.Stdout.Fd()) {
 		progress = mpb.New(mpb.WithWidth(64))
 	} else {
 		progress = mpb.New(mpb.WithWidth(64), mpb.WithOutput(nil))
 	}
-	bar := progress.AddBar(0,
+	bar := progress.AddBar(total,
 		mpb.PrependDecorators(
 			decor.Name(title, decor.WCSyncWidth),
 			decor.CountersNoUnit("%d / %d"),
