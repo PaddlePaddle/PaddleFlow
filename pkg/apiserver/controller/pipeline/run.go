@@ -35,6 +35,7 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -493,6 +494,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
 		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
 	*/
+	createTime := time.Now()
 
 	if extra == nil {
 		extra = map[string]string{}
@@ -606,10 +608,15 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		response, err = ValidateAndStartRun(ctx, run, userName, *request)
 	}
 
+	if config.GlobalServerConfig.Metrics.Enable && err != nil {
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID,
+			mr.StageRunStartTime, createTime)
+	}
 	return response, err
 }
 
 func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	createTime := time.Now()
 	requestId := ctx.RequestID
 
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
@@ -697,6 +704,11 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
+	if config.GlobalServerConfig.Metrics.Enable && err != nil {
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID,
+			mr.StageRunStartTime, createTime)
+	}
+
 	return response, err
 }
 

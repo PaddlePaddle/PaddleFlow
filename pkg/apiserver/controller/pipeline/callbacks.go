@@ -26,9 +26,11 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -152,6 +154,11 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 			globalScheduler := GetGlobalScheduler()
 			globalScheduler.ConcurrencyChannel <- prevRun.ScheduleID
 			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
+		}
+
+		if config.GlobalServerConfig.Metrics.Enable && err != nil {
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, "",
+				mr.StageRunStartTime, time.Now())
 		}
 	}
 

@@ -70,13 +70,14 @@ func (rm *MetricRunCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (rm *MetricRunCollector) generateMetric() {
-	for _, runRecorderInf := range rm.durationManager.Cache.GetALL(true) {
+	for id, runRecorderInf := range rm.durationManager.Cache.GetALL(true) {
 		// 为了协程安全以及实现起来简单，如果run没有处于終态，则不会计算相应的metric
 		runRecorder := runRecorderInf.(*RunStageTimeRecorder)
 		if _, ok := runRecorder.StageTime.Load(StageRunEndTime); !ok {
 			continue
 		}
 
+		rm.durationManager.Cache.Remove(id)
 		rm.generateRunMetricByRunRecorder(runRecorder)
 		runRecorder.StepStages.Range(rm.generateStepMetricByStepRecorder)
 	}
@@ -96,9 +97,6 @@ func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunSta
 			}).Set(float64(executeDuration))
 	}
 
-	// StageRunParseDuration          = "the duration of parsing yaml"
-	// StageRunValidateDuration       = "the duration of validating"
-	// StageRunAftertreatmentDuration = "the duration of aftertreatment"
 	parseDuration, err := runRecorder.calculateParseDuration()
 	if err != nil {
 		log.Error(err.Error())
