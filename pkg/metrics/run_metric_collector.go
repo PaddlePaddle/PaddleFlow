@@ -17,8 +17,7 @@ limitations under the License.
 package metrics
 
 import (
-	log "github.com/sirupsen/logrus"
-
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -68,15 +67,16 @@ func (rm *MetricRunCollector) generateMetric() {
 		}
 
 		rm.durationManager.Cache.Remove(id)
-		rm.generateRunMetricByRunRecorder(runRecorder)
+		rm.generateRunMetricByRunRecorder(id.(string), runRecorder)
 		runRecorder.StepStages.Range(rm.generateStepMetricByStepRecorder)
 	}
 }
 
-func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunStageTimeRecorder) {
+func (rm *MetricRunCollector) generateRunMetricByRunRecorder(id string, runRecorder *RunStageTimeRecorder) {
+	logger.LoggerForMetric(MetricRunDuration).Debugf("begin to calculate run duration metric for run %s", id)
 	executeDuration, err := runRecorder.calculateExcuteDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunDuration).Error(err.Error())
 	} else {
 		rm.runDurationMetric.With(
 			prometheus.Labels{
@@ -89,7 +89,7 @@ func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunSta
 
 	parseDuration, err := runRecorder.calculateParseDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunDuration).Error(err.Error())
 	} else {
 		rm.runDurationMetric.With(
 			prometheus.Labels{
@@ -102,7 +102,7 @@ func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunSta
 
 	validateDuration, err := runRecorder.calculateValidateDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunDuration).Error(err.Error())
 	} else {
 		rm.runDurationMetric.With(
 			prometheus.Labels{
@@ -115,7 +115,7 @@ func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunSta
 
 	aftertreatmentDuration, err := runRecorder.calculateAftertreatmentDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunDuration).Error(err.Error())
 	} else {
 		rm.runDurationMetric.With(
 			prometheus.Labels{
@@ -134,10 +134,11 @@ func (rm *MetricRunCollector) generateStepMetricByStepRecorder(id any, recorder 
 }
 
 func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder any) bool {
+	logger.LoggerForMetric(MetricRunDuration).Debugf("begin to calculate job duration metric for job %s", id)
 	jobRecorder := recorder.(*JobStageTimeRecorder)
 	scheduleDuration, err := jobRecorder.calculateScheduleDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunJobDuration).Error(err.Error())
 	} else {
 		rm.runJobDurationMetric.With(
 			prometheus.Labels{
@@ -150,7 +151,7 @@ func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder an
 
 	createDuration, err := jobRecorder.calculateCreateDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunJobDuration).Error(err.Error())
 	} else {
 		rm.runJobDurationMetric.With(
 			prometheus.Labels{
@@ -163,7 +164,7 @@ func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder an
 
 	d, err := jobRecorder.calculateAftertreatmentDuration()
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunJobDuration).Error(err.Error())
 	} else {
 		rm.runJobDurationMetric.With(
 			prometheus.Labels{

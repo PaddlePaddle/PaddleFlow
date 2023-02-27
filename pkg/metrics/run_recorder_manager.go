@@ -19,9 +19,9 @@ package metrics
 import (
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/bluele/gcache"
-	log "github.com/sirupsen/logrus"
 )
 
 type RunRecorderManager struct {
@@ -36,11 +36,12 @@ func NewRunRecorderManager() *RunRecorderManager {
 }
 
 func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID, status string, stage stageTimeType, timestamp time.Time) {
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add run stage[%s] time with runID[%s]", stage, runID)
 	var runStage *RunStageTimeRecorder
 	if m.Cache.Has(runID) {
 		runInfo, err := m.Cache.Get(runID)
 		if err != nil {
-			log.Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed", runID)
+			logger.LoggerForMetric(MetricRunDuration).Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed", runID)
 			return
 		}
 		runStage = runInfo.(*RunStageTimeRecorder)
@@ -51,16 +52,17 @@ func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID, status stri
 
 	err := runStage.setStageTime(stage, timestamp)
 	if err != nil {
-		log.Errorf(err.Error())
+		logger.LoggerForMetric(MetricRunDuration).Errorf(err.Error())
 	}
 
 	runStage.Status = status
 }
 
 func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stage stageTimeType, timestamp time.Time) {
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add step[%s] stage[%s] time with runID[%s] ", stepName, stage, runID)
 	runInfo, err := m.Cache.Get(runID)
 	if err != nil {
-		log.Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of step[%s]",
+		logger.LoggerForMetric(MetricRunJobDuration).Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of step[%s]",
 			runID, stage, stepName)
 		return
 	}
@@ -78,14 +80,15 @@ func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stag
 
 	err = stepStage.setStageTime(stage, timestamp)
 	if err != nil {
-		log.Errorf(err.Error())
+		logger.LoggerForMetric(MetricRunJobDuration).Errorf(err.Error())
 	}
 }
 
 func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string, status schema.JobStatus, stage stageTimeType, timestamp time.Time) {
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add job[%s] stage[%s] time with stepName[%s] of runID[%s] ", jobID, stage, stepName, runID)
 	runInfo, err := m.Cache.Get(runID)
 	if err != nil {
-		log.Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of job[%s] of step[%s]",
+		logger.LoggerForMetric(MetricRunJobDuration).Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of job[%s] of step[%s]",
 			runID, stage, jobID, stepName)
 		return
 	}
@@ -93,7 +96,7 @@ func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string
 	runStage := runInfo.(*RunStageTimeRecorder)
 	stepInfo, ok := runStage.StepStages.Load(stepName)
 	if !ok {
-		log.Errorf("get StepStageTimeRecorder with StepName[%s] from RunStageTimeRecorder[%s] failed when set StageTime[%s] of job[%s] ",
+		logger.LoggerForMetric(MetricRunJobDuration).Errorf("get StepStageTimeRecorder with StepName[%s] from RunStageTimeRecorder[%s] failed when set StageTime[%s] of job[%s] ",
 			stepName, runID, stage, jobID)
 		return
 	}
@@ -112,17 +115,17 @@ func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string
 	if _, ok = jobStage.StageTime.Load(StageJobScheduleStartTime); !ok {
 		scheduleStartTime, ok := stepStage.StageTime.Load(StageJobScheduleStartTime)
 		if !ok {
-			log.Errorf("cannot get scheduleStartTime for Job[%s]", jobID)
+			logger.LoggerForMetric(MetricRunJobDuration).Errorf("cannot get scheduleStartTime for Job[%s]", jobID)
 			return
 		}
 		err = jobStage.setStageTime(StageJobScheduleStartTime, scheduleStartTime.(time.Time))
 		if err != nil {
-			log.Error(err.Error())
+			logger.LoggerForMetric(MetricRunJobDuration).Error(err.Error())
 		}
 	}
 	err = jobStage.setStageTime(stage, timestamp)
 	if err != nil {
-		log.Error(err.Error())
+		logger.LoggerForMetric(MetricRunJobDuration).Error(err.Error())
 	}
 
 	jobStage.Status = status

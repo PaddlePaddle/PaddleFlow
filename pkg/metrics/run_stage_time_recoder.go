@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	log "github.com/sirupsen/logrus"
 )
 
 type stageTimeType = string
@@ -120,7 +120,7 @@ func (sr *StageTimeRecorder) setStageTime(stage stageTimeType, timestamp time.Ti
 
 	if _, ok := sr.StageTime.Load(stage); ok {
 		// 这里只是为了避免重复设置，因此，不返回error
-		log.Debugf("the timestamp of the stage[%s] of %s has already been set", stage, sr.LoggerMeta)
+		logger.Logger().Debugf("the timestamp of the stage[%s] of %s has already been set", stage, sr.LoggerMeta)
 		return nil
 	}
 
