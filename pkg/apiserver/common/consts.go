@@ -66,4 +66,6 @@ const (
 	Pod = "pod"
 
 	StsMaxSeqData = 1000
+
+	PFTokenEnv = "PFToken"
 )

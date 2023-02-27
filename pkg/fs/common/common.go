@@ -47,6 +47,7 @@ const (
 	StsServer       = "stsServer"
 	Token           = "token"
 	FsName          = "fsname"
+	UserName        = "userName"
 	StsDuration     = "duration"
 	StsACL          = "acl"
 	BosSessionToken = "sessionToken"

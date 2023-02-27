@@ -75,7 +75,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		return nil, err
 	}
 
-	mountInfo, err := mount.ConstructMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
+	mountInfo, err := mount.ConstructMountInfo(volumeContext[schema.PFSServer], volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
 		targetPath, k8sClient, req.GetReadonly() || req.VolumeCapability.AccessMode.GetMode() == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY)
 	if err != nil {
 		log.Errorf("ConstructMountInfo err: %v", err)
