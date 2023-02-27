@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -130,6 +131,8 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 			} else {
 				errCode = strconv.Itoa(http.StatusOK)
 			}
+
+			fmt.Println("+++++++++", "listPipeline ApiDuration")
 			metrics.APiDurationSummary.With(
 				prometheus.Labels{
 					metrics.ApiNameLabel:       "listPipeline",

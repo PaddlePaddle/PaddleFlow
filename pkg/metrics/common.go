@@ -60,7 +60,7 @@ const (
 
 var APiDurationSummary = prometheus.NewSummaryVec(
 	prometheus.SummaryOpts{
-		Name:       "MetricApiDuration",
+		Name:       MetricApiDuration,
 		Help:       toHelp(MetricApiDuration),
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001, 1: 0},
 	},
