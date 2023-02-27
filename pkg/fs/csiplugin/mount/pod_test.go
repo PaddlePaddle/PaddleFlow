@@ -19,6 +19,7 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	k8sCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	common2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
@@ -222,6 +224,33 @@ func Test_addRef(t *testing.T) {
 				t.Errorf("pod annotions nums not correct () got = %v, wantAnnotation = %v", newPod, tt.wantAnno)
 			}
 
+		})
+	}
+}
+
+func Test_buildMountPodEnv(t *testing.T) {
+	type args struct {
+		pod *k8sCore.Pod
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "secret-test",
+			args: args{
+				&k8sCore.Pod{
+					Spec: k8sCore.PodSpec{
+						Containers: append([]k8sCore.Container{}, k8sCore.Container{}),
+					},
+				},
+			},
+		},
+	}
+	os.Setenv(common2.PFTokenEnv, "1")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buildMountPodEnv(tt.args.pod)
 		})
 	}
 }

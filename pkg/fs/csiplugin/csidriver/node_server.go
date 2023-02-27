@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
@@ -147,6 +148,21 @@ func mountVolume(volumeID string, mountInfo mount.Info) error {
 				mountInfo.FS.ID, mountInfo.SourcePath, err)
 			log.Error(err.Error())
 			return err
+		}
+		if mountInfo.FS.Type == common.CFSType {
+			var properties map[string]interface{}
+			for k, v := range mountInfo.FS.PropertiesMap {
+				properties[k] = v
+			}
+			properties[common.Type] = common.CFSType
+			properties[common.SubPath] = mountInfo.FS.SubPath
+			properties[common.Address] = mountInfo.FS.ServerAddress
+			// mkdir not exist dir for cfs
+			_, err := ufs.NewLocalMountFileSystem(properties)
+			if err != nil {
+				log.Errorf("NewLocalMountFileSystem err: %v", err)
+				return err
+			}
 		}
 		log.Infof("mount with cmd %s and args %v", mountInfo.Cmd, mountInfo.Args)
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
