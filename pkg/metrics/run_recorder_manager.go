@@ -113,7 +113,7 @@ func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string
 	}
 
 	if _, ok = jobStage.StageTime.Load(StageJobScheduleStartTime); !ok {
-		scheduleStartTime, ok := stepStage.StageTime.Load(StageJobScheduleStartTime)
+		scheduleStartTime, ok := stepStage.StageTime.Load(StageStepScheduleStartTime)
 		if !ok {
 			logger.LoggerForMetric(MetricRunJobDuration).Errorf("cannot get scheduleStartTime for Job[%s]", jobID)
 			return

@@ -607,7 +607,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		run.Status = common.StatusRunInitiating
 
 		trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-		response, err = ValidateAndStartRun(ctx, run, userName, *request)
+		response, err = ValidateAndStartRun(ctx, &run, userName, *request)
 	}
 
 	if config.GlobalServerConfig.Metrics.Enable && err == nil {
@@ -711,7 +711,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		RunOptions:     schema.RunOptions{FSUsername: userName},
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
+	response, err := ValidateAndStartRun(ctx, &run, userName, CreateRunRequest{})
 
 	if config.GlobalServerConfig.Metrics.Enable && err != nil {
 		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
@@ -778,8 +778,8 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 	return wfPtr, runID, nil
 }
 
-func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
-	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
+func ValidateAndStartRun(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	wfPtr, runID, err := ValidateAndCreateRun(ctx, run, userName, req)
 	if err != nil {
 		return CreateRunResponse{}, err
 	}
@@ -1145,7 +1145,7 @@ func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (stri
 	return runID, nil
 }
 
-func StartWf(ctx *logger.RequestContext, run models.Run, wfPtr *pipeline.Workflow) error {
+func StartWf(ctx *logger.RequestContext, run *models.Run, wfPtr *pipeline.Workflow) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("StartWf run:%+v", run)
 	trace_logger.Key(run.ID).Debugf("StartWf run:%+v", run)
