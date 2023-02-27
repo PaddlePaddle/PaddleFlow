@@ -71,7 +71,7 @@ func init() {
 	}
 	csiconfig.CSIPod = *pod
 	csiconfig.NodeName = pod.Spec.NodeName
-	csiconfig.Token = os.Getenv(common.TokenEnv)
+	csiconfig.Token = os.Getenv(common.PFTokenEnv)
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image

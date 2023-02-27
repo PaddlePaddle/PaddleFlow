@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -162,6 +163,29 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 		},
 	}
 
+	bos := model.FileSystem{
+		Model: model.Model{
+			ID:        "fs-root-bos",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		UserName:      "root",
+		Name:          "bos",
+		Type:          common.BosType,
+		SubPath:       "/supath",
+		ServerAddress: "bj.bcebos.com",
+
+		PropertiesMap: map[string]string{
+			"accessKey": "accessKey",
+			"bucket":    "bucket",
+			"endpoint":  "server_address",
+			"region":    "bj",
+			"secretKey": "secretKey",
+			common.Sts:  "true",
+		},
+	}
+	csiconfig.Token = "test"
+
 	fsInde := model.FileSystem{
 		Model: model.Model{
 			ID:        "fs-root-testfs",
@@ -201,6 +225,15 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 		fields fields
 		want   string
 	}{
+		{
+			name: "test-bos",
+			fields: fields{
+				FS:          bos,
+				CacheConfig: fsCache,
+				TargetPath:  targetPath,
+			},
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage --fs-id=fs-root-bos --sts=true --server=paddleflow-server:8999 --block-size=4096 --meta-cache-driver=disk --data-cache-path=/home/paddleflow/pfs-cache/data-cache --meta-cache-path=/home/paddleflow/pfs-cache/meta-cache",
+		},
 		{
 			name: "test-pfs-fuse-pod",
 			fields: fields{

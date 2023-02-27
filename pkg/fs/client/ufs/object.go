@@ -1245,10 +1245,12 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				log.Errorf("newstsClient err[%v]", err)
 				return nil, err
 			}
+			fsName, _ := properties[fsCommon.FsName].(string)
+			username, _ := properties[fsCommon.UserName].(string)
 
 			sts, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-				FsName:   properties[fsCommon.FsName].(string),
-				Username: properties[fsCommon.UserName].(string),
+				FsName:   fsName,
+				Username: username,
 			}, token)
 			if err != nil {
 				log.Errorf("newstsClient GetSts err[%v]", err)
@@ -1295,8 +1297,8 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
 
 					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-						FsName:   properties[fsCommon.FsName].(string),
-						Username: properties[fsCommon.UserName].(string),
+						FsName:   fsName,
+						Username: username,
 					}, token)
 					if err != nil {
 						log.Errorf("GetSts: err[%v]", err)

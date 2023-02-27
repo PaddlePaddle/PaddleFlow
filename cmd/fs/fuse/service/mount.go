@@ -342,8 +342,8 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			log.Errorf("new http client err: %v", err)
 			return err
 		}
-		if os.Getenv(common_.TokenEnv) != "" {
-			token = os.Getenv(common_.TokenEnv)
+		if os.Getenv(common_.PFTokenEnv) != "" {
+			token = os.Getenv(common_.PFTokenEnv)
 		} else {
 			username := c.String("user-name")
 			if username == "" {
