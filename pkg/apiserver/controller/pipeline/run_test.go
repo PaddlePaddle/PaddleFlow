@@ -406,7 +406,7 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw: yamlRaw,
 	}
 
-	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Nil(t, run.FailureOptions)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
 		return CreateRunResponse{}, nil
@@ -416,7 +416,7 @@ func TestCreateRun(t *testing.T) {
 	_, err := CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
-	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		return CreateRunResponse{}, nil

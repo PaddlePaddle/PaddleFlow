@@ -159,7 +159,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 
 		if config.GlobalServerConfig.Metrics.Enable && err != nil && !common.IsRunFinalStatus(prevRun.Status) {
 			mr.RunMetricManger.AddRunStageTimeRecord(runID, "", status,
-				mr.StageRunStartTime, time.Now())
+				mr.StageRunEndTime, time.Now())
 		}
 	}
 
