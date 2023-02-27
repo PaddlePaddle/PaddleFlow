@@ -123,6 +123,7 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	var err error
+	fmt.Println("++++++++++++++++++++++++config.GlobalServerConfig.Metrics.Enable: ", config.GlobalServerConfig.Metrics.Enable)
 	if config.GlobalServerConfig.Metrics.Enable {
 		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 			var errCode string
