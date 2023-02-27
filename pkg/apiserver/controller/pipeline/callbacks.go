@@ -157,7 +157,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
 		}
 
-		if config.GlobalServerConfig.Metrics.Enable && err != nil && !common.IsRunFinalStatus(prevRun.Status) {
+		if config.GlobalServerConfig.Metrics.Enable && err == nil && !common.IsRunFinalStatus(prevRun.Status) {
 			mr.RunMetricManger.AddRunStageTimeRecord(runID, "", status,
 				mr.StageRunEndTime, time.Now())
 		}
