@@ -17,6 +17,8 @@ limitations under the License.
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -59,9 +61,11 @@ func (rm *MetricRunCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (rm *MetricRunCollector) generateMetric() {
+	fmt.Println("++++ begin to generate metric")
 	for id, runRecorderInf := range rm.durationManager.Cache.GetALL(true) {
 		// 为了协程安全以及实现起来简单，如果run没有处于終态，则不会计算相应的metric
 		runRecorder := runRecorderInf.(*RunStageTimeRecorder)
+		fmt.Printf("++++++ runRecorder: %v\n", runRecorder)
 		if _, ok := runRecorder.StageTime.Load(StageRunEndTime); !ok {
 			continue
 		}

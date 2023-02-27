@@ -220,6 +220,7 @@ func NewRunStageTimeRecorder(runID, reqID string) *RunStageTimeRecorder {
 		StageRunStartTime,
 		StageRunEndTime,
 		StageRunParseStartTime,
+		StageRunParseEndTime,
 		StageRunValidateStartTime,
 		StageRunValidateEndTime,
 		StageRunAftertreatmentStartTime,
