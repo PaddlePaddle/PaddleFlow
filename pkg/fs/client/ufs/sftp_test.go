@@ -17,6 +17,7 @@ limitations under the License.
 package ufs
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -75,4 +76,41 @@ func TestSFTP(t *testing.T) {
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, 1, len(entries))
 
+}
+
+func TestNewSftpFileSystem(t *testing.T) {
+	type args struct {
+		properties map[string]interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    UnderFileStorage
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "new sftp err",
+			args: args{
+				properties: map[string]interface{}{
+					common.Address:  "127.0.0.1",
+					common.SubPath:  "/data",
+					common.UserKey:  "1",
+					common.Password: "2",
+				},
+			},
+			want: nil,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewSftpFileSystem(tt.args.properties)
+			if !tt.wantErr(t, err, fmt.Sprintf("NewSftpFileSystem(%v)", tt.args.properties)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "NewSftpFileSystem(%v)", tt.args.properties)
+		})
+	}
 }

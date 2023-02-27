@@ -235,6 +235,15 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage --fs-id=fs-root-bos --sts=true --server=paddleflow-server:8999 --block-size=4096 --meta-cache-driver=disk --data-cache-path=/home/paddleflow/pfs-cache/data-cache --meta-cache-path=/home/paddleflow/pfs-cache/meta-cache",
 		},
 		{
+			name: "test-bos-err",
+			fields: fields{
+				FS:          bos,
+				CacheConfig: fsCache,
+				TargetPath:  targetPath,
+			},
+			want: "",
+		},
+		{
 			name: "test-pfs-fuse-pod",
 			fields: fields{
 				FS:          fs,
@@ -327,7 +336,19 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "test-fscache64-error" {
+			if tt.name == "test-bos-err" {
+				csiconfig.Token = ""
+				fsStr, err := json.Marshal(tt.fields.FS)
+				assert.Nil(t, err)
+				fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
+
+				fsCacheStr, err := json.Marshal(tt.fields.CacheConfig)
+				assert.Nil(t, err)
+				fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+
+				_, err = ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+				assert.NotNil(t, err, "csi paddleflow server token not set")
+			} else if tt.name == "test-fscache64-error" {
 				fsStr, err := json.Marshal(tt.fields.FS)
 				assert.Nil(t, err)
 				fsBase64 := base64.StdEncoding.EncodeToString(fsStr)

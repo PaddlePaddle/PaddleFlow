@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	AESEncryptKey = "paddleflow123456" // 长度必须为16，分别对应加密算法AES-128
+	AESEncryptKey    = "paddleflow123456" // 长度必须为16，分别对应加密算法AES-128
+	AESEncryptKeyEnv = "AESEncryptKey"
 )
 
 func EncryptPk(pk int64) (string, error) {
@@ -38,7 +39,7 @@ func EncryptPk(pk int64) (string, error) {
 }
 
 func GetAESEncryptKey() string {
-	aesEncryptKey := os.Getenv("AESEncryptKey")
+	aesEncryptKey := os.Getenv(AESEncryptKeyEnv)
 	if aesEncryptKey != "" {
 		return aesEncryptKey
 	}
