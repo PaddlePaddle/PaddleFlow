@@ -30,7 +30,6 @@ func StsSessionToken(ak string, sk string, duration int, acl string) (*sts_api.G
 		return nil, err
 	}
 
-	log.Infof("ak %s sk %s acl %s duration %d", ak, sk, acl, duration)
 	result, err := stsClient.GetSessionToken(duration, acl)
 	if err != nil {
 		log.Errorf("get session token failed: %v", err)
