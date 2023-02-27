@@ -35,6 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -58,6 +59,8 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Post("/fsCache", pr.createFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
+
+	r.Get("/fsSts/{fsName}", pr.getStsSessionToken)
 }
 
 var URLPrefix = map[string]bool{
@@ -68,6 +71,7 @@ var URLPrefix = map[string]bool{
 	fsCommon.MockType:      true,
 	fsCommon.CFSType:       true,
 	fsCommon.GlusterFSType: true,
+	fsCommon.BosType:       true,
 }
 
 const FsNameMaxLen = 63
@@ -199,7 +203,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 	}
 	err = checkStorageConnectivity(fsMeta)
 	if err != nil {
-		ctx.Logging().Errorf("check fs[%s] connectivity failed with req[%v] and err[%v]", req.Name, req, err)
+		ctx.Logging().Errorf("check fs[%s] connectivity failed and err[%v]", req.Name, err)
 		ctx.ErrorCode = common.ConnectivityFailed
 		return err
 	}
@@ -209,7 +213,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 func checkStorageConnectivity(fsMeta fsCommon.FSMeta) error {
 	_, err := fuse.NewFileSystem(fsMeta, nil, true, false, config.GlobalServerConfig.Fs.LinkMetaDirPrefix, nil)
 	if err != nil {
-		log.Errorf("new a fileSystem with fsMeta [%+v] failed: %v", fsMeta, err)
+		log.Errorf("new a fileSystem with fsMeta failed: %v", err)
 		return err
 	}
 	return nil
@@ -292,6 +296,42 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
 		}
 		return nil
+	case fsCommon.BosType:
+		if req.Properties[fsCommon.AccessKey] == "" || req.Properties[fsCommon.SecretKey] == "" {
+			log.Error("s3 ak or sk is empty")
+			return common.InvalidField("properties", fmt.Sprintf("key %s or %s is empty", fsCommon.AccessKey, fsCommon.SecretKey))
+		}
+		if req.Properties[fsCommon.Endpoint] == "" {
+			log.Error("endpoint is empty")
+			return common.InvalidField("properties", "key[endpoint] is empty")
+		}
+		if req.Properties[fsCommon.Bucket] == "" {
+			log.Error("bucket is empty")
+			return common.InvalidField("properties", "url bucket is empty")
+		}
+		if req.Properties[fsCommon.Region] == "" {
+			req.Properties[fsCommon.Region] = "bj"
+		}
+
+		if req.Properties[fsCommon.Sts] == "true" {
+			duration, _ := strconv.Atoi(req.Properties[fsCommon.StsDuration])
+			if duration < 60 {
+				req.Properties[fsCommon.StsDuration] = util.StsDurationDefault
+			}
+			_, err := object.StsSessionToken(req.Properties[fsCommon.AccessKey], req.Properties[fsCommon.SecretKey], 10, req.Properties[fsCommon.StsACL])
+			if err != nil {
+				log.Errorf("StsSessionToken properties[%v]: err[%v]", req.Properties, err)
+				return err
+			}
+		}
+
+		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.SecretKey], common.AESEncryptKey)
+		if err != nil {
+			log.Errorf("encrypt s3 sk failed: %v", err)
+			return err
+		}
+		req.Properties[fsCommon.SecretKey] = encodedSk
+		return nil
 	default:
 		return nil
 	}
@@ -328,7 +368,7 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 			log.Errorf("%s path can not be empty or use root path", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s path can not be empty or use root path", fsType))
 		}
-	case fsCommon.S3Type:
+	case fsCommon.S3Type, fsCommon.BosType:
 		if len(urlSplit) < common.S3SplitLen {
 			log.Errorf("%s url split error", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s url format is wrong", fsType))
@@ -560,4 +600,51 @@ func getRealUserName(ctx *logger.RequestContext,
 		return username
 	}
 	return ctx.UserName
+}
+
+// getStsSessionToken get the session token from the STS service
+// @Summary getStsSessionToken
+// @Description get the session token from the STS service
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param fsName path string true "文件系统名称"
+// @Param username query string false "root用户指定其他用户"
+// @Success 200 {object} *GetSessionTokenResult: result of this api
+// @Router /fsSts/{fsName} [get]
+func (pr *PFSRouter) getStsSessionToken(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	fsName := chi.URLParam(r, util.QueryFsName)
+	getRequest := api.GetSessionRequest{
+		Username: r.URL.Query().Get(util.QueryKeyUserName),
+	}
+	log.Infof("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
+
+	fileSystemService := api.GetFileSystemService()
+	realUserName := getRealUserName(&ctx, getRequest.Username)
+	result, err := fileSystemService.SessionToken(realUserName, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("get session token username[%s] fsname[%s] with error[%v]", getRequest.Username, fsName, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+			ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", realUserName, fsName)
+		} else {
+			ctx.ErrorCode = common.InternalError
+			ctx.ErrorMessage = err.Error()
+		}
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+
+	sk, err := common.AesEncrypt(result.SecretAccessKey, common.AESEncryptKey)
+	if err != nil {
+		log.Errorf("AesEncrypt err: %v", err)
+		ctx.ErrorCode = common.InternalError
+		ctx.ErrorMessage = err.Error()
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	result.SecretAccessKey = sk
+	common.Render(w, http.StatusOK, result)
 }

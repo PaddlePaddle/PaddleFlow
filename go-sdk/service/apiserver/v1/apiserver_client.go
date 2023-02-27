@@ -23,6 +23,7 @@ import (
 type APIV1Interface interface {
 	UserGetter
 	FileSystemGetter
+	FileSystemCacheGetter
 	ClusterGetter
 	QueueGetter
 	FlavourGetter
@@ -43,6 +44,10 @@ func (c *APIV1Client) User() UserInterface {
 
 func (c *APIV1Client) FileSystem() FileSystemInterface {
 	return newFileSystem(c)
+}
+
+func (c *APIV1Client) FileSystemCache() FileSystemCacheInterface {
+	return newFileSystemCache(c)
 }
 
 func (c *APIV1Client) Cluster() ClusterInterface {

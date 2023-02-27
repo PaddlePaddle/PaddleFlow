@@ -14,7 +14,7 @@ func TestBasicFlags(t *testing.T) {
 	}{
 		{
 			name: "num",
-			want: 7,
+			want: 8,
 		},
 	}
 	for _, tt := range tests {

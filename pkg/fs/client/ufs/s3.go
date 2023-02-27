@@ -1348,7 +1348,7 @@ func tidySubpath(subpath string) string {
 }
 
 func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	log.Tracef("NewS3FileSystem: %+v", properties)
+
 	endpoint := properties[fsCommon.Endpoint].(string)
 	accessKey := properties[fsCommon.AccessKey].(string)
 	secretKey := properties[fsCommon.SecretKey].(string)
@@ -1482,10 +1482,6 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	}
 
 	return fs, nil
-}
-
-func init() {
-	RegisterUFS(fsCommon.S3Type, NewS3FileSystem)
 }
 
 // ------ mpu ------//

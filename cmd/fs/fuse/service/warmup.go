@@ -49,8 +49,7 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 	}
 
 	pool, _ := ants.NewPool(threads)
-	progress, bar := utils.NewDynProgressBar("warming up paths: ", false)
-	bar.SetTotal(int64(len(paths)), false)
+	progress, bar := utils.NewDynProgressBar("warming up paths: ", false, int64(len(paths)))
 	for _, path := range paths {
 		path_ := path
 		_ = pool.Submit(func() {
@@ -64,7 +63,6 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 			bar.IncrBy(1)
 		})
 	}
-	bar.SetTotal(0, true)
 	progress.Wait()
 	fmt.Printf("spend time %v \n", time.Since(now))
 	return nil

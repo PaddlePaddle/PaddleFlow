@@ -29,9 +29,10 @@ const (
 	PaddleflowRouterPrefix    = "/api/paddleflow"
 	PaddleflowRouterVersionV1 = "/v1"
 
-	DefaultMaxKeys = 50
-	ListPageMax    = 1000
-	MaxDescLength  = 256
+	DefaultMaxKeys     = 50
+	ListPageMax        = 1000
+	MaxDescLength      = 256
+	StsDurationDefault = "60"
 
 	ParamKeyQueueName         = "queueName"
 	ParamKeyRunID             = "runID"

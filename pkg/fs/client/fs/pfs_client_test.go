@@ -32,16 +32,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-
-	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
-	kv "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
-	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSftpWithReadErr(t *testing.T) {

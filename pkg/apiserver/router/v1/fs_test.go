@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
 
@@ -33,6 +34,13 @@ import (
 	runtime "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+)
+
+const (
+	Ori_ak       = "ori_ak"
+	Ori_sk       = "ori_sk"
+	Ori_Bucket   = "ori_bucket"
+	Test_SubPath = "testpath"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {
@@ -517,4 +525,146 @@ func RandomString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func TestCreteBos(t *testing.T) {
+	ak := os.Getenv(Ori_ak)
+	sk := os.Getenv(Ori_sk)
+	bucket := os.Getenv(Ori_Bucket)
+	if bucket == "" || sk == "" || ak == "" {
+		log.Info("no ak or sk")
+		return
+	}
+	router, baseUrl := prepareDBAndAPI(t)
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+}
+
+func TestStsAPI(t *testing.T) {
+	ak := os.Getenv(Ori_ak)
+	sk := os.Getenv(Ori_sk)
+	bucket := os.Getenv(Ori_Bucket)
+	if bucket == "" || sk == "" || ak == "" {
+		log.Info("no ak or sk")
+		return
+	}
+	router, baseUrl := prepareDBAndAPI(t)
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts := baseUrl + "/fsSts/" + mockFsName
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, result.Code)
+
+	ak_ := "bad"
+	sk_ := "bad"
+
+	fsUrl = baseUrl + "/fs"
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak_,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk_,
+			"sts":       "true",
+			"duration":  "70",
+		},
+	}
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/no"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, result.Code)
+
+	creates3Req := fs.CreateFileSystemRequest{
+		Name: mockFsName + "1",
+		Url:  "s3://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "s3.bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, creates3Req)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/" + mockFsName + "1"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusInternalServerError, result.Code)
 }
