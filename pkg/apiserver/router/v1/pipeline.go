@@ -121,7 +121,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline [GET]
 func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-
+	logger.LoggerForRequest(&ctx).Info("++++++++++++++++++++++++ listpipeline")
 	var err error
 	fmt.Println("++++++++++++++++++++++++config.GlobalServerConfig.Metrics.Enable: ", config.GlobalServerConfig.Metrics.Enable)
 	if config.GlobalServerConfig.Metrics.Enable {
