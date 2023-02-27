@@ -194,7 +194,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 		return err
 	}
 
-	encodedLinksMeta, err := common.AesEncrypt(string(linksMetaJson), common.AESEncryptKey)
+	encodedLinksMeta, err := common.AesEncrypt(string(linksMetaJson), common.GetAESEncryptKey())
 	if err != nil {
 		log.Errorf("aes encrypt links meta json string err[%v]", err)
 		return err

@@ -42,19 +42,21 @@ const (
 )
 
 type Info struct {
-	CacheConfig model.FSCacheConfig
-	FS          model.FileSystem
-	FSBase64Str string
-	TargetPath  string
-	SourcePath  string
-	Cmd         string
-	Args        []string
-	ReadOnly    bool
-	K8sClient   utils.Client
-	PodResource corev1.ResourceRequirements
+	CacheConfig   model.FSCacheConfig
+	FS            model.FileSystem
+	FSBase64Str   string
+	TargetPath    string
+	SourcePath    string
+	Cmd           string
+	Args          []string
+	ReadOnly      bool
+	K8sClient     utils.Client
+	PodResource   corev1.ResourceRequirements
+	ServerAddress string
+	Token         string
 }
 
-func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
+func ConstructMountInfo(serverAddress, fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
 	// FS info
 	fs, err := utils.ProcessFSInfo(fsInfoBase64)
 	if err != nil {
@@ -75,12 +77,17 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 	}
 
 	info := Info{
-		CacheConfig: cacheConfig,
-		FS:          fs,
-		FSBase64Str: fsInfoBase64,
-		TargetPath:  targetPath,
-		ReadOnly:    readOnly,
-		K8sClient:   k8sClient,
+		CacheConfig:   cacheConfig,
+		FS:            fs,
+		FSBase64Str:   fsInfoBase64,
+		TargetPath:    targetPath,
+		ReadOnly:      readOnly,
+		K8sClient:     k8sClient,
+		ServerAddress: serverAddress,
+		Token:         csiconfig.Token,
+	}
+	if fs.Type == common.BosType && fs.PropertiesMap[common.Sts] == "true" && info.Token == "" {
+		return Info{}, fmt.Errorf("csi paddleflow server token not set")
 	}
 
 	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType && fs.Type != common.CFSType && fs.Type != common.AFSType {
@@ -176,7 +183,12 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 func (mountInfo *Info) commonOptions() []string {
 	var options []string
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
-	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
+	if mountInfo.FS.PropertiesMap[common.Sts] == "true" && mountInfo.FS.Type == common.BosType {
+		options = append(options, "--sts=true")
+		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
+	} else {
+		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
+	}
 
 	if mountInfo.ReadOnly {
 		options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))

@@ -29,6 +29,7 @@ var (
 	PodName    = ""
 	MountImage = ""
 	HostMntDir = ""
+	Token      = ""
 
 	CSIPod = corev1.Pod{}
 )

@@ -565,7 +565,7 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	properties := modelsFs.PropertiesMap
 	ak := properties[fsCommon.AccessKey]
 	sk := properties[fsCommon.SecretKey]
-	sk, _ = common.AesDecrypt(sk, common.AESEncryptKey)
+	sk, _ = common.AesDecrypt(sk, common.GetAESEncryptKey())
 	duration_ := properties[fsCommon.StsDuration]
 	if duration_ == "" {
 		duration_ = util.StsDurationDefault

@@ -388,7 +388,7 @@ func NewSftpFileSystem(properties map[string]interface{}) (UnderFileStorage, err
 	}
 
 	if password != "" {
-		password, err := common.AesDecrypt(password, common.AESEncryptKey)
+		password, err := common.AesDecrypt(password, common.GetAESEncryptKey())
 		if err != nil {
 			return nil, err
 		}

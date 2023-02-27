@@ -1729,7 +1729,7 @@ func (m *kvMeta) linksMetaUpdate(linkMetaDirPrefix string) error {
 
 	var result map[string]common.FSMeta
 	if len(content) != 0 {
-		decodedLinksMeta, err := apicommon.AesDecrypt(string(content), apicommon.AESEncryptKey)
+		decodedLinksMeta, err := apicommon.AesDecrypt(string(content), apicommon.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("aes decrypt links meta json string err[%v]", err)
 			return err

@@ -344,7 +344,7 @@ func checkLinkProperties(fsType string, req *api.CreateLinkRequest) error {
 		if req.Properties[fsCommon.Region] == "" {
 			req.Properties[fsCommon.Region] = ""
 		}
-		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.SecretKey], common.AESEncryptKey)
+		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.SecretKey], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt s3 sk failed: %v", err)
 			return err
@@ -358,7 +358,7 @@ func checkLinkProperties(fsType string, req *api.CreateLinkRequest) error {
 		if req.Properties[fsCommon.Password] == "" {
 			return common.InvalidField("properties", "key[password] cannot be empty")
 		}
-		encodePassword, err := common.AesEncrypt(req.Properties[fsCommon.Password], common.AESEncryptKey)
+		encodePassword, err := common.AesEncrypt(req.Properties[fsCommon.Password], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt sftp password failed: %v", err)
 			return err
