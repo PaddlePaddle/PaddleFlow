@@ -84,7 +84,6 @@ func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSource
 	}
 
 	view := srt.newJobView(msg)
-
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
 	endTime := time.Now()
