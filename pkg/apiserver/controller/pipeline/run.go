@@ -610,7 +610,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		response, err = ValidateAndStartRun(ctx, run, userName, *request)
 	}
 
-	if config.GlobalServerConfig.Metrics.Enable && err != nil {
+	if config.GlobalServerConfig.Metrics.Enable && err == nil {
 		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
 			mr.StageRunStartTime, createTime)
 		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,

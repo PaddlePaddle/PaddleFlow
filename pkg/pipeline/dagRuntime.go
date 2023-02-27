@@ -389,7 +389,7 @@ func (drt *DagRuntime) scheduleSubComponent() {
 
 		if config.GlobalServerConfig.Metrics.Enable && newSubCp.GetType() == "step" {
 			metrics.RunMetricManger.AddStepStageTimeRecord(drt.runID, drt.generateSubComponentFullName(newSubCp.GetName()),
-				metrics.StageJobScheduleStartTime, time.Now())
+				metrics.StageStepScheduleStartTime, time.Now())
 		}
 
 		// 4. 创建 runtime 并运行 runtime
