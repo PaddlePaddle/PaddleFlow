@@ -25,7 +25,6 @@ import (
 type MetricRunCollector struct {
 	durationManager      *RunRecorderManager
 	runDurationMetric    *prometheus.GaugeVec
-	stepDurationMetric   *prometheus.GaugeVec
 	runJobDurationMetric *prometheus.GaugeVec
 }
 
@@ -51,14 +50,12 @@ func NewMetricRunCollector() *MetricRunCollector {
 
 func (rm *MetricRunCollector) Describe(descs chan<- *prometheus.Desc) {
 	rm.runDurationMetric.Describe(descs)
-	rm.stepDurationMetric.Describe(descs)
 	rm.runJobDurationMetric.Describe(descs)
 }
 
 func (rm *MetricRunCollector) Collect(ch chan<- prometheus.Metric) {
 	rm.generateMetric()
 	rm.runDurationMetric.Collect(ch)
-	rm.stepDurationMetric.Collect(ch)
 	rm.runJobDurationMetric.Collect(ch)
 }
 

@@ -1079,16 +1079,6 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	return nil
 }
 
-func InitAndResumeRuns() (*handler.ImageHandler, error) {
-	imageHandler, err := handler.InitPFImageHandler()
-	if err != nil {
-		return nil, err
-	}
-	// do not handle resume errors
-	resumeActiveRuns()
-	return imageHandler, nil
-}
-
 // --------- internal funcs ---------//
 func resumeActiveRuns() error {
 	runList, err := models.ListRunsByStatus(logger.Logger(), common.RunActiveStatus)
