@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -156,8 +157,8 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
 		}
 
-		if config.GlobalServerConfig.Metrics.Enable && err != nil {
-			mr.RunMetricManger.AddRunStageTimeRecord(runID, "",
+		if config.GlobalServerConfig.Metrics.Enable && err != nil && !common.IsRunFinalStatus(prevRun.Status) {
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, "", status,
 				mr.StageRunStartTime, time.Now())
 		}
 	}
@@ -273,6 +274,16 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	if err := updateRunCache(logging, runtimeJob, runID); err != nil {
 		return 0, false
 	}
+
+	if config.GlobalServerConfig.Metrics.Enable && schema.IsImmutableJobStatus(runJob.Status) {
+		fullName, ok := wfEvent.Extra[common.WfEventKeyComponentFullName]
+		if !ok {
+			logger.Logger().Errorf("cannot get full name for job[%s] in callback", runtimeJob.JobID)
+		}
+		mr.RunMetricManger.AddJobStageTimeRecord(runID, fullName.(string), runtimeJob.JobID,
+			runtimeJob.Status, metrics.StageJobAftertreatmentEndTime, time.Now())
+	}
+
 	return pk, true
 }
 

@@ -21,25 +21,53 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	log "github.com/sirupsen/logrus"
 )
 
 type stageTimeType = string
 
 const (
-	StageRunStartTime               stageTimeType = "run start"
-	StageRunEndTime                 stageTimeType = "run end"
-	StageRunParseStartTime          stageTimeType = "run parse start"
-	StageRunValidateStartTime       stageTimeType = "run validate start"
-	StageRunValidateEndTime         stageTimeType = "run validate end"
+	// 开始创建run的时间
+	StageRunStartTime stageTimeType = "run start"
+
+	// run处于終态的时间
+	StageRunEndTime stageTimeType = "run end"
+
+	// 开始解析 runyaml 的时间
+	StageRunParseStartTime stageTimeType = "run parse start"
+
+	// 完成 runyaml 解析的时间
+	StageRunParseEndTime stageTimeType = "run parse end"
+
+	// 对runyaml 以及相关参数进行校验的开始时间
+	StageRunValidateStartTime stageTimeType = "run validate start"
+
+	// 完成对runyaml 以及相关参数进行校验的结束时间
+	StageRunValidateEndTime stageTimeType = "run validate end"
+
+	// 开始进行Run后处理的时间：即Run检测到处于终态的时间
 	StageRunAftertreatmentStartTime stageTimeType = "run aftertreatment start"
-	StageRunAftertreatmentEndTime   stageTimeType = "run aftertreatment end"
 
+	// 开始进行Step的调度时间：即确定Step可以运行的时间点
 	StageStepScheduleStartTime stageTimeType = "step schedule start"
-	StageStepScheduleEndTime   stageTimeType = "step schedule end"
 
+	// Job 开始调度的时间，等价于StageStepScheduleStartTime
+	// 这里需要再次进行记录是因为循环结构中，不同的job的调度结束时间不一致，为了方便计算每个job的调度时间，所以会在每一个jobTimeRecorder单独记录一次
+	// 在StepTimeRecorder中记录该时间点，是因为在Job阶段无法获取到改信息，因此需要在StepTimeRecorder进行记录，然后在jobTimeRecorder进行拷贝操作。
+	StageJobScheduleStartTime stageTimeType = "job schedule start"
+
+	// 完成job调度的时间：即在调用Job模块的Create前的时间
+	StageJobScheduleEndTime stageTimeType = "job schedule end"
+
+	// 完成Job创建的时间
+	StageJobCreateEndTime stageTimeType = "job schedule end"
+
+	// 开始进行 Job 后处理的时间：也即Job处于終态的时间点
 	StageJobAftertreatmentStartTime stageTimeType = "job aftertreatment start"
-	StageJobAftertreatmentEndTime   stageTimeType = "job aftertreatment end"
+
+	// 完成Job 后处理的时间：也即 Job的終态写入数据库的时间
+	StageJobAftertreatmentEndTime stageTimeType = "job aftertreatment end"
 )
 
 type stageDurationType = string
@@ -52,9 +80,10 @@ const (
 	StageRunAftertreatmentDuration = "aftertreatment"
 
 	// step stage
-	StageStepScheduleDuration = "step schedule"
 
 	// job stage
+	StageJobScheduleDuration          = "job schedule"
+	StageJobCreateDuration            = "job create"
 	StageRunJobAftertreatmentDuration = "job aftertreatment"
 )
 
@@ -121,24 +150,37 @@ func (sr *StageTimeRecorder) calculateStageDuration(start, end stageTimeType) (i
 
 type JobStageTimeRecorder struct {
 	*StageTimeRecorder
-	JobName  string
 	JobID    string
 	StepName string
 	RunID    string
-	Status   JobStatus
+	Status   schema.JobStatus
 }
 
-func NewJobStageTimeRecorder(jobName string, jobID string, stepName string, runID string) *JobStageTimeRecorder {
+func NewJobStageTimeRecorder(jobID string, stepName string, runID string) *JobStageTimeRecorder {
 	LoggerMeta := "job_stage[" + jobID + "]"
-	stageTimeRecorder := NewStageTimeRecorder([]stageTimeType{StageJobAftertreatmentStartTime, StageJobAftertreatmentEndTime},
-		LoggerMeta)
+	support := []stageTimeType{
+		StageJobScheduleStartTime,
+		StageJobScheduleEndTime,
+		StageJobCreateEndTime,
+		StageJobAftertreatmentStartTime,
+		StageJobAftertreatmentEndTime,
+	}
+
+	stageTimeRecorder := NewStageTimeRecorder(support, LoggerMeta)
 	return &JobStageTimeRecorder{
 		StageTimeRecorder: stageTimeRecorder,
-		JobName:           jobName,
 		JobID:             jobID,
 		StepName:          stepName,
 		RunID:             runID,
 	}
+}
+
+func (j *JobStageTimeRecorder) calculateScheduleDuration() (int64, error) {
+	return j.calculateStageDuration(StageJobScheduleStartTime, StageJobScheduleEndTime)
+}
+
+func (j *JobStageTimeRecorder) calculateCreateDuration() (int64, error) {
+	return j.calculateStageDuration(StageJobScheduleEndTime, StageJobCreateEndTime)
 }
 
 func (j *JobStageTimeRecorder) calculateAftertreatmentDuration() (int64, error) {
@@ -154,7 +196,7 @@ type StepStageTimeRecorder struct {
 
 func NewStepStageTimeRecorder(stepName string, runID string) *StepStageTimeRecorder {
 	LoggerMeta := "step_stage[" + stepName + "][" + runID + "]"
-	support := []stageTimeType{StageStepScheduleStartTime, StageStepScheduleEndTime}
+	support := []stageTimeType{StageStepScheduleStartTime}
 	stageTimeRecorder := NewStageTimeRecorder(support, LoggerMeta)
 	return &StepStageTimeRecorder{
 		StageTimeRecorder: stageTimeRecorder,
@@ -162,10 +204,6 @@ func NewStepStageTimeRecorder(stepName string, runID string) *StepStageTimeRecor
 		RunID:             runID,
 		JobStages:         sync.Map{},
 	}
-}
-
-func (s *StepStageTimeRecorder) calculateScheduleDuration() (int64, error) {
-	return s.calculateStageDuration(StageStepScheduleStartTime, StageStepScheduleEndTime)
 }
 
 type RunStageTimeRecorder struct {
@@ -185,7 +223,6 @@ func NewRunStageTimeRecorder(runID, reqID string) *RunStageTimeRecorder {
 		StageRunValidateStartTime,
 		StageRunValidateEndTime,
 		StageRunAftertreatmentStartTime,
-		StageRunAftertreatmentEndTime,
 	}
 
 	stageTimeRecorder := NewStageTimeRecorder(support, LoggerMeta)
@@ -210,5 +247,5 @@ func (r *RunStageTimeRecorder) calculateValidateDuration() (int64, error) {
 }
 
 func (r *RunStageTimeRecorder) calculateAftertreatmentDuration() (int64, error) {
-	return r.calculateStageDuration(StageRunAftertreatmentStartTime, StageRunAftertreatmentEndTime)
+	return r.calculateStageDuration(StageRunAftertreatmentStartTime, StageRunEndTime)
 }

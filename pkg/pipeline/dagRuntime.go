@@ -26,7 +26,9 @@ import (
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -383,6 +385,11 @@ func (drt *DagRuntime) scheduleSubComponent() {
 			// 创建占位用 runtime
 			drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
 			continue
+		}
+
+		if config.GlobalServerConfig.Metrics.Enable && newSubCp.GetType() == "step" {
+			metrics.RunMetricManger.AddStepStageTimeRecord(drt.runID, drt.generateSubComponentFullName(newSubCp.GetName()),
+				metrics.StageJobScheduleStartTime, time.Now())
 		}
 
 		// 4. 创建 runtime 并运行 runtime

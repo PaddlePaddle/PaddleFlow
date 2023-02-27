@@ -40,19 +40,12 @@ func NewMetricRunCollector() *MetricRunCollector {
 			},
 			[]string{RunIDLabel, RunStageLabel, RequestIDLabel, FinishedStatusLabel}),
 
-		stepDurationMetric: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{
-				Name: MetricStepDuration,
-				Help: toHelp(MetricStepDuration),
-			},
-			[]string{RunIDLabel, RunStepNameLabel, RunStepStageLabel}),
-
 		runJobDurationMetric: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricRunJobDuration,
 				Help: toHelp(MetricRunJobDuration),
 			},
-			[]string{RunJobNameLabel, RunStepNameLabel, FinishedStatusLabel, RunJobStageLabel}),
+			[]string{RunStepNameLabel, FinishedStatusLabel, RunJobStageLabel}),
 	}
 }
 
@@ -139,36 +132,49 @@ func (rm *MetricRunCollector) generateRunMetricByRunRecorder(runRecorder *RunSta
 
 func (rm *MetricRunCollector) generateStepMetricByStepRecorder(id any, recorder any) bool {
 	stepRecorder := recorder.(*StepStageTimeRecorder)
-
-	scheduleDuration, err := stepRecorder.calculateScheduleDuration()
-	if err != nil {
-		log.Error(err.Error())
-	} else {
-		rm.stepDurationMetric.With(
-			prometheus.Labels{
-				RunIDLabel:        stepRecorder.RunID,
-				RunStepNameLabel:  stepRecorder.StepName,
-				RunStepStageLabel: StageStepScheduleDuration,
-			}).Set(float64(scheduleDuration))
-	}
-
 	stepRecorder.JobStages.Range(rm.generateJobMetricByJobRecorder)
 	return true
 }
 
 func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder any) bool {
 	jobRecorder := recorder.(*JobStageTimeRecorder)
+	scheduleDuration, err := jobRecorder.calculateScheduleDuration()
+	if err != nil {
+		log.Error(err.Error())
+	} else {
+		rm.runJobDurationMetric.With(
+			prometheus.Labels{
+				RunStepNameLabel:    jobRecorder.StepName,
+				FinishedStatusLabel: string(jobRecorder.Status),
+				RunJobStageLabel:    StageRunJobAftertreatmentDuration,
+			}).Set(float64(scheduleDuration))
+
+	}
+
+	createDuration, err := jobRecorder.calculateCreateDuration()
+	if err != nil {
+		log.Error(err.Error())
+	} else {
+		rm.runJobDurationMetric.With(
+			prometheus.Labels{
+				RunStepNameLabel:    jobRecorder.StepName,
+				FinishedStatusLabel: string(jobRecorder.Status),
+				RunJobStageLabel:    StageRunJobAftertreatmentDuration,
+			}).Set(float64(createDuration))
+
+	}
+
 	d, err := jobRecorder.calculateAftertreatmentDuration()
 	if err != nil {
 		log.Error(err.Error())
 	} else {
 		rm.runJobDurationMetric.With(
 			prometheus.Labels{
-				RunJobNameLabel:     jobRecorder.JobName,
 				RunStepNameLabel:    jobRecorder.StepName,
-				FinishedStatusLabel: jobRecorder.Status.String(),
+				FinishedStatusLabel: string(jobRecorder.Status),
 				RunJobStageLabel:    StageRunJobAftertreatmentDuration,
 			}).Set(float64(d))
+
 	}
 	return true
 }

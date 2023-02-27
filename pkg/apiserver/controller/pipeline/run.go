@@ -518,11 +518,13 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	// TODO:// validate queue
 
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
+	parseStartTime := time.Now()
 	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
+	parseEndTime := time.Now()
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
 	if fsName == "" && wfs.FsOptions.MainFS.Name != "" {
@@ -609,8 +611,12 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	}
 
 	if config.GlobalServerConfig.Metrics.Enable && err != nil {
-		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID,
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
 			mr.StageRunStartTime, createTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseStartTime, parseStartTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseEndTime, parseEndTime)
 	}
 	return response, err
 }
@@ -624,6 +630,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 	var reqUserName string
 	var reqDescription string
 
+	parseStartTime := time.Now()
 	parser := schema.Parser{}
 	// 将字段名由Json风格改为Yaml风格
 	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
@@ -677,6 +684,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
+	parseEndTime := time.Now()
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
@@ -704,15 +712,20 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
-	if config.GlobalServerConfig.Metrics.Enable && err != nil {
-		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID,
-			mr.StageRunStartTime, createTime)
-	}
 
+	if config.GlobalServerConfig.Metrics.Enable && err != nil {
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunStartTime, createTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseStartTime, parseStartTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseEndTime, parseEndTime)
+	}
 	return response, err
 }
 
 func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
+	var runID string
 	requestId := ctx.RequestID
 	if requestId == "" {
 		ctx.ErrorCode = common.InternalError
@@ -720,6 +733,16 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
 		return nil, "", errors.New(errMsg)
 	}
+
+	startTime := time.Now()
+	defer func() {
+		if ctx.ErrorCode == "" {
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, requestId, run.Status,
+				mr.StageRunValidateStartTime, startTime)
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, requestId, run.Status,
+				mr.StageRunValidateEndTime, time.Now())
+		}
+	}()
 
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
@@ -745,7 +768,7 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 	// generate run id here
 	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(logger.Logger(), run)
+	runID, err = models.CreateRun(logger.Logger(), run)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())

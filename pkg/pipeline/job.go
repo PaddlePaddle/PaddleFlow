@@ -205,13 +205,14 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 
 	// 调用job子系统接口发起运行
 	conf := pfj.generateJobConf()
+
 	pfj.ID, err = job.CreatePPLJob(&conf)
 	if err != nil {
 		return "", err
 	}
 
 	if pfj.ID == "" {
-		err = fmt.Errorf("watch paddleflow job[%s] failed, job not started, id is empty!", pfj.Job().Name)
+		err = fmt.Errorf("watch paddleflow job[%s] failed, job not started, id is empty", pfj.Job().Name)
 		return "", err
 	}
 

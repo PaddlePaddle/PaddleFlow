@@ -19,6 +19,7 @@ package metrics
 import (
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
 )
@@ -34,7 +35,7 @@ func NewRunRecorderManager() *RunRecorderManager {
 	}
 }
 
-func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID string, stage stageTimeType, timestamp time.Time) {
+func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID, status string, stage stageTimeType, timestamp time.Time) {
 	var runStage *RunStageTimeRecorder
 	if m.Cache.Has(runID) {
 		runInfo, err := m.Cache.Get(runID)
@@ -52,6 +53,8 @@ func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID string, stag
 	if err != nil {
 		log.Errorf(err.Error())
 	}
+
+	runStage.Status = status
 }
 
 func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stage stageTimeType, timestamp time.Time) {
@@ -79,7 +82,7 @@ func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stag
 	}
 }
 
-func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID, jobName string, stage stageTimeType, timestamp time.Time) {
+func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string, status schema.JobStatus, stage stageTimeType, timestamp time.Time) {
 	runInfo, err := m.Cache.Get(runID)
 	if err != nil {
 		log.Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of job[%s] of step[%s]",
@@ -92,6 +95,7 @@ func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID, jobNa
 	if !ok {
 		log.Errorf("get StepStageTimeRecorder with StepName[%s] from RunStageTimeRecorder[%s] failed when set StageTime[%s] of job[%s] ",
 			stepName, runID, stage, jobID)
+		return
 	}
 	stepStage := stepInfo.(*StepStageTimeRecorder)
 
@@ -101,12 +105,25 @@ func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID, jobNa
 		jobStage = jobInfo.(*JobStageTimeRecorder)
 		stepStage.JobStages.Store(jobID, jobStage)
 	} else {
-		jobStage = NewJobStageTimeRecorder(jobName, jobID, stepName, runID)
+		jobStage = NewJobStageTimeRecorder(jobID, stepName, runID)
 		stepStage.JobStages.Store(jobID, jobStage)
 	}
 
+	if _, ok = jobStage.StageTime.Load(StageJobScheduleStartTime); !ok {
+		scheduleStartTime, ok := stepStage.StageTime.Load(StageJobScheduleStartTime)
+		if !ok {
+			log.Errorf("cannot get scheduleStartTime for Job[%s]", jobID)
+			return
+		}
+		err = jobStage.setStageTime(StageJobScheduleStartTime, scheduleStartTime.(time.Time))
+		if err != nil {
+			log.Error(err.Error())
+		}
+	}
 	err = jobStage.setStageTime(stage, timestamp)
 	if err != nil {
 		log.Error(err.Error())
 	}
+
+	jobStage.Status = status
 }
