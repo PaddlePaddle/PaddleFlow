@@ -47,9 +47,10 @@ var checkerStopChan = make(chan bool)
 var checkerUpdateChan = make(chan bool)
 
 type pvParams struct {
-	fsID    string
-	fsInfo  string
-	fsCache string
+	fsID          string
+	fsInfo        string
+	fsCache       string
+	serverAddress string
 }
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
@@ -158,7 +159,6 @@ func (m *MountPointController) Start(stopCh <-chan struct{}) {
 
 		select {
 		case <-checkerUpdateChan:
-			log.Info("begin to update podMap")
 			if err := m.UpdatePodMap(); err != nil {
 				log.Errorf("update podMap failed: %v", err)
 			}
@@ -253,7 +253,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 
 	// pods need to restore source mount path mountpoints
 	mountPath := utils.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	mountInfo, err := mount.ConstructMountInfo(pvParams_.fsInfo, pvParams_.fsCache, mountPath, nil, volumeMount.ReadOnly)
+	mountInfo, err := mount.ConstructMountInfo(pvParams_.serverAddress, pvParams_.fsInfo, pvParams_.fsCache, mountPath, nil, volumeMount.ReadOnly)
 	if err != nil {
 		err := fmt.Errorf("ConstructMountInfo from pvParams: %+v failed: %v", pvParams_, err)
 		log.Errorf(err.Error())
@@ -261,6 +261,8 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	}
 
 	if checkIfNeedRemount(mountPath) {
+		log.Infof("pvParams %v volumeMount %s", pvParams_, mountPath)
+		log.Infof("mountInfo %v", mountInfo)
 		if err := remount(volumeMount, mountInfo); err != nil {
 			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
 			log.Errorf(err.Error())

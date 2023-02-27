@@ -1194,7 +1194,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 
 	var secretKey_ string
 	if accessKey != "" && secretKey != "" {
-		secretKey_, err = common.AesDecrypt(secretKey, common.AESEncryptKey)
+		secretKey_, err = common.AesDecrypt(secretKey, common.GetAESEncryptKey())
 		if err != nil {
 			// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
 			log.Debug("secretKey may be not descrypy")
@@ -1247,7 +1247,8 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}
 
 			sts, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-				FsName: properties[fsCommon.FsName].(string),
+				FsName:   properties[fsCommon.FsName].(string),
+				Username: properties[fsCommon.UserName].(string),
 			}, token)
 			if err != nil {
 				log.Errorf("newstsClient GetSts err[%v]", err)
@@ -1258,7 +1259,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			bucket = sts.Bucket
 			region = sts.Region
 
-			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
+			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
 			if err != nil {
 				log.Errorf("AesDecrypt: err[%v]", err)
 				return nil, err
@@ -1294,14 +1295,15 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
 
 					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-						FsName: properties[fsCommon.FsName].(string),
+						FsName:   properties[fsCommon.FsName].(string),
+						Username: properties[fsCommon.UserName].(string),
 					}, token)
 					if err != nil {
 						log.Errorf("GetSts: err[%v]", err)
 						time.Sleep(1 * time.Second)
 						continue
 					}
-					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.AESEncryptKey)
+					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
 					stsCredential, err = auth.NewSessionBceCredentials(
 						sts.AccessKeyId,
 						secretKey_,

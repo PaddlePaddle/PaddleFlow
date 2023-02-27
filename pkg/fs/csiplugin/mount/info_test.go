@@ -59,7 +59,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-	mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
+	mountInfo, err := ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, fsBase64, mountInfo.FSBase64Str)
 	assert.Equal(t, fsCache.CacheDir, mountInfo.CacheConfig.CacheDir)
@@ -72,7 +72,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
 	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
-	mountInfo, err = ConstructMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
+	mountInfo, err = ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, "", mountInfo.CacheConfig.CacheDir)
 	assert.Equal(t, "", mountInfo.CacheConfig.FsID)
@@ -301,7 +301,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 
 				fsCacheBase64 := "xxxxxx"
 
-				_, err = ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+				_, err = ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
 				assert.NotNil(t, err, fmt.Errorf("FS process FS CacheConfig err: illegal base64 data at input byte 4"))
 			} else {
 				fsStr, err := json.Marshal(tt.fields.FS)
@@ -312,7 +312,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				assert.Nil(t, err)
 				fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-				mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+				mountInfo, err := ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
 				assert.Nil(t, err)
 
 				got := mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")

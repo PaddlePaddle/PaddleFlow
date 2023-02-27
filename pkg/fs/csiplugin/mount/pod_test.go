@@ -118,7 +118,7 @@ func TestPFSMountWithCache(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-	info, err := ConstructMountInfo(fsBase64, fsCacheBase64, testTargetPath, fakeClientSet, false)
+	info, err := ConstructMountInfo("paddleflow-server:8999", fsBase64, fsCacheBase64, testTargetPath, fakeClientSet, false)
 	assert.Nil(t, err)
 
 	patch1 := ApplyFunc(isPodReady, func(pod *k8sCore.Pod) bool {

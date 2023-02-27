@@ -23,6 +23,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -33,14 +34,22 @@ const (
 )
 
 func EncryptPk(pk int64) (string, error) {
-	return AesEncrypt(strconv.FormatInt(pk, 10), AESEncryptKey)
+	return AesEncrypt(strconv.FormatInt(pk, 10), GetAESEncryptKey())
+}
+
+func GetAESEncryptKey() string {
+	aesEncryptKey := os.Getenv("AESEncryptKey")
+	if aesEncryptKey != "" {
+		return aesEncryptKey
+	}
+	return AESEncryptKey
 }
 
 func DecryptPk(data string) (int64, error) {
 	if data == "" {
 		return 0, fmt.Errorf("DecryptPk data is null")
 	}
-	plainText, err := AesDecrypt(data, AESEncryptKey)
+	plainText, err := AesDecrypt(data, GetAESEncryptKey())
 	if err != nil {
 		log.Errorf("AesDecrypt data failed. data:[%s]", data)
 		return 0, err
