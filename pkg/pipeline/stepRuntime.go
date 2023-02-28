@@ -862,6 +862,6 @@ func (srt *StepRuntime) addJobStageTimeRecordForAbnormalStatus() {
 		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
 			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
 		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
-			srt.getStatus(), metrics.StageJobAftertreatmentEndTime, endTime)
+			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
 	}
 }
