@@ -280,7 +280,13 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 		if !ok {
 			logger.Logger().Errorf("cannot get full name for job[%s] in callback", runtimeJob.JobID)
 		}
-		mr.RunMetricManger.AddJobStageTimeRecord(runID, fullName.(string), runtimeJob.JobID,
+		jobID := ""
+		if runtimeJob.JobID == "" {
+			jobID = "job-" + runtimeJob.Name
+		} else {
+			jobID = runtimeJob.JobID
+		}
+		mr.RunMetricManger.AddJobStageTimeRecord(runID, fullName.(string), jobID,
 			runtimeJob.Status, metrics.StageJobAftertreatmentEndTime, time.Now())
 	}
 
