@@ -225,3 +225,30 @@ func Test_addRef(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildMountPodEnv(t *testing.T) {
+	type args struct {
+		pod *k8sCore.Pod
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "secret-test",
+			args: args{
+				&k8sCore.Pod{
+					Spec: k8sCore.PodSpec{
+						Containers: append([]k8sCore.Container{}, k8sCore.Container{}),
+					},
+				},
+			},
+		},
+	}
+	csiconfig.Token = "1"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buildMountPodEnv(tt.args.pod)
+		})
+	}
+}

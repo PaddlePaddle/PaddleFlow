@@ -188,7 +188,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType {
+	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType || fileSystemType == fsCommon.CFSType {
 		return nil
 	}
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
