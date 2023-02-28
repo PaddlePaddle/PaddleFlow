@@ -206,7 +206,7 @@ func PerformDeleteRequest(handler http.Handler, path string) (*httptest.Response
 func PerformDeleteRequestWithReq(handler http.Handler, path string, v interface{}) (*httptest.ResponseRecorder, error) {
 	body, _ := json.Marshal(v)
 	buf := bytes.NewBuffer(body)
-	req, _ := http.NewRequest("PUT", path, buf)
+	req, _ := http.NewRequest("DELETE", path, buf)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
 	return recorder, nil
