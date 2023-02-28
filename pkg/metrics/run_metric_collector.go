@@ -43,7 +43,7 @@ func NewMetricRunCollector() *MetricRunCollector {
 				Name: MetricRunJobDuration,
 				Help: toHelp(MetricRunJobDuration),
 			},
-			[]string{RunStepNameLabel, FinishedStatusLabel, RunJobStageLabel}),
+			[]string{RunStepNameLabel, FinishedStatusLabel, RunJobStageLabel, RunJobIDLabel}),
 	}
 }
 
@@ -145,6 +145,7 @@ func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder an
 				RunStepNameLabel:    jobRecorder.StepName,
 				FinishedStatusLabel: string(jobRecorder.Status),
 				RunJobStageLabel:    StageRunJobScheduleDuration,
+				RunJobIDLabel:       jobRecorder.JobID,
 			}).Set(float64(scheduleDuration))
 
 	}
@@ -158,6 +159,7 @@ func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder an
 				RunStepNameLabel:    jobRecorder.StepName,
 				FinishedStatusLabel: string(jobRecorder.Status),
 				RunJobStageLabel:    StageRunJobCreateDuration,
+				RunJobIDLabel:       jobRecorder.JobID,
 			}).Set(float64(createDuration))
 
 	}
@@ -171,6 +173,7 @@ func (rm *MetricRunCollector) generateJobMetricByJobRecorder(id any, recorder an
 				RunStepNameLabel:    jobRecorder.StepName,
 				FinishedStatusLabel: string(jobRecorder.Status),
 				RunJobStageLabel:    StageRunJobAftertreatmentDuration,
+				RunJobIDLabel:       jobRecorder.JobID,
 			}).Set(float64(d))
 
 	}

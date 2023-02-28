@@ -56,6 +56,7 @@ const (
 	RunStepStageLabel  = "runStepStage"
 	RunJobStageLabel   = "runJobStage"
 	RequestIDLabel     = "requestID"
+	RunJobIDLabel      = "runJobID"
 )
 
 var APiDurationSummary = prometheus.NewSummaryVec(
