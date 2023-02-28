@@ -17,13 +17,18 @@ limitations under the License.
 package job
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -36,7 +41,18 @@ var (
 		BroadcastChan: make(chan GetJobResponse, 1000),
 	}
 	UpdateTime = time.Now()
+
+	defaultSaltStr    = "paddleflow"
+	defaultTimeFormat = "2006-01-02 15"
+	LogURLFormat      = "http://%s:%d/filetree?action=ls&jobID=%s&containerID=%s&token=%s"
 )
+
+func init() {
+	logURL := os.Getenv("PF_LOG_URL_FORMAT")
+	if logURL != "" {
+		LogURLFormat = logURL
+	}
+}
 
 type DistributedJobSpec struct {
 	Framework schema.Framework `json:"framework,omitempty"`
@@ -78,6 +94,7 @@ type RuntimeInfo struct {
 	ID        string `json:"id,omitempty"`
 	Status    string `json:"status,omitempty"`
 	NodeName  string `json:"nodeName"`
+	LogURL    string `json:"logURL,omitempty"`
 }
 
 type DistributedRuntimeInfo struct {
@@ -339,6 +356,7 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 			Namespace: task.Namespace,
 			Status:    task.ExtRuntimeStatusJSON,
 			NodeName:  task.NodeName,
+			LogURL:    GenerateLogURL(task),
 		}
 		runtimes = append(runtimes, runtime)
 	}
@@ -377,4 +395,31 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 		nodeRuntimes = append(nodeRuntimes, nodeRuntime)
 	}
 	return nodeRuntimes, nil
+}
+
+func GenerateLogURL(task model.JobTask) string {
+	// skip generate log url when log service config is empty
+	if config.GlobalServerConfig.Job.Log.ServiceHost == "" ||
+		config.GlobalServerConfig.Job.Log.ServicePort == 0 {
+		return ""
+	}
+	tokenStr := getLogToken(task.JobID, task.ID)
+	hash := md5.Sum([]byte(tokenStr))
+	token := hex.EncodeToString(hash[:])
+	log.Debugf("log url token for task %s/%s is %s", task.JobID, task.ID, token)
+
+	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
+		config.GlobalServerConfig.Job.Log.ServicePort, task.JobID, task.ID, token)
+}
+
+func getLogToken(jobID, taskID string) string {
+	saltStr := config.GlobalServerConfig.Job.Log.SaltStr
+	if saltStr == "" {
+		saltStr = defaultSaltStr
+	}
+	timeFormat := config.GlobalServerConfig.Job.Log.TimeFormat
+	if timeFormat == "" {
+		timeFormat = defaultTimeFormat
+	}
+	return fmt.Sprintf("%s/%s/%s@%s", jobID, taskID, saltStr, time.Now().Format(timeFormat))
 }
