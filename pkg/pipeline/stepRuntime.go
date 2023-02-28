@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -86,15 +85,7 @@ func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSource
 	view := srt.newJobView(msg)
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
-	endTime := time.Now()
-	if config.GlobalServerConfig.Metrics.Enable {
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
-			srt.getStatus(), metrics.StageJobScheduleEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
-			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
-			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
-	}
+	srt.addJobStageTimeRecordForAbnormalStatus()
 
 	return srt
 }
@@ -145,6 +136,7 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 	view := srt.newJobView(msg)
 
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
+	srt.addJobStageTimeRecordForAbnormalStatus()
 }
 
 func (srt *StepRuntime) Start() {
@@ -581,16 +573,6 @@ func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
 	return
 }
 
-func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
-	pathsForJob := []string{}
-
-	for _, path := range strings.Split(paths, ",") {
-		path = strings.TrimSpace(path)
-		pathsForJob = append(pathsForJob, strings.Join([]string{ArtMountDir, path}, "/"))
-	}
-	return strings.Join(pathsForJob, ",")
-}
-
 func (srt *StepRuntime) startJob() (err error) {
 	err = nil
 
@@ -753,6 +735,7 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 
 		view := srt.newJobView(msg)
 		srt.syncToApiServerAndParent(WfEventJobStopErr, &view, msg)
+		srt.addJobStageTimeRecordForAbnormalStatus()
 		return
 	}
 
@@ -867,4 +850,17 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	}
 
 	return view
+}
+
+func (srt *StepRuntime) addJobStageTimeRecordForAbnormalStatus() {
+	endTime := time.Now()
+	if config.GlobalServerConfig.Metrics.Enable {
+		// 此时没有生成jobid，为了保证唯一性，使用stepruntimename进行替代
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+			srt.getStatus(), metrics.StageJobScheduleEndTime, endTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
+	}
 }
