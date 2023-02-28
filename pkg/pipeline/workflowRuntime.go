@@ -324,11 +324,15 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 		}
 		msg := fmt.Sprintf("begin to execute postProcess step [%s]", wfr.postProcess.name)
 		wfr.logger.Infof(msg)
-		wfr.postProcess.Start()
+
+		// 在记录job的时间戳之前，需要先存在 step 的记录
 		if config.GlobalServerConfig.Metrics.Enable {
 			mr.RunMetricManger.AddStepStageTimeRecord(wfr.runID, wfr.postProcess.getFullName(),
 				mr.StageStepScheduleStartTime, startTime)
 		}
+
+		wfr.postProcess.Start()
+
 	} else {
 		wfr.logger.Infof("there is no postProcess step")
 	}

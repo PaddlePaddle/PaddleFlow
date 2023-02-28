@@ -115,7 +115,6 @@ func TestUpdatePipeline(t *testing.T) {
 	pplUrl := baseUrl + "/pipeline"
 
 	req := pipeline.UpdatePipelineRequest{
-
 		FsName:   "mockFsName",
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
@@ -128,4 +127,21 @@ func TestUpdatePipeline(t *testing.T) {
 
 	_, err = PerformPostRequest(router, pplUrl, req)
 	assert.Nil(t, err)
+}
+
+func TestGetPipeline(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+	pplID := "ppl-001"
+
+	patch := gomonkey.ApplyFunc(pipeline.GetPipeline, func(ctx *logger.RequestContext, pipelineID string, marker string, maxKeys int, fsFilter []string) (pipeline.GetPipelineResponse, error) {
+		return pipeline.GetPipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl+"/"+pplID)
+	assert.Nil(t, err)
+
 }
