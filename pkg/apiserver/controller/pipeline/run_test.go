@@ -396,6 +396,25 @@ func TestCreateRunByJson(t *testing.T) {
 	ctx.ErrorCode = ""
 	CreateRunByJson(ctx, bodyMap)
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch9 := gomonkey.ApplyFunc(getSourceAndYaml, func(wfs schema.WorkflowSource) (string, string, error) {
+		return "a", "b", nil
+	})
+	defer patch9.Reset()
+
+	patch10 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+		return CreateRunResponse{}, nil
+	})
+	defer patch10.Reset()
+
+	patch11 := gomonkey.ApplyFunc(schema.CheckReg, func(str string, pattern string) bool {
+		return true
+	})
+	defer patch11.Reset()
+
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, "", ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {

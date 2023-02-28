@@ -319,3 +319,20 @@ func TestUpdateRunRouter(t *testing.T) {
 	assert.Equal(t, res.Code, http.StatusBadRequest)
 
 }
+
+func TestDeleteRunRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+
+	runUrl := baseUrl + "/run/run-01"
+	patch := gomonkey.ApplyFunc(pipeline.DeleteRun, func(ctx *logger.RequestContext, id string, request *pipeline.DeleteRunRequest) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	req := pipeline.DeleteRunRequest{}
+
+	_, err = PerformDeleteRequestWithReq(router, runUrl, req)
+	assert.Nil(t, err)
+}

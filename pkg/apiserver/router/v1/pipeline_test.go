@@ -107,7 +107,7 @@ func TestUpdatePipelineRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
-	pplUrl := baseUrl + "/pipeline"
+	pplUrl := baseUrl + "/pipeline/ppl-01"
 
 	req := pipeline.UpdatePipelineRequest{
 		FsName:   "mockFsName",

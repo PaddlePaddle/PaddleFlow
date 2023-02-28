@@ -63,7 +63,6 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-
 	var err error
 	if config.GlobalServerConfig.Metrics.Enable {
 		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
@@ -182,7 +181,6 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-
 	var err error
 	if config.GlobalServerConfig.Metrics.Enable {
 		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
