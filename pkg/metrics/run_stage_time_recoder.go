@@ -61,7 +61,7 @@ const (
 	StageJobScheduleEndTime stageTimeType = "job schedule end"
 
 	// 完成Job创建的时间
-	StageJobCreateEndTime stageTimeType = "job schedule end"
+	StageJobCreateEndTime stageTimeType = "job create end"
 
 	// 开始进行 Job 后处理的时间：也即Job处于終态的时间点
 	StageJobAftertreatmentStartTime stageTimeType = "job aftertreatment start"

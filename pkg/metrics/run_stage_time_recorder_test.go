@@ -52,3 +52,22 @@ func TestSetStageTime(t *testing.T) {
 	_, ok := r.StageTime.Load(StageRunEndTime)
 	assert.True(t, ok)
 }
+
+func TestCalculateStageDuration(t *testing.T) {
+	s := []stageTimeType{
+		StageRunEndTime,
+		StageRunStartTime,
+	}
+
+	r := NewStageTimeRecorder(s, "test_stage")
+	r.setStageTime(StageRunEndTime, time.Now())
+	_, err := r.calculateStageDuration(StageRunStartTime, StageRunEndTime)
+	assert.Contains(t, err.Error(), "not been registered")
+
+	_, err = r.calculateStageDuration(StageRunEndTime, StageRunStartTime)
+	assert.Contains(t, err.Error(), "not been registered")
+
+	r.setStageTime(StageRunStartTime, time.Now())
+	_, err = r.calculateStageDuration(StageRunStartTime, StageRunEndTime)
+	assert.Nil(t, err)
+}

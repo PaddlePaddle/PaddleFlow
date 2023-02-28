@@ -140,10 +140,10 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 }
 
 func (srt *StepRuntime) Start() {
-	// 如果达到并行Job上限，将会Block
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
+	// 如果达到并行Job上限，将会Block
 	srt.parallelismManager.increase()
 	defer srt.catchPanic()
 
@@ -855,12 +855,12 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 func (srt *StepRuntime) addJobStageTimeRecordForAbnormalStatus() {
 	endTime := time.Now()
 	if config.GlobalServerConfig.Metrics.Enable {
-		// 此时没有生成jobid，为了保证唯一性，使用stepruntimename进行替代
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+		// 此时没有生成jobid，为了保证唯一性，使用job name 进行代替
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
 			srt.getStatus(), metrics.StageJobScheduleEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
 			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.name,
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
 			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
 	}
 }

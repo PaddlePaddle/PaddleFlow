@@ -154,7 +154,7 @@ func TestExpireInterval(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(checkFs, func(*logger.RequestContext, string, *schema.WorkflowSource) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, models.Run, *pipeline.Workflow) error {
+	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, *models.Run, *pipeline.Workflow) error {
 		return nil
 	})
 	defer patch1.Reset()
@@ -243,7 +243,7 @@ func TestScheduleTime(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(checkFs, func(*logger.RequestContext, string, *schema.WorkflowSource) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, models.Run, *pipeline.Workflow) error {
+	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, *models.Run, *pipeline.Workflow) error {
 		return nil
 	})
 	defer patch1.Reset()
@@ -282,7 +282,7 @@ func TestConcurrency(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(checkFs, func(*logger.RequestContext, string, *schema.WorkflowSource) error {
 		return nil
 	})
-	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, models.Run, *pipeline.Workflow) error {
+	patch2 := gomonkey.ApplyFunc(StartWf, func(*logger.RequestContext, *models.Run, *pipeline.Workflow) error {
 		return nil
 	})
 	defer patch1.Reset()
