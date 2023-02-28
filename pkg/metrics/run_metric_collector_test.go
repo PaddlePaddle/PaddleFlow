@@ -44,4 +44,6 @@ func TestCollect(t *testing.T) {
 
 	ch := make(chan prometheus.Metric, 1)
 	go c.Collect(ch)
+
+	time.Sleep(time.Second * 2)
 }
