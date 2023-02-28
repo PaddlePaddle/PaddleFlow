@@ -19,7 +19,6 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -28,7 +27,6 @@ import (
 	k8sCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	common2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
@@ -247,7 +245,7 @@ func Test_buildMountPodEnv(t *testing.T) {
 			},
 		},
 	}
-	os.Setenv(common2.PFTokenEnv, "1")
+	csiconfig.Token = "1"
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buildMountPodEnv(tt.args.pod)

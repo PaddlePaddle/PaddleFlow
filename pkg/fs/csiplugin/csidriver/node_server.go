@@ -150,7 +150,7 @@ func mountVolume(volumeID string, mountInfo mount.Info) error {
 			return err
 		}
 		if mountInfo.FS.Type == common.CFSType {
-			var properties map[string]interface{}
+			properties := make(map[string]interface{})
 			for k, v := range mountInfo.FS.PropertiesMap {
 				properties[k] = v
 			}
@@ -181,6 +181,7 @@ func mountVolume(volumeID string, mountInfo mount.Info) error {
 	return nil
 }
 
+// bindMountVolume bind source path to target path
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 	log.Infof("bindMountVolume source[%s] target[%s]", sourcePath, mountPath)
 	if err := os.MkdirAll(mountPath, 0750); err != nil {
