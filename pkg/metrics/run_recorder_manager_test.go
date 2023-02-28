@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,4 +32,19 @@ func TestAddRunStageTimeRecord(t *testing.T) {
 	rm.AddRunStageTimeRecord("run-01", "req-12", "success", StageJobAftertreatmentEndTime, time.Now())
 
 	assert.Equal(t, 1, len(rm.Cache.GetALL(false)))
+}
+
+func TestAddJobStageTimeRecord(t *testing.T) {
+	rm := NewRunRecorderManager()
+	rm.AddStepStageTimeRecord("run-01", "step1", StageStepScheduleStartTime, time.Now())
+	rm.AddJobStageTimeRecord("run-01", "step1", "job-01", schema.StatusJobPending, StageJobAftertreatmentEndTime, time.Now())
+
+	rm.AddRunStageTimeRecord("run-01", "req-12", "init", StageRunStartTime, time.Now())
+	rm.AddJobStageTimeRecord("run-01", "step1", "job-01", schema.StatusJobPending, StageJobAftertreatmentEndTime, time.Now())
+
+	rm.AddStepStageTimeRecord("run-01", "step1", StageStepScheduleStartTime, time.Now())
+	rm.AddJobStageTimeRecord("run-01", "step1", "job-01", schema.StatusJobPending, StageJobAftertreatmentEndTime, time.Now())
+	rm.AddJobStageTimeRecord("run-01", "step1", "job-01", schema.StatusJobPending, StageJobAftertreatmentStartTime, time.Now())
+
+	rm.AddJobStageTimeRecord("run-01", "step1", "job-01", schema.StatusJobPending, StageJobAftertreatmentEndTime, time.Now())
 }
