@@ -299,11 +299,13 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 }
 
 func (wfr *WorkflowRuntime) schedulePostProcess() {
+
 	wfr.logger.Debugf("begin to start postProcess")
 	if wfr.postProcess != nil {
 		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.runtimeName)
 		return
 	} else if len(wfr.WorkflowSource.PostProcess) != 0 {
+		startTime := time.Now()
 		for name, step := range wfr.WorkflowSource.PostProcess {
 			failureOptionsCtx, cancel := context.WithCancel(context.Background())
 			wfr.postProcessFailCancel = cancel
@@ -323,6 +325,10 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 		msg := fmt.Sprintf("begin to execute postProcess step [%s]", wfr.postProcess.name)
 		wfr.logger.Infof(msg)
 		wfr.postProcess.Start()
+		if config.GlobalServerConfig.Metrics.Enable {
+			mr.RunMetricManger.AddStepStageTimeRecord(wfr.runID, wfr.postProcess.getFullName(),
+				mr.StageStepScheduleStartTime, startTime)
+		}
 	} else {
 		wfr.logger.Infof("there is no postProcess step")
 	}

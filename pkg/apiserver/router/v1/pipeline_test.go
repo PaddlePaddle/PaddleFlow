@@ -42,7 +42,7 @@ func mockGlobalConfig() {
 	config.GlobalServerConfig.Metrics.Enable = true
 }
 
-func TestCreatePipeline(t *testing.T) {
+func TestCreatePipelineRouter(t *testing.T) {
 	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
@@ -90,4 +90,42 @@ func TestCreatePipeline(t *testing.T) {
 
 	res, _ := PerformPostRequest(router, pplUrl, createPplReq)
 	assert.Equal(t, http.StatusBadRequest, res.Code)
+}
+
+func TestListPipelineRouter(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+
+	patch := gomonkey.ApplyFunc(pipeline.ListPipeline, func(ctx *logger.RequestContext, marker string, maxKeys int, userFilter []string, nameFilter []string) (pipeline.ListPipelineResponse, error) {
+		return pipeline.ListPipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl)
+	assert.Nil(t, err)
+
+}
+
+func TestUpdatePipeline(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+
+	req := pipeline.UpdatePipelineRequest{
+
+		FsName:   "mockFsName",
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+	}
+
+	patch := gomonkey.ApplyFunc(pipeline.UpdatePipeline, func(ctx *logger.RequestContext, request pipeline.CreatePipelineRequest, pipelineID string) (pipeline.UpdatePipelineResponse, error) {
+		return pipeline.UpdatePipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformPostRequest(router, pplUrl, req)
+	assert.Nil(t, err)
 }
