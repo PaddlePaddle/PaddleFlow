@@ -1203,7 +1203,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	var err error
 	if len(faieldComponentNames) != 0 {
 		err = drt.updateStatus(StatusRuntimeFailed)
-		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] faield",
+		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] failed",
 			drt.name, StatusRuntimeFailed, strings.Join(faieldComponentNames, ","))
 	} else if len(terminatedComponentNames) != 0 {
 		if drt.status != StatusRuntimeTerminating {

@@ -727,9 +727,9 @@ func (srt *StepRuntime) Execute() {
 
 func (srt *StepRuntime) stopWithMsg(msg string) {
 	if srt.job.JobID() == "" {
-		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
+		// 此时说明还没有创建job，因此直接将状态置为 terminated，并通过事件进行同步即可
 		var msg string
-		err := srt.updateStatus(StatusRuntimeFailed)
+		err := srt.updateStatus(StatusRuntimeTerminated)
 		if err != nil {
 			msg = err.Error()
 		} else {
@@ -737,7 +737,7 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 		}
 
 		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobStopErr, &view, msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 		srt.addJobStageTimeRecordForAbnormalStatus()
 		return
 	}
