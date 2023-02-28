@@ -37,14 +37,9 @@ import (
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
-func mockGlobalConfig() {
-	config.GlobalServerConfig = &config.ServerConfig{}
-	config.GlobalServerConfig.Metrics.Enable = true
-}
-
 func TestCreatePipelineRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 
 	pplUrl := baseUrl + "/pipeline"
@@ -93,8 +88,8 @@ func TestCreatePipelineRouter(t *testing.T) {
 }
 
 func TestListPipelineRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline"
 
@@ -109,8 +104,8 @@ func TestListPipelineRouter(t *testing.T) {
 }
 
 func TestUpdatePipelineRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline"
 
@@ -130,8 +125,8 @@ func TestUpdatePipelineRouter(t *testing.T) {
 }
 
 func TestGetPipelineRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline"
 	pplID := "ppl-001"
@@ -146,8 +141,8 @@ func TestGetPipelineRouter(t *testing.T) {
 }
 
 func TestDeletePipelineRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline"
 	pplID := "ppl-001"
@@ -162,8 +157,8 @@ func TestDeletePipelineRouter(t *testing.T) {
 }
 
 func TestGetPipelineVersionRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline/ppl-01/01"
 
@@ -177,8 +172,8 @@ func TestGetPipelineVersionRouter(t *testing.T) {
 }
 
 func TestDeletePipelineVersionRouter(t *testing.T) {
-	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 	pplUrl := baseUrl + "/pipeline/ppl01/01"
 
