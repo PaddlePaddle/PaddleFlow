@@ -819,10 +819,9 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		}
 
 		if config.GlobalServerConfig.Metrics.Enable && srt.isDone() {
-			jobEndTime, err := time.Parse("2006-01-02 15:04:05", srt.job.Job().EndTime)
-			if err != nil {
-				srt.logger.Errorf("parse job[%s] end time failed: %s", srt.job.JobID(), err.Error())
-			}
+			// 这里不使用job的endtime的原因： endtime 丢失了秒之后的时间信息（如，微秒， 纳秒等）
+			jobEndTime := time.Now()
+
 			metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
 				srt.getStatus(), metrics.StageJobAftertreatmentStartTime, jobEndTime)
 		}

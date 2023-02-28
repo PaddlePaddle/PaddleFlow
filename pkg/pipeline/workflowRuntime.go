@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -390,6 +392,7 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() string {
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
 	msg := ""
+
 	if wfr.IsCompleted() {
 		wfr.logger.Errorf("cannot update status for run, because it is already in status[%s]", wfr.status)
 		return msg
@@ -405,6 +408,7 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() string {
 		}
 	}
 
+	aftertreatmentTime := time.Now()
 	hasFailedComponent := wfr.entryPoints.isFailed() ||
 		(wfr.postProcess != nil && wfr.postProcess.isFailed())
 	hasTerminatedComponent := wfr.entryPoints.isTerminated() ||
@@ -443,6 +447,10 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() string {
 		msg = "Run successfully"
 	}
 
+	if config.GlobalServerConfig.Metrics.Enable {
+		mr.RunMetricManger.AddRunStageTimeRecord(wfr.runID, "", wfr.status,
+			mr.StageRunAftertreatmentStartTime, aftertreatmentTime)
+	}
 	wfr.logger.Infof("workflow %s finished with status[%s]: %s", wfr.WorkflowSource.Name, wfr.status, msg)
 	return msg
 }

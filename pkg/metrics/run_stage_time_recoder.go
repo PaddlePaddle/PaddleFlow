@@ -82,8 +82,8 @@ const (
 	// step stage
 
 	// job stage
-	StageJobScheduleDuration          = "job schedule"
-	StageJobCreateDuration            = "job create"
+	StageRunJobScheduleDuration       = "job schedule"
+	StageRunJobCreateDuration         = "job create"
 	StageRunJobAftertreatmentDuration = "job aftertreatment"
 )
 
@@ -240,7 +240,7 @@ func (r *RunStageTimeRecorder) calculateExcuteDuration() (int64, error) {
 }
 
 func (r *RunStageTimeRecorder) calculateParseDuration() (int64, error) {
-	return r.calculateStageDuration(StageRunValidateStartTime, StageRunParseStartTime)
+	return r.calculateStageDuration(StageRunParseStartTime, StageRunParseEndTime)
 }
 
 func (r *RunStageTimeRecorder) calculateValidateDuration() (int64, error) {
