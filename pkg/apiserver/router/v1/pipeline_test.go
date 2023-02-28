@@ -31,12 +31,19 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
+func mockGlobalConfig() {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Metrics.Enable = true
+}
+
 func TestCreatePipeline(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
 

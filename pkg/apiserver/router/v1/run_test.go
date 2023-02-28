@@ -82,6 +82,7 @@ func loadCase(casePath string) []byte {
 }
 
 func TestGetRunRouter(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
 
@@ -107,6 +108,7 @@ func TestGetRunRouter(t *testing.T) {
 }
 
 func TestListRunRouter(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
 
@@ -147,6 +149,7 @@ func TestListRunRouter(t *testing.T) {
 }
 
 func TestCreateRunRouter(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 
 	runUrl := baseUrl + "/run"
@@ -196,6 +199,7 @@ func TestCreateRunRouter(t *testing.T) {
 }
 
 func TestCreateRunByJsonRouter(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	jsonPath := "../../controller/pipeline/testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
@@ -256,6 +260,7 @@ func TestCreateRunByJsonRouter(t *testing.T) {
 }
 
 func TestUpdateRunRouter(t *testing.T) {
+	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
 
