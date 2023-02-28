@@ -855,12 +855,13 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 func (srt *StepRuntime) addJobStageTimeRecordForAbnormalStatus() {
 	endTime := time.Now()
 	if config.GlobalServerConfig.Metrics.Enable {
-		// 此时没有生成jobid，为了保证唯一性，使用job name 进行代替
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
+		// 此时没有生成jobid，为了保证唯一性，使用 job-${jobName}进行代替
+		jobName := "job-" + srt.job.Job().Name
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
 			srt.getStatus(), metrics.StageJobScheduleEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
 			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
-		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.Job().Name,
-			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
+			srt.getStatus(), metrics.StageJobAftertreatmentEndTime, endTime)
 	}
 }
