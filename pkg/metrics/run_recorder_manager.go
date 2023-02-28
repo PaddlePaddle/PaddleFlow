@@ -36,7 +36,8 @@ func NewRunRecorderManager() *RunRecorderManager {
 }
 
 func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID, status string, stage stageTimeType, timestamp time.Time) {
-	logger.LoggerForMetric(MetricRunDuration).Debugf("add run stage[%s] time with runID[%s]", stage, runID)
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add run stage[%s] time[%s] with runID[%s]",
+		stage, timestamp, runID)
 	var runStage *RunStageTimeRecorder
 	if m.Cache.Has(runID) {
 		runInfo, err := m.Cache.Get(runID)
@@ -59,7 +60,8 @@ func (m *RunRecorderManager) AddRunStageTimeRecord(runID, requestID, status stri
 }
 
 func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stage stageTimeType, timestamp time.Time) {
-	logger.LoggerForMetric(MetricRunDuration).Debugf("add step[%s] stage[%s] time with runID[%s] ", stepName, stage, runID)
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add step[%s] stage[%s] time[%s] with runID[%s] ",
+		stepName, stage, timestamp, runID)
 	runInfo, err := m.Cache.Get(runID)
 	if err != nil {
 		logger.LoggerForMetric(MetricRunJobDuration).Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of step[%s]",
@@ -85,7 +87,8 @@ func (m *RunRecorderManager) AddStepStageTimeRecord(runID, stepName string, stag
 }
 
 func (m *RunRecorderManager) AddJobStageTimeRecord(runID, stepName, jobID string, status schema.JobStatus, stage stageTimeType, timestamp time.Time) {
-	logger.LoggerForMetric(MetricRunDuration).Debugf("add job[%s] stage[%s] time with stepName[%s] of runID[%s] ", jobID, stage, stepName, runID)
+	logger.LoggerForMetric(MetricRunDuration).Debugf("add job[%s] stage[%s] time with stepName[%s] of runID[%s] with time[%s]",
+		jobID, stage, stepName, runID, timestamp)
 	runInfo, err := m.Cache.Get(runID)
 	if err != nil {
 		logger.LoggerForMetric(MetricRunJobDuration).Errorf("get RunStageTimeRecorder with runID[%s] from MetricManager failed when set StageTime[%s] of job[%s] of step[%s]",
