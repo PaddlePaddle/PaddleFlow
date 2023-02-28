@@ -12,11 +12,12 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -195,7 +196,7 @@ func createLocalFile(t *testing.T, fileType bool) int {
 	if fileType {
 		fileSize = (200 + rand.Intn(100)) * 1024 * 1024 // 200MB-300MB
 	} else {
-		fileSize = (500 + rand.Intn(1500)) * 1024 // 500k-2MB
+		fileSize = (500 + rand.Intn(1500)) * 1024 // 500k-20MB
 	}
 	log.Infof("fileType %v and fileSize %v", fileType, fileSize)
 
