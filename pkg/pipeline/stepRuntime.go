@@ -83,9 +83,10 @@ func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSource
 	}
 
 	view := srt.newJobView(msg)
-	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
 	srt.addJobStageTimeRecordForAbnormalStatus()
+
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
 	return srt
 }
@@ -135,8 +136,9 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 	view := srt.newJobView(msg)
 
-	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 	srt.addJobStageTimeRecordForAbnormalStatus()
+
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 }
 
 func (srt *StepRuntime) Start() {
