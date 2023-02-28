@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -54,6 +55,11 @@ const (
 
 	runDagYamlPath = "./testcase/run_dag.yaml"
 )
+
+func mockGlobalConfig() {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Metrics.Enable = true
+}
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
@@ -298,6 +304,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 }
 
 func TestCreateRunByJson(t *testing.T) {
+	mockGlobalConfig()
 	jsonPath := "testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
 	bodyUnstructured := unstructured.Unstructured{}
@@ -392,6 +399,7 @@ func TestCreateRunByJson(t *testing.T) {
 }
 
 func TestCreateRun(t *testing.T) {
+	mockGlobalConfig()
 	driver.InitMockDB()
 	ctx := logger.RequestContext{UserName: MockRootUser}
 

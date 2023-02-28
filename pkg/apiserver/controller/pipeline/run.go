@@ -713,7 +713,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(ctx, &run, userName, CreateRunRequest{})
 
-	if config.GlobalServerConfig.Metrics.Enable && err != nil {
+	if config.GlobalServerConfig.Metrics.Enable && err == nil {
 		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
 			mr.StageRunStartTime, createTime)
 		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
