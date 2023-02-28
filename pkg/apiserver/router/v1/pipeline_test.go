@@ -108,7 +108,7 @@ func TestListPipelineRouter(t *testing.T) {
 
 }
 
-func TestUpdatePipeline(t *testing.T) {
+func TestUpdatePipelineRouter(t *testing.T) {
 	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
@@ -129,7 +129,7 @@ func TestUpdatePipeline(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestGetPipeline(t *testing.T) {
+func TestGetPipelineRouter(t *testing.T) {
 	mockGlobalConfig()
 	router, baseUrl := prepareDBAndAPI(t)
 	var err error
@@ -143,5 +143,50 @@ func TestGetPipeline(t *testing.T) {
 
 	_, err = PerformGetRequest(router, pplUrl+"/"+pplID)
 	assert.Nil(t, err)
+}
 
+func TestDeletePipelineRouter(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+	pplID := "ppl-001"
+
+	patch := gomonkey.ApplyFunc(pipeline.DeletePipeline, func(ctx *logger.RequestContext, pipelineID string) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformDeleteRequest(router, pplUrl+"/"+pplID)
+	assert.Nil(t, err)
+}
+
+func TestGetPipelineVersionRouter(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline/ppl-01/01"
+
+	patch := gomonkey.ApplyFunc(pipeline.GetPipelineVersion, func(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) (pipeline.GetPipelineVersionResponse, error) {
+		return pipeline.GetPipelineVersionResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl)
+	assert.Nil(t, err)
+}
+
+func TestDeletePipelineVersionRouter(t *testing.T) {
+	mockGlobalConfig()
+	router, baseUrl := prepareDBAndAPI(t)
+	var err error
+	pplUrl := baseUrl + "/pipeline/ppl01/01"
+
+	patch := gomonkey.ApplyFunc(pipeline.DeletePipelineVersion, func(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformDeleteRequest(router, pplUrl)
+	assert.Nil(t, err)
 }

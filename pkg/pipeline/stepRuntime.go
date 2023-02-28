@@ -147,6 +147,9 @@ func (srt *StepRuntime) Start() {
 	srt.parallelismManager.increase()
 	defer srt.catchPanic()
 
+	// 监听终止信号
+	go srt.Stop()
+
 	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
 		srt.logger.Infof("receive stop signal, step[%s] would't start", srt.name)
 		return
@@ -192,7 +195,7 @@ func (srt *StepRuntime) Start() {
 
 	// 监听channel, 及时除了时间
 	go srt.Listen()
-	go srt.Stop()
+
 	srt.Execute()
 }
 

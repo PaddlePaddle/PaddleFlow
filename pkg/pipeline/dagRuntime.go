@@ -295,6 +295,7 @@ func (drt *DagRuntime) Start() {
 	drt.processSubComponentLock.Lock()
 
 	defer drt.catchPanic()
+	go drt.Stop()
 
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
@@ -344,9 +345,9 @@ func (drt *DagRuntime) Start() {
 
 	view := drt.newView("begin to run")
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to run")
+
 	// 监听子节点已经父节点传递过来的事件或者信号
 	go drt.Listen()
-	go drt.Stop()
 
 	// 开始调度子节点
 	drt.scheduleSubComponent()
