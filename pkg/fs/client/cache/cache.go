@@ -94,12 +94,19 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		blockOff += nread
 		// page ready, if write file but not flush will cause reader read empty, we need release this reader and get new reader
 		if nread == 0 && err != nil {
-			r.lock.RLock()
+			r.lock.Lock()
 			if readAheadBuf.Buffer.reader != nil {
 				_ = readAheadBuf.Buffer.reader.Close()
 			}
 			delete(r.buffers, indexOff)
-			r.lock.RUnlock()
+			r.lock.Unlock()
+		}
+		if err == io.EOF {
+			r.lock.Lock()
+			if r.buffers[indexOff].page.ready {
+				delete(r.buffers, indexOff)
+			}
+			r.lock.Unlock()
 		}
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
