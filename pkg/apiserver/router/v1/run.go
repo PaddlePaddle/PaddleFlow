@@ -86,9 +86,9 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "createRun",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	if err = common.BindJSON(r, &createRunInfo); err != nil {
@@ -149,9 +149,9 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "createRunByJson",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -232,9 +232,9 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "listRun",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
@@ -306,9 +306,9 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "getRunByID",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	runID := chi.URLParam(r, util.ParamKeyRunID)
@@ -354,9 +354,9 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "updateRun",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	runID := chi.URLParam(r, util.ParamKeyRunID)
@@ -432,9 +432,9 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "deleteRun",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	runID := chi.URLParam(r, util.ParamKeyRunID)
