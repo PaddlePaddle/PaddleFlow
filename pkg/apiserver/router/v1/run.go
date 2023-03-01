@@ -363,6 +363,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
 	request := pipeline.UpdateRunRequest{}
+
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("get body err: %v", err)
@@ -395,6 +396,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
 	if action == util.QueryActionRetry {
 		rsp := pipeline.UpdateRunResponse{RunID: runID}
 		common.Render(w, http.StatusOK, rsp)
