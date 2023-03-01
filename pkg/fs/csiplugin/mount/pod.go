@@ -174,17 +174,19 @@ func createMountPod(k8sClient utils.Client, volumeID string, mountInfo Info) err
 }
 
 func buildMountPodEnv(pod *k8sCore.Pod) {
-	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, k8sCore.EnvVar{
-		ValueFrom: &k8sCore.EnvVarSource{
-			SecretKeyRef: &k8sCore.SecretKeySelector{
-				LocalObjectReference: k8sCore.LocalObjectReference{
-					Name: common.PFSecretName,
+	if csiconfig.AESKey != "" {
+		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, k8sCore.EnvVar{
+			ValueFrom: &k8sCore.EnvVarSource{
+				SecretKeyRef: &k8sCore.SecretKeySelector{
+					LocalObjectReference: k8sCore.LocalObjectReference{
+						Name: common.PFSecretName,
+					},
+					Key: common.AESEncryptKeyEnv,
 				},
-				Key: common.AESEncryptKeyEnv,
 			},
-		},
-		Name: common.AESEncryptKeyEnv,
-	})
+			Name: common.AESEncryptKeyEnv,
+		})
+	}
 
 	if csiconfig.Token != "" {
 		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, k8sCore.EnvVar{
