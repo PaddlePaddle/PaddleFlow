@@ -77,9 +77,9 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 					metrics.ApiNameLabel:       "createPipeline",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	var createPplReq pipeline.CreatePipelineRequest
@@ -135,9 +135,9 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "listPipeline",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
@@ -195,9 +195,9 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 					metrics.ApiNameLabel:       "updatePipeline",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	var updatePplReq pipeline.UpdatePipelineRequest
@@ -250,9 +250,9 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 					metrics.ApiNameLabel:       "getPipeline",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
@@ -308,9 +308,9 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 					metrics.ApiNameLabel:       "deletePipeline",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
@@ -352,9 +352,9 @@ func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Requ
 					metrics.ApiNameLabel:       "getPipelineVersion",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
@@ -399,9 +399,9 @@ func (pr *PipelineRouter) deletePipelineVersion(w http.ResponseWriter, r *http.R
 					metrics.ApiNameLabel:       "deletePipelineVersion",
 					metrics.RequestMethodLabel: r.Method,
 					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v)
+				}).Observe(v * 1000)
 		}))
-		defer timer.ObserveDuration().Milliseconds()
+		defer timer.ObserveDuration()
 	}
 
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
