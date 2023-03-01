@@ -96,13 +96,6 @@ func start() error {
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
 	defer ServerCancel()
 
-	imageHandler, err := pipeline.InitAndResumeRuns()
-	if err != nil {
-		log.Errorf("InitAndResumePipeline failed. error: %v", err)
-		return err
-	}
-	go imageHandler.Run()
-
 	globalScheduler := pipeline.GetGlobalScheduler()
 	go globalScheduler.Start()
 

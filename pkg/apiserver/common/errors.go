@@ -339,6 +339,9 @@ func GetMessageByCode(code string) string {
 }
 
 func GetHttpStatusByCode(code string) int {
+	if code == "" {
+		code = InternalError
+	}
 	return errorHTTPStatus[code]
 }
 

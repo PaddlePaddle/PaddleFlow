@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -35,12 +36,13 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
-var wfMap = make(map[string]*pipeline.Workflow, 0)
+var wfMap = sync.Map{}
 
 const (
 	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
@@ -493,6 +495,8 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
 		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
 	*/
+	createTime := time.Now()
+
 	if extra == nil {
 		extra = map[string]string{}
 	}
@@ -515,11 +519,13 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	// TODO:// validate queue
 
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
+	parseStartTime := time.Now()
 	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
+	parseEndTime := time.Now()
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
 	if fsName == "" && wfs.FsOptions.MainFS.Name != "" {
@@ -602,13 +608,22 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		run.Status = common.StatusRunInitiating
 
 		trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-		response, err = ValidateAndStartRun(ctx, run, userName, *request)
+		response, err = ValidateAndStartRun(ctx, &run, userName, *request)
 	}
 
+	if config.GlobalServerConfig.Metrics.Enable && err == nil {
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunStartTime, createTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseStartTime, parseStartTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseEndTime, parseEndTime)
+	}
 	return response, err
 }
 
 func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	createTime := time.Now()
 	requestId := ctx.RequestID
 
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
@@ -616,6 +631,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 	var reqUserName string
 	var reqDescription string
 
+	parseStartTime := time.Now()
 	parser := schema.Parser{}
 	// 将字段名由Json风格改为Yaml风格
 	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
@@ -669,6 +685,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
+	parseEndTime := time.Now()
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
@@ -695,11 +712,21 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		RunOptions:     schema.RunOptions{FSUsername: userName},
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
+	response, err := ValidateAndStartRun(ctx, &run, userName, CreateRunRequest{})
+
+	if config.GlobalServerConfig.Metrics.Enable && err == nil {
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunStartTime, createTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseStartTime, parseStartTime)
+		mr.RunMetricManger.AddRunStageTimeRecord(run.ID, ctx.RequestID, run.Status,
+			mr.StageRunParseEndTime, parseEndTime)
+	}
 	return response, err
 }
 
 func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
+	var runID string
 	requestId := ctx.RequestID
 	if requestId == "" {
 		ctx.ErrorCode = common.InternalError
@@ -707,6 +734,16 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
 		return nil, "", errors.New(errMsg)
 	}
+
+	startTime := time.Now()
+	defer func() {
+		if ctx.ErrorCode == "" {
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, requestId, run.Status,
+				mr.StageRunValidateStartTime, startTime)
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, requestId, run.Status,
+				mr.StageRunValidateEndTime, time.Now())
+		}
+	}()
 
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
@@ -732,7 +769,7 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 	// generate run id here
 	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(logger.Logger(), run)
+	runID, err = models.CreateRun(logger.Logger(), run)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
@@ -742,8 +779,8 @@ func ValidateAndCreateRun(ctx *logger.RequestContext, run *models.Run, userName 
 	return wfPtr, runID, nil
 }
 
-func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
-	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
+func ValidateAndStartRun(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	wfPtr, runID, err := ValidateAndCreateRun(ctx, run, userName, req)
 	if err != nil {
 		return CreateRunResponse{}, err
 	}
@@ -928,7 +965,7 @@ func StopRun(ctx *logger.RequestContext, userName, runID string, request UpdateR
 		return err
 	}
 
-	wf, exist := wfMap[runID]
+	wfInterface, exist := wfMap.Load(runID)
 	if !exist {
 		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("run[%s]'s workflow ptr is lost", runID)
@@ -936,6 +973,7 @@ func StopRun(ctx *logger.RequestContext, userName, runID string, request UpdateR
 		return err
 	}
 
+	wf := wfInterface.(*pipeline.Workflow)
 	run.RunOptions.StopForce = request.StopForce
 	runUpdate := models.Run{
 		Status:     common.StatusRunTerminating,
@@ -1043,16 +1081,6 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	return nil
 }
 
-func InitAndResumeRuns() (*handler.ImageHandler, error) {
-	imageHandler, err := handler.InitPFImageHandler()
-	if err != nil {
-		return nil, err
-	}
-	// do not handle resume errors
-	resumeActiveRuns()
-	return imageHandler, nil
-}
-
 // --------- internal funcs ---------//
 func resumeActiveRuns() error {
 	runList, err := models.ListRunsByStatus(logger.Logger(), common.RunActiveStatus)
@@ -1119,7 +1147,7 @@ func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (stri
 	return runID, nil
 }
 
-func StartWf(ctx *logger.RequestContext, run models.Run, wfPtr *pipeline.Workflow) error {
+func StartWf(ctx *logger.RequestContext, run *models.Run, wfPtr *pipeline.Workflow) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("StartWf run:%+v", run)
 	trace_logger.Key(run.ID).Debugf("StartWf run:%+v", run)
@@ -1131,8 +1159,8 @@ func StartWf(ctx *logger.RequestContext, run models.Run, wfPtr *pipeline.Workflo
 		logEntry.Errorf("StartWf failed, error: %s", err.Error())
 		return err
 	}
-	wfMap[run.ID] = wfPtr
 
+	wfMap.Store(run.ID, wfPtr)
 	if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
 		ctx.ErrorCode = common.InternalError
 		return err
@@ -1227,7 +1255,7 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.RunOptions.StopForce)
 	} else {
-		wfMap[run.ID] = wfPtr
+		wfMap.Store(run.ID, wfPtr)
 		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
 			return "", err
 		}
@@ -1257,7 +1285,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	}
 	// 如果此时没有runID的话，那么在后续有runID之后，需要：1. 填充wfMap 2. 初始化wf.runtime
 	if run.ID != "" {
-		wfMap[run.ID] = wfPtr
+		wfMap.Store(run.ID, wfPtr)
 	}
 	return wfPtr, nil
 }

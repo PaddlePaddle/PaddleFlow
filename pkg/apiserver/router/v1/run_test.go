@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
@@ -83,6 +84,7 @@ func loadCase(casePath string) []byte {
 
 func TestGetRunRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 
 	ctxroot := &logger.RequestContext{UserName: MockRootUser}
@@ -108,6 +110,7 @@ func TestGetRunRouter(t *testing.T) {
 
 func TestListRunRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 
 	runUrl := baseUrl + "/run"
@@ -148,6 +151,7 @@ func TestListRunRouter(t *testing.T) {
 
 func TestCreateRunRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 
 	runUrl := baseUrl + "/run"
 	req := pipeline.CreateRunRequest{}
@@ -197,6 +201,7 @@ func TestCreateRunRouter(t *testing.T) {
 
 func TestCreateRunByJsonRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	jsonPath := "../../controller/pipeline/testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
 
@@ -257,6 +262,7 @@ func TestCreateRunByJsonRouter(t *testing.T) {
 
 func TestUpdateRunRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 
 	ctxroot := &logger.RequestContext{UserName: MockRootUser}
@@ -312,4 +318,21 @@ func TestUpdateRunRouter(t *testing.T) {
 	res, _ = PerformPutRequest(router, url, nil)
 	assert.Equal(t, res.Code, http.StatusBadRequest)
 
+}
+
+func TestDeleteRunRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+
+	runUrl := baseUrl + "/run/run-01"
+	patch := gomonkey.ApplyFunc(pipeline.DeleteRun, func(ctx *logger.RequestContext, id string, request *pipeline.DeleteRunRequest) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	req := pipeline.DeleteRunRequest{}
+
+	_, err = PerformDeleteRequestWithReq(router, runUrl, req)
+	assert.Nil(t, err)
 }

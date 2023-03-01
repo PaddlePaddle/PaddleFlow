@@ -56,6 +56,12 @@ func LoggerForRun(runID string) *log.Entry {
 	})
 }
 
+func LoggerForMetric(metricName string) *log.Entry {
+	return log.WithFields(log.Fields{
+		"metricName": metricName,
+	})
+}
+
 func Logger() *log.Entry {
 	return log.WithFields(log.Fields{})
 }

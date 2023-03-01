@@ -344,9 +344,10 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 
 func (crt *baseComponentRuntime) newEvent(wv WfEventValue, view schema.ComponentView, msg string) *WorkflowEvent {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:         crt.runID,
-		common.WfEventKeyStatus:        crt.status,
-		common.WfEventKeyComponentName: crt.getComponent().GetName(),
+		common.WfEventKeyRunID:             crt.runID,
+		common.WfEventKeyStatus:            crt.status,
+		common.WfEventKeyComponentName:     crt.getComponent().GetName(),
+		common.WfEventKeyComponentFullName: crt.getFullName(),
 	}
 
 	jobView, ok := view.(*schema.JobView)

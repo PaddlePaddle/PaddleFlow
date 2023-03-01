@@ -20,12 +20,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -71,17 +72,19 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 // NewStepRuntimeWithStaus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
-	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, config *runConfig,
+	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, rc *runConfig,
 	ParentDagID string, status RuntimeStatus, msg string) *StepRuntime {
-	srt := NewStepRuntime(name, fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
+	srt := NewStepRuntime(name, fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, rc, ParentDagID)
 
 	// 此时由于 stepRuntime 并不会运行，不会占坑，所以不需要降低并发度
 	err := srt.baseComponentRuntime.updateStatus(status)
 	if err != nil {
-		config.logger.Errorf(err.Error())
+		rc.logger.Errorf(err.Error())
 	}
 
 	view := srt.newJobView(msg)
+
+	srt.addJobStageTimeRecordForAbnormalStatus()
 
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
@@ -133,16 +136,21 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 	view := srt.newJobView(msg)
 
+	srt.addJobStageTimeRecordForAbnormalStatus()
+
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 }
 
 func (srt *StepRuntime) Start() {
-	// 如果达到并行Job上限，将会Block
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
+	// 如果达到并行Job上限，将会Block
 	srt.parallelismManager.increase()
 	defer srt.catchPanic()
+
+	// 监听终止信号
+	go srt.Stop()
 
 	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
 		srt.logger.Infof("receive stop signal, step[%s] would't start", srt.name)
@@ -189,14 +197,12 @@ func (srt *StepRuntime) Start() {
 
 	// 监听channel, 及时除了时间
 	go srt.Listen()
-	go srt.Stop()
+
 	srt.Execute()
 }
 
-// Restart: 根据 jobView 来重启step
-// 如果 jobView 中的状态为 Succeeded, 则直接返回，无需重启
-// 如果 jobView 中的状态为 Running, 则进入监听即可
-// 否则 创建一个新的job并开始调度执行
+// Restart: 根据 jobView 来重新运行step
+// 只有step的状态为failed，terminated的时候，才会重新运行
 func (srt *StepRuntime) Restart(view *schema.JobView) {
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
 	defer srt.processJobLock.Unlock()
@@ -223,7 +229,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 	defer srt.catchPanic()
 
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName)
 
 	srt.pk = view.PK
 	err := srt.updateStatus(view.Status)
@@ -570,16 +576,6 @@ func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
 	return
 }
 
-func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
-	pathsForJob := []string{}
-
-	for _, path := range strings.Split(paths, ",") {
-		path = strings.TrimSpace(path)
-		pathsForJob = append(pathsForJob, strings.Join([]string{ArtMountDir, path}, "/"))
-	}
-	return strings.Join(pathsForJob, ",")
-}
-
 func (srt *StepRuntime) startJob() (err error) {
 	err = nil
 
@@ -595,11 +591,24 @@ func (srt *StepRuntime) startJob() (err error) {
 		return
 	}
 
+	// 在这里就设置 jobScheduleEndTime的原因是：
+	// 1、Job 中不包含 stepRuntime 以及 run的信息
+	// 2、srt.job.Start 中，主要耗时操作为创建job的时间。而该时间会有专门指标进行记录
+	jobScheduleEndTime := time.Now()
+
 	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
 		return err
+	}
+
+	jobCreateEndTime := time.Now()
+	if config.GlobalServerConfig.Metrics.Enable {
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
+			srt.getStatus(), metrics.StageJobScheduleEndTime, jobScheduleEndTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
+			srt.getStatus(), metrics.StageJobCreateEndTime, jobCreateEndTime)
 	}
 
 	if srt.getWorkFlowStep().Cache.Enable {
@@ -718,9 +727,9 @@ func (srt *StepRuntime) Execute() {
 
 func (srt *StepRuntime) stopWithMsg(msg string) {
 	if srt.job.JobID() == "" {
-		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
+		// 此时说明还没有创建job，因此直接将状态置为 terminated，并通过事件进行同步即可
 		var msg string
-		err := srt.updateStatus(StatusRuntimeFailed)
+		err := srt.updateStatus(StatusRuntimeTerminated)
 		if err != nil {
 			msg = err.Error()
 		} else {
@@ -728,7 +737,8 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 		}
 
 		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobStopErr, &view, msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
+		srt.addJobStageTimeRecordForAbnormalStatus()
 		return
 	}
 
@@ -793,6 +803,15 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		if err != nil {
 			srt.logger.Errorf(err.Error())
 		}
+
+		if config.GlobalServerConfig.Metrics.Enable && srt.isDone() {
+			// 这里不使用job的endtime的原因： endtime 丢失了秒之后的时间信息（如，微秒， 纳秒等）
+			jobEndTime := time.Now()
+
+			metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, srt.job.JobID(),
+				srt.getStatus(), metrics.StageJobAftertreatmentStartTime, jobEndTime)
+		}
+
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
@@ -834,4 +853,18 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	}
 
 	return view
+}
+
+func (srt *StepRuntime) addJobStageTimeRecordForAbnormalStatus() {
+	endTime := time.Now()
+	if config.GlobalServerConfig.Metrics.Enable {
+		// 此时没有生成jobid，为了保证唯一性，使用 job-${jobName}进行代替
+		jobName := "job-" + srt.job.Job().Name
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
+			srt.getStatus(), metrics.StageJobScheduleEndTime, endTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
+			srt.getStatus(), metrics.StageJobCreateEndTime, endTime)
+		metrics.RunMetricManger.AddJobStageTimeRecord(srt.runID, srt.componentFullName, jobName,
+			srt.getStatus(), metrics.StageJobAftertreatmentStartTime, endTime)
+	}
 }
