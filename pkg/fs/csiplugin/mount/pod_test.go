@@ -246,6 +246,7 @@ func Test_buildMountPodEnv(t *testing.T) {
 		},
 	}
 	csiconfig.Token = "1"
+	csiconfig.AESKey = "abc"
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buildMountPodEnv(tt.args.pod)
