@@ -616,22 +616,20 @@ func (v *VFS) ReadDir(ctx *meta.Context, ino Ino, fh uint64, offset uint64) (ent
 		return nil, syscall.EBADF
 	}
 	if h.children == nil || offset == 0 {
-		if !IsSpecialNode(ino) {
-			err = v.Meta.Readdir(ctx, ino, &entries)
-			if utils.IsError(err) {
-				log.Errorf("Readdir Err %v", err)
-				return nil, err
-			}
-			h.children = entries
-			if ino == rootID {
-				// add internal nodes
-				for _, node := range internalNodes {
-					h.children = append(h.children, &meta.Entry{
-						Ino:  node.inode,
-						Name: node.name,
-						Attr: node.attr,
-					})
-				}
+		err = v.Meta.Readdir(ctx, ino, &entries)
+		if utils.IsError(err) {
+			log.Errorf("Readdir Err %v", err)
+			return nil, err
+		}
+		h.children = entries
+		if ino == rootID {
+			// add internal nodes
+			for _, node := range internalNodes {
+				h.children = append(h.children, &meta.Entry{
+					Ino:  node.inode,
+					Name: node.name,
+					Attr: node.attr,
+				})
 			}
 		}
 	}
