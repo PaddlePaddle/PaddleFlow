@@ -685,7 +685,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	has := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 	if has {
 		*attr = inodeItem_.attr
-		log.Infof("kv meta get attr cache inode[%v] item[%+v] attr[%+v]", inode, inodeItem_, attr)
+		log.Debugf("kv meta get attr cache inode[%v] item[%+v] attr[%+v]", inode, inodeItem_, attr)
 		m.setPathCache(inode, inodeItem_)
 		return syscall.F_OK
 	}
@@ -706,7 +706,6 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		}
 		now := time.Now()
 		attr.FromFileInfo(info)
-		log.Infof("ufs name %s attr %+v", info.Name, attr)
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
@@ -752,7 +751,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			*attr = cur.attr
 		}
 		if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-			log.Infof("set uid %+v", set)
+			log.Debugf("set uid %+v", set)
 			cur.attr.Uid = uid
 			cur.attr.Gid = gid
 		}
@@ -771,7 +770,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			log.Debugf("set size %+v size %+v", set, size)
 			cur.attr.Size = size
 		}
-		log.Infof("set attr info is inode[%v] %+v", inode, cur.attr)
+		log.Debugf("set attr info is inode[%v] %+v", inode, cur.attr)
 		err := tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
 		if err != nil {
 			return err
