@@ -685,6 +685,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	has := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 	if has {
 		*attr = inodeItem_.attr
+		log.Infof("kv meta get attr cache inode[%v] item[%+v] attr[%+v]", inode, inodeItem_, attr)
 		m.setPathCache(inode, inodeItem_)
 		return syscall.F_OK
 	}
@@ -705,6 +706,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		}
 		now := time.Now()
 		attr.FromFileInfo(info)
+		log.Infof("ufs name %s attr %+v", info.Name, attr)
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
@@ -750,7 +752,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			*attr = cur.attr
 		}
 		if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-			log.Debugf("set uid %+v", set)
+			log.Infof("set uid %+v", set)
 			cur.attr.Uid = uid
 			cur.attr.Gid = gid
 		}
@@ -769,7 +771,7 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			log.Debugf("set size %+v size %+v", set, size)
 			cur.attr.Size = size
 		}
-		log.Debugf("set attr info is %+v", cur)
+		log.Infof("set attr info is inode[%v] %+v", inode, cur.attr)
 		err := tx.Set(m.inodeKey(inode), m.marshalInode(&cur))
 		if err != nil {
 			return err
@@ -777,20 +779,20 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		return nil
 	})
 	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-		if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
+		if err = ufs_.Chown(path, cur.attr.Uid, cur.attr.Gid); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
 	}
 
 	if set&FATTR_MODE != 0 {
-		if err = ufs_.Chmod(path, attr.Mode); err != nil {
+		if err = ufs_.Chmod(path, cur.attr.Mode); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
 	}
 	// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
 	if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-		atime := time.Unix(attr.Atime, int64(attr.Atimensec))
-		ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
+		atime := time.Unix(cur.attr.Atime, int64(cur.attr.Atimensec))
+		ctime := time.Unix(cur.attr.Ctime, int64(cur.attr.Ctimensec))
 		if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
@@ -989,6 +991,9 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 		entry, err := m.get(m.entryKey(parent, name))
 		if err != nil {
 			return syscall.ENOENT
+		}
+		if entry == nil || len(entry) == 0 {
+			return nil
 		}
 		m.parseEntry(entry, entryItem_)
 		pinodebyte, err := m.get(m.inodeKey(parent))

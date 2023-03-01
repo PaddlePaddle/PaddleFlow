@@ -115,6 +115,7 @@ func (fs *hdfsFileSystem) statFromFileInfo(fileInfo os.FileInfo) *syscall.Stat_t
 		perm |= *protoBufData.GetPermission().Perm
 	}
 
+	log.Debugf("protoBufData.Owner: %s protoBufData.Group %s", *protoBufData.Owner, *protoBufData.Group)
 	uid := uint32(utils.LookupUser(*protoBufData.Owner))
 	gid := uint32(utils.LookupGroup(*protoBufData.Group))
 	blocks := int64(size / 512)
@@ -156,12 +157,6 @@ func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 		Sys:   *fs.statFromFileInfo(hinfo),
 	}
 
-	if f.Owner == superuser {
-		f.Owner = "root"
-	}
-	if f.Group == supergroup {
-		f.Group = "root"
-	}
 	// stickybit from HDFS is different than golang
 	if f.Mode&01000 != 0 {
 		f.Mode &= ^os.FileMode(01000)
@@ -189,22 +184,24 @@ func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
 	log.Tracef("hdfs chown: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
-	u, err := user.Current()
+	u, err := user.LookupId(fmt.Sprint(uid))
+	var owner, groupname string
 	if err != nil {
-		return err
+		log.Errorf("Chown: username for uid %v %s", uid, "not found, use uid/gid instead")
+		owner = "root"
+	}
+	owner = u.Username
+	g, err := user.LookupGroup(fmt.Sprint(gid))
+	if err != nil {
+		log.Errorf("Chown: username for gid %v %s", uid, "not found, use uid/gid instead")
+		groupname = owner
+	} else {
+		groupname = g.Name
 	}
 
-	owner := u.Username
-	group := u.Name
-	if owner == "root" {
-		owner = superuser
-	}
+	log.Debugf("chown owner %s group %s", owner, groupname)
 
-	if group == "root" {
-		group = supergroup
-	}
-
-	return fs.client.Chown(fs.GetPath(name), owner, group)
+	return fs.client.Chown(fs.GetPath(name), owner, groupname)
 }
 
 func (fs *hdfsFileSystem) Utimens(name string, atime, mtime *time.Time) error {

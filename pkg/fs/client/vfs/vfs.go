@@ -213,7 +213,7 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 }
 
 func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
-	log.Tracef("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
+	log.Infof("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
 
 	// only truncate opened files
 	if set&meta.FATTR_SIZE != 0 {
@@ -616,20 +616,22 @@ func (v *VFS) ReadDir(ctx *meta.Context, ino Ino, fh uint64, offset uint64) (ent
 		return nil, syscall.EBADF
 	}
 	if h.children == nil || offset == 0 {
-		err = v.Meta.Readdir(ctx, ino, &entries)
-		if utils.IsError(err) {
-			log.Errorf("Readdir Err %v", err)
-			return nil, err
-		}
-		h.children = entries
-		if ino == rootID {
-			// add internal nodes
-			for _, node := range internalNodes {
-				h.children = append(h.children, &meta.Entry{
-					Ino:  node.inode,
-					Name: node.name,
-					Attr: node.attr,
-				})
+		if !IsSpecialNode(ino) {
+			err = v.Meta.Readdir(ctx, ino, &entries)
+			if utils.IsError(err) {
+				log.Errorf("Readdir Err %v", err)
+				return nil, err
+			}
+			h.children = entries
+			if ino == rootID {
+				// add internal nodes
+				for _, node := range internalNodes {
+					h.children = append(h.children, &meta.Entry{
+						Ino:  node.inode,
+						Name: node.name,
+						Attr: node.attr,
+					})
+				}
 			}
 		}
 	}
