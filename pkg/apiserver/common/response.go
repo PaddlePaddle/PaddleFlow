@@ -24,9 +24,6 @@ import (
 )
 
 func RenderErr(w http.ResponseWriter, requestID string, code string) {
-	if code == "" {
-		code = InternalError
-	}
 	httpCode := GetHttpStatusByCode(code)
 	message := GetMessageByCode(code)
 	errorResponse := ErrorResponse{
@@ -38,9 +35,6 @@ func RenderErr(w http.ResponseWriter, requestID string, code string) {
 }
 
 func RenderErrWithMessage(w http.ResponseWriter, requestID string, code string, message string) {
-	if code == "" {
-		code = InternalError
-	}
 	httpCode := GetHttpStatusByCode(code)
 	if message == "" {
 		message = GetMessageByCode(code)

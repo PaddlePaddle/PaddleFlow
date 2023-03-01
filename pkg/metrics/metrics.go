@@ -35,12 +35,14 @@ var (
 )
 
 var (
-	Job           TimePointManager
-	PromAPIClient prom_v1.API
+	RunMetricManger *RunRecorderManager
+	Job             TimePointManager
+	PromAPIClient   prom_v1.API
 )
 
 func InitMetrics() {
 	Job = NewJobMetricTimePointManager()
+	RunMetricManger = NewRunRecorderManager()
 	// Deprecated
 	// this for prometheus way to locate label only, now we change the way to db update
 	//PromAPIClient = apiClient
@@ -53,8 +55,9 @@ func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
 	registry = prometheus.NewRegistry()
 	jobCollector := NewJobMetricsCollector(Job, jobFunc)
 	queueCollector := NewQueueMetricsCollector(queueFunc)
+	runCollector := NewMetricRunCollector()
 	registry.MustRegister(jobCollector)
-	registry.MustRegister(queueCollector)
+	registry.MustRegister(queueCollector, APiDurationSummary, runCollector)
 }
 
 func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc) string {

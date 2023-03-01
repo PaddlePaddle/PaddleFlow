@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -54,6 +55,11 @@ const (
 
 	runDagYamlPath = "./testcase/run_dag.yaml"
 )
+
+func mockGlobalConfig() {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Metrics.Enable = true
+}
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
@@ -298,6 +304,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 }
 
 func TestCreateRunByJson(t *testing.T) {
+	mockGlobalConfig()
 	jsonPath := "testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
 	bodyUnstructured := unstructured.Unstructured{}
@@ -389,9 +396,29 @@ func TestCreateRunByJson(t *testing.T) {
 	ctx.ErrorCode = ""
 	CreateRunByJson(ctx, bodyMap)
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch9 := gomonkey.ApplyFunc(getSourceAndYaml, func(wfs schema.WorkflowSource) (string, string, error) {
+		return "a", "b", nil
+	})
+	defer patch9.Reset()
+
+	patch10 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+		return CreateRunResponse{}, nil
+	})
+	defer patch10.Reset()
+
+	patch11 := gomonkey.ApplyFunc(schema.CheckReg, func(str string, pattern string) bool {
+		return true
+	})
+	defer patch11.Reset()
+
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, "", ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {
+	mockGlobalConfig()
 	driver.InitMockDB()
 	ctx := logger.RequestContext{UserName: MockRootUser}
 
@@ -406,7 +433,7 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw: yamlRaw,
 	}
 
-	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Nil(t, run.FailureOptions)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
 		return CreateRunResponse{}, nil
@@ -416,7 +443,7 @@ func TestCreateRun(t *testing.T) {
 	_, err := CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
-	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		return CreateRunResponse{}, nil

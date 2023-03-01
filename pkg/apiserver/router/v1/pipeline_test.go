@@ -31,13 +31,15 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
-func TestCreatePipeline(t *testing.T) {
+func TestCreatePipelineRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
 	var err error
 
 	pplUrl := baseUrl + "/pipeline"
@@ -83,4 +85,103 @@ func TestCreatePipeline(t *testing.T) {
 
 	res, _ := PerformPostRequest(router, pplUrl, createPplReq)
 	assert.Equal(t, http.StatusBadRequest, res.Code)
+}
+
+func TestListPipelineRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+
+	patch := gomonkey.ApplyFunc(pipeline.ListPipeline, func(ctx *logger.RequestContext, marker string, maxKeys int, userFilter []string, nameFilter []string) (pipeline.ListPipelineResponse, error) {
+		return pipeline.ListPipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl)
+	assert.Nil(t, err)
+
+}
+
+func TestUpdatePipelineRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline/ppl-01"
+
+	req := pipeline.UpdatePipelineRequest{
+		FsName:   "mockFsName",
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+	}
+
+	patch := gomonkey.ApplyFunc(pipeline.UpdatePipeline, func(ctx *logger.RequestContext, request pipeline.CreatePipelineRequest, pipelineID string) (pipeline.UpdatePipelineResponse, error) {
+		return pipeline.UpdatePipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformPostRequest(router, pplUrl, req)
+	assert.Nil(t, err)
+}
+
+func TestGetPipelineRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+	pplID := "ppl-001"
+
+	patch := gomonkey.ApplyFunc(pipeline.GetPipeline, func(ctx *logger.RequestContext, pipelineID string, marker string, maxKeys int, fsFilter []string) (pipeline.GetPipelineResponse, error) {
+		return pipeline.GetPipelineResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl+"/"+pplID)
+	assert.Nil(t, err)
+}
+
+func TestDeletePipelineRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline"
+	pplID := "ppl-001"
+
+	patch := gomonkey.ApplyFunc(pipeline.DeletePipeline, func(ctx *logger.RequestContext, pipelineID string) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformDeleteRequest(router, pplUrl+"/"+pplID)
+	assert.Nil(t, err)
+}
+
+func TestGetPipelineVersionRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline/ppl-01/01"
+
+	patch := gomonkey.ApplyFunc(pipeline.GetPipelineVersion, func(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) (pipeline.GetPipelineVersionResponse, error) {
+		return pipeline.GetPipelineVersionResponse{}, nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformGetRequest(router, pplUrl)
+	assert.Nil(t, err)
+}
+
+func TestDeletePipelineVersionRouter(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	config.GlobalServerConfig.Metrics.Enable = true
+	var err error
+	pplUrl := baseUrl + "/pipeline/ppl01/01"
+
+	patch := gomonkey.ApplyFunc(pipeline.DeletePipelineVersion, func(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	_, err = PerformDeleteRequest(router, pplUrl)
+	assert.Nil(t, err)
 }

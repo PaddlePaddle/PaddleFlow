@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,7 +33,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -68,7 +72,26 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	requestId := ctx.RequestID
 	var createRunInfo pipeline.CreateRunRequest
 
-	if err := common.BindJSON(r, &createRunInfo); err != nil {
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "createRun",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
+	if err = common.BindJSON(r, &createRunInfo); err != nil {
 		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -111,6 +134,26 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Router /runjson [POST]
 func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "createRunByJson",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
@@ -174,6 +217,26 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 // @Router /run [GET]
 func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "listRun",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
@@ -228,6 +291,26 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [GET]
 func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "getRunByID",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	runInfo, err := pipeline.GetRunByID(&ctx, ctx.UserName, runID)
 
@@ -256,11 +339,31 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [PUT]
 func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "updateRun",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
-	var err error
 	request := pipeline.UpdateRunRequest{}
+
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("get body err: %v", err)
@@ -293,6 +396,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
 	if action == util.QueryActionRetry {
 		rsp := pipeline.UpdateRunResponse{RunID: runID}
 		common.Render(w, http.StatusOK, rsp)
@@ -315,6 +419,26 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run/{runID} [DELETE]
 func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "deleteRun",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	request := pipeline.DeleteRunRequest{
 		CheckCache: true, // 默认为true

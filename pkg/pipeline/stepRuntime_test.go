@@ -824,7 +824,7 @@ func TestStop(t *testing.T) {
 	srt.stopWithMsg("stop without jobid")
 	time.Sleep(time.Millisecond * 100)
 
-	assert.Equal(t, srt.status, StatusRuntimeFailed)
+	assert.Equal(t, srt.status, StatusRuntimeTerminated)
 	assert.True(t, strings.Contains(ep.Message, "jobid"))
 	assert.Equal(t, 0, srt.CurrentParallelism())
 
@@ -845,7 +845,7 @@ func TestStop(t *testing.T) {
 	})
 
 	srt.stopWithMsg("stop normal")
-	assert.Equal(t, srt.status, StatusRuntimeFailed)
+	assert.Equal(t, srt.status, StatusRuntimeTerminated)
 	assert.Equal(t, ep.Message, "")
 	assert.Equal(t, 0, srt.CurrentParallelism())
 	assert.True(t, stoped)
