@@ -188,7 +188,7 @@ func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
 	var owner, groupname string
 	if err != nil {
 		log.Errorf("Chown: username for uid %v %s", uid, "not found, use uid/gid instead")
-		owner = "root"
+		return err
 	}
 	owner = u.Username
 	g, err := user.LookupGroup(fmt.Sprint(gid))
