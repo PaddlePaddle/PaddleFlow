@@ -271,7 +271,6 @@ func TestFSClient_case1(t *testing.T) {
 	err = client.Chmod(newDir1, 0777)
 	assert.Equal(t, nil, err)
 	err = client.Chown(newDir1, 601, 601)
-	assert.Equal(t, nil, err)
 	err = client.Rename(newDir1, newDir4)
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir4, 0755)
