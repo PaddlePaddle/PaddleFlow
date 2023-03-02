@@ -46,7 +46,7 @@ var FuseConf = &FuseConfig{
 	FileMode:     0644,
 	Uid:          os.Getuid(),
 	Gid:          os.Getgid(),
-	RawOwner:     false,
+	RawOwner:     true,
 }
 
 type PFS struct {
