@@ -1,4 +1,4 @@
-FROM paddleflow/ubuntu:18.04
+FROM paddleflow/ubuntu:18.04-r1
 
 ENV WORKDIR /home/paddleflow
 RUN groupadd paddleflow && useradd -d /home/paddleflow -g paddleflow  paddleflow
