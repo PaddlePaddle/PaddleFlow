@@ -18,6 +18,7 @@ package schema
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"strconv"
 	"strings"
 )
@@ -143,7 +144,9 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			}
 			wfs.FsOptions = fsOptions
 		default:
-			return fmt.Errorf("workflow has no attribute [%s]", key)
+			logger.Logger().Infof("call name in workflow: %s", key)
+			//return fmt.Errorf("workflow has no attribute [%s]", key)
+			continue
 		}
 	}
 	return nil
@@ -345,7 +348,9 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			// 该字段不暴露给用户
 			continue
 		default:
-			return fmt.Errorf("step has no attribute [%s]", key)
+			logger.Logger().Infof("call name: %s", key)
+			continue
+			//return fmt.Errorf("step has no attribute [%s]", key)
 		}
 	}
 	return nil

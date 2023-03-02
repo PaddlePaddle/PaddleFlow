@@ -1,0 +1,3 @@
+FROM iregistry.baidu-int.com/planet/arm64/paddleflow/paddleflow-server:1.4.2
+ADD output/bin/paddleflow $WORKDIR/server/
+RUN chown -R paddleflow:paddleflow $WORKDIR/server

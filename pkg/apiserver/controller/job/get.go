@@ -132,7 +132,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		queueID = queue.ID
 	}
 	// model list
-	jobList, err := storage.Job.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, ctx.UserName, request.Labels)
+	jobList, count, err := storage.Job.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, ctx.UserName, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -142,6 +142,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 
 	// get next marker
 	listJobResponse.IsTruncated = false
+	listJobResponse.TotalCount = count
 	if len(jobList) > 0 {
 		job := jobList[len(jobList)-1]
 		if !isLastJobPk(ctx, job.Pk) {

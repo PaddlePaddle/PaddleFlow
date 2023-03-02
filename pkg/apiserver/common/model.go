@@ -20,4 +20,5 @@ type MarkerInfo struct {
 	MaxKeys     int    `json:"maxKeys"`
 	IsTruncated bool   `json:"isTruncated"` // true表示后面还有数据，false表示已经是最后一页。
 	NextMarker  string `json:"nextMarker,omitempty"`
+	TotalCount  int64  `json:"totalCount"`
 }

@@ -192,7 +192,7 @@ type JobStoreInterface interface {
 	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
 	ListJobByParentID(parentID string) ([]model.Job, error)
 	GetLastJob() (model.Job, error)
-	ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error)
+	ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, int64, error)
 	// job_lable
 	ListJobIDByLabels(labels map[string]string) ([]string, error)
 	// job_task

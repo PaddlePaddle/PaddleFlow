@@ -280,7 +280,8 @@ func (js *JobStore) GetLastJob() (model.Job, error) {
 	return job, nil
 }
 
-func (js *JobStore) ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) {
+func (js *JobStore) ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, int64, error) {
+	var count int64 = 0
 	tx := js.db.Table("job").Where("pk > ?", pk).Where("parent_job = ''").Where("deleted_at = ''")
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
@@ -297,23 +298,24 @@ func (js *JobStore) ListJob(pk int64, maxKeys int, queue, status, startTime, tim
 	if len(labels) > 0 {
 		jobIDs, err := js.ListJobIDByLabels(labels)
 		if err != nil {
-			return []model.Job{}, err
+			return []model.Job{}, 0, err
 		}
 		tx = tx.Where("id IN (?)", jobIDs)
 	}
 	if timestamp != "" {
 		tx = tx.Where("updated_at > ?", timestamp)
 	}
+	tx = tx.Count(&count)
 	if maxKeys > 0 {
 		tx = tx.Limit(maxKeys)
 	}
 	var jobList []model.Job
 	tx = tx.Find(&jobList)
 	if tx.Error != nil {
-		return []model.Job{}, tx.Error
+		return []model.Job{}, 0, tx.Error
 	}
 
-	return jobList, nil
+	return jobList, count, nil
 }
 
 // list job process multi label get and result
