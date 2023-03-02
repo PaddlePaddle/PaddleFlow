@@ -51,6 +51,24 @@ func init() {
 	}()
 	go func() {
 		for {
+<<<<<<< HEAD
+=======
+			freeMemory()
+			time.Sleep(10 * time.Second)
+		}
+	}()
+}
+
+func freeMemory() {
+	mp := utils.GetProcessMemPercent() / 100
+	freeI += 1
+	// 60s force gc || 30% memory
+	if freeI > 5 {
+		debug.FreeOSMemory()
+		freeI = 0
+	} else if mp > 0.3 {
+		if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || freeI >= 3 {
+>>>>>>> ba078ba (pread use too many mem)
 			debug.FreeOSMemory()
 			time.Sleep(5 * time.Second)
 		}

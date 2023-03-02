@@ -91,7 +91,25 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		bytesRead += nread
 		blockOff += nread
+<<<<<<< HEAD
 
+=======
+		// page ready, if write file but not flush will cause reader read empty, we need release this reader and get new reader
+		if nread == 0 && err != nil {
+			r.lock.Lock()
+			if readAheadBuf.Buffer.reader != nil {
+				_ = readAheadBuf.Buffer.reader.Close()
+			}
+			delete(r.buffers, indexOff)
+			r.lock.Unlock()
+		}
+		r.lock.Lock()
+		buffer, findBuffer := r.buffers[indexOff]
+		if findBuffer && buffer.page != nil && buffer.page.ready && buffer.size <= 0 {
+			delete(r.buffers, indexOff)
+		}
+		r.lock.Unlock()
+>>>>>>> ba078ba (pread use too many mem)
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
 		}
