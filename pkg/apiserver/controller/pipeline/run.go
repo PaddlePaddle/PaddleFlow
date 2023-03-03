@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -41,7 +42,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
-var wfMap = make(map[string]*pipeline.Workflow, 0)
+var wfMap = sync.Map{}
 
 const (
 	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
@@ -964,7 +965,7 @@ func StopRun(ctx *logger.RequestContext, userName, runID string, request UpdateR
 		return err
 	}
 
-	wf, exist := wfMap[runID]
+	wfInterface, exist := wfMap.Load(runID)
 	if !exist {
 		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("run[%s]'s workflow ptr is lost", runID)
@@ -972,6 +973,7 @@ func StopRun(ctx *logger.RequestContext, userName, runID string, request UpdateR
 		return err
 	}
 
+	wf := wfInterface.(*pipeline.Workflow)
 	run.RunOptions.StopForce = request.StopForce
 	runUpdate := models.Run{
 		Status:     common.StatusRunTerminating,
@@ -1157,8 +1159,8 @@ func StartWf(ctx *logger.RequestContext, run *models.Run, wfPtr *pipeline.Workfl
 		logEntry.Errorf("StartWf failed, error: %s", err.Error())
 		return err
 	}
-	wfMap[run.ID] = wfPtr
 
+	wfMap.Store(run.ID, wfPtr)
 	if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
 		ctx.ErrorCode = common.InternalError
 		return err
@@ -1253,7 +1255,7 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.RunOptions.StopForce)
 	} else {
-		wfMap[run.ID] = wfPtr
+		wfMap.Store(run.ID, wfPtr)
 		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
 			return "", err
 		}
@@ -1283,7 +1285,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	}
 	// 如果此时没有runID的话，那么在后续有runID之后，需要：1. 填充wfMap 2. 初始化wf.runtime
 	if run.ID != "" {
-		wfMap[run.ID] = wfPtr
+		wfMap.Store(run.ID, wfPtr)
 	}
 	return wfPtr, nil
 }

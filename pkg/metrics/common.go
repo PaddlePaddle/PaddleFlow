@@ -59,6 +59,8 @@ const (
 	RunJobIDLabel      = "runJobID"
 )
 
+// SummarOpt有一个 maxAge 属性，用于限制追踪分位统计得时间，详情可以参考下面得链接
+// https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#SummaryOpts
 var APiDurationSummary = prometheus.NewSummaryVec(
 	prometheus.SummaryOpts{
 		Name:       MetricApiDuration,
