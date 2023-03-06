@@ -48,7 +48,7 @@ func TestGenerateLogURL(t *testing.T) {
 				ID:    "test-task-id",
 				JobID: "test-job-id",
 			},
-			expectURL: "http://127.0.0.1:8080/filetree?action=ls&jobID=test-job-id&containerID=test-task-id",
+			expectURL: "http://127.0.0.1:8080/v1/containers/test-task-id/log?jobID=test-job-id",
 		},
 	}
 
