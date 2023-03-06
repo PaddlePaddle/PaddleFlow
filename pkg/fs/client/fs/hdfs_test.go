@@ -22,10 +22,10 @@ const (
 )
 
 func TestHDFS(t *testing.T) {
-	if os.Getenv(HDFS_serverAddress) == "" || os.Getenv(HDFS_group) == "" || os.Getenv(HDFS_user) == "" {
-		log.Info("not ready")
-		t.SkipNow()
-	}
+	// if os.Getenv(HDFS_serverAddress) == "" || os.Getenv(HDFS_group) == "" || os.Getenv(HDFS_user) == "" {
+	// 	log.Info("not ready")
+	// 	t.SkipNow()
+	// }
 	rand.Seed(time.Now().UnixNano())
 	d := cache.Config{
 		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
@@ -39,8 +39,8 @@ func TestHDFS(t *testing.T) {
 	SetDataCache(d)
 	client := getHDFSClient(t)
 	defer func() {
-		// err := client.Remove(testBigFileName)
-		// assert.Equal(t, nil, err)
+		err := client.RemoveAll("/")
+		assert.Equal(t, nil, err)
 		// err = client.Remove(testSmallFileName)
 		// assert.Equal(t, nil, err)
 		// os.Remove(testBigFileName)
@@ -50,8 +50,7 @@ func TestHDFS(t *testing.T) {
 	}()
 
 	chown(t, client)
-
-	// testBigFile(t, client)
+	testBigFile(t, client)
 	// testSmallFile(t, client)
 	// testMkdirAndList(t, client)
 }
@@ -64,7 +63,7 @@ func chown(t *testing.T, client FSClient) {
 		err = client.Remove("test.txt")
 		assert.Equal(t, nil, err)
 	}()
-	err = client.Chown("test.txt", 0, 0)
+	err = client.Chown("test.txt", 0, 601)
 	assert.Equal(t, nil, err)
 	_, err = client.Stat("test.txt")
 	assert.Equal(t, nil, err)
@@ -74,13 +73,13 @@ func getHDFSClient(t *testing.T) FSClient {
 	testFsMeta := common.FSMeta{
 		UfsType:       common.HDFSType,
 		Type:          common.HDFSType,
-		ServerAddress: os.Getenv(HDFS_serverAddress),
+		ServerAddress: "10.27.197.6:9000",
 		Properties: map[string]string{
-			common.UserKey: os.Getenv(HDFS_user),
-			common.Group:   os.Getenv(HDFS_group),
-			common.Address: os.Getenv(HDFS_serverAddress),
+			common.UserKey: "root",
+			common.Group:   "supergroup",
+			common.Address: "10.27.197.6:9000",
 		},
-		SubPath: os.Getenv(HDFS_subPath),
+		SubPath: "/lyd/test",
 	}
 	DataCachePath = "./mock-cache"
 	fsclient, err := NewFSClientForTest(testFsMeta)

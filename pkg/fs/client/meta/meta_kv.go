@@ -63,6 +63,24 @@ type freeID struct {
 	maxid uint64
 }
 
+type FuseConfig struct {
+	Uid          int
+	Gid          int
+	EntryTimeout time.Duration
+	AttrTimeout  time.Duration
+	DirMode      int
+	FileMode     int
+}
+
+var FuseConf = &FuseConfig{
+	EntryTimeout: 1 * time.Second,
+	AttrTimeout:  1 * time.Second,
+	DirMode:      0777,
+	FileMode:     0655,
+	Uid:          os.Getuid(),
+	Gid:          os.Getgid(),
+}
+
 // kvMeta
 type kvMeta struct {
 	client       kv.KvClient
@@ -542,27 +560,6 @@ func (m *kvMeta) Name() string {
 	return "meta_kv"
 }
 
-func (m *kvMeta) InitRootInode() error {
-	attr := &Attr{}
-	now := time.Now()
-	attr.Type = TypeDirectory
-	attr.Mode = syscall.S_IFDIR | 0777
-	attr.Nlink = 2
-	attr.Size = 4 << 10
-	attr.Mtime = now.Unix()
-	attr.Mtimensec = uint32(now.Nanosecond())
-	attr.Ctime = now.Unix()
-	attr.Ctimensec = uint32(now.Nanosecond())
-	inodeItem_ := &inodeItem{
-		parentIno: 0,
-		name:      []byte("/"),
-		expire:    now.Add(1000 * time.Hour).Unix(), // root inode not expire
-		attr:      *attr,
-	}
-	err := m.set(m.inodeKey(rootInodeID), m.marshalInode(inodeItem_))
-	return err
-}
-
 func (m *kvMeta) SetOwner(uid, gid uint32) {
 }
 
@@ -633,6 +630,21 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 			info.FixLinkPrefix(prefix)
 		}
 		attr.FromFileInfo(info)
+		// uid gid mode not expire, use default config or user setattr and not use ufs model's uid, gid or mode
+		if inodeItem_.attr.Type != 0 {
+			attr.Uid = inodeItem_.attr.Uid
+			attr.Gid = inodeItem_.attr.Gid
+			attr.Mode = inodeItem_.attr.Mode
+		} else {
+			attr.Uid = uint32(FuseConf.Uid)
+			attr.Gid = uint32(FuseConf.Gid)
+			if attr.Type == TypeDirectory {
+				attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+			} else {
+				attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			}
+		}
+
 		if entry == nil {
 			number, err := m.nextInode()
 			if err != nil {
@@ -671,22 +683,41 @@ var rootTime = time.Now()
 func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	log.Debugf("kv GetAttr inode[%v]", inode)
 	inodeItem_ := &inodeItem{}
-	if inode == rootInodeID {
-		attr.Type = TypeDirectory
-		attr.Mode = syscall.S_IFDIR | 0777
-		attr.Nlink = 2
-		attr.Size = 4 << 10
-		attr.Mtime = rootTime.Unix()
-		attr.Mtimensec = uint32(rootTime.Nanosecond())
-		attr.Ctime = rootTime.Unix()
-		attr.Ctimensec = uint32(rootTime.Nanosecond())
-		return syscall.F_OK
-	}
+
 	has := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 	if has {
 		*attr = inodeItem_.attr
 		log.Debugf("kv meta get attr cache inode[%v] item[%+v] attr[%+v]", inode, inodeItem_, attr)
 		m.setPathCache(inode, inodeItem_)
+		return syscall.F_OK
+	}
+
+	if inode == rootInodeID {
+		attr.Type = TypeDirectory
+		attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+		attr.Nlink = 2
+		attr.Size = 4 << 10
+		attr.Uid = uint32(FuseConf.Uid)
+		attr.Gid = uint32(FuseConf.Gid)
+		attr.Mtime = rootTime.Unix()
+		attr.Mtimensec = uint32(rootTime.Nanosecond())
+		attr.Ctime = rootTime.Unix()
+		attr.Ctimensec = uint32(rootTime.Nanosecond())
+
+		if inodeItem_.attr.Type != 0 {
+			attr.Uid = inodeItem_.attr.Uid
+			attr.Gid = inodeItem_.attr.Gid
+			attr.Mode = inodeItem_.attr.Mode
+		}
+
+		now := time.Now()
+		inodeItem_.attr = *attr
+		inodeItem_.expire = now.Add(m.attrTimeOut + time.Hour*100).Unix()
+		err := m.set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+		if err != nil {
+			return syscall.EBADF
+		}
+
 		return syscall.F_OK
 	}
 
@@ -706,6 +737,22 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		}
 		now := time.Now()
 		attr.FromFileInfo(info)
+
+		// uid gid mode not expire, use default config or user setattr and not use ufs model's uid, gid or mode
+		if inodeItem_.attr.Type != 0 {
+			attr.Uid = inodeItem_.attr.Uid
+			attr.Gid = inodeItem_.attr.Gid
+			attr.Mode = inodeItem_.attr.Mode
+		} else {
+			attr.Uid = uint32(FuseConf.Uid)
+			attr.Gid = uint32(FuseConf.Gid)
+			if attr.Type == TypeDirectory {
+				attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+			} else {
+				attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			}
+		}
+
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
@@ -1354,8 +1401,12 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				}
 				newInode = newInodeNumber
 				insertChildEntry := &entryItem{
-					ino:  newInode,
-					mode: dir.Attr.Mode,
+					ino: newInode,
+				}
+				if dir.Attr.Type == TypeDirectory {
+					insertChildEntry.mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+				} else {
+					insertChildEntry.mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
 				}
 				entrySlice = append(entrySlice, entrySliceItem{
 					dir.Name,
@@ -1377,7 +1428,23 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					insertChildInode.fileHandles = newInodeItem.fileHandles
 					insertChildInode.attr.Size = newInodeItem.attr.Size
 				}
+				// uid gid mode not expire, use default config or user setattr and not use ufs model's uid, gid or mode
+				insertChildInode.attr.Uid = newInodeItem.attr.Uid
+				insertChildInode.attr.Gid = newInodeItem.attr.Gid
+				insertChildInode.attr.Mode = newInodeItem.attr.Mode
+			} else {
+				insertChildInode.attr.Uid = uint32(FuseConf.Uid)
+				insertChildInode.attr.Gid = uint32(FuseConf.Gid)
+				if insertChildInode.attr.Type == TypeDirectory {
+					insertChildInode.attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+				} else {
+					insertChildInode.attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+				}
 			}
+
+			childEntryItem.Attr.Uid = insertChildInode.attr.Uid
+			childEntryItem.Attr.Gid = insertChildInode.attr.Gid
+			childEntryItem.Attr.Mode = insertChildInode.attr.Mode
 
 			inodeSlice = append(inodeSlice, inodeSliceItem{
 				newInode,

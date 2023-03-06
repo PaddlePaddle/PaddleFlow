@@ -48,8 +48,6 @@ var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChun
 
 type objectFileSystem struct {
 	subPath     string // bucket:subPath/name
-	dirMode     int
-	fileMode    int
 	storage     object.ObjectStorage
 	defaultTime time.Time
 	sync.Mutex
@@ -211,17 +209,10 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 	size := int64(response.Size)
 	isDir := strings.HasSuffix(key, Delimiter)
-	mode := syscall.S_IFREG | fs.fileMode
-
-	// if empty directory, s3 will return size=0
-	if isDir {
-		size = 4096
-		mode = syscall.S_IFDIR | fs.dirMode
-	}
 
 	uid := uint32(utils.LookupUser(Owner))
 	gid := uint32(utils.LookupGroup(Group))
-	st := fillStat(1, uint32(mode), uid, gid, size, 4096, size/512, aTime, aTime, aTime)
+	st := fillStat(1, 0, uid, gid, size, 4096, size/512, aTime, aTime, aTime)
 
 	var mtime uint64
 	if key == Delimiter {
@@ -238,7 +229,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 		IsDir: isDir,
 		Owner: Owner,
 		Group: Group,
-		Mode:  utils.StatModeToFileMode(mode),
 		Sys:   st,
 	}, nil
 
@@ -441,13 +431,10 @@ func (fs *objectFileSystem) ReadDir(name string) (stream []DirEntry, err error) 
 		}
 		mtime := int64(finfo.Mtime)
 		size := finfo.Size
-		mode := syscall.S_IFREG | fs.fileMode
 		isDir := finfo.IsDir
 		fileType := uint8(TypeFile)
 		if isDir {
 			fileType = TypeDirectory
-			mode = syscall.S_IFDIR | fs.dirMode
-			size = 4096
 		}
 		uid := uint32(utils.LookupUser(Owner))
 		gid := uint32(utils.LookupGroup(Group))
@@ -456,7 +443,6 @@ func (fs *objectFileSystem) ReadDir(name string) (stream []DirEntry, err error) 
 			Attr: &Attr{
 				Type:      fileType,
 				Size:      uint64(size),
-				Mode:      uint32(mode),
 				Mtime:     mtime,
 				Atimensec: uint32(mtime),
 				Mtimensec: uint32(mtime),
@@ -522,7 +508,6 @@ func (fs *objectFileSystem) getRootDirAttr() *base.FileInfo {
 	// 参考bosfs的做法，启动时记录一个默认时间，目录时间属性频繁变化会导致tar压缩目录失败。
 	aTime := fuse.UtimeToTimespec(&fs.defaultTime)
 	var perm uint32
-	perm = uint32(syscall.S_IFDIR | fs.dirMode)
 	uid := uint32(utils.LookupUser(Owner))
 	gid := uint32(utils.LookupGroup(Group))
 
@@ -1148,10 +1133,8 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 }
 
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	var dirMode, fileMode int
 	var err error
 	var ok bool
-	var dirMode_, fileMode_ string
 	var storage object.ObjectStorage
 
 	endpoint, _ := properties[fsCommon.Endpoint].(string)
@@ -1166,26 +1149,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	region, _ := properties[fsCommon.Region].(string)
 	subPath, _ := properties[fsCommon.SubPath].(string)
 	objectType, _ := properties[fsCommon.Type].(string)
-
-	dirMode_, ok = properties[fsCommon.DirMode].(string)
-	if ok {
-		dirMode, err = strconv.Atoi(dirMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dirMode = DefaultDirMode
-	}
-
-	fileMode_, ok = properties[fsCommon.FileMode].(string)
-	if ok {
-		fileMode, err = strconv.Atoi(fileMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fileMode = DefaultFileMode
-	}
 
 	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
@@ -1353,8 +1316,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 
 	fs := &objectFileSystem{
 		subPath:     tidySubpath(subPath),
-		dirMode:     dirMode,
-		fileMode:    fileMode,
 		storage:     storage,
 		defaultTime: time.Now(),
 		chunkPool: &sync.Pool{New: func() interface{} {
