@@ -44,7 +44,7 @@ var (
 
 	defaultSaltStr    = "paddleflow"
 	defaultTimeFormat = "2006-01-02 15"
-	LogURLFormat      = "http://%s:%d/filetree?action=ls&jobID=%s&containerID=%s&token=%s"
+	LogURLFormat      = "http://%s:%d/v1/containers/%s/log?&jobID=%s&token=%s"
 )
 
 func init() {
@@ -409,7 +409,7 @@ func GenerateLogURL(task model.JobTask) string {
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, task.ID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, task.JobID, task.ID, token)
+		config.GlobalServerConfig.Job.Log.ServicePort, task.ID, task.JobID, token)
 }
 
 func getLogToken(jobID, taskID string) string {
