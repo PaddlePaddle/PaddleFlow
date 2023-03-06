@@ -44,7 +44,7 @@ var (
 
 	defaultSaltStr    = "paddleflow"
 	defaultTimeFormat = "2006-01-02 15"
-	LogURLFormat      = "http://%s:%d/v1/containers/%s/log?&jobID=%s&token=%s"
+	LogURLFormat      = "http://%s:%d/v1/containers/%s/log?jobID=%s&token=%s"
 )
 
 func init() {
