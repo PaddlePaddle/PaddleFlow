@@ -72,6 +72,8 @@ const (
 	Region             = "region"
 	InsecureSkipVerify = "insecureSkipVerify"
 	S3ForcePathStyle   = "s3ForcePathStyle"
+	DirMode            = "dirMode"
+	FileMode           = "fileMode"
 
 	// sftp properties
 	Address  = "address"
