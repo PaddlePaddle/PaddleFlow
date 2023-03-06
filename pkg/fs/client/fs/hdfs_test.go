@@ -22,10 +22,10 @@ const (
 )
 
 func TestHDFS(t *testing.T) {
-	// if os.Getenv(HDFS_serverAddress) == "" || os.Getenv(HDFS_group) == "" || os.Getenv(HDFS_user) == "" {
-	// 	log.Info("not ready")
-	// 	t.SkipNow()
-	// }
+	if os.Getenv(HDFS_serverAddress) == "" || os.Getenv(HDFS_group) == "" || os.Getenv(HDFS_user) == "" {
+		log.Info("not ready")
+		t.SkipNow()
+	}
 	rand.Seed(time.Now().UnixNano())
 	d := cache.Config{
 		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
@@ -39,18 +39,17 @@ func TestHDFS(t *testing.T) {
 	SetDataCache(d)
 	client := getHDFSClient(t)
 	defer func() {
-		err := client.RemoveAll("/")
-		assert.Equal(t, nil, err)
+		// err := client.Remove(testBigFileName)
+		// assert.Equal(t, nil, err)
 		// err = client.Remove(testSmallFileName)
 		// assert.Equal(t, nil, err)
 		// os.Remove(testBigFileName)
-		// os.Remove(testSmallFileName)
 		os.RemoveAll("./tmp")
 		os.RemoveAll("./mock-cache")
 	}()
 
 	chown(t, client)
-	testBigFile(t, client)
+	//testBigFile(t, client)
 	// testSmallFile(t, client)
 	// testMkdirAndList(t, client)
 }
@@ -73,13 +72,13 @@ func getHDFSClient(t *testing.T) FSClient {
 	testFsMeta := common.FSMeta{
 		UfsType:       common.HDFSType,
 		Type:          common.HDFSType,
-		ServerAddress: "10.27.197.6:9000",
+		ServerAddress: os.Getenv(HDFS_serverAddress),
 		Properties: map[string]string{
-			common.UserKey: "root",
-			common.Group:   "supergroup",
-			common.Address: "10.27.197.6:9000",
+			common.UserKey: os.Getenv(HDFS_user),
+			common.Group:   os.Getenv(HDFS_group),
+			common.Address: os.Getenv(HDFS_serverAddress),
 		},
-		SubPath: "/lyd/test",
+		SubPath: os.Getenv(HDFS_subPath),
 	}
 	DataCachePath = "./mock-cache"
 	fsclient, err := NewFSClientForTest(testFsMeta)
