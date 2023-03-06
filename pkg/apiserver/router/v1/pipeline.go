@@ -18,14 +18,18 @@ package v1
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 )
 
 type PipelineRouter struct{}
@@ -59,8 +63,27 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "createPipeline",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	var createPplReq pipeline.CreatePipelineRequest
-	if err := common.BindJSON(r, &createPplReq); err != nil {
+	if err = common.BindJSON(r, &createPplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create pipeline failed parsing request body:%+v. error:%v", r.Body, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
@@ -96,6 +119,27 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline [GET]
 func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "listPipeline",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
@@ -137,9 +181,27 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "updatePipeline",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
 
 	var updatePplReq pipeline.UpdatePipelineRequest
-	if err := common.BindJSON(r, &updatePplReq); err != nil {
+	if err = common.BindJSON(r, &updatePplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"update pipeline failed parsing request body:%+v. error:%v", r.Body, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidHTTPRequest, err.Error())
@@ -173,6 +235,26 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "getPipeline",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
@@ -211,8 +293,28 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline/{pipelineID} [DELETE]
 func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "deletePipeline",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	err := pipeline.DeletePipeline(&ctx, pipelineID)
+	err = pipeline.DeletePipeline(&ctx, pipelineID)
 	if err != nil {
 		ctx.Logging().Errorf("delete pipeline failed.  error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -235,6 +337,26 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 // @Router /pipeline/{pipelineID}/{versionID} [GET]
 func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "getPipelineVersion",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
@@ -262,10 +384,30 @@ func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Requ
 // @Router /pipeline/{pipelineID} [DELETE]
 func (pr *PipelineRouter) deletePipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	var err error
+	if config.GlobalServerConfig.Metrics.Enable {
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			var errCode string
+			if err != nil {
+				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
+			} else {
+				errCode = strconv.Itoa(http.StatusOK)
+			}
+			metrics.APiDurationSummary.With(
+				prometheus.Labels{
+					metrics.ApiNameLabel:       "deletePipelineVersion",
+					metrics.RequestMethodLabel: r.Method,
+					metrics.ResponseCodeLabel:  errCode,
+				}).Observe(v * 1000)
+		}))
+		defer timer.ObserveDuration()
+	}
+
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
-	err := pipeline.DeletePipelineVersion(&ctx, pipelineID, pipelineVersionID)
+	err = pipeline.DeletePipelineVersion(&ctx, pipelineID, pipelineVersionID)
 	if err != nil {
 		ctx.Logging().Errorf("delete pipeline[%s] version[%s] failed. error:%s", pipelineID, pipelineVersionID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

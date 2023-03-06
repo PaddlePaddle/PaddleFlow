@@ -26,9 +26,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
+	mr "github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -107,10 +110,7 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 		logging.Errorf("get run status from extra in callback failed")
 		return 0, false
 	}
-	if common.IsRunFinalStatus(status) {
-		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
-	}
+
 	startTime, ok := wfEvent.Extra[common.WfEventKeyStartTime].(string)
 	if !ok {
 		logging.Errorf("get run startTime from extra in callback failed")
@@ -148,13 +148,18 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 
 	if common.IsRunFinalStatus(status) {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
+		wfMap.Delete(runID)
 
 		// 给scheduler发concurrency channel信号
 		if prevRun.ScheduleID != "" {
 			globalScheduler := GetGlobalScheduler()
 			globalScheduler.ConcurrencyChannel <- prevRun.ScheduleID
 			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
+		}
+
+		if config.GlobalServerConfig.Metrics.Enable && err == nil && !common.IsRunFinalStatus(prevRun.Status) {
+			mr.RunMetricManger.AddRunStageTimeRecord(runID, "", status,
+				mr.StageRunEndTime, time.Now())
 		}
 	}
 
@@ -269,6 +274,22 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	if err := updateRunCache(logging, runtimeJob, runID); err != nil {
 		return 0, false
 	}
+
+	if config.GlobalServerConfig.Metrics.Enable && schema.IsImmutableJobStatus(runJob.Status) {
+		fullName, ok := wfEvent.Extra[common.WfEventKeyComponentFullName]
+		if !ok {
+			logger.Logger().Errorf("cannot get full name for job[%s] in callback", runtimeJob.JobID)
+		}
+		jobID := ""
+		if runtimeJob.JobID == "" {
+			jobID = "job-" + runtimeJob.Name
+		} else {
+			jobID = runtimeJob.JobID
+		}
+		mr.RunMetricManger.AddJobStageTimeRecord(runID, fullName.(string), jobID,
+			runtimeJob.Status, metrics.StageJobAftertreatmentEndTime, time.Now())
+	}
+
 	return pk, true
 }
 

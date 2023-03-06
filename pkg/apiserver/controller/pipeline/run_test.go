@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -54,6 +55,11 @@ const (
 
 	runDagYamlPath = "./testcase/run_dag.yaml"
 )
+
+func mockGlobalConfig() {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Metrics.Enable = true
+}
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
@@ -298,6 +304,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 }
 
 func TestCreateRunByJson(t *testing.T) {
+	mockGlobalConfig()
 	jsonPath := "testcase/run_dag.json"
 	jsonByte := loadCase(jsonPath)
 	bodyUnstructured := unstructured.Unstructured{}
@@ -389,9 +396,29 @@ func TestCreateRunByJson(t *testing.T) {
 	ctx.ErrorCode = ""
 	CreateRunByJson(ctx, bodyMap)
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
+
+	ctx.ErrorCode = ""
+	patch9 := gomonkey.ApplyFunc(getSourceAndYaml, func(wfs schema.WorkflowSource) (string, string, error) {
+		return "a", "b", nil
+	})
+	defer patch9.Reset()
+
+	patch10 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+		return CreateRunResponse{}, nil
+	})
+	defer patch10.Reset()
+
+	patch11 := gomonkey.ApplyFunc(schema.CheckReg, func(str string, pattern string) bool {
+		return true
+	})
+	defer patch11.Reset()
+
+	CreateRunByJson(ctx, bodyMap)
+	assert.Equal(t, "", ctx.ErrorCode)
 }
 
 func TestCreateRun(t *testing.T) {
+	mockGlobalConfig()
 	driver.InitMockDB()
 	ctx := logger.RequestContext{UserName: MockRootUser}
 
@@ -406,7 +433,7 @@ func TestCreateRun(t *testing.T) {
 		RunYamlRaw: yamlRaw,
 	}
 
-	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch2 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Nil(t, run.FailureOptions)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyFailFast)
 		return CreateRunResponse{}, nil
@@ -416,7 +443,7 @@ func TestCreateRun(t *testing.T) {
 	_, err := CreateRun(&ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
 
-	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	patch3 := gomonkey.ApplyFunc(ValidateAndStartRun, func(ctx *logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 		assert.Equal(t, run.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		assert.Equal(t, run.WorkflowSource.FailureOptions.Strategy, schema.FailureStrategyContinue)
 		return CreateRunResponse{}, nil
@@ -735,7 +762,7 @@ func TestStopRun(t *testing.T) {
 	assert.Equal(t, common.InternalError, ctx.ErrorCode)
 	ctx.ErrorCode = ""
 
-	wfMap["runID"] = &pipeline.Workflow{}
+	wfMap.Store("runID", &pipeline.Workflow{})
 
 	patch4 := gomonkey.ApplyFunc(models.UpdateRun, func(*log.Entry, string, models.Run) error {
 		return fmt.Errorf("patch4 error")
@@ -904,4 +931,91 @@ func TestDeleteRun(t *testing.T) {
 	DeleteRun(ctx, "runid", req)
 	assert.Equal(t, "", ctx.ErrorCode)
 
+}
+
+func TestStartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	wfptr := &pipeline.Workflow{}
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "NewWorkflowRuntime", func(*pipeline.Workflow) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Start", func(*pipeline.Workflow) {
+		return
+	})
+	defer patch3.Reset()
+
+	StartWf(ctx, &run, wfptr)
+	_, ok := wfMap.Load(run.ID)
+	assert.True(t, ok)
+}
+
+func TestRestartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+	wfptr := &pipeline.Workflow{}
+
+	patch := gomonkey.ApplyFunc(newWorkflowByRun, func(run models.Run) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Restart", func(*pipeline.Workflow, *schema.DagView, schema.PostProcessView) {
+		return
+	})
+	defer patch3.Reset()
+
+	patch4 := gomonkey.ApplyFunc(models.GetRunJobsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunJob, error) {
+		return nil, nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.GetRunDagsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunDag, error) {
+		return nil, nil
+	})
+	defer patch5.Reset()
+
+	var r *models.Run
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(models.CreateRun, func(logEntry *log.Entry, run *models.Run) (string, error) {
+		return "", nil
+	})
+	defer patch7.Reset()
+
+	patch8 := gomonkey.ApplyFunc(models.CreateRunDag, func(logEntry *log.Entry, runDag *models.RunDag) (int64, error) {
+		return 234, nil
+	})
+	defer patch8.Reset()
+
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(r), "InitRuntime", func(_ *models.Run, jobs []models.RunJob, dags []models.RunDag) error {
+		return nil
+	})
+	defer patch9.Reset()
+
+	id, err := RestartWf(run, false)
+	assert.Nil(t, err)
+	_, ok := wfMap.Load(id)
+	assert.True(t, ok)
 }

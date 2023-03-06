@@ -26,7 +26,9 @@ import (
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -293,6 +295,7 @@ func (drt *DagRuntime) Start() {
 	drt.processSubComponentLock.Lock()
 
 	defer drt.catchPanic()
+	go drt.Stop()
 
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
@@ -342,9 +345,9 @@ func (drt *DagRuntime) Start() {
 
 	view := drt.newView("begin to run")
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to run")
+
 	// 监听子节点已经父节点传递过来的事件或者信号
 	go drt.Listen()
-	go drt.Stop()
 
 	// 开始调度子节点
 	drt.scheduleSubComponent()
@@ -383,6 +386,11 @@ func (drt *DagRuntime) scheduleSubComponent() {
 			// 创建占位用 runtime
 			drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
 			continue
+		}
+
+		if config.GlobalServerConfig.Metrics.Enable && newSubCp.GetType() == "step" {
+			metrics.RunMetricManger.AddStepStageTimeRecord(drt.runID, drt.generateSubComponentFullName(newSubCp.GetName()),
+				metrics.StageStepScheduleStartTime, time.Now())
 		}
 
 		// 4. 创建 runtime 并运行 runtime
@@ -483,7 +491,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	for _, name := range sorted {
 		views, ok := dagView.EntryPoints[name]
 		if !ok {
-			// 说面当前节点还没有运行，在此处不进行处理
+			// 说明当前节点还没有运行，在此处不进行处理
 			continue
 		}
 
@@ -734,7 +742,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			continue
 		}
 
-		// restart 时，所有子节点rumtine都处于终态，可以分成三类：
+		// restart 时，所有子节点rumtime都处于终态，可以分成三类：
 		// succeeded, skipped: 对于这类runtime无需重启，在 subruntime 中记录即可
 		// failed， terminated: 需要重启
 		// cancelled: 分两种情况：
@@ -1195,7 +1203,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	var err error
 	if len(faieldComponentNames) != 0 {
 		err = drt.updateStatus(StatusRuntimeFailed)
-		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] faield",
+		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] failed",
 			drt.name, StatusRuntimeFailed, strings.Join(faieldComponentNames, ","))
 	} else if len(terminatedComponentNames) != 0 {
 		if drt.status != StatusRuntimeTerminating {
