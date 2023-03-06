@@ -75,8 +75,8 @@ type FuseConfig struct {
 var FuseConf = &FuseConfig{
 	EntryTimeout: 1 * time.Second,
 	AttrTimeout:  1 * time.Second,
-	DirMode:      0777,
-	FileMode:     0655,
+	DirMode:      ufslib.DefaultDirMode,
+	FileMode:     ufslib.DefaultFileMode,
 	Uid:          os.Getuid(),
 	Gid:          os.Getgid(),
 }
