@@ -433,6 +433,9 @@ func (fs *hdfsFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 
 	for i, fileInfo := range files {
 		attr := fs.sysHdfsToAttr(fileInfo)
+		if fileInfo.IsDir() {
+			attr.Size = 4096
+		}
 		allAttrs[i] = DirEntry{
 			Name: fileInfo.Name(),
 			Attr: &attr,

@@ -793,6 +793,11 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 				ufsAttr.FixLinkPrefix(prefix)
 			}
 			attr.FromFileInfo(ufsAttr)
+			if attr.Type == TypeDirectory {
+				attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+			} else {
+				attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			}
 			cur.attr = *attr
 		} else {
 			*attr = cur.attr
@@ -1279,7 +1284,6 @@ func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeS
 
 func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
 	log.Debugf("kv meta readdir inode[%v]", inode)
-	*entries = []*Entry{}
 	dirInodeItem := &inodeItem{}
 	entrySlice := make([]entrySliceItem, 0)
 	inodeSlice := make([]inodeSliceItem, 0)
@@ -1404,9 +1408,9 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					ino: newInode,
 				}
 				if dir.Attr.Type == TypeDirectory {
-					insertChildEntry.mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFDIR | uint32(FuseConf.DirMode))))
 				} else {
-					insertChildEntry.mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFREG | uint32(FuseConf.FileMode))))
 				}
 				entrySlice = append(entrySlice, entrySliceItem{
 					dir.Name,
