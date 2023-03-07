@@ -26,7 +26,24 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
+
+var taskStatus = `{"phase":"Succeeded","conditions":[{"type":"Initialized","status":"True","lastProbeTime":null,
+"lastTransitionTime":"2023-03-02T09:43:55Z","reason":"PodCompleted"},
+{"type":"Ready","status":"False","lastProbeTime":null,"lastTransitionTime":"2023-03-02T10:43:57Z",
+"reason":"PodCompleted"},{"type":"ContainersReady","status":"False","lastProbeTime":null,
+"lastTransitionTime":"2023-03-02T10:43:57Z","reason":"PodCompleted"},
+{"type":"PodScheduled","status":"True","lastProbeTime":null,"lastTransitionTime":"2023-03-02T09:43:55Z"}],
+"hostIP":"127.0.0.1","podIP":"10.233.64.222","podIPs":[{"ip":"10.233.64.222"}],"startTime":"2023-03-02T09:43:55Z",
+"containerStatuses":[{"name":"job-20220101xyz","state":{"terminated":{"exitCode":0,"reason":"Completed",
+"startedAt":"2023-03-02T09:43:57Z","finishedAt":"2023-03-02T10:43:57Z",
+"containerID":"docker://8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6"}},
+"lastState":{},"ready":false,"restartCount":0,"image":"nginx:latest",
+"imageID":"docker-pullable://nginx@sha256:1708fdec7d93bc9869d269fc20148b84110ecb75a2f4f7ad6bbb590cacbc729f",
+"containerID":"docker://8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6","started":false}],
+"qosClass":"Guaranteed"}`
 
 func TestGenerateLogURL(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{
@@ -37,27 +54,38 @@ func TestGenerateLogURL(t *testing.T) {
 			},
 		},
 	}
+
 	testCases := []struct {
-		name      string
-		task      model.JobTask
-		expectURL string
+		name        string
+		task        model.JobTask
+		containerID string
+		expectURL   string
 	}{
 		{
 			name: "generate log url success",
 			task: model.JobTask{
-				ID:    "test-task-id",
-				JobID: "test-job-id",
+				ID:                   "test-task-id",
+				JobID:                "test-job-id",
+				ExtRuntimeStatusJSON: taskStatus,
 			},
-			expectURL: "http://127.0.0.1:8080/v1/containers/test-task-id/log?jobID=test-job-id",
+			containerID: "8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s",
 		},
 	}
 
+	driver.InitMockDB()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			url := GenerateLogURL(tc.task)
-			tokenStr := getLogToken(tc.task.JobID, tc.task.ID)
+			// init db
+			err := storage.Job.UpdateTask(&tc.task)
+			assert.Equal(t, nil, err)
+			task, err := storage.Job.GetJobTaskByID(tc.task.ID)
+			assert.Equal(t, nil, err)
+			// generate log url
+			url := GenerateLogURL(task)
+			tokenStr := getLogToken(task.JobID, tc.containerID)
 			token := md5.Sum([]byte(tokenStr))
-			expectURL := fmt.Sprintf("%s&token=%s", tc.expectURL, hex.EncodeToString(token[:]))
+			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]))
 			assert.Equal(t, expectURL, url)
 		})
 	}

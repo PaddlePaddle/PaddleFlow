@@ -22,9 +22,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -403,16 +405,24 @@ func GenerateLogURL(task model.JobTask) string {
 		config.GlobalServerConfig.Job.Log.ServicePort == 0 {
 		return ""
 	}
-	tokenStr := getLogToken(task.JobID, task.ID)
+	containerID := ""
+	taskStatus := task.ExtRuntimeStatus.(v1.PodStatus)
+	if len(taskStatus.ContainerStatuses) > 0 {
+		items := strings.Split(taskStatus.ContainerStatuses[0].ContainerID, "//")
+		if len(items) == 2 {
+			containerID = items[1]
+		}
+	}
+	tokenStr := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
-	log.Debugf("log url token for task %s/%s is %s", task.JobID, task.ID, token)
+	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, task.ID, task.JobID, token)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token)
 }
 
-func getLogToken(jobID, taskID string) string {
+func getLogToken(jobID, containerID string) string {
 	saltStr := config.GlobalServerConfig.Job.Log.SaltStr
 	if saltStr == "" {
 		saltStr = defaultSaltStr
@@ -421,5 +431,5 @@ func getLogToken(jobID, taskID string) string {
 	if timeFormat == "" {
 		timeFormat = defaultTimeFormat
 	}
-	return fmt.Sprintf("%s/%s/%s@%s", jobID, taskID, saltStr, time.Now().Format(timeFormat))
+	return fmt.Sprintf("%s/%s/%s@%s", jobID, containerID, saltStr, time.Now().Format(timeFormat))
 }
