@@ -34,7 +34,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -43,9 +42,6 @@ const (
 	DefaultReplication = 3
 	abcException       = "org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"
 )
-
-var superuser = "hdfs"
-var supergroup = "supergroup"
 
 var bufPool = sync.Pool{
 	New: func() interface{} {
@@ -99,28 +95,9 @@ func (fs *hdfsFileSystem) statFromFileInfo(fileInfo os.FileInfo) *syscall.Stat_t
 	size := fileInfo.Size()
 	nlink := 0
 
-	var perm uint32
-	perm = syscall.S_IFREG | 0666
-	if fileInfo.IsDir() {
-		size = 4096
-		nlink = 1
-		perm = syscall.S_IFDIR | 0777
-	}
-
-	if *protoBufData.GetPermission().Perm > 0 {
-		perm = syscall.S_IFREG
-		if fileInfo.IsDir() {
-			perm = syscall.S_IFDIR
-		}
-		perm |= *protoBufData.GetPermission().Perm
-	}
-
-	log.Debugf("protoBufData.Owner: %s protoBufData.Group %s", *protoBufData.Owner, *protoBufData.Group)
-	uid := uint32(utils.LookupUser(*protoBufData.Owner))
-	gid := uint32(utils.LookupGroup(*protoBufData.Group))
 	blocks := int64(size / 512)
 
-	st := fillStat(uint64(nlink), perm, uid, gid, size, 512, blocks, aTime, mTime, mTime)
+	st := fillStat(uint64(nlink), 0, 0, 0, size, 512, blocks, aTime, mTime, mTime)
 	st.Ino = *protoBufData.FileId
 	return &st
 }
@@ -456,6 +433,9 @@ func (fs *hdfsFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 
 	for i, fileInfo := range files {
 		attr := fs.sysHdfsToAttr(fileInfo)
+		if fileInfo.IsDir() {
+			attr.Size = 4096
+		}
 		allAttrs[i] = DirEntry{
 			Name: fileInfo.Name(),
 			Attr: &attr,

@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -61,7 +60,7 @@ const (
 	MPUMaxPartSize  = 5 * 1024 * 1024 * 1024 // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
 	MPUMaxPartNum   = 10000                  // s3: between 1~10,000
 	DefaultDirMode  = 0755
-	DefaultFileMode = 0644
+	DefaultFileMode = 0655
 )
 
 var Owner string
@@ -1355,26 +1354,6 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	bucket := properties[fsCommon.Bucket].(string)
 	region := properties[fsCommon.Region].(string)
 	subpath := properties[fsCommon.SubPath].(string)
-	dirMode_, ok := properties[fsCommon.DirMode].(string)
-	var dirMode, fileMode int
-	var err error
-	if ok {
-		dirMode, err = strconv.Atoi(dirMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dirMode = DefaultDirMode
-	}
-	fileMode_, ok := properties[fsCommon.FileMode].(string)
-	if ok {
-		fileMode, err = strconv.Atoi(fileMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fileMode = DefaultFileMode
-	}
 
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
@@ -1424,8 +1403,6 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	fs := &s3FileSystem{
 		bucket:      bucket,
 		subpath:     tidySubpath(subpath),
-		dirMode:     dirMode,
-		fileMode:    fileMode,
 		sess:        sess,
 		s3:          s3.New(sess),
 		defaultTime: time.Now(),

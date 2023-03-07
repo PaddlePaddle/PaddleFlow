@@ -26,10 +26,11 @@ import (
 	"syscall"
 	"time"
 
-	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+
+	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 const (
@@ -87,7 +88,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			log.Errorf("readAdeadBuf err %v nread %v", err, nread)
+			log.Errorf("readAheadBuf err %v nread %v", err.Error(), nread)
 			return 0, err
 		}
 		bytesRead += nread

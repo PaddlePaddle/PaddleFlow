@@ -160,6 +160,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 		log.Debugf("stream reader err %v", err)
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
+			return 0, err
 		}
 		// always retry
 		_ = fh.streamReader.Close()

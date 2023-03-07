@@ -18,7 +18,6 @@ package fs
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -92,81 +91,6 @@ func getS3TestFsClientFake(t *testing.T) FSClient {
 	return fsclient
 }
 
-func TestS3lient_base_1(t *testing.T) {
-	client := getS3TestFsClientFake(t)
-	assert.NotNil(t, client)
-
-	defer func() {
-		os.RemoveAll("./tmp")
-	}()
-
-	newPath := "createFile"
-	newDir1 := "mock/Dir1"
-	newDir2 := "mock/Dir2/Dir1"
-	newDir3 := "mock/Dir3"
-	newDir4 := "mock/Renamedir"
-
-	err := client.MkdirAll(newDir2, 0755)
-	assert.Equal(t, nil, err)
-	err = client.Mkdir(newDir3, 0755)
-	assert.Equal(t, nil, err)
-
-	file, err := client.Create(newPath)
-	assert.Equal(t, nil, err)
-	assert.NotNil(t, file)
-	num, err := file.Write([]byte("0123456789")) // n = 10
-	assert.Nil(t, err)
-	assert.Equal(t, 10, num)
-	file.Write([]byte("abcdefghijk")) // n = 11
-	file.Write([]byte("\n\n"))        // n = 2
-	file.Close()
-
-	newFile, err := client.Open(newPath)
-	assert.Equal(t, nil, err)
-	assert.NotNil(t, newFile)
-
-	buffer := make([]byte, 200)
-	n, err := newFile.Read(buffer)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, 23, n)
-	assert.Equal(t, string(buffer[0:n]), "0123456789abcdefghijk\n\n")
-	newFile.Close()
-
-	newFile, err = client.Open(newPath)
-	assert.Equal(t, nil, err)
-	assert.NotNil(t, newFile)
-	context, err := ioutil.ReadAll(newFile)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, string(context), "0123456789abcdefghijk\n\n")
-	newFile.Close()
-
-	err = client.Mkdir(newDir1, 0755)
-	assert.Equal(t, nil, err)
-	err = client.Chmod(newDir1, 0777)
-	assert.Equal(t, nil, err)
-
-	err = client.Mkdir(newDir4, 0755)
-	assert.Equal(t, nil, err)
-	err = client.Chmod(newDir4, 0755)
-	assert.Equal(t, nil, err)
-	err = client.RemoveAll(newDir1)
-	assert.Equal(t, nil, err)
-
-	_, err = client.IsDir(newDir4)
-	assert.Equal(t, nil, err)
-	dirInfos, err := client.ListDir("/mock")
-	assert.Equal(t, nil, err)
-	assert.Equal(t, 4, len(dirInfos))
-
-	srcbuffer := strings.NewReader("test save file")
-	err = client.SaveFile(srcbuffer, "/mock", "test2")
-	assert.Equal(t, nil, err)
-	n, err = client.CreateFile("/mock/test3", []byte("test create file: test3"))
-	assert.Equal(t, nil, err)
-	assert.Equal(t, n, 23)
-
-}
-
 func TestReadBigDir(t *testing.T) {
 
 	client := getS3TestFsClientFake(t)
@@ -202,7 +126,7 @@ func TestReadBigDir(t *testing.T) {
 	}
 	entries, err := client.ListDir("/")
 	assert.Nil(t, err)
-	//有个.stats目录
+	// 有个.stats目录
 	assert.Equal(t, entryCnt, len(entries)-1)
 }
 

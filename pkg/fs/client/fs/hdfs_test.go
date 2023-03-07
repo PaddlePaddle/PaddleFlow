@@ -44,14 +44,12 @@ func TestHDFS(t *testing.T) {
 		// err = client.Remove(testSmallFileName)
 		// assert.Equal(t, nil, err)
 		// os.Remove(testBigFileName)
-		// os.Remove(testSmallFileName)
 		os.RemoveAll("./tmp")
 		os.RemoveAll("./mock-cache")
 	}()
 
 	chown(t, client)
-
-	// testBigFile(t, client)
+	//testBigFile(t, client)
 	// testSmallFile(t, client)
 	// testMkdirAndList(t, client)
 }
@@ -64,7 +62,7 @@ func chown(t *testing.T, client FSClient) {
 		err = client.Remove("test.txt")
 		assert.Equal(t, nil, err)
 	}()
-	err = client.Chown("test.txt", 0, 0)
+	err = client.Chown("test.txt", 0, 601)
 	assert.Equal(t, nil, err)
 	_, err = client.Stat("test.txt")
 	assert.Equal(t, nil, err)
