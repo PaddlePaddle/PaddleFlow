@@ -94,7 +94,7 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 
 	var n int
 	n, err = io.ReadFull(in, dest)
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		log.Errorf("io.ReadFull: key[%s] off[%d] limit[%d] err[%v]", fh.key, off, limit, err)
 		return 0, err
 	}

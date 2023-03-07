@@ -215,12 +215,12 @@ func (mountInfo *Info) commonOptions() []string {
 		if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
 			options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
 		} else {
-			options = append(options, fmt.Sprintf("--%s=%s", "file-mode", ufs.DefaultFileMode))
+			options = append(options, fmt.Sprintf("--%s=%v", "file-mode", ufs.DefaultFileMode))
 		}
 		if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
 			options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
 		} else {
-			options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", ufs.DefaultDirMode))
+			options = append(options, fmt.Sprintf("--%s=%v", "dir-mode", ufs.DefaultDirMode))
 		}
 	}
 	return options
