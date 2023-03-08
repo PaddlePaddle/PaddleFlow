@@ -627,3 +627,84 @@ func Test_hdfsFileSystem_Open(t *testing.T) {
 		})
 	}
 }
+
+func Test_hdfsFileSystem_Chmod(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name string
+		mode uint32
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "ok",
+			fields: fields{},
+			args:   args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			tt.wantErr(t, fs.Chmod(tt.args.name, tt.args.mode), fmt.Sprintf("Chmod(%v, %v)", tt.args.name, tt.args.mode))
+		})
+	}
+}
+
+func Test_hdfsFileSystem_Chown(t *testing.T) {
+	type fields struct {
+		client      *hdfs.Client
+		subpath     string
+		blockSize   int64
+		replication int
+		Mutex       sync.Mutex
+	}
+	type args struct {
+		name string
+		uid  uint32
+		gid  uint32
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "nil",
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &hdfsFileSystem{
+				client:      tt.fields.client,
+				subpath:     tt.fields.subpath,
+				blockSize:   tt.fields.blockSize,
+				replication: tt.fields.replication,
+				Mutex:       tt.fields.Mutex,
+			}
+			tt.wantErr(t, fs.Chown(tt.args.name, tt.args.uid, tt.args.gid), fmt.Sprintf("Chown(%v, %v, %v)", tt.args.name, tt.args.uid, tt.args.gid))
+		})
+	}
+}
