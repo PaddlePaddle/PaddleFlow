@@ -829,17 +829,17 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		}
 		return nil
 	})
-	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-		if err = ufs_.Chown(path, cur.attr.Uid, cur.attr.Gid); err != nil {
-			return "", utils.ToSyscallErrno(err)
-		}
-	}
-
-	if set&FATTR_MODE != 0 {
-		if err = ufs_.Chmod(path, cur.attr.Mode); err != nil {
-			return "", utils.ToSyscallErrno(err)
-		}
-	}
+	// if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
+	// 	if err = ufs_.Chown(path, cur.attr.Uid, cur.attr.Gid); err != nil {
+	// 		return "", utils.ToSyscallErrno(err)
+	// 	}
+	// }
+	//
+	// if set&FATTR_MODE != 0 {
+	// 	if err = ufs_.Chmod(path, cur.attr.Mode); err != nil {
+	// 		return "", utils.ToSyscallErrno(err)
+	// 	}
+	// }
 	// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
 	if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
 		atime := time.Unix(cur.attr.Atime, int64(cur.attr.Atimensec))

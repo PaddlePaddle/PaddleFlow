@@ -60,7 +60,7 @@ const (
 	MPUMaxPartSize  = 5 * 1024 * 1024 * 1024 // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
 	MPUMaxPartNum   = 10000                  // s3: between 1~10,000
 	DefaultDirMode  = 0755
-	DefaultFileMode = 0655
+	DefaultFileMode = 0644
 )
 
 var Owner string

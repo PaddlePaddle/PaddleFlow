@@ -151,6 +151,8 @@ func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 // These should update the file's ctime too.
 func (fs *hdfsFileSystem) Chmod(name string, mode uint32) error {
+	// meta support chmod not need hdfs chmod
+	return nil
 	log.Tracef("hdfs chmod: name[%s], mode[%d]", name, mode)
 	fs.Lock()
 	defer fs.Unlock()
@@ -158,6 +160,8 @@ func (fs *hdfsFileSystem) Chmod(name string, mode uint32) error {
 }
 
 func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
+	// meta support chown not need hdfs chmod
+	return nil
 	log.Tracef("hdfs chown: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
