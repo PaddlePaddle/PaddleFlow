@@ -164,7 +164,7 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Usage:       "the host of job log service",
 			Destination: &jobConf.Log.ServiceHost,
 		},
-		&cli.IntFlag{
+		&cli.StringFlag{
 			Name:        "log-service-port",
 			Value:       jobConf.Log.ServicePort,
 			Usage:       "the port of job log service",
