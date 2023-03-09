@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -415,7 +414,7 @@ func GenerateLogURL(task model.JobTask) string {
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		strconv.Itoa(config.GlobalServerConfig.Job.Log.ServicePort), containerID, task.JobID, token)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token)
 }
 
 func getLogToken(jobID, containerID string) string {

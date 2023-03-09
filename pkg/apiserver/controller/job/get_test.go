@@ -50,7 +50,7 @@ func TestGenerateLogURL(t *testing.T) {
 		Job: config.JobConfig{
 			Log: config.JobLogConfig{
 				ServiceHost: "127.0.0.1",
-				ServicePort: 8080,
+				ServicePort: "8080",
 			},
 		},
 	}
