@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ var (
 
 	defaultSaltStr    = "paddleflow"
 	defaultTimeFormat = "2006-01-02 15"
-	LogURLFormat      = "http://%s:%d/v1/containers/%s/log?jobID=%s&token=%s"
+	LogURLFormat      = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s"
 )
 
 func init() {
@@ -400,11 +401,6 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 }
 
 func GenerateLogURL(task model.JobTask) string {
-	// skip generate log url when log service config is empty
-	if config.GlobalServerConfig.Job.Log.ServiceHost == "" ||
-		config.GlobalServerConfig.Job.Log.ServicePort == 0 {
-		return ""
-	}
 	containerID := ""
 	taskStatus := task.ExtRuntimeStatus.(v1.PodStatus)
 	if len(taskStatus.ContainerStatuses) > 0 {
@@ -419,7 +415,7 @@ func GenerateLogURL(task model.JobTask) string {
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token)
+		strconv.Itoa(config.GlobalServerConfig.Job.Log.ServicePort), containerID, task.JobID, token)
 }
 
 func getLogToken(jobID, containerID string) string {
