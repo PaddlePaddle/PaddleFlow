@@ -288,53 +288,13 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			}
 			checking--
 		}
-		if checking == 0 {
+		switch checking {
+		case 1:
+			break
+		case 0:
 			return nil, syscall.ENOENT
 		}
 	}
-}
-
-func (fs *objectFileSystem) GetAttr2(name string) (*base.FileInfo, error) {
-	key := fs.objectKeyName(name)
-	if name == "" || name == Delimiter {
-		return fs.getRootDirAttr(), nil
-	}
-	response, err := fs.storage.Head(key)
-	if err != nil {
-		log.Debugf("object getAttr name[%s] failed. err: %v", name, err)
-		if isNotExistErr(err) {
-			// compatible with case where s3 dir can have no key
-			return fs.getDefaultDirAttr(name)
-		}
-		return nil, err
-	}
-	aTime := fuse.UtimeToTimespec(&response.LastModified)
-
-	size := int64(response.Size)
-	isDir := strings.HasSuffix(key, Delimiter)
-
-	uid := uint32(utils.LookupUser(Owner))
-	gid := uint32(utils.LookupGroup(Group))
-	st := fillStat(1, 0, uid, gid, size, 4096, size/512, aTime, aTime, aTime)
-
-	var mtime uint64
-	if key == Delimiter {
-		mtime = uint64(time.Now().Unix())
-	} else {
-		mtime = uint64((response.LastModified).Unix())
-	}
-
-	return &base.FileInfo{
-		Name:  name,
-		Path:  key,
-		Size:  size,
-		Mtime: mtime,
-		IsDir: isDir,
-		Owner: Owner,
-		Group: Group,
-		Sys:   st,
-	}, nil
-
 }
 
 func (fs *objectFileSystem) Chmod(name string, mode uint32) error {

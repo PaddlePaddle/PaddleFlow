@@ -126,7 +126,8 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				break
 			}
 			off += uint64(nread)
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
+			if nread == 0 && (err == io.EOF || err == io.ErrUnexpectedEOF) {
+				log.Errorf("read EOF and nread == 0: %v len[%d] off[%d] path[%s] length[%d] ", err, len(buf), off, fh.path, fh.length)
 				break
 			}
 		}
