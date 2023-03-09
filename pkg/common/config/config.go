@@ -113,7 +113,7 @@ type ReclaimConfig struct {
 
 type JobLogConfig struct {
 	ServiceHost string `yaml:"serviceHost"`
-	ServicePort int    `yaml:"servicePort"`
+	ServicePort string `yaml:"servicePort"`
 	SaltStr     string `yaml:"saltStr"`
 	TimeFormat  string `yaml:"timeFormat"`
 }
