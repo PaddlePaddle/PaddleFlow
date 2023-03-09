@@ -112,7 +112,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			break
 		}
 	}
-	return bytesRead, nil
+	return bytesRead, err
 }
 
 func (r *rCache) readAhead(index int) (err error) {

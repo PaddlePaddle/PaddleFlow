@@ -1665,22 +1665,30 @@ func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.
 
 func (m *kvMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
 	updateInodeItem := &inodeItem{}
-	if ok := m.getAttrFromCacheWithNoExpired(inode, updateInodeItem); ok {
-		now := time.Now()
-		newLength := uint64(int(off) + length)
-		if newLength > updateInodeItem.attr.Size {
-			updateInodeItem.attr.Size = newLength
+
+	err := m.txn(func(tx kv.KvTxn) error {
+		tmp := tx.Get(m.inodeKey(inode))
+		if tmp == nil || len(tmp) == 0 {
+			return nil
 		}
-		updateInodeItem.attr.Ctime = now.Unix()
-		updateInodeItem.attr.Ctimensec = uint32(now.Nanosecond())
-		updateInodeItem.attr.Mtime = now.Unix()
-		updateInodeItem.attr.Mtimensec = uint32(now.Nanosecond())
-		err := m.txn(func(tx kv.KvTxn) error {
-			return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
-		})
-		return utils.ToSyscallErrno(err)
-	}
-	return syscall.F_OK
+		m.parseInode(tmp, updateInodeItem)
+		if !m.inodeItemExpired(*updateInodeItem) {
+			now := time.Now()
+			newLength := uint64(int(off) + length)
+			if newLength > updateInodeItem.attr.Size {
+				updateInodeItem.attr.Size = newLength
+			}
+			updateInodeItem.attr.Ctime = now.Unix()
+			updateInodeItem.attr.Ctimensec = uint32(now.Nanosecond())
+			updateInodeItem.attr.Mtime = now.Unix()
+			updateInodeItem.attr.Mtimensec = uint32(now.Nanosecond())
+		} else {
+			return nil
+		}
+
+		return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
+	})
+	return utils.ToSyscallErrno(err)
 }
 
 func (m *kvMeta) CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64, size uint64, flags uint32, copied *uint64) syscall.Errno {

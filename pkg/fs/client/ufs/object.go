@@ -192,6 +192,109 @@ func (fs *objectFileSystem) String() string {
 }
 
 func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
+	if name == "" || name == Delimiter {
+		return fs.getRootDirAttr(), nil
+	}
+	var response *object.HeadObjectOutput
+	var err error
+	dirChan := make(chan *object.ListBlobsOutput, 1)
+	objectChan := make(chan *object.HeadObjectOutput, 2)
+	errDirBlobChan := make(chan error, 1)
+	errDirChan := make(chan error, 1)
+	errObjectChan := make(chan error, 1)
+
+	fileKey := fs.objectKeyName(name)
+	dirKey := fs.objectKeyName(toDirPath(name))
+
+	// 1. check if key exists
+	go func() {
+		response, err = fs.storage.Head(fileKey)
+		if err != nil {
+			errObjectChan <- err
+			return
+		}
+		objectChan <- response
+	}()
+	// 2. check if dir exists with dir key not exist
+	go func() {
+		listInput := &object.ListInput{
+			Prefix:    dirKey,
+			MaxKeys:   1,
+			Delimiter: Delimiter,
+		}
+		dirs, err := fs.storage.List(listInput)
+		if err != nil {
+			errDirChan <- err
+			return
+		}
+		dirChan <- dirs
+	}()
+	// 3. check if dir exists with dir key exists
+	go func() {
+		resp, err := fs.storage.Head(dirKey)
+		if err != nil {
+			errDirBlobChan <- err
+			return
+		}
+		objectChan <- resp
+	}()
+
+	checking := 3
+	for {
+		select {
+		case resp := <-objectChan:
+			if resp.IsDir {
+				fInfo := fs.getRootDirAttr()
+				fInfo.Name = name
+				fInfo.Path = fs.objectKeyName(name)
+				return fInfo, nil
+			} else {
+				aTime := fuse.UtimeToTimespec(&response.LastModified)
+				size := int64(response.Size)
+				st := fillStat(1, 0, 0, 0, size, 4096, size/512, aTime, aTime, aTime)
+				mtime := uint64((response.LastModified).Unix())
+				return &base.FileInfo{
+					Name:  name,
+					Path:  fileKey,
+					Size:  size,
+					Mtime: mtime,
+					IsDir: false,
+					Owner: Owner,
+					Group: Group,
+					Sys:   st,
+				}, nil
+			}
+		case resp := <-errDirChan:
+			log.Errorf("errDirChan object err: %v", resp)
+			return nil, resp
+		case resp := <-errObjectChan:
+			if !isNotExistErr(resp) {
+				log.Errorf("errObjectChan object err: %v", resp)
+				return nil, resp
+			}
+			checking--
+		case resp := <-errDirBlobChan:
+			if !isNotExistErr(resp) {
+				log.Errorf("errDirBlobChan object err: %v", resp)
+				return nil, resp
+			}
+			checking--
+		case resp := <-dirChan:
+			if len(resp.Items) > 0 || len(resp.Prefixes) > 0 {
+				fInfo := fs.getRootDirAttr()
+				fInfo.Name = name
+				fInfo.Path = fs.objectKeyName(name)
+				return fInfo, nil
+			}
+			checking--
+		}
+		if checking == 0 {
+			return nil, syscall.ENOENT
+		}
+	}
+}
+
+func (fs *objectFileSystem) GetAttr2(name string) (*base.FileInfo, error) {
 	key := fs.objectKeyName(name)
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
@@ -507,11 +610,7 @@ func (fs *objectFileSystem) objectKeyName(name string) string {
 func (fs *objectFileSystem) getRootDirAttr() *base.FileInfo {
 	// 参考bosfs的做法，启动时记录一个默认时间，目录时间属性频繁变化会导致tar压缩目录失败。
 	aTime := fuse.UtimeToTimespec(&fs.defaultTime)
-	var perm uint32
-	uid := uint32(utils.LookupUser(Owner))
-	gid := uint32(utils.LookupGroup(Group))
-
-	st := fillStat(1, perm, uid, gid, 4096, 4096, 8, aTime, aTime, aTime)
+	st := fillStat(1, 0, 0, 0, 4096, 4096, 8, aTime, aTime, aTime)
 
 	return &base.FileInfo{
 		Name:  "",
@@ -519,9 +618,6 @@ func (fs *objectFileSystem) getRootDirAttr() *base.FileInfo {
 		Size:  4096,
 		Mtime: uint64(fs.defaultTime.Unix()),
 		IsDir: true,
-		Owner: Owner,
-		Group: Group,
-		Mode:  utils.StatModeToFileMode(int(perm)),
 		Sys:   st,
 	}
 }
