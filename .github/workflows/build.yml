@@ -15,7 +15,7 @@ jobs:
     steps:
     - name: Dump GitHub context
       id: github_context_step
-      run: echo '${{ toJSON(github) }}'
+      run: echo "${{ toJSON(github) }}"
     - name: Install go
       uses: actions/setup-go@v3
       with:
@@ -25,7 +25,7 @@ jobs:
     - name: Install gcc
       id: install_gcc
       run: |
-        echo '${{ toJSON(github) }}'
+        echo "${{ toJSON(github) }}"
         echo $(uname -m)
         echo $(uname -s)
         sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu

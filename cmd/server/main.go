@@ -1,18 +1,14 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	_ "go.uber.org/automaxprocs"
+	"net/http"
+	"os"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
@@ -93,8 +89,6 @@ func start() error {
 		Addr:    fmt.Sprintf(":%d", ServerConf.ApiServer.Port),
 		Handler: Router,
 	}
-	ServerCtx, ServerCancel := context.WithCancel(context.Background())
-	defer ServerCancel()
 
 	err := pipeline.InitAndResumeRuns()
 	if err != nil {
@@ -120,19 +114,8 @@ func start() error {
 			gracefullyExit(err)
 		}
 	}
-
-	go func() {
-		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
-			log.Infof("listen: %s", err)
-		}
-	}()
-
-	stopSig := make(chan os.Signal, 1)
-	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
-	<-stopSig
-
-	if err := HttpSvr.Shutdown(ServerCtx); err != nil {
-		log.Infof("Server forced to shutdown:%s", err.Error())
+	if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+		log.Infof("listen: %s", err)
 	}
 	log.Info("PaddleFlow server exiting")
 	return nil
