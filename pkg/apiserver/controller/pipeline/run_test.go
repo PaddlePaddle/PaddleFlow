@@ -20,9 +20,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -289,6 +291,13 @@ func TestNewWorkflowByRun(t *testing.T) {
 	}
 	_, err = newMockWorkflowByRun(run2)
 	assert.Nil(t, err)
+
+	run2.ID = "1445"
+	_, err = newMockWorkflowByRun(run2)
+	assert.Nil(t, err)
+
+	_, ok := wfMap.Load(run2.ID)
+	assert.True(t, ok)
 }
 
 func TestCreateRunByJson(t *testing.T) {
@@ -363,5 +372,118 @@ func TestCreateRun(t *testing.T) {
 	}
 	_, err = CreateRun(ctx, &createRunRequest, map[string]string{})
 	assert.Nil(t, err)
+}
 
+func TestStopRun(t *testing.T) {
+	driver.InitMockDB()
+	run := getMockRunWithoutRuntime()
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	runID, err := models.CreateRun(ctx.Logging(), &run)
+	assert.Nil(t, err)
+
+	wfMap.Store(runID, &pipeline.Workflow{})
+
+	var wf *pipeline.Workflow
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wf), "Stop", func(*pipeline.Workflow, bool) {
+		return
+	})
+	defer patch.Reset()
+
+	var r *models.Run
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyFunc(GetRunByID, func(logEntry *log.Entry, userName string, runID string) (models.Run, error) {
+		return run, nil
+	})
+	defer patch3.Reset()
+
+	req := UpdateRunRequest{StopForce: false}
+	err = StopRun(ctx.Logging(), "root", runID, req)
+	assert.Nil(t, err)
+}
+
+func TestStartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+	wfptr := &pipeline.Workflow{}
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "NewWorkflowRuntime", func(*pipeline.Workflow) error {
+		return nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Start", func(*pipeline.Workflow) {
+		return
+	})
+	defer patch3.Reset()
+
+	StartWf(run, wfptr)
+	_, ok := wfMap.Load(run.ID)
+	assert.True(t, ok)
+}
+
+func TestRestartWf(t *testing.T) {
+	run := models.Run{
+		ID: "run=00001",
+	}
+	wfptr := &pipeline.Workflow{}
+
+	patch := gomonkey.ApplyFunc(newWorkflowByRun, func(run models.Run) (*pipeline.Workflow, error) {
+		return &pipeline.Workflow{}, nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(models.UpdateRunStatus, func(logEntry *log.Entry, runID string, status string) error {
+		return nil
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wfptr), "Restart", func(*pipeline.Workflow, *schema.DagView, schema.PostProcessView) {
+		return
+	})
+	defer patch3.Reset()
+
+	patch4 := gomonkey.ApplyFunc(models.GetRunJobsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunJob, error) {
+		return nil, nil
+	})
+	defer patch4.Reset()
+
+	patch5 := gomonkey.ApplyFunc(models.GetRunDagsOfRun, func(logEntry *log.Entry, runID string) ([]models.RunDag, error) {
+		return nil, nil
+	})
+	defer patch5.Reset()
+
+	var r *models.Run
+	patch6 := gomonkey.ApplyMethod(reflect.TypeOf(r), "Encode", func(*models.Run) error {
+		return nil
+	})
+	defer patch6.Reset()
+
+	patch7 := gomonkey.ApplyFunc(models.CreateRun, func(logEntry *log.Entry, run *models.Run) (string, error) {
+		return "", nil
+	})
+	defer patch7.Reset()
+
+	patch8 := gomonkey.ApplyFunc(models.CreateRunDag, func(logEntry *log.Entry, runDag *models.RunDag) (int64, error) {
+		return 234, nil
+	})
+	defer patch8.Reset()
+
+	patch9 := gomonkey.ApplyMethod(reflect.TypeOf(r), "InitRuntime", func(_ *models.Run, jobs []models.RunJob, dags []models.RunDag) error {
+		return nil
+	})
+	defer patch9.Reset()
+
+	id, err := RestartWf(run, false)
+	assert.Nil(t, err)
+	_, ok := wfMap.Load(id)
+	assert.True(t, ok)
 }
