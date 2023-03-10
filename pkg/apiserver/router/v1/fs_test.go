@@ -667,4 +667,26 @@ func TestStsAPI(t *testing.T) {
 	result, err = PerformGetRequest(router, fsUrlSts)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusInternalServerError, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName + "falseSts",
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"duration":  "70",
+		},
+	}
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/" + mockFsName + "falseSts"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusInternalServerError, result.Code)
+
 }
