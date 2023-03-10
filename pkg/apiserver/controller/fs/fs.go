@@ -561,6 +561,9 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	if modelsFs.Type != fsCommon.BosType {
 		log.Errorf("modefsType error %s", modelsFs.Type)
 		return nil, fmt.Errorf("sts must bos type")
+	} else if modelsFs.PropertiesMap[fsCommon.Sts] != "true" {
+		log.Errorf("bos[%v] do not support sts when it was created", modelsFs.Name)
+		return nil, fmt.Errorf("sts not allowed")
 	}
 	properties := modelsFs.PropertiesMap
 	ak := properties[fsCommon.AccessKey]
