@@ -88,8 +88,9 @@ type JobConfig struct {
 	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
 	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlPath defines file path that stores all default templates in one yaml
-	DefaultJobYamlPath string `yaml:"defaultJobYamlPath"`
-	IsSingleCluster    bool   `yaml:"isSingleCluster"`
+	DefaultJobYamlPath string       `yaml:"defaultJobYamlPath"`
+	IsSingleCluster    bool         `yaml:"isSingleCluster"`
+	Log                JobLogConfig `yaml:"log"`
 }
 
 type FsServerConf struct {
@@ -108,6 +109,13 @@ type ReclaimConfig struct {
 	FailedJobTTLSeconds    int  `yaml:"failedJobTTLSeconds,omitempty"`
 	SucceededJobTTLSeconds int  `yaml:"succeededJobTTLSeconds,omitempty"`
 	PendingJobTTLSeconds   int  `yaml:"pendingJobTTLSeconds,omitempty"`
+}
+
+type JobLogConfig struct {
+	ServiceHost string `yaml:"serviceHost"`
+	ServicePort string `yaml:"servicePort"`
+	SaltStr     string `yaml:"saltStr"`
+	TimeFormat  string `yaml:"timeFormat"`
 }
 
 type ImageConfig struct {

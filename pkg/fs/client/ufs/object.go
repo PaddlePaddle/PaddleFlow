@@ -48,8 +48,6 @@ var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChun
 
 type objectFileSystem struct {
 	subPath     string // bucket:subPath/name
-	dirMode     int
-	fileMode    int
 	storage     object.ObjectStorage
 	defaultTime time.Time
 	sync.Mutex
@@ -96,7 +94,7 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 
 	var n int
 	n, err = io.ReadFull(in, dest)
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		log.Errorf("io.ReadFull: key[%s] off[%d] limit[%d] err[%v]", fh.key, off, limit, err)
 		return 0, err
 	}
@@ -194,54 +192,109 @@ func (fs *objectFileSystem) String() string {
 }
 
 func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
-	key := fs.objectKeyName(name)
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
 	}
-	response, err := fs.storage.Head(key)
-	if err != nil {
-		log.Debugf("object getAttr name[%s] failed. err: %v", name, err)
-		if isNotExistErr(err) {
-			// compatible with case where s3 dir can have no key
-			return fs.getDefaultDirAttr(name)
+	var response *object.HeadObjectOutput
+	var err error
+	dirChan := make(chan *object.ListBlobsOutput, 1)
+	objectChan := make(chan *object.HeadObjectOutput, 2)
+	errDirBlobChan := make(chan error, 1)
+	errDirChan := make(chan error, 1)
+	errObjectChan := make(chan error, 1)
+
+	fileKey := fs.objectKeyName(name)
+	dirKey := fs.objectKeyName(toDirPath(name))
+
+	// 1. check if key exists
+	go func() {
+		response, err = fs.storage.Head(fileKey)
+		if err != nil {
+			errObjectChan <- err
+			return
 		}
-		return nil, err
+		objectChan <- response
+	}()
+	// 2. check if dir exists with dir key not exist
+	go func() {
+		listInput := &object.ListInput{
+			Prefix:    dirKey,
+			MaxKeys:   1,
+			Delimiter: Delimiter,
+		}
+		dirs, err := fs.storage.List(listInput)
+		if err != nil {
+			errDirChan <- err
+			return
+		}
+		dirChan <- dirs
+	}()
+	// 3. check if dir exists with dir key exists
+	go func() {
+		resp, err := fs.storage.Head(dirKey)
+		if err != nil {
+			errDirBlobChan <- err
+			return
+		}
+		objectChan <- resp
+	}()
+
+	checking := 3
+	for {
+		select {
+		case resp := <-objectChan:
+			if resp.IsDir {
+				fInfo := fs.getRootDirAttr()
+				fInfo.Name = name
+				fInfo.Path = fs.objectKeyName(name)
+				return fInfo, nil
+			} else {
+				aTime := fuse.UtimeToTimespec(&response.LastModified)
+				size := int64(response.Size)
+				st := fillStat(1, 0, 0, 0, size, 4096, size/512, aTime, aTime, aTime)
+				mtime := uint64((response.LastModified).Unix())
+				return &base.FileInfo{
+					Name:  name,
+					Path:  fileKey,
+					Size:  size,
+					Mtime: mtime,
+					IsDir: false,
+					Owner: Owner,
+					Group: Group,
+					Sys:   st,
+				}, nil
+			}
+		case resp := <-errDirChan:
+			log.Errorf("errDirChan object err: %v", resp)
+			return nil, resp
+		case resp := <-errObjectChan:
+			if !isNotExistErr(resp) {
+				log.Errorf("errObjectChan object err: %v", resp)
+				return nil, resp
+			}
+			checking--
+		case resp := <-errDirBlobChan:
+			if !isNotExistErr(resp) {
+				log.Errorf("errDirBlobChan object err: %v", resp)
+				return nil, resp
+			}
+			checking--
+		case resp := <-dirChan:
+			if len(resp.Items) > 0 || len(resp.Prefixes) > 0 {
+				fInfo := fs.getRootDirAttr()
+				fInfo.Name = name
+				fInfo.Path = fs.objectKeyName(name)
+				return fInfo, nil
+			}
+			checking--
+		}
+		switch checking {
+		case 1:
+			break
+		case 0:
+			return nil, syscall.ENOENT
+		}
 	}
-	aTime := fuse.UtimeToTimespec(&response.LastModified)
-
-	size := int64(response.Size)
-	isDir := strings.HasSuffix(key, Delimiter)
-	mode := syscall.S_IFREG | fs.fileMode
-
-	// if empty directory, s3 will return size=0
-	if isDir {
-		size = 4096
-		mode = syscall.S_IFDIR | fs.dirMode
-	}
-
-	uid := uint32(utils.LookupUser(Owner))
-	gid := uint32(utils.LookupGroup(Group))
-	st := fillStat(1, uint32(mode), uid, gid, size, 4096, size/512, aTime, aTime, aTime)
-
-	var mtime uint64
-	if key == Delimiter {
-		mtime = uint64(time.Now().Unix())
-	} else {
-		mtime = uint64((response.LastModified).Unix())
-	}
-
-	return &base.FileInfo{
-		Name:  name,
-		Path:  key,
-		Size:  size,
-		Mtime: mtime,
-		IsDir: isDir,
-		Owner: Owner,
-		Group: Group,
-		Mode:  utils.StatModeToFileMode(mode),
-		Sys:   st,
-	}, nil
-
 }
 
 func (fs *objectFileSystem) Chmod(name string, mode uint32) error {
@@ -441,13 +494,10 @@ func (fs *objectFileSystem) ReadDir(name string) (stream []DirEntry, err error) 
 		}
 		mtime := int64(finfo.Mtime)
 		size := finfo.Size
-		mode := syscall.S_IFREG | fs.fileMode
 		isDir := finfo.IsDir
 		fileType := uint8(TypeFile)
 		if isDir {
 			fileType = TypeDirectory
-			mode = syscall.S_IFDIR | fs.dirMode
-			size = 4096
 		}
 		uid := uint32(utils.LookupUser(Owner))
 		gid := uint32(utils.LookupGroup(Group))
@@ -456,7 +506,6 @@ func (fs *objectFileSystem) ReadDir(name string) (stream []DirEntry, err error) 
 			Attr: &Attr{
 				Type:      fileType,
 				Size:      uint64(size),
-				Mode:      uint32(mode),
 				Mtime:     mtime,
 				Atimensec: uint32(mtime),
 				Mtimensec: uint32(mtime),
@@ -521,12 +570,7 @@ func (fs *objectFileSystem) objectKeyName(name string) string {
 func (fs *objectFileSystem) getRootDirAttr() *base.FileInfo {
 	// 参考bosfs的做法，启动时记录一个默认时间，目录时间属性频繁变化会导致tar压缩目录失败。
 	aTime := fuse.UtimeToTimespec(&fs.defaultTime)
-	var perm uint32
-	perm = uint32(syscall.S_IFDIR | fs.dirMode)
-	uid := uint32(utils.LookupUser(Owner))
-	gid := uint32(utils.LookupGroup(Group))
-
-	st := fillStat(1, perm, uid, gid, 4096, 4096, 8, aTime, aTime, aTime)
+	st := fillStat(1, 0, 0, 0, 4096, 4096, 8, aTime, aTime, aTime)
 
 	return &base.FileInfo{
 		Name:  "",
@@ -534,9 +578,6 @@ func (fs *objectFileSystem) getRootDirAttr() *base.FileInfo {
 		Size:  4096,
 		Mtime: uint64(fs.defaultTime.Unix()),
 		IsDir: true,
-		Owner: Owner,
-		Group: Group,
-		Mode:  utils.StatModeToFileMode(int(perm)),
 		Sys:   st,
 	}
 }
@@ -1148,10 +1189,8 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 }
 
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	var dirMode, fileMode int
 	var err error
 	var ok bool
-	var dirMode_, fileMode_ string
 	var storage object.ObjectStorage
 
 	endpoint, _ := properties[fsCommon.Endpoint].(string)
@@ -1166,26 +1205,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	region, _ := properties[fsCommon.Region].(string)
 	subPath, _ := properties[fsCommon.SubPath].(string)
 	objectType, _ := properties[fsCommon.Type].(string)
-
-	dirMode_, ok = properties[fsCommon.DirMode].(string)
-	if ok {
-		dirMode, err = strconv.Atoi(dirMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dirMode = DefaultDirMode
-	}
-
-	fileMode_, ok = properties[fsCommon.FileMode].(string)
-	if ok {
-		fileMode, err = strconv.Atoi(fileMode_)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fileMode = DefaultFileMode
-	}
 
 	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
@@ -1353,8 +1372,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 
 	fs := &objectFileSystem{
 		subPath:     tidySubpath(subPath),
-		dirMode:     dirMode,
-		fileMode:    fileMode,
 		storage:     storage,
 		defaultTime: time.Now(),
 		chunkPool: &sync.Pool{New: func() interface{} {

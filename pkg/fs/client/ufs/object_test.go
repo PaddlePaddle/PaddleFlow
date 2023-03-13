@@ -750,8 +750,6 @@ func Test_objectFileSystem_Utimens(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := &objectFileSystem{
 				subPath:     tt.fields.subPath,
-				dirMode:     tt.fields.dirMode,
-				fileMode:    tt.fields.fileMode,
 				storage:     tt.fields.storage,
 				defaultTime: tt.fields.defaultTime,
 				Mutex:       tt.fields.Mutex,
@@ -786,8 +784,6 @@ func Test_objectFileSystem_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := &objectFileSystem{
 				subPath:     tt.fields.subPath,
-				dirMode:     tt.fields.dirMode,
-				fileMode:    tt.fields.fileMode,
 				storage:     tt.fields.storage,
 				defaultTime: tt.fields.defaultTime,
 				Mutex:       tt.fields.Mutex,

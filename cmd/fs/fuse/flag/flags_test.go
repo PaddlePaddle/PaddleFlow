@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 )
 
 func TestBasicFlags(t *testing.T) {
@@ -28,7 +28,7 @@ func TestBasicFlags(t *testing.T) {
 
 func TestCacheFlags(t *testing.T) {
 	type args struct {
-		fuseConf *fuse.FuseConfig
+		fuseConf *meta.FuseConfig
 	}
 	tests := []struct {
 		name string
@@ -38,7 +38,7 @@ func TestCacheFlags(t *testing.T) {
 		{
 			name: "cache num",
 			args: args{
-				fuseConf: fuse.FuseConf,
+				fuseConf: meta.FuseConf,
 			},
 			want: 12,
 		},

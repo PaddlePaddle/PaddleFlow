@@ -143,7 +143,6 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	if global {
 		vfsop = vfs
 	}
-	err = vfs.Meta.InitRootInode()
 	if err != nil {
 		return nil, err
 	}

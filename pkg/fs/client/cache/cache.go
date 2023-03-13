@@ -26,10 +26,11 @@ import (
 	"syscall"
 	"time"
 
-	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+
+	ufs "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 const (
@@ -87,25 +88,31 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-			log.Errorf("readAdeadBuf err %v nread %v", err, nread)
+			log.Errorf("readAheadBuf err %v nread %v", err.Error(), nread)
 			return 0, err
 		}
 		bytesRead += nread
 		blockOff += nread
 		// page ready, if write file but not flush will cause reader read empty, we need release this reader and get new reader
 		if nread == 0 && err != nil {
-			r.lock.RLock()
+			r.lock.Lock()
 			if readAheadBuf.Buffer.reader != nil {
 				_ = readAheadBuf.Buffer.reader.Close()
 			}
 			delete(r.buffers, indexOff)
-			r.lock.RUnlock()
+			r.lock.Unlock()
 		}
+		r.lock.Lock()
+		buffer, findBuffer := r.buffers[indexOff]
+		if findBuffer && buffer.page != nil && buffer.page.ready && buffer.size <= 0 {
+			delete(r.buffers, indexOff)
+		}
+		r.lock.Unlock()
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			break
 		}
 	}
-	return bytesRead, nil
+	return bytesRead, err
 }
 
 func (r *rCache) readAhead(index int) (err error) {

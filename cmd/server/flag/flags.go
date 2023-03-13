@@ -158,6 +158,30 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Usage:       "init a cluster named 'default' by default in single cluster mode",
 			Destination: &jobConf.IsSingleCluster,
 		},
+		&cli.StringFlag{
+			Name:        "log-service-host",
+			Value:       jobConf.Log.ServiceHost,
+			Usage:       "the host of job log service",
+			Destination: &jobConf.Log.ServiceHost,
+		},
+		&cli.StringFlag{
+			Name:        "log-service-port",
+			Value:       jobConf.Log.ServicePort,
+			Usage:       "the port of job log service",
+			Destination: &jobConf.Log.ServicePort,
+		},
+		&cli.StringFlag{
+			Name:        "log-salt-str",
+			Value:       jobConf.Log.SaltStr,
+			Usage:       "the salt of job log token",
+			Destination: &jobConf.Log.SaltStr,
+		},
+		&cli.StringFlag{
+			Name:        "log-time-format",
+			Value:       jobConf.Log.TimeFormat,
+			Usage:       "the time format of job log token",
+			Destination: &jobConf.Log.TimeFormat,
+		},
 	}
 }
 
