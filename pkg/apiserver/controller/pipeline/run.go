@@ -1083,6 +1083,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 
 // --------- internal funcs ---------//
 func resumeActiveRuns() error {
+	fmt.Println("+++++++++++3")
 	runList, err := models.ListRunsByStatus(logger.Logger(), common.RunActiveStatus)
 	if err != nil {
 		if errors2.GetErrorCode(err) == errors2.ErrorRecordNotFound {
@@ -1094,6 +1095,7 @@ func resumeActiveRuns() error {
 		}
 	}
 	go func() {
+		fmt.Println("+++++++++++4")
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
 			if _, err := restartRun(&logger.RequestContext{}, run, true); err != nil {
@@ -1291,5 +1293,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 }
 
 func InitAndResumeRuns() error {
+	fmt.Println("+++++++++++2")
 	return resumeActiveRuns()
 }

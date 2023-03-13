@@ -96,6 +96,7 @@ func start() error {
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
 	defer ServerCancel()
 
+	fmt.Println("+++++++++++1")
 	err := pipeline.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
