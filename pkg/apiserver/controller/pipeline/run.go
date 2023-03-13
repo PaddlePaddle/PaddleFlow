@@ -1289,3 +1289,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	}
 	return wfPtr, nil
 }
+
+func InitAndResumeRuns() error {
+	return resumeActiveRuns()
+}
