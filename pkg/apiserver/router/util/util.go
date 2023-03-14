@@ -32,7 +32,7 @@ const (
 	DefaultMaxKeys     = 50
 	ListPageMax        = 1000
 	MaxDescLength      = 256
-	StsDurationDefault = "60"
+	StsDurationDefault = "43200"
 
 	ParamKeyQueueName         = "queueName"
 	ParamKeyRunID             = "runID"
