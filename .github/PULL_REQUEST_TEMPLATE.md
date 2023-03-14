@@ -1,8 +1,8 @@
 ### PR types
-<!-- One of [ New features | Bug fixes | Function optimization | Performance optimization | Breaking changes | Others ] -->
+Bug fixes
 
 ### PR changes
-<!-- One of [ OPs | APIs | Docs | Others ] -->
+APIs 
 
 ### Describe
-<!-- Describe what this PR does -->
+fix fs-client remove all bug
