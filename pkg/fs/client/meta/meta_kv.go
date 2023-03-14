@@ -777,20 +777,20 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		return nil
 	})
 	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
-		if err = ufs_.Chown(path, attr.Uid, attr.Gid); err != nil {
+		if err = ufs_.Chown(path, cur.attr.Uid, cur.attr.Gid); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
 	}
 
 	if set&FATTR_MODE != 0 {
-		if err = ufs_.Chmod(path, attr.Mode); err != nil {
+		if err = ufs_.Chmod(path, cur.attr.Mode); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
 	}
 	// s3未实现utimes函数，创建文件时存在报错：setting times of ‘xx’: Function not implemented。因此这里忽略enosys报错
 	if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-		atime := time.Unix(attr.Atime, int64(attr.Atimensec))
-		ctime := time.Unix(attr.Ctime, int64(attr.Ctimensec))
+		atime := time.Unix(cur.attr.Atime, int64(cur.attr.Atimensec))
+		ctime := time.Unix(cur.attr.Ctime, int64(cur.attr.Ctimensec))
 		if err = ufs_.Utimens(path, &atime, &ctime); err != nil {
 			return "", utils.ToSyscallErrno(err)
 		}
@@ -988,6 +988,9 @@ func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 		entry, err := m.get(m.entryKey(parent, name))
 		if err != nil {
 			return syscall.ENOENT
+		}
+		if entry == nil || len(entry) == 0 {
+			return nil
 		}
 		m.parseEntry(entry, entryItem_)
 		pinodebyte, err := m.get(m.inodeKey(parent))
@@ -1227,7 +1230,6 @@ func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeS
 
 func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
 	log.Debugf("kv meta readdir inode[%v]", inode)
-	*entries = []*Entry{}
 	dirInodeItem := &inodeItem{}
 	entrySlice := make([]entrySliceItem, 0)
 	inodeSlice := make([]inodeSliceItem, 0)
@@ -1563,6 +1565,9 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 }
 
 func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
+	if inode == rootInodeID {
+		return syscall.F_OK
+	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		updateInodeItem := &inodeItem{}
 		buf := tx.Get(m.inodeKey(inode))
@@ -1570,8 +1575,9 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			m.parseInode(buf, updateInodeItem)
 			if !m.inodeItemExpired(*updateInodeItem) {
 				updateInodeItem.fileHandles -= 1
-				if updateInodeItem.fileHandles == -1 {
-					panic(updateInodeItem.fileHandles)
+				if updateInodeItem.fileHandles < 0 {
+					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v name %s", inode, updateInodeItem.fileHandles, updateInodeItem, string(updateInodeItem.name))
+					return nil
 				}
 				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
@@ -1589,22 +1595,30 @@ func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.
 
 func (m *kvMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
 	updateInodeItem := &inodeItem{}
-	if ok := m.getAttrFromCacheWithNoExpired(inode, updateInodeItem); ok {
-		now := time.Now()
-		newLength := uint64(int(off) + length)
-		if newLength > updateInodeItem.attr.Size {
-			updateInodeItem.attr.Size = newLength
+
+	err := m.txn(func(tx kv.KvTxn) error {
+		tmp := tx.Get(m.inodeKey(inode))
+		if tmp == nil || len(tmp) == 0 {
+			return nil
 		}
-		updateInodeItem.attr.Ctime = now.Unix()
-		updateInodeItem.attr.Ctimensec = uint32(now.Nanosecond())
-		updateInodeItem.attr.Mtime = now.Unix()
-		updateInodeItem.attr.Mtimensec = uint32(now.Nanosecond())
-		err := m.txn(func(tx kv.KvTxn) error {
-			return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
-		})
-		return utils.ToSyscallErrno(err)
-	}
-	return syscall.F_OK
+		m.parseInode(tmp, updateInodeItem)
+		if !m.inodeItemExpired(*updateInodeItem) {
+			now := time.Now()
+			newLength := uint64(int(off) + length)
+			if newLength > updateInodeItem.attr.Size {
+				updateInodeItem.attr.Size = newLength
+			}
+			updateInodeItem.attr.Ctime = now.Unix()
+			updateInodeItem.attr.Ctimensec = uint32(now.Nanosecond())
+			updateInodeItem.attr.Mtime = now.Unix()
+			updateInodeItem.attr.Mtimensec = uint32(now.Nanosecond())
+		} else {
+			return nil
+		}
+
+		return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
+	})
+	return utils.ToSyscallErrno(err)
 }
 
 func (m *kvMeta) CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64, size uint64, flags uint32, copied *uint64) syscall.Errno {
