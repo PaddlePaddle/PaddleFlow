@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/assert"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,6 +43,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -882,5 +884,272 @@ func TestKubeRuntime_GetEvents(t *testing.T) {
 			}
 		})
 
+	}
+}
+
+func TestKubeRuntime_CreatePVC(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	type fields struct {
+		cluster    schema.Cluster
+		kubeClient framework.RuntimeClientInterface
+	}
+	type args struct {
+		namespace string
+		fsId      string
+		pv        string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "copy err",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "get pvc error",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "create pvc error",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	config.DefaultPV = &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				CSI: &corev1.CSIPersistentVolumeSource{
+					FSType: "ext4",
+					VolumeAttributes: map[string]string{
+						"pfs.fs.id":  "$(pfs.fs.id)",
+						"pfs.server": "$(pfs.server)",
+					},
+					VolumeHandle: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+				},
+			},
+		},
+	}
+	config.DefaultPVC = &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "pfs-$(pfs.fs.id)-pvc",
+			Namespace:  "$(namespace)",
+			Finalizers: []string{"meow"},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+		},
+	}
+	config.GlobalServerConfig = &config.ServerConfig{
+		ApiServer: config.ApiServerConfig{
+			Host: "paddleflow-server",
+			Port: 8999,
+		},
+	}
+
+	// patch copier.Copy function
+	patchCopy := gomonkey.ApplyFunc(copier.Copy, func(dst, src interface{}) error {
+		return fmt.Errorf("copy err")
+	})
+
+	// patch kr.getPersistentVolumeClaim function
+	patchGet := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumeClaims("")), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.PersistentVolumeClaim, error) {
+		return nil, fmt.Errorf("get err")
+	})
+
+	// patch kr.createPersistentVolumeClaim function
+	patchCreate := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumeClaims("")), "Create", func(ctx context.Context, persistentVolumeClaim *corev1.PersistentVolumeClaim, opts metav1.CreateOptions) (*corev1.PersistentVolumeClaim, error) {
+		return nil, fmt.Errorf("create err")
+	})
+	defer patchCreate.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kr := &KubeRuntime{
+				cluster:    tt.fields.cluster,
+				kubeClient: tt.fields.kubeClient,
+			}
+			tt.wantErr(t, kr.CreatePVC(tt.args.namespace, tt.args.fsId, tt.args.pv), fmt.Sprintf("CreatePVC(%v, %v, %v)", tt.args.namespace, tt.args.fsId, tt.args.pv))
+		})
+		if tt.name == "copy err" {
+			patchCopy.Reset()
+		}
+		if tt.name == "get pvc error" {
+			patchGet.Reset()
+			// patch kr.getPersistentVolumeClaim function
+			patchGet = gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumeClaims("")), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			})
+			defer patchGet.Reset()
+		}
+	}
+}
+
+func TestKubeRuntime_CreatePV(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	type fields struct {
+		cluster    schema.Cluster
+		kubeClient framework.RuntimeClientInterface
+	}
+	type args struct {
+		namespace string
+		fsID      string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "copy err",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "get pv error",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+		{
+			name: "create pv error",
+			fields: fields{
+				cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+				kubeClient: kubeClient,
+			},
+			args: args{},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+
+	config.DefaultPV = &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				CSI: &corev1.CSIPersistentVolumeSource{
+					FSType: "ext4",
+					VolumeAttributes: map[string]string{
+						"pfs.fs.id":  "$(pfs.fs.id)",
+						"pfs.server": "$(pfs.server)",
+					},
+					VolumeHandle: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+				},
+			},
+		},
+	}
+	config.DefaultPVC = &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "pfs-$(pfs.fs.id)-pvc",
+			Namespace:  "$(namespace)",
+			Finalizers: []string{"meow"},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			VolumeName: "pfs-$(pfs.fs.id)-$(namespace)-pv",
+		},
+	}
+	config.GlobalServerConfig = &config.ServerConfig{
+		ApiServer: config.ApiServerConfig{
+			Host: "paddleflow-server",
+			Port: 8999,
+		},
+	}
+
+	// patch copier.Copy function
+	patchCopy := gomonkey.ApplyFunc(copier.Copy, func(dst, src interface{}) error {
+		return fmt.Errorf("copy err")
+	})
+
+	// patch kr.getPersistentVolumeClaim function
+	patchGet := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumes()), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.PersistentVolume, error) {
+		return nil, fmt.Errorf("get err")
+	})
+
+	// patch kr.createPersistentVolumeClaim function
+	patchCreate := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumes()), "Create", func(ctx context.Context, persistentVolume *corev1.PersistentVolume, opts metav1.CreateOptions) (*corev1.PersistentVolume, error) {
+		return nil, fmt.Errorf("create err")
+	})
+	defer patchCreate.Reset()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			kr := &KubeRuntime{
+				cluster:    tt.fields.cluster,
+				kubeClient: tt.fields.kubeClient,
+			}
+			got, err := kr.CreatePV(tt.args.namespace, tt.args.fsID)
+			if !tt.wantErr(t, err, fmt.Sprintf("CreatePV(%v, %v)", tt.args.namespace, tt.args.fsID)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "CreatePV(%v, %v)", tt.args.namespace, tt.args.fsID)
+		})
+		if tt.name == "copy err" {
+			patchCopy.Reset()
+		}
+		if tt.name == "get pvc error" {
+			patchGet.Reset()
+			// patch kr.getPersistentVolumeClaim function
+			patchGet = gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntime.clientset().CoreV1().PersistentVolumes()), "Get", func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.PersistentVolume, error) {
+				return nil, nil
+			})
+			defer patchGet.Reset()
+		}
 	}
 }
