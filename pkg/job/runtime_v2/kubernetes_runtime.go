@@ -379,10 +379,12 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk schema.GroupVers
 }
 
 func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
+	log.Debugf("on %s, create pv for namespace %s, fsID %s", kr.String(), namespace, fsID)
 	pv := config.DefaultPV
 	pv.Name = pfschema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
+		log.Debugf("on %s, pv %s for namespace %s, fsID %s already exists", kr.String(), pv.Name, namespace, fsID)
 		return pv.Name, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
@@ -409,6 +411,7 @@ func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 }
 
 func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
+	log.Debugf("build pv[%s] with fs[%s]", pv.Name, fsID)
 	// filesystem
 	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
@@ -443,14 +446,17 @@ func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)
 	pv.Spec.CSI.VolumeAttributes[pfschema.PFSCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
+	log.Debugf("build pv[%s] with fs[%s] success", pv.Name, fsID)
 	return nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
+	log.Infof("create pvc for namespace: %s, fsId: %s, pv: %s", namespace, fsId, pv)
 	pvc := config.DefaultPVC
 	pvcName := pfschema.ConcatenatePVCName(fsId)
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
+		log.Debugf("on %s, pvc %s for namespace %s, fsID %s already exists", kr.String(), pvcName, namespace, fsId)
 		return nil
 	} else if !k8serrors.IsNotFound(err) {
 		return err
@@ -458,6 +464,7 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	// construct a new pvc
 	newPVC := &corev1.PersistentVolumeClaim{}
 	if err := copier.Copy(newPVC, pvc); err != nil {
+		log.Errorf("copy pvc for namespace: %s, fsId: %s, pv: %s, err: %v", namespace, fsId, pv, err)
 		return err
 	}
 	newPVC.Namespace = namespace
@@ -465,6 +472,7 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	newPVC.Spec.VolumeName = pv
 	// create pvc in k8s
 	if _, err := kr.createPersistentVolumeClaim(namespace, newPVC); err != nil {
+		log.Errorf("create pvc for namespace: %s, fsId: %s, pv: %s, err: %v", namespace, fsId, pv, err)
 		return err
 	}
 	return nil

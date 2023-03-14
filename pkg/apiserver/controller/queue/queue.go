@@ -285,7 +285,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 
 	// create namespace if not exist in cluster
 	switch clusterInfo.ClusterType {
-	case schema.KubernetesType:
+	case schema.KubernetesType, schema.K3SType:
 		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 		if _, err = k8sRuntime.CreateNamespace(request.Namespace, metav1.CreateOptions{}); err != nil {
 			ctx.ErrorCode = common.InternalError
