@@ -60,7 +60,7 @@ func newFileClient(config Config) DataCacheClient {
 		expire: config.Expire,
 	}
 
-	if err := os.MkdirAll(config.CachePath, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(d.dir, CacheDir), 0755); err != nil {
 		log.Errorf("newFileClient os.MkdirAll [%s] err: %v", config.CachePath, err)
 		return nil
 	}
@@ -112,7 +112,6 @@ func (c *fileDataCache) save(key string, buf []byte) {
 		return
 	}
 	cacheSize := int64(len(buf))
-	// 清理之后还是没有足够的容量，则跳过
 	if c.used+cacheSize >= c.capacity {
 		return
 	}
@@ -157,14 +156,12 @@ func (c *fileDataCache) delete(key string) {
 	if ok {
 		c.keys.Delete(key)
 	}
-	if path != "" {
-		_ = deleteCachePool.Submit(func() {
-			err := os.Remove(path)
-			if err != nil {
-				log.Debugf("delete cache remove err: %v", err)
-			}
-		})
-	}
+	_ = deleteCachePool.Submit(func() {
+		err := os.Remove(path)
+		if err != nil {
+			log.Debugf("delete cache remove err: %v", err)
+		}
+	})
 }
 
 func (c *fileDataCache) clean() {
@@ -239,7 +236,7 @@ func (c *fileDataCache) exist(key string) bool {
 func (c *fileDataCache) updateCapacity() error {
 	output, err := utils.ExecCmdWithTimeout("df", []string{"-k", c.dir})
 	if err != nil {
-		log.Errorf("df %s %v ", c.dir, err)
+		log.Debugf("df %s %v ", c.dir, err)
 		return err
 	}
 

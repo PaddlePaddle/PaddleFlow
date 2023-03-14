@@ -941,15 +941,10 @@ func (fs *s3FileSystem) Get(name string, flags uint32, off, limit int64) (io.Rea
 		request.Range = &r
 	}
 
-	var response *s3.GetObjectOutput
-	var err error
-	for i := 0; i < 3; i++ {
-		response, err = fs.s3.GetObject(request)
-		if err != nil {
-			log.Errorf("s3 get[%v]: s3.GetObject[%s] off[%d] limit[%d] err: %v ", i, name, off, limit, err)
-		} else {
-			break
-		}
+	response, err := fs.s3.GetObject(request)
+	if err != nil {
+		log.Errorf("s3 get: s3.GetObject[%s] off[%d] limit[%d] err: %v ", name, off, limit, err)
+		return nil, err
 	}
 	return response.Body, err
 }
@@ -1351,7 +1346,6 @@ func tidySubpath(subpath string) string {
 }
 
 func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	log.Tracef("NewS3FileSystem: %+v", properties)
 	endpoint := properties[fsCommon.Endpoint].(string)
 	accessKey := properties[fsCommon.AccessKey].(string)
 	secretKey := properties[fsCommon.SecretKey].(string)
