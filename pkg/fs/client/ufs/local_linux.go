@@ -31,7 +31,7 @@ import (
 // If the filesystem wants to implement hard-links, it should
 // return consistent non-zero FileInfo.Ino data.  Using
 // hardlinks incurs a performance hit.
-func (fs *localFileSystem) GetAttr(name string) (*base.FileInfo, error) {
+func (fs *LocalFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	fullPath := fs.GetPath(name)
 	var err error = nil
 	st := syscall.Stat_t{}
@@ -61,7 +61,7 @@ func (fs *localFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	}, nil
 }
 
-func (fs *localFileSystem) Access(name string, mode, callerUid, callerGid uint32) error {
+func (fs *LocalFileSystem) Access(name string, mode, callerUid, callerGid uint32) error {
 	finfo, err := fs.GetAttr(name)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (fs *localFileSystem) Access(name string, mode, callerUid, callerGid uint32
 }
 
 // Extended attributes.
-func (fs *localFileSystem) GetXAttr(name string, attribute string) (data []byte, err error) {
+func (fs *LocalFileSystem) GetXAttr(name string, attribute string) (data []byte, err error) {
 	var dest []byte
 	if _, err := syscall.Getxattr(fs.GetPath(name), attribute, dest); err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (fs *localFileSystem) GetXAttr(name string, attribute string) (data []byte,
 	return dest, nil
 }
 
-func (fs *localFileSystem) ListXAttr(name string) (attributes []string, err error) {
+func (fs *LocalFileSystem) ListXAttr(name string) (attributes []string, err error) {
 	var dest []byte
 	if _, err := syscall.Listxattr(fs.GetPath(name), dest); err != nil {
 		return nil, err
@@ -98,15 +98,15 @@ func (fs *localFileSystem) ListXAttr(name string) (attributes []string, err erro
 	return
 }
 
-func (fs *localFileSystem) RemoveXAttr(name string, attr string) error {
+func (fs *LocalFileSystem) RemoveXAttr(name string, attr string) error {
 	return syscall.Removexattr(fs.GetPath(name), attr)
 }
 
-func (fs *localFileSystem) SetXAttr(name string, attr string, data []byte, flags int) error {
+func (fs *LocalFileSystem) SetXAttr(name string, attr string, data []byte, flags int) error {
 	return syscall.Setxattr(fs.GetPath(name), attr, data, flags)
 }
 
-func (fs *localFileSystem) Utimens(name string, Atime *time.Time, Mtime *time.Time) error {
+func (fs *LocalFileSystem) Utimens(name string, Atime *time.Time, Mtime *time.Time) error {
 	var tv []syscall.Timeval
 
 	tv = append(tv, syscall.Timeval{
