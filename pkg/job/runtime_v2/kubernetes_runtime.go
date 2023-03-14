@@ -379,7 +379,10 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk schema.GroupVers
 }
 
 func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
-	pv := config.DefaultPV
+	pv := &corev1.PersistentVolume{}
+	if err := copier.Copy(pv, config.DefaultPV); err != nil {
+		return "", err
+	}
 	pv.Name = pfschema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
