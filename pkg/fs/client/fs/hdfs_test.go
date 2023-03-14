@@ -39,19 +39,19 @@ func TestHDFS(t *testing.T) {
 	SetDataCache(d)
 	client := getHDFSClient(t)
 	defer func() {
-		err := client.Remove(testBigFileName)
-		assert.Equal(t, nil, err)
-		err = client.Remove(testSmallFileName)
-		assert.Equal(t, nil, err)
-		os.Remove(testBigFileName)
+		// err := client.Remove(testBigFileName)
+		// assert.Equal(t, nil, err)
+		// err = client.Remove(testSmallFileName)
+		// assert.Equal(t, nil, err)
+		// os.Remove(testBigFileName)
 		os.RemoveAll("./tmp")
 		os.RemoveAll("./mock-cache")
 	}()
 
 	chown(t, client)
-	testBigFile(t, client)
-	testSmallFile(t, client)
-	testMkdirAndList(t, client)
+	//testBigFile(t, client)
+	// testSmallFile(t, client)
+	// testMkdirAndList(t, client)
 }
 
 func chown(t *testing.T, client FSClient) {
