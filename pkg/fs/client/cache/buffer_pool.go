@@ -19,6 +19,8 @@ package cache
 import (
 	"errors"
 	"io"
+	"math"
+	"math/rand"
 	"runtime"
 	"runtime/debug"
 	"sync"
@@ -27,11 +29,15 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"github.com/shirou/gopsutil/v3/mem"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 // todo:: cacheBuf may be block, can use ringbuf
 var cacheChan = make(chan *Page, 2000)
 var cacheGoPool, _ = ants.NewPool(5)
+var lastFreeOSMemoryMemPercent = float64(0)
+var freeI int
 
 func init() {
 	var count = 0
@@ -51,10 +57,29 @@ func init() {
 	}()
 	go func() {
 		for {
-			debug.FreeOSMemory()
-			time.Sleep(5 * time.Second)
+			freeMemory()
+			time.Sleep(10 * time.Second)
 		}
 	}()
+}
+
+func freeMemory() {
+	mp := utils.GetProcessMemPercent() / 100
+	freeI += 1
+	// 60s force gc || 30% memory
+	if freeI > 5 {
+		debug.FreeOSMemory()
+		freeI = 0
+	} else if mp > 0.3 {
+		if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || freeI >= 3 {
+			debug.FreeOSMemory()
+			time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
+			lastFreeOSMemoryMemPercent = float64(mp)
+			freeI = 0
+		} else {
+			freeI += 1
+		}
+	}
 }
 
 type Page struct {
@@ -161,10 +186,12 @@ func (p *Page) setCache() {
 
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	if int(offset) > cap(p.buffer) {
+		log.Errorf("offset > cap(p.buffer) with offset %d cap(p.fuffer) %d", offset, cap(p.buffer))
 		return 0, io.EOF
 	}
 	if int(offset) > len(p.buffer) || int(offset) >= p.writeLength {
 		if p.ready {
+			log.Debugf("read from buffer empty with offset %d b.fuffer %d writelength %d", offset, cap(p.buffer), p.writeLength)
 			return 0, io.EOF
 		}
 		// page not ready
@@ -181,7 +208,14 @@ func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	if p.writeLength >= cap(p.buffer) {
 		return 0, err
 	}
-	n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+	for i := 0; i < 3; i++ {
+		n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+			log.Errorf("WriteFrom reader read[%d] err %v", i, err)
+		} else {
+			break
+		}
+	}
 	p.lock.Lock()
 	p.writeLength += n
 	p.lock.Unlock()
@@ -251,6 +285,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 			b.reader, b.err = r()
 			b.cond.Broadcast()
 			if b.err != nil {
+				log.Errorf("reader with err: %v", b.err)
 				b.mu.Unlock()
 				break
 			}
@@ -301,7 +336,14 @@ func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 			return 0, errors.New("reader and err are both nil")
 		}
 		err = b.err
+		if err != nil {
+			log.Errorf("reader nil with err: %v", b.err)
+		}
 		return
+	}
+	if b.err != nil && b.err != io.EOF && b.err != io.ErrUnexpectedEOF {
+		log.Errorf("read from io reader with err %v", b.err)
+		return n, b.err
 	}
 
 	if b.page != nil {

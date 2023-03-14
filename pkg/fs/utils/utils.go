@@ -26,6 +26,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -33,6 +40,18 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
+
+var p *process.Process
+
+func init() {
+	// NewProcess 会返回一个持有PID的Process对象，方法会检查PID是否存在，如果不存在会返回错误
+	// 通过Process对象上定义的其他方法我们可以获取关于进程的各种信息。
+	var err error
+	p, err = process.NewProcess(int32(os.Getpid()))
+	if err != nil {
+		panic(err)
+	}
+}
 
 const (
 	VolumePluginName       = "kubernetes.io~csi"
@@ -271,4 +290,34 @@ func ProcessCacheConfig(fsCacheBase64 string) (model.FSCacheConfig, error) {
 		return model.FSCacheConfig{}, err
 	}
 	return cacheConfig, nil
+}
+
+func GetSysCpuPercent() float64 {
+	percent, _ := cpu.Percent(time.Second, false)
+	return percent[0]
+}
+
+func GetSysMemPercent() (uint64, float64) {
+	memInfo, _ := mem.VirtualMemory()
+	return memInfo.Available / 1024 / 1024, memInfo.UsedPercent
+}
+
+func GetProcessCPUPercent() float64 {
+	cpuPercent, err := p.Percent(time.Second)
+	if err != nil {
+		log.Errorf("GetProcessCPUPercent error %v", err)
+		return 0
+	}
+	return cpuPercent
+}
+
+func GetProcessMemPercent() float32 {
+	mp, _ := p.MemoryPercent()
+	return mp
+}
+
+func GetDiskPercent() float64 {
+	parts, _ := disk.Partitions(true)
+	diskInfo, _ := disk.Usage(parts[0].Mountpoint)
+	return diskInfo.UsedPercent
 }

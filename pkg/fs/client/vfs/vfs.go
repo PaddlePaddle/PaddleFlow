@@ -109,7 +109,6 @@ func WithDataCacheConfig(data cache.Config) Option {
 
 func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	config *Config, registry *prometheus.Registry) (*VFS, error) {
-	log.Infof("InitVFS fsMeta %+v config %+v", fsMeta, config)
 	vfs := &VFS{
 		fsMeta:   fsMeta,
 		registry: registry,
@@ -144,7 +143,6 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	if global {
 		vfsop = vfs
 	}
-	err = vfs.Meta.InitRootInode()
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +212,7 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 }
 
 func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
-	log.Tracef("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
+	log.Debugf("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
 
 	// only truncate opened files
 	if set&meta.FATTR_SIZE != 0 {
