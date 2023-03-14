@@ -296,11 +296,17 @@ func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cum
 }
 
 func (v *VFS) Unlink(ctx *meta.Context, parent Ino, name string) (err syscall.Errno) {
+	if IsSpecialName(name) {
+		return
+	}
 	err = v.Meta.Unlink(ctx, parent, name)
 	return err
 }
 
 func (v *VFS) Rmdir(ctx *meta.Context, parent Ino, name string) (err syscall.Errno) {
+	if IsSpecialName(name) || name == "/" {
+		return
+	}
 	err = v.Meta.Rmdir(ctx, parent, name)
 	return err
 }
