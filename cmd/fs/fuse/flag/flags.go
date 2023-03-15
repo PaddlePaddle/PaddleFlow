@@ -23,8 +23,8 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
@@ -73,7 +73,7 @@ func BasicFlags() []cli.Flag {
 	}
 }
 
-func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
+func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "data-cache-path",
@@ -140,7 +140,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	}
 }
 
-func MountFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
+func MountFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "mount-point",
@@ -194,7 +194,7 @@ func LinkFlags() []cli.Flag {
 	}
 }
 
-func UserFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
+func UserFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "user-name",

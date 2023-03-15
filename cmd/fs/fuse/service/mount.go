@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -70,11 +69,11 @@ var logConf = logger.LogConfig{
 
 func CmdMount() *cli.Command {
 	compoundFlags := [][]cli.Flag{
-		flag.MountFlags(fuse.FuseConf),
+		flag.MountFlags(meta.FuseConf),
 		flag.LinkFlags(),
 		flag.BasicFlags(),
-		flag.CacheFlags(fuse.FuseConf),
-		flag.UserFlags(fuse.FuseConf),
+		flag.CacheFlags(meta.FuseConf),
+		flag.UserFlags(meta.FuseConf),
 		logger.LogFlags(&logConf),
 		monitor.MetricsFlags(),
 	}
@@ -321,7 +320,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		}
 		fsMeta.UfsType = fsMeta.Type
 		fsMeta.Type = "fs"
-		log.Infof("fuse meta is %+v", fsMeta)
 		links = map[string]common.FSMeta{}
 	} else {
 		fsID := c.String("fs-id")
@@ -422,20 +420,9 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		vfs.WithDataCacheConfig(d),
 		vfs.WithMetaConfig(m),
 	}
-	if !fuse.FuseConf.RawOwner {
-		vfsOptions = append(vfsOptions, vfs.WithOwner(
-			uint32(fuse.FuseConf.Uid),
-			uint32(fuse.FuseConf.Gid)))
-	}
+
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 
-	properties := fsMeta.Properties
-	if properties[common.FileMode] == "" {
-		properties[common.FileMode] = strconv.Itoa(fuse.FuseConf.FileMode)
-	}
-	if properties[common.DirMode] == "" {
-		properties[common.DirMode] = strconv.Itoa(fuse.FuseConf.DirMode)
-	}
 	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig, registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
