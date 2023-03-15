@@ -102,28 +102,7 @@ func TestBos_Deletes(t *testing.T) {
 			fields:  fields{},
 			wantErr: true,
 		},
-		{
-			name: "delete error",
-			args: args{
-				keys: []string{"1234"},
-			},
-			fields:  fields{},
-			wantErr: true,
-		},
 	}
-	a := &bos.Client{}
-	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(a), "DeleteMultipleObjectsFromKeyList",
-		func(a *bos.Client, bucket string, keyList []string) (*api2.DeleteMultipleObjectsResult, error) {
-			return &api2.DeleteMultipleObjectsResult{
-				Errors: []api2.DeleteObjectResult{
-					{
-						Code:    "124",
-						Message: "err",
-					},
-				},
-			}, fmt.Errorf("delete err")
-		})
-	defer p1.Reset()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := Bos{

@@ -320,7 +320,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		}
 		fsMeta.UfsType = fsMeta.Type
 		fsMeta.Type = "fs"
-		log.Infof("fuse meta is %+v", fsMeta)
 		links = map[string]common.FSMeta{}
 	} else {
 		fsID := c.String("fs-id")
