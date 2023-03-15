@@ -2257,9 +2257,16 @@ spec:
         - --service
         - volcano-admission-service
         - --namespace
-        - volcano-system
+        - $(K8Sns)
         - --secret
         - volcano-admission-secret
+        env:
+        - name: "K8Sns"
+          valueFrom:
+              fieldRef:
+                  fieldPath: metadata.namespace
+        securityContext:
+          privileged: false
         securityContext:
           privileged: false
         #服务的环境变量，list形式，根据服务情况增加或删减
