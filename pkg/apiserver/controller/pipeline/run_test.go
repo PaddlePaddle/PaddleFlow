@@ -1019,3 +1019,28 @@ func TestRestartWf(t *testing.T) {
 	_, ok := wfMap.Load(id)
 	assert.True(t, ok)
 }
+
+func TestInitAndResumeRuns(t *testing.T) {
+	patch := gomonkey.ApplyFunc(resumeActiveRuns, func() error {
+		return nil
+	})
+	defer patch.Reset()
+
+	err := InitAndResumeRuns()
+	assert.Nil(t, err)
+}
+
+func TestResumeActiveRuns(t *testing.T) {
+	patch := gomonkey.ApplyFunc(models.ListRunsByStatus, func(logEntry *log.Entry, statusList []string) ([]models.Run, error) {
+		return []models.Run{models.Run{}}, nil
+	})
+	defer patch.Reset()
+
+	patch2 := gomonkey.ApplyFunc(restartRun, func(ctx *logger.RequestContext, run models.Run, isResume bool) (string, error) {
+		return "", nil
+	})
+	defer patch2.Reset()
+
+	err := resumeActiveRuns()
+	assert.Nil(t, err)
+}

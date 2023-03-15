@@ -96,6 +96,12 @@ func start() error {
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
 	defer ServerCancel()
 
+	err := pipeline.InitAndResumeRuns()
+	if err != nil {
+		log.Errorf("InitAndResumePipeline failed. error: %v", err)
+		return err
+	}
+
 	globalScheduler := pipeline.GetGlobalScheduler()
 	go globalScheduler.Start()
 
