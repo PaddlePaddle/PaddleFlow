@@ -12,6 +12,7 @@ import (
 	"github.com/baidubce/bce-sdk-go/services/sts"
 	sts_api "github.com/baidubce/bce-sdk-go/services/sts/api"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -81,9 +82,16 @@ func (storage Bos) Deletes(keys []string) error {
 		log.Errorf("delete keys empty")
 		return fmt.Errorf("delete keys empty")
 	}
-	result, err := storage.bosClient.DeleteMultipleObjectsFromKeyList(storage.bucket, keys)
-	// bos delete ok return eof
-	if result != nil && len(result.Errors) != 0 {
+	var group errgroup.Group
+	for i := 0; i < numObjs; i++ {
+		tmp := i
+		group.Go(func() error {
+			err := storage.bosClient.DeleteObject(storage.bucket, keys[tmp])
+			return err
+		})
+	}
+	err := group.Wait()
+	if err != nil {
 		log.Errorf("bos.Deletes keys[%v] err: %v", keys, err)
 		return err
 	}

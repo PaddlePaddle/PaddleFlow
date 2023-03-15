@@ -23,7 +23,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -99,7 +98,6 @@ type Meta interface {
 
 	// Name of database
 	Name() string
-	InitRootInode() error
 	InoToPath(inode Ino) string
 
 	SetOwner(uid, gid uint32)
@@ -175,7 +173,7 @@ type Meta interface {
 }
 
 func (a *Attr) IsDir() bool {
-	return utils.StatModeToFileMode(int(a.Mode)).IsDir()
+	return a.Type == TypeDirectory
 }
 
 func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Config) (Meta, error) {

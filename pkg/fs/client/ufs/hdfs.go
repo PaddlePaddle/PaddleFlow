@@ -34,7 +34,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -43,9 +42,6 @@ const (
 	DefaultReplication = 3
 	abcException       = "org.apache.hadoop.hdfs.protocol.AlreadyBeingCreatedException"
 )
-
-var superuser = "hdfs"
-var supergroup = "supergroup"
 
 var bufPool = sync.Pool{
 	New: func() interface{} {
@@ -99,27 +95,9 @@ func (fs *hdfsFileSystem) statFromFileInfo(fileInfo os.FileInfo) *syscall.Stat_t
 	size := fileInfo.Size()
 	nlink := 0
 
-	var perm uint32
-	perm = syscall.S_IFREG | 0666
-	if fileInfo.IsDir() {
-		size = 4096
-		nlink = 1
-		perm = syscall.S_IFDIR | 0777
-	}
-
-	if *protoBufData.GetPermission().Perm > 0 {
-		perm = syscall.S_IFREG
-		if fileInfo.IsDir() {
-			perm = syscall.S_IFDIR
-		}
-		perm |= *protoBufData.GetPermission().Perm
-	}
-
-	uid := uint32(utils.LookupUser(*protoBufData.Owner))
-	gid := uint32(utils.LookupGroup(*protoBufData.Group))
 	blocks := int64(size / 512)
 
-	st := fillStat(uint64(nlink), perm, uid, gid, size, 512, blocks, aTime, mTime, mTime)
+	st := fillStat(uint64(nlink), 0, 0, 0, size, 512, blocks, aTime, mTime, mTime)
 	st.Ino = *protoBufData.FileId
 	return &st
 }
@@ -156,12 +134,6 @@ func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 		Sys:   *fs.statFromFileInfo(hinfo),
 	}
 
-	if f.Owner == superuser {
-		f.Owner = "root"
-	}
-	if f.Group == supergroup {
-		f.Group = "root"
-	}
 	// stickybit from HDFS is different than golang
 	if f.Mode&01000 != 0 {
 		f.Mode &= ^os.FileMode(01000)
@@ -179,6 +151,8 @@ func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 // These should update the file's ctime too.
 func (fs *hdfsFileSystem) Chmod(name string, mode uint32) error {
+	// meta support chmod not need hdfs chmod
+	return nil
 	log.Tracef("hdfs chmod: name[%s], mode[%d]", name, mode)
 	fs.Lock()
 	defer fs.Unlock()
@@ -186,25 +160,29 @@ func (fs *hdfsFileSystem) Chmod(name string, mode uint32) error {
 }
 
 func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
+	// meta support chown not need hdfs chmod
+	return nil
 	log.Tracef("hdfs chown: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
-	u, err := user.Current()
+	u, err := user.LookupId(fmt.Sprint(uid))
+	var owner, groupname string
 	if err != nil {
+		log.Errorf("Chown: username for uid %v %s", uid, "not found, use uid/gid instead")
 		return err
 	}
-
-	owner := u.Username
-	group := u.Name
-	if owner == "root" {
-		owner = superuser
+	owner = u.Username
+	g, err := user.LookupGroup(fmt.Sprint(gid))
+	if err != nil {
+		log.Errorf("Chown: username for gid %v %s", uid, "not found, use uid/gid instead")
+		groupname = owner
+	} else {
+		groupname = g.Name
 	}
 
-	if group == "root" {
-		group = supergroup
-	}
+	log.Debugf("chown owner %s group %s", owner, groupname)
 
-	return fs.client.Chown(fs.GetPath(name), owner, group)
+	return fs.client.Chown(fs.GetPath(name), owner, groupname)
 }
 
 func (fs *hdfsFileSystem) Utimens(name string, atime, mtime *time.Time) error {
@@ -459,6 +437,9 @@ func (fs *hdfsFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 
 	for i, fileInfo := range files {
 		attr := fs.sysHdfsToAttr(fileInfo)
+		if fileInfo.IsDir() {
+			attr.Size = 4096
+		}
 		allAttrs[i] = DirEntry{
 			Name: fileInfo.Name(),
 			Attr: &attr,
