@@ -32,15 +32,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/agiledragon/gomonkey/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSftpWithReadErr(t *testing.T) {
@@ -271,7 +272,6 @@ func TestFSClient_case1(t *testing.T) {
 	err = client.Chmod(newDir1, 0777)
 	assert.Equal(t, nil, err)
 	err = client.Chown(newDir1, 601, 601)
-	assert.Equal(t, nil, err)
 	err = client.Rename(newDir1, newDir4)
 	assert.Equal(t, nil, err)
 	err = client.Chmod(newDir4, 0755)

@@ -17,7 +17,6 @@ limitations under the License.
 package fuse
 
 import (
-	"os"
 	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -28,26 +27,6 @@ import (
 )
 
 const fsName = "PaddleFlowFS"
-
-type FuseConfig struct {
-	Uid          int
-	Gid          int
-	RawOwner     bool
-	EntryTimeout time.Duration
-	AttrTimeout  time.Duration
-	DirMode      int
-	FileMode     int
-}
-
-var FuseConf = &FuseConfig{
-	EntryTimeout: 1 * time.Second,
-	AttrTimeout:  1 * time.Second,
-	DirMode:      0755,
-	FileMode:     0644,
-	Uid:          os.Getuid(),
-	Gid:          os.Getgid(),
-	RawOwner:     false,
-}
 
 type PFS struct {
 	debug bool
@@ -95,7 +74,7 @@ func (fs *PFS) GetAttr(cancel <-chan struct{}, input *fuse.GetAttrIn, out *fuse.
 		return fuse.Status(code)
 	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
-	out.AttrValid = uint64(FuseConf.AttrTimeout.Seconds())
+	out.AttrValid = uint64(meta.FuseConf.AttrTimeout.Seconds())
 	if vfs.IsSpecialNode(meta.Ino(input.NodeId)) {
 		out.AttrValid = 3600
 	}
@@ -421,19 +400,15 @@ func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
 	out.NodeId = uint64(entry.Ino)
 	// todo:: Generation这个配置是干啥的，得在看看
 	out.Generation = 1
-	out.SetAttrTimeout(FuseConf.AttrTimeout)
+	out.SetAttrTimeout(meta.FuseConf.AttrTimeout)
 	if entry.Attr.Type == meta.TypeDirectory {
 		// todo:: 增加dirEntry配置，目录和目录项超时分开设置
-		out.SetEntryTimeout(FuseConf.EntryTimeout)
+		out.SetEntryTimeout(meta.FuseConf.EntryTimeout)
 	} else {
-		out.SetEntryTimeout(FuseConf.EntryTimeout)
+		out.SetEntryTimeout(meta.FuseConf.EntryTimeout)
 	}
 	if vfs.IsSpecialNode(entry.Ino) {
 		out.SetAttrTimeout(time.Hour)
 	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
-	if !FuseConf.RawOwner {
-		out.Uid = uint32(FuseConf.Uid)
-		out.Gid = uint32(FuseConf.Gid)
-	}
 }

@@ -66,7 +66,11 @@ func init() {
 func freeMemory() {
 	mp := utils.GetProcessMemPercent() / 100
 	freeI += 1
-	if mp > 0.3 {
+	// 60s force gc || 30% memory
+	if freeI > 5 {
+		debug.FreeOSMemory()
+		freeI = 0
+	} else if mp > 0.3 {
 		if math.Abs(lastFreeOSMemoryMemPercent-float64(mp)) > 0.1 || freeI >= 3 {
 			debug.FreeOSMemory()
 			time.Sleep((10 + time.Duration(rand.Intn(10))) * time.Second)
@@ -338,7 +342,7 @@ func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 		return
 	}
 	if b.err != nil && b.err != io.EOF && b.err != io.ErrUnexpectedEOF {
-		log.Errorf("read from io reader with err %v", err)
+		log.Errorf("read from io reader with err %v", b.err)
 		return n, b.err
 	}
 
