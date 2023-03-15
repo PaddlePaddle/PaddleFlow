@@ -293,6 +293,15 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 				request.Namespace, request.ClusterName, err)
 			return CreateQueueResponse{}, err
 		}
+	case schema.K3SType:
+		k3sRuntime := runtimeSvc.(*runtime.K3SRuntimeService)
+		if _, err = k3sRuntime.CreateNamespace(request.Namespace, metav1.CreateOptions{}); err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
+				request.Namespace, request.ClusterName, err)
+			return CreateQueueResponse{}, err
+		}
+
 	default:
 		ctx.Logging().Warningf("pass create namespace on %s", clusterInfo.ClusterType)
 	}
@@ -629,6 +638,16 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 			kubeRuntime := runtimeSvc.(*runtime.KubeRuntime)
 			rQ := api.NewQueueInfo(queue)
 			usedResource, err = kubeRuntime.GetQueueUsedQuota(rQ)
+			if err != nil {
+				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
+				return GetQueueResponse{}, fmt.Errorf("get queue used quota failed, error: %v", err)
+			}
+		case schema.K3SType:
+			// k3s 默认返回单机上的信息，每个队列一样
+			k3sRuntime := runtimeSvc.(*runtime.K3SRuntimeService)
+			rQ := api.NewQueueInfo(queue)
+			usedResource, err = k3sRuntime.GetQueueUsedQuota(rQ)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
 				ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
