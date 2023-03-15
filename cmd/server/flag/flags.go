@@ -159,6 +159,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Destination: &jobConf.IsSingleCluster,
 		},
 		&cli.StringFlag{
+			Name:        "runtime-type",
+			Value:       "",
+			Usage:       "only used for k3s in single node,value is K3S(uppercase) or Kubernetes",
+			Destination: &jobConf.RuntimeType,
+		},
+		&cli.StringFlag{
 			Name:        "log-service-host",
 			Value:       jobConf.Log.ServiceHost,
 			Usage:       "the host of job log service",
