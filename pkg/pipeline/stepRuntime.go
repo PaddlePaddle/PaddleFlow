@@ -597,11 +597,14 @@ func (srt *StepRuntime) startJob() (err error) {
 	jobScheduleEndTime := time.Now()
 
 	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
+	srt.logger.Debugf("begin to launch job for step [%s]", srt.name)
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
 		return err
 	}
+
+	srt.logger.Debugf("job[%s] launched successfully for step[%s]", srt.job.JobID(), srt.name)
 
 	jobCreateEndTime := time.Now()
 	if config.GlobalServerConfig.Metrics.Enable {
