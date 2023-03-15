@@ -1096,7 +1096,7 @@ func resumeActiveRuns() error {
 	go func() {
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
-			if _, err := restartRun(&logger.RequestContext{}, run, true); err != nil {
+			if _, err := restartRun(&logger.RequestContext{UserName: run.UserName}, run, true); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
 		}
@@ -1288,4 +1288,8 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		wfMap.Store(run.ID, wfPtr)
 	}
 	return wfPtr, nil
+}
+
+func InitAndResumeRuns() error {
+	return resumeActiveRuns()
 }
