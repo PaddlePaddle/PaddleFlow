@@ -386,7 +386,7 @@ func TestInitDefaultClusters(t *testing.T) {
 				_, err := CreateCluster(tt.args.ctx, tt.args.createClusterReq)
 				assert.NoError(t, err)
 			}
-			err := InitDefaultCluster()
+			err := InitDefaultCluster(schema.KubernetesType)
 			if tt.expectedErr != nil && assert.Error(t, err) {
 				t.Logf("got error %v", err)
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
@@ -409,7 +409,7 @@ func TestListClusterQuota(t *testing.T) {
 	krc := client.NewFakeKubeRuntimeClient(server)
 	clientset := fakedclient.NewSimpleClientset()
 
-	//CreateRuntime
+	// CreateRuntime
 	e1 := &runtime.KubeRuntime{}
 	patch4 := gomonkey.ApplyPrivateMethod(e1, "BuildConfig", func() (*rest.Config, error) {
 		return krc.Config, nil
