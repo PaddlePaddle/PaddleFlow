@@ -44,6 +44,8 @@ func init() {
 const MiB int64 = 1024 * 1024
 const GiB int64 = 1024 * 1024 * 1024
 
+var duration int
+
 var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChunkSize) }}
 
 type objectFileSystem struct {
@@ -1309,10 +1311,10 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}
 			bosClient.Config.Credentials = stsCredential
 
+			duration = sts.Duration
 			// update sts Credentials
 			go func() {
 				for {
-					duration := sts.Duration
 					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
 
 					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
