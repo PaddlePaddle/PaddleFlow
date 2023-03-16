@@ -133,10 +133,9 @@ func (storage Bos) Head(key string) (*HeadObjectOutput, error) {
 func (storage Bos) List(input *ListInput) (*ListBlobsOutput, error) {
 	log.Tracef("bos.List param[%+v]", input)
 	request := &api.ListObjectsArgs{
-		Prefix:    input.Prefix,
-		MaxKeys:   int(input.MaxKeys),
-		Marker:    input.ContinuationToken,
-		Delimiter: "",
+		Prefix:  input.Prefix,
+		MaxKeys: int(input.MaxKeys),
+		Marker:  input.ContinuationToken,
 	}
 	if input.Delimiter != "" {
 		request.Delimiter = input.Delimiter
