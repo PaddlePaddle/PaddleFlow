@@ -226,7 +226,6 @@ func (c *PFSClient) removeAll(path string) error {
 	if utils.EndsWithDot(path) {
 		return &os.PathError{Op: "RemoveAll", Path: path, Err: syscall.EINVAL}
 	}
-
 	parent, err := c.pfs.Open(path)
 	if os.IsNotExist(err) {
 		// If parent does not exist, base cannot exist. Fail silently
@@ -236,8 +235,10 @@ func (c *PFSClient) removeAll(path string) error {
 		log.Errorf("Open[%s] failed: %v", path, err)
 		return err
 	}
+	if !parent.attr.isDir {
+		return c.Remove(path)
+	}
 	defer parent.Close()
-
 	dirs, err := parent.Readdirnames(-1)
 	if err != nil {
 		log.Errorf("Readdirnames failed: %v", err)
@@ -251,7 +252,9 @@ func (c *PFSClient) removeAll(path string) error {
 	}
 
 	// 子目录删除完成后，要删除父目录
-	err = c.Remove(path)
+	if path != "/" {
+		err = c.Remove(path)
+	}
 	return err
 }
 
