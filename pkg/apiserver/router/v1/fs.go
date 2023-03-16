@@ -314,11 +314,19 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		}
 
 		if req.Properties[fsCommon.Sts] == "true" {
-			duration, _ := strconv.Atoi(req.Properties[fsCommon.StsDuration])
-			if duration < 60 {
+			if req.Properties[fsCommon.StsDuration] == "" {
 				req.Properties[fsCommon.StsDuration] = util.StsDurationDefault
 			}
-			_, err := object.StsSessionToken(req.Properties[fsCommon.AccessKey], req.Properties[fsCommon.SecretKey], 10, req.Properties[fsCommon.StsACL])
+			duration, err := strconv.Atoi(req.Properties[fsCommon.StsDuration])
+			if err != nil {
+				log.Errorf(err.Error())
+				return err
+			}
+
+			if duration < 60 || duration > 129600 {
+				return fmt.Errorf("duration must be in [60,129600]")
+			}
+			_, err = object.StsSessionToken(req.Properties[fsCommon.AccessKey], req.Properties[fsCommon.SecretKey], 10, req.Properties[fsCommon.StsACL])
 			if err != nil {
 				log.Errorf("StsSessionToken properties[%v]: err[%v]", req.Properties, err)
 				return err
