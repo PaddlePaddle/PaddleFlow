@@ -394,3 +394,12 @@ func (k3srs *K3SRuntimeService) getNodeQuotaListImpl(subQuotaFn func(r *resource
 
 	return summary, result, nil
 }
+
+func (k3srs *K3SRuntimeService) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
+	return getQueueUsedQuota(k3srs.String(), k3srs.clientSet(), q)
+}
+
+// CreateNamespace Create namespace if not exist
+func (k3srs *K3SRuntimeService) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+	return createNamespace(k3srs.clientSet(), namespace, opts)
+}

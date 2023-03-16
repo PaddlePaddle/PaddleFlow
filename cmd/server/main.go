@@ -161,7 +161,11 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 		log.Errorf("init failed, err: %v", err)
 		return err
 	}
-	if err := cluster.InitDefaultCluster(); err != nil {
+	defaultClusterType := schema.KubernetesType
+	if serverConf.Job.RuntimeType == schema.K3SType {
+		defaultClusterType = schema.K3SType
+	}
+	if err := cluster.InitDefaultCluster(defaultClusterType); err != nil {
 		log.Errorf("initDefaultCluster failed, err: %v", err)
 		return err
 	}
