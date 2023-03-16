@@ -36,11 +36,10 @@ import (
 )
 
 const (
-	Mysql  = "mysql"
-	Sqlite = "sqlite"
-	// data init for sqllite
+	Mysql = "mysql"
+	// data init for sqlite
 	// default busy timeout 2 min
-	dsn              = "file:paddleflow.db?cache=shared&mode=rwc&_busy_timeout=120000"
+	dsn              = "file:paddleflow.db?cache=shared&mode=rwc&_busy_timeout=120000&case_sensitive_like=1"
 	rootUserName     = "root"
 	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
 )

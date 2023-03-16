@@ -92,13 +92,14 @@ func (fs *FlavourStore) ListFlavour(pk int64, maxKeys int, clusterID, queryKey s
 	query := fs.db.Table(model.FlavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
 
 	if clusterID != "" {
-		query.Where("`flavour`.`cluster_id` = ? or `flavour`.`cluster_id` = ''", clusterID)
-	} else {
-		query.Where("`flavour`.`cluster_id` = ''")
+		query.Where("`flavour`.`cluster_id` = ?", clusterID)
 	}
+	// else {
+	// 	query.Where("`flavour`.`cluster_id` = ''")
+	// }
 
 	if !strings.EqualFold(queryKey, "") {
-		query = query.Where("flavour.name like ?", "%"+queryKey+"%")
+		query = query.Where("flavour.name GLOB ?", "*"+queryKey+"*")
 	}
 	if maxKeys > 0 {
 		query = query.Limit(int(maxKeys))
