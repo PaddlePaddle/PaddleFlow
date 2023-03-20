@@ -28,62 +28,62 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-type localFileSystem struct {
+type LocalFileSystem struct {
 	subpath string
 }
 
-var _ UnderFileStorage = &localFileSystem{}
+var _ UnderFileStorage = &LocalFileSystem{}
 
 // Used for pretty printing.
-func (fs *localFileSystem) String() string {
+func (fs *LocalFileSystem) String() string {
 	return common.LocalType
 }
 
-func (fs *localFileSystem) GetPath(relPath string) string {
+func (fs *LocalFileSystem) GetPath(relPath string) string {
 	return filepath.Join(fs.subpath, relPath)
 }
 
 // These should update the file's ctime too.
-func (fs *localFileSystem) Chmod(name string, mode uint32) error {
+func (fs *LocalFileSystem) Chmod(name string, mode uint32) error {
 	return os.Chmod(fs.GetPath(name), os.FileMode(mode))
 }
 
-func (fs *localFileSystem) Chown(name string, uid uint32, gid uint32) error {
+func (fs *LocalFileSystem) Chown(name string, uid uint32, gid uint32) error {
 	return os.Chown(fs.GetPath(name), int(uid), int(gid))
 }
 
-func (fs *localFileSystem) Truncate(name string, size uint64) error {
+func (fs *LocalFileSystem) Truncate(name string, size uint64) error {
 	return os.Truncate(fs.GetPath(name), int64(size))
 }
 
 // Tree structure
-func (fs *localFileSystem) Link(oldName string, newName string) error {
+func (fs *LocalFileSystem) Link(oldName string, newName string) error {
 	return os.Link(fs.GetPath(oldName), fs.GetPath(newName))
 }
 
-func (fs *localFileSystem) Mkdir(name string, mode uint32) error {
+func (fs *LocalFileSystem) Mkdir(name string, mode uint32) error {
 	return os.Mkdir(fs.GetPath(name), os.FileMode(mode))
 }
 
-func (fs *localFileSystem) Mknod(name string, mode uint32, dev uint32) error {
+func (fs *LocalFileSystem) Mknod(name string, mode uint32, dev uint32) error {
 	return syscall.Mknod(fs.GetPath(name), mode, int(dev))
 }
 
-func (fs *localFileSystem) Rename(oldName string, newName string) error {
+func (fs *LocalFileSystem) Rename(oldName string, newName string) error {
 	oldPath := fs.GetPath(oldName)
 	newPath := fs.GetPath(newName)
 	return os.Rename(oldPath, newPath)
 }
 
-func (fs *localFileSystem) Rmdir(name string) error {
+func (fs *LocalFileSystem) Rmdir(name string) error {
 	return syscall.Rmdir(fs.GetPath(name))
 }
 
-func (fs *localFileSystem) Unlink(name string) error {
+func (fs *LocalFileSystem) Unlink(name string) error {
 	return syscall.Unlink(fs.GetPath(name))
 }
 
-func (fs *localFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+func (fs *LocalFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	// filter out append. The kernel layer will translate the
 	// offsets for us appropriately.
 	flags = flags &^ syscall.O_APPEND
@@ -103,13 +103,13 @@ func (fs *localFileSystem) Get(name string, flags uint32, off, limit int64) (io.
 	return reader, nil
 }
 
-func (fs *localFileSystem) Put(name string, reader io.Reader) error {
+func (fs *LocalFileSystem) Put(name string, reader io.Reader) error {
 	return nil
 }
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *localFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
+func (fs *LocalFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	// filter out append. The kernel layer will translate the
 	// offsets for us appropriately.
 	flags = flags &^ syscall.O_APPEND
@@ -120,14 +120,14 @@ func (fs *localFileSystem) Open(name string, flags uint32, size uint64) (FileHan
 	return newLocalFileHandle(f), nil
 }
 
-func (fs *localFileSystem) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
+func (fs *LocalFileSystem) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
 	return newLocalFileHandle(f), err
 }
 
 // Directory handling
-func (fs *localFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
+func (fs *LocalFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	// What other ways beyond O_RDONLY are there to open
 	// directories?
 	ofile, err := os.Open(fs.GetPath(name))
@@ -166,16 +166,16 @@ func (fs *localFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 }
 
 // Symlinks.
-func (fs *localFileSystem) Symlink(value string, linkName string) error {
+func (fs *LocalFileSystem) Symlink(value string, linkName string) error {
 	return os.Symlink(value, fs.GetPath(linkName))
 }
 
-func (fs *localFileSystem) Readlink(name string) (string, error) {
+func (fs *LocalFileSystem) Readlink(name string) (string, error) {
 	f, err := os.Readlink(fs.GetPath(name))
 	return f, err
 }
 
-func (fs *localFileSystem) StatFs(name string) *base.StatfsOut {
+func (fs *LocalFileSystem) StatFs(name string) *base.StatfsOut {
 	s := syscall.Statfs_t{}
 	err := syscall.Statfs(fs.GetPath(name), &s)
 	if err == nil {
@@ -270,7 +270,7 @@ func NewLocalFileSystem(properties map[string]interface{}) (UnderFileStorage, er
 		return nil, err
 	}
 
-	return &localFileSystem{
+	return &LocalFileSystem{
 		subpath: subpath,
 	}, nil
 }

@@ -99,16 +99,26 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				越界的情况，返回0，如off>=length||len(buf)==0
 			*/
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
-			if err != nil && err != syscall.ENOMEM {
-				log.Errorf("reader readat failed: %v", err)
-				return 0, syscall.EBADF
+			if err != nil && err != syscall.ENOMEM && err != io.EOF && err != io.ErrUnexpectedEOF {
+				log.Errorf("reader failed: %v", err)
+				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
+				if err != nil {
+					log.Errorf("read from stream with unexpected error: %v", err)
+					return 0, syscall.EBADF
+				}
+				if nread == 0 {
+					break
+				}
 			}
 			if err == syscall.ENOMEM {
 				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
-			}
-			if err != nil {
-				log.Errorf("read from stream failed: %v", err)
-				return 0, syscall.EBADF
+				if err != nil {
+					log.Errorf("read from stream with not ENOMEM failed: %v", err)
+					return 0, syscall.EBADF
+				}
+				if nread == 0 {
+					break
+				}
 			}
 			bytesRead += nread
 			fh.seqReadAmount += uint64(nread)
@@ -116,6 +126,10 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				break
 			}
 			off += uint64(nread)
+			if nread == 0 && (err == io.EOF || err == io.ErrUnexpectedEOF) {
+				log.Errorf("read EOF and nread == 0: %v len[%d] off[%d] path[%s] length[%d] ", err, len(buf), off, fh.path, fh.length)
+				break
+			}
 		}
 	} else {
 		if fh.fd == nil {
@@ -156,6 +170,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 		log.Debugf("stream reader err %v", err)
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
+			return 0, err
 		}
 		// always retry
 		_ = fh.streamReader.Close()
@@ -201,6 +216,7 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	if d.store == nil {
 		fd, err := ufs.Open(path, syscall.O_RDONLY, length)
 		if err != nil {
+			log.Errorf("data reader path[%s] err[%v]", path, err)
 			return nil, err
 		}
 		f.fd = fd

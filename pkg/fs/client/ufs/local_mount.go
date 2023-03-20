@@ -212,18 +212,36 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 	addr := properties[common.Address].(string)
 	subpath := properties[common.SubPath].(string)
 
+	var output []byte
 	switch mountType {
 	case common.GlusterFSType:
 		sourcePath = addr + ":" + subpath
 		args = []string{"-t", "glusterfs"}
 	case common.CFSType:
-		sourcePath = filepath.Join(addr, subpath) + "/"
 		args = []string{"-t", "nfs4", "-o", cfsMountParam}
+		rootPath := addr + ":/"
+		output, err = utils.ExecMount(rootPath, localPath, args)
+		if err != nil {
+			log.Errorf("exec %s mount cmd failed: %v, output[%s]", mountType, err, string(output))
+			os.Remove(localPath)
+			return nil, err
+		}
+		err = os.MkdirAll(filepath.Join(localPath, subpath), 0755)
+		if err != nil {
+			log.Errorf("exec %s mkdir cmd failed: %v", mountType, err)
+			return nil, err
+		}
+		err = utils.ManualUnmount(localPath)
+		if err != nil {
+			log.Debugf("manual unmount mountPoint[%s] failed: %v", localPath, err)
+			return nil, err
+		}
+		sourcePath = addr + ":" + subpath + "/"
 	default:
 		return nil, fmt.Errorf("type[%s] is not exist", mountType)
 	}
 
-	output, err := utils.ExecMount(sourcePath, localPath, args)
+	output, err = utils.ExecMount(sourcePath, localPath, args)
 	if err != nil {
 		log.Errorf("exec %s mount cmd failed: %v, output[%s]", mountType, err, string(output))
 		os.Remove(localPath)
@@ -253,5 +271,5 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 
 func init() {
 	RegisterUFS(common.GlusterFSType, NewLocalMountFileSystem)
-	RegisterUFS(common.CFSType, NewLocalFileSystem)
+	RegisterUFS(common.CFSType, NewLocalMountFileSystem)
 }
