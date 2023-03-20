@@ -176,6 +176,7 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 			FsScope = "/"
 		}
 
+		cc.logger.Debugf("fsScope: %v", FsScope)
 		for _, path := range strings.Split(FsScope, ",") {
 			path = strings.TrimSpace(path)
 			if path == "" {

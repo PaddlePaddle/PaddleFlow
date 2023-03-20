@@ -115,6 +115,8 @@ var NewFsHandlerWithServer = func(fsID string, logEntry *log.Entry) (*FsHandler,
 		fsHandler.log = logEntry
 		break
 	}
+
+	logEntry.Debugf("new a FsHandler with fsID[%s] successfully", fsID)
 	if fsClientError != nil {
 		return nil, fsClientError
 	}
@@ -214,6 +216,7 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 // 获取 path 下所有文件和目录（包括path本身）的最新的 mtime
 func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
 	ok, err := fh.fsClient.IsDir(path)
+	fh.log.Debugf("begin to get the last modtime of path[%s] with fsId[%s]", path, fh.fsID)
 	if err != nil {
 		fh.log.Debugf("cannot get the type of path[%s] with fsId[%s]: %s", path, fh.fsID, err.Error())
 		return time.Time{}, err
