@@ -1,6 +1,7 @@
 package object
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -20,8 +21,9 @@ const (
 )
 
 type Bos struct {
-	bucket    string
-	bosClient *bos.Client
+	bucket     string
+	bosClient  *bos.Client
+	startBySts bool
 }
 
 func StsSessionToken(ak string, sk string, duration int, acl string) (*sts_api.GetSessionTokenResult, error) {
@@ -39,8 +41,8 @@ func StsSessionToken(ak string, sk string, duration int, acl string) (*sts_api.G
 	return result, nil
 }
 
-func NewBosClient(bucket string, bos *bos.Client) Bos {
-	return Bos{bucket: bucket, bosClient: bos}
+func NewBosClient(bucket string, bos *bos.Client, startBySts bool) Bos {
+	return Bos{bucket: bucket, bosClient: bos, startBySts: startBySts}
 }
 
 func (storage Bos) String() string {
@@ -82,20 +84,47 @@ func (storage Bos) Deletes(keys []string) error {
 		log.Errorf("delete keys empty")
 		return fmt.Errorf("delete keys empty")
 	}
-	var group errgroup.Group
-	for i := 0; i < numObjs; i++ {
-		tmp := i
-		group.Go(func() error {
-			err := storage.bosClient.DeleteObject(storage.bucket, keys[tmp])
+
+	if storage.startBySts {
+		var group errgroup.Group
+		for i := 0; i < numObjs; i++ {
+			tmp := i
+			group.Go(func() error {
+				err := storage.bosClient.DeleteObject(storage.bucket, keys[tmp])
+				return err
+			})
+		}
+		err := group.Wait()
+		if err != nil {
+			log.Errorf("bos.Deletes keys[%v] err: %v", keys, err)
 			return err
-		})
+		}
+		return nil
 	}
-	err := group.Wait()
-	if err != nil {
-		log.Errorf("bos.Deletes keys[%v] err: %v", keys, err)
-		return err
+	for begin := 0; begin < len(keys); begin += 1000 {
+		deleteObjectList := make([]api.DeleteObjectArgs, 0)
+		for i := begin; i < begin+1000 && i < len(keys); i++ {
+			deleteObjectList = append(deleteObjectList, api.DeleteObjectArgs{Key: keys[i]})
+		}
+		multiDeleteObj := &api.DeleteMultipleObjectsArgs{Objects: deleteObjectList}
+		res, err := storage.bosClient.DeleteMultipleObjectsFromStruct(storage.bucket, multiDeleteObj)
+		if err != nil {
+			if err == io.EOF && res == nil { //完全删除成功
+				log.Info("bos.Delete delete all objects successfully")
+				return nil
+			}
+			log.Errorf("bos.Delete err: %v", err.Error())
+			return err
+		} else {
+			if res != nil { //部分删除成功
+				log.Errorf("bos.Delete err: %v delete failed", res.Errors)
+				return errors.New("bos.Delete failed. Failed to delete some objects")
+			}
+		}
+
 	}
 	return nil
+
 }
 
 func (storage Bos) Copy(newKey, copySource string) error {

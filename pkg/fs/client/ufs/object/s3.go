@@ -87,23 +87,23 @@ func (storage S3Storage) Deletes(keys []string) error {
 		return fmt.Errorf("delete keys empty")
 	}
 
-	var items s3.Delete
-	var objs = make([]*s3.ObjectIdentifier, numObjs)
-
-	for i, _ := range keys {
-		objs[i] = &s3.ObjectIdentifier{Key: &keys[i]}
+	for begin := 0; begin < len(keys); begin += 1000 {
+		var items s3.Delete
+		var objs = make([]*s3.ObjectIdentifier, 0)
+		for i := begin; i < begin+1000 && i < len(keys); i++ {
+			objs = append(objs, &s3.ObjectIdentifier{Key: &keys[i]})
+		}
+		items.SetObjects(objs)
+		_, err := storage.s3.DeleteObjects(&s3.DeleteObjectsInput{
+			Bucket: &storage.bucket,
+			Delete: &items,
+		})
+		if err != nil {
+			log.Errorf("s3.Deletes keys[%v] err: %v", keys, err)
+			return err
+		}
 	}
-
-	// Add list of objects to delete object
-	items.SetObjects(objs)
-	_, err := storage.s3.DeleteObjects(&s3.DeleteObjectsInput{
-		Bucket: &storage.bucket,
-		Delete: &items,
-	})
-	if err != nil {
-		log.Errorf("s3.Deletes keys[%v] err: %v", keys, err)
-	}
-	return err
+	return nil
 }
 
 func (storage S3Storage) Copy(newKey, copySource string) error {
