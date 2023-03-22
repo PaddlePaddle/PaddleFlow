@@ -14,5 +14,7 @@ fi
 
 docker build -f ./installer/dockerfile/paddleflow-server/Dockerfile -t iregistry.baidu-int.com/planet/paddleflow/paddleflow-server:2.0.0 .
 docker push iregistry.baidu-int.com/planet/paddleflow/paddleflow-server:2.0.0
+docker tag iregistry.baidu-int.com/planet/paddleflow/paddleflow-server:2.0.0 dke-registry:5000/planet/paddleflow/paddleflow-server:2.0.0
+docker push dke-registry:5000/planet/paddleflow/paddleflow-server:2.0.0
 
 popd

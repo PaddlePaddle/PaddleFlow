@@ -1092,12 +1092,12 @@ func restartRun(ctx *logger.RequestContext, run models.Run, isResume bool) (stri
 
 	run.WorkflowSource = wfs
 
-	fsUserName := run.RunOptions.FSUsername
+	//fsUserName := run.RunOptions.FSUsername
 
-	if err := checkFs(ctx, fsUserName, &run.WorkflowSource); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
-		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-	}
+	//if err := checkFs(ctx, fsUserName, &run.WorkflowSource); err != nil {
+	//	logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
+	//	return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+	//}
 
 	defer func() {
 		if info := recover(); info != nil {

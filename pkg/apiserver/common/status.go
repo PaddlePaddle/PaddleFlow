@@ -55,6 +55,7 @@ var (
 func IsRunFinalStatus(status string) bool {
 	if strings.EqualFold(status, StatusRunFailed) ||
 		strings.EqualFold(status, StatusRunSucceeded) ||
+		strings.EqualFold(status, StatusRunTerminating) ||
 		strings.EqualFold(status, StatusRunTerminated) ||
 		strings.EqualFold(status, StatusRunSkipped) {
 		return true
