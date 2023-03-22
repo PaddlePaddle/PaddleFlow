@@ -90,6 +90,7 @@ type JobConfig struct {
 	// DefaultJobYamlPath defines file path that stores all default templates in one yaml
 	DefaultJobYamlPath string       `yaml:"defaultJobYamlPath"`
 	IsSingleCluster    bool         `yaml:"isSingleCluster"`
+	RuntimeType        string       `yaml:"runtimeType"`
 	Log                JobLogConfig `yaml:"log"`
 }
 
