@@ -167,11 +167,15 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 func (storage S3Storage) List(input *ListInput) (*ListBlobsOutput, error) {
 	log.Tracef("s3.List param[%+v]", input)
 	request := &s3.ListObjectsV2Input{
-		Bucket:            &storage.bucket,
-		Prefix:            &input.Prefix,
-		MaxKeys:           &input.MaxKeys,
-		ContinuationToken: &input.ContinuationToken,
-		Delimiter:         &input.Delimiter,
+		Bucket:  &storage.bucket,
+		Prefix:  &input.Prefix,
+		MaxKeys: &input.MaxKeys,
+	}
+	if input.ContinuationToken != "" {
+		request.ContinuationToken = &input.ContinuationToken
+	}
+	if input.Delimiter != "" {
+		request.Delimiter = &input.Delimiter
 	}
 
 	resp, err := storage.s3.ListObjectsV2(request)

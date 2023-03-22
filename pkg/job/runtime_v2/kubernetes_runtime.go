@@ -288,7 +288,11 @@ func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
 }
 
 func (kr *KubeRuntime) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
-	log.Infof("on %s, get used quota for queue %s, namespace %s", kr.String(), q.Name, q.Namespace)
+	return getQueueUsedQuota(kr.String(), kr.clientset(), q)
+}
+
+func getQueueUsedQuota(clusterInfo string, client kubernetes.Interface, q *api.QueueInfo) (*resources.Resource, error) {
+	log.Infof("on %s, get used quota for queue %s, namespace %s", clusterInfo, q.Name, q.Namespace)
 
 	fieldSelector := fmt.Sprintf(
 		"status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown,spec.schedulerName=%s",
@@ -297,9 +301,9 @@ func (kr *KubeRuntime) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource,
 	listOpts := metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	}
-	podList, err := kr.ListPods(q.Namespace, listOpts)
+	podList, err := listPods(client, q.Namespace, listOpts)
 	if err != nil || podList == nil {
-		err = fmt.Errorf("on %s, get queue used quota failed, err: %v", kr.String(), err)
+		err = fmt.Errorf("on %s, get queue used quota failed, err: %v", clusterInfo, err)
 		log.Errorln(err)
 		return nil, err
 	}
@@ -682,18 +686,22 @@ func (kr *KubeRuntime) clientset() kubernetes.Interface {
 
 // CreateNamespace Create namespace if not exist
 func (kr *KubeRuntime) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
+	return createNamespace(kr.clientset(), namespace, opts)
+}
+
+func createNamespace(client kubernetes.Interface, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
 	coreNs := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
-	ns, err := kr.clientset().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+	ns, err := client.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	} else if ns != nil && err == nil {
 		return ns, nil
 	}
-	return kr.clientset().CoreV1().Namespaces().Create(context.TODO(), coreNs, opts)
+	return client.CoreV1().Namespaces().Create(context.TODO(), coreNs, opts)
 }
 
 func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*corev1.NamespaceList, error) {

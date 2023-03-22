@@ -527,7 +527,50 @@ func RandomString(n int) string {
 	return string(b)
 }
 
-func TestCreteBos(t *testing.T) {
+func TestCreateStsError(t *testing.T) {
+	ak := "abc"
+	sk := "xxx"
+	router, baseUrl := prepareDBAndAPI(t)
+
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "10",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"sts":       "true",
+			"duration":  "abc",
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+}
+
+func TestCreateBos(t *testing.T) {
 	ak := os.Getenv(Ori_ak)
 	sk := os.Getenv(Ori_sk)
 	bucket := os.Getenv(Ori_Bucket)
@@ -667,4 +710,26 @@ func TestStsAPI(t *testing.T) {
 	result, err = PerformGetRequest(router, fsUrlSts)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusInternalServerError, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName + "falseSts",
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"endpoint":  "bj.bcebos.com",
+			"region":    "bj",
+			"secretKey": sk,
+			"duration":  "70",
+		},
+	}
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts = baseUrl + "/fsSts/" + mockFsName + "falseSts"
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusInternalServerError, result.Code)
+
 }

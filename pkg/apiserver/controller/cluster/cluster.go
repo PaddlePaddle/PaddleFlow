@@ -513,7 +513,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 }
 
 // InitDefaultCluster init default cluster for single cluster environment
-func InitDefaultCluster() error {
+func InitDefaultCluster(clusterType string) error {
 	log.Info("starting init data for single cluster: initDefaultCluster")
 	if clusterInfo, err := storage.Cluster.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
@@ -528,7 +528,7 @@ func InitDefaultCluster() error {
 		Description: "default cluster",
 		Endpoint:    "127.0.0.1",
 		Source:      "",
-		ClusterType: schema.KubernetesType,
+		ClusterType: clusterType,
 		Version:     "1.16+",
 		Status:      model.ClusterStatusOnLine,
 	}
