@@ -74,17 +74,12 @@ func GeneratePodTemplate() *corev1.Pod {
 
 func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
 	podResource := corev1.ResourceRequirements{
-		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuLimit),
-			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemLimit),
-		},
 		// Requests must be 0 so that scheduler can correctly calculate resource usage
 		Requests: map[corev1.ResourceName]resource.Quantity{
 			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuRequest),
 			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemRequest),
 		},
 	}
-
 	var err error
 	if cpuLimit != "" {
 		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
