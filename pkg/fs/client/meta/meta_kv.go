@@ -1643,7 +1643,7 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 		buf := tx.Get(m.inodeKey(inode))
 		if buf != nil {
 			m.parseInode(buf, updateInodeItem)
-			if !m.inodeItemExpired(*updateInodeItem) {
+			if !m.inodeItemExpired(*updateInodeItem) && updateInodeItem.attr.Type == TypeFile {
 				updateInodeItem.fileHandles -= 1
 				if updateInodeItem.fileHandles < 0 {
 					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v", inode, updateInodeItem.fileHandles, updateInodeItem)
@@ -1651,6 +1651,7 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 				}
 				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
+
 			}
 		}
 		return nil
