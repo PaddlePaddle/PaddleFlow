@@ -227,9 +227,8 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 			return nil, err
 		}
 
-		perm := 0777
-		log.Infof("cfs mkdir path[%s] perm[%v]", filepath.Join(localPath, subpath), perm)
 		err = os.MkdirAll(filepath.Join(localPath, subpath), 0777)
+		os.Chmod(filepath.Join(localPath, subpath), 0777)
 		if err != nil {
 			log.Errorf("exec %s mkdir cmd failed: %v", mountType, err)
 			return nil, err
