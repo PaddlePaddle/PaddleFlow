@@ -68,4 +68,5 @@ const (
 	StsMaxSeqData = 1000
 
 	PFTokenEnv = "PFToken"
+	PFServer   = "PFServer"
 )
