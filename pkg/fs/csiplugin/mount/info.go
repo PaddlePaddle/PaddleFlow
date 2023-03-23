@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
@@ -210,18 +209,15 @@ func (mountInfo *Info) commonOptions() []string {
 		options = append(options, "--log-level=debug")
 	}
 
-	// s3 default mount permission
-	if mountInfo.FS.Type == common.S3Type {
-		if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
-		} else {
-			options = append(options, fmt.Sprintf("--%s=%v", "file-mode", ufs.DefaultFileMode))
-		}
-		if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
-		} else {
-			options = append(options, fmt.Sprintf("--%s=%v", "dir-mode", ufs.DefaultDirMode))
-		}
+	if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
+		options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
+	} else {
+		options = append(options, fmt.Sprintf("--%s=%v", "file-mode", "0777"))
+	}
+	if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
+		options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
+	} else {
+		options = append(options, fmt.Sprintf("--%s=%v", "dir-mode", "0777"))
 	}
 	return options
 }

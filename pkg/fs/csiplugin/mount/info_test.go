@@ -232,7 +232,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				CacheConfig: fsCache,
 				TargetPath:  targetPath,
 			},
-			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage --fs-id=fs-root-bos --sts=true --server=paddleflow-server:8999 --block-size=4096 --meta-cache-driver=disk --data-cache-path=/home/paddleflow/pfs-cache/data-cache --meta-cache-path=/home/paddleflow/pfs-cache/meta-cache",
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage --fs-id=fs-root-bos --sts=true --server=paddleflow-server:8999 --block-size=4096 --meta-cache-driver=disk --file-mode=0777 --dir-mode=0777 --data-cache-path=/home/paddleflow/pfs-cache/data-cache --meta-cache-path=/home/paddleflow/pfs-cache/meta-cache",
 		},
 		{
 			name: "test-bos-err",
