@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"github.com/baidubce/bce-sdk-go/services/bos"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/panjf2000/ants/v2"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
@@ -53,6 +55,7 @@ type objectFileSystem struct {
 	defaultTime time.Time
 	sync.Mutex
 	chunkPool *sync.Pool
+	copyPool  *ants.Pool
 }
 
 type objectFileHandle struct {
@@ -716,6 +719,7 @@ func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 }
 
 func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) {
+
 	log.Debugf("s3 renameChildren: [%s]->[%s]", srcName, dstName)
 	prefix, newPrefix := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
 	var copied []string
@@ -736,37 +740,30 @@ func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) 
 		if copied == nil {
 			copied = make([]string, 0, len(res.Items))
 		}
-		// after the server side copy, we want to delete all the files
-		// using multi-delete, which is capped to 1000 on aws. If we
-		// are going to make an arbitrary limit that sounds like a
-		// good one (and we want to have an arbitrary limit because we
-		// don't want to rename a million objects here)
-		total := len(copied) + len(res.Items)
-		if total > 1000 || total == 1000 && res.IsTruncated {
-			return syscall.E2BIG
-		}
-		// say dir is "/a/dir" and it has "1", "2", "3", and we are
-		// moving it to "/b/" items will be a/dir/1, a/dir/2, a/dir/3,
-		// and we will copy them to b/1, b/2, b/3 respectively
-		group := new(errgroup.Group)
-		var lock sync.Mutex
+		var errBuf bytes.Buffer
+		var copiedMutex sync.Mutex
+		var wg sync.WaitGroup
 		for _, content := range res.Items {
 			tmpContent := content
-			group.Go(func() error {
+			wg.Add(1)
+			_ = fs.copyPool.Submit(func() {
+				defer wg.Done()
 				key := (tmpContent.Key)[len(prefix):]
-				err = fs.storage.Copy(newPrefix+key, tmpContent.Key)
+				err := fs.storage.Copy(newPrefix+key, tmpContent.Key)
 				if err != nil {
 					log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
-					return err
+					errBuf.WriteString(err.Error() + "; ")
+					return
 				}
-				lock.Lock()
+				copiedMutex.Lock()
 				copied = append(copied, tmpContent.Key)
-				lock.Unlock()
-				return nil
+				copiedMutex.Unlock()
 			})
 		}
-		if err = group.Wait(); err != nil {
-			return err
+		wg.Wait()
+		if errBuf.Len() > 0 {
+			log.Errorf("fs.Storage.RenameChildren: srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+			return fmt.Errorf(errBuf.String())
 		}
 		if !res.IsTruncated {
 			break
@@ -1338,7 +1335,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					bosClient.Config.Credentials = stsCredential
 				}
 			}()
-			storage = object.NewBosClient(bucket, bosClient)
+			storage = object.NewBosClient(bucket, bosClient, true)
 		} else {
 			log.Infof("init bos")
 			clientConfig := bos.BosClientConfiguration{
@@ -1365,7 +1362,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				}
 				bosClient.Config.Credentials = stsCredential
 			}
-			storage = object.NewBosClient(bucket, bosClient)
+			storage = object.NewBosClient(bucket, bosClient, false)
 		}
 	default:
 		panic("object storage not found")
@@ -1379,7 +1376,8 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			return make([]byte, MPUChunkSize)
 		}},
 	}
-
+	p, _ := ants.NewPool(1000)
+	fs.copyPool = p
 	// create subPath if not exists
 	if subPath != "" {
 		exist, err := fs.exists("")
