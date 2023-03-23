@@ -2,21 +2,25 @@ package fs
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -62,6 +66,7 @@ func TestS3(t *testing.T) {
 	testBigFile(t, client)
 	testSmallFile(t, client)
 	testMkdirAndList(t, client)
+	testRename(t, client, "s3")
 }
 
 func TestBos(t *testing.T) {
@@ -96,6 +101,7 @@ func TestBos(t *testing.T) {
 	testBigFile(t, client)
 	testSmallFile(t, client)
 	testMkdirAndList(t, client)
+	testRename(t, client, "bos")
 }
 
 func getBosClient(t *testing.T) FSClient {
@@ -301,4 +307,35 @@ func testMkdirAndList(t *testing.T, client FSClient) {
 	assert.Equal(t, nil, err)
 	err = client.RemoveAll(dirNamePrefix)
 	assert.Equal(t, nil, err)
+}
+
+func testRename(t *testing.T, client FSClient, fsType string) {
+	fromDir := "fromDir"
+	client.RemoveAll(fromDir)
+	defer client.RemoveAll(fromDir)
+	assert.Nil(t, client.Mkdir(fromDir, 0755))
+	entryCnt := 100 + rand.Intn(10)
+	for i := 0; i < entryCnt; i++ {
+		_, err := client.Create(filepath.Join(fromDir, strconv.Itoa(i)))
+		assert.Equal(t, nil, err)
+	}
+	toDir := "toDir"
+	client.RemoveAll(toDir)
+	defer client.RemoveAll(toDir)
+	assert.Nil(t, nil, client.Rename(fromDir, toDir))
+	entrys, err := client.ListDir(toDir)
+	assert.Nil(t, err)
+	assert.Equal(t, entryCnt, len(entrys))
+
+	// test rename failed
+	if fsType == "s3" {
+		p1 := gomonkey.ApplyMethod(reflect.TypeOf(&object.S3Storage{}), "Copy", func(_ *object.S3Storage, newKey string, copySource string) error {
+			return errors.New("test copy err")
+		})
+		defer p1.Reset()
+		assert.Nil(t, client.Mkdir(fromDir, 0755))
+		err = client.Rename(fromDir, "toErrDir")
+		assert.NotNil(t, err)
+	}
+
 }
