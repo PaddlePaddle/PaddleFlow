@@ -76,7 +76,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		return nil, err
 	}
 
-	mountInfo, err := mount.ConstructMountInfo(volumeContext[schema.PFSServer], volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
+	server := csiconfig.PaddleFlowServerAddress
+	log.Infof("server %s", server)
+	if server == "" {
+		server = volumeContext[schema.PFSServer]
+	}
+
+	mountInfo, err := mount.ConstructMountInfo(server, volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
 		targetPath, k8sClient, req.GetReadonly() || req.VolumeCapability.AccessMode.GetMode() == csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY)
 	if err != nil {
 		log.Errorf("ConstructMountInfo err: %v", err)
