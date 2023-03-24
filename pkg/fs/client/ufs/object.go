@@ -1337,6 +1337,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}()
 			storage = object.NewBosClient(bucket, bosClient, true)
 		} else {
+			startBySts := false
 			log.Infof("init bos")
 			clientConfig := bos.BosClientConfiguration{
 				Ak:               accessKey,
@@ -1361,8 +1362,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					return nil, err
 				}
 				bosClient.Config.Credentials = stsCredential
+				startBySts = true
 			}
-			storage = object.NewBosClient(bucket, bosClient, false)
+			storage = object.NewBosClient(bucket, bosClient, startBySts)
 		}
 	default:
 		panic("object storage not found")
