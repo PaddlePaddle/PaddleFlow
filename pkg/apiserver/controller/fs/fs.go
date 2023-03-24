@@ -23,6 +23,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	k8sCore "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -368,21 +369,34 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 }
 
 func deletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
+	group := new(errgroup.Group)
 	for k8sRuntime, namespaces := range cnm {
 		for _, ns := range namespaces {
-			// delete pvc manually. pv will be deleted automatically
-			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-				err := fmt.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
-				log.Errorf(err.Error())
-				return err
-			}
-			// delete pv in case pv not deleted
-			if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-				err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
-				log.Errorf(err.Error())
-				return err
-			}
+			group.Go(func() error {
+				for i := 0; i < 3; i++ {
+					if i > 0 {
+						time.Sleep(500 * time.Millisecond)
+					}
+					// delete pvc manually. pv will be deleted automatically
+					if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+						err := fmt.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+						log.Errorf(err.Error())
+						continue
+					}
+					// delete pv in case pv not deleted
+					if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+						err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
+						log.Errorf(err.Error())
+						continue
+					}
+					break
+				}
+				return nil
+			})
 		}
+	}
+	if err := group.Wait(); err != nil {
+		log.Errorf("delete pvc and pv err: %v", err)
 	}
 	return nil
 }
