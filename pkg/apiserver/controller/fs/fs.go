@@ -371,7 +371,10 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 func deletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) (err error) {
 	group := new(errgroup.Group)
 	for k8sRuntime, namespaces := range cnm {
+		k8sRuntime := k8sRuntime
+		namespaces := namespaces
 		for _, ns := range namespaces {
+			ns := ns
 			group.Go(func() error {
 				for i := 0; i < 3; i++ {
 					if i > 0 {
