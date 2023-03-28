@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"strings"
 	"sync"
 	"time"
@@ -394,14 +395,26 @@ func deletePvPvc(fsID string) error {
 		log.Errorf(err.Error())
 		return err
 	}
+	group := new(errgroup.Group)
 	for k8sRuntime, namespaces := range cnm {
+		k8sRuntime := k8sRuntime
+		namespaces := namespaces
 		for _, ns := range namespaces {
-			if err = patchAndDeletePvcPv(k8sRuntime, ns, fsID); err != nil {
-				err := fmt.Errorf("patchAndDeletePvcPv ns[%s] fsID[%s] failed: %v", ns, fsID, err)
-				log.Errorf(err.Error())
-				return err
-			}
+			ns := ns
+			group.Go(func() error {
+				if err = patchAndDeletePvcPv(k8sRuntime, ns, fsID); err != nil {
+					err := fmt.Errorf("patchAndDeletePvcPv ns[%s] fsID[%s] failed: %v", ns, fsID, err)
+					log.Errorf(err.Error())
+					return err
+				}
+				return nil
+			})
 		}
+	}
+	err = group.Wait()
+	if err != nil {
+		log.Errorf("deletePvPvc failed: %v", err)
+		return err
 	}
 	return nil
 }
