@@ -15,7 +15,6 @@ permissions:
   pages: write
   id-token: read
   pull-requests: write
-  repository-projects: write
   
 jobs:
   release_compile:
@@ -35,7 +34,7 @@ jobs:
       - name: Install gcc
         id: github_context_step
         run: |
-          echo "${{ toJSON(github) }}"
+          echo '${{ toJSON(github) }}'
           echo '$(uname -m)'
           echo '$(uname -s)'
           sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
