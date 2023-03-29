@@ -14,7 +14,7 @@
 ### 环境准备
 以下示例将演示一个使用paddle cpu 训练作业的demo，请确保您的集群各个节点机器上已经执行一下命令拉取相应镜像：
 ```bash
-docker pull registry.baidubce.com/paddlepaddle/paddle:2.2.1-gpu-cuda10.2-cudnn7
+docker pull paddleflow/paddleflow-dev-test:v2 
 ```
 
 ### 创建fs
@@ -40,7 +40,7 @@ tar -xf mnist_model.tar
 
 name: myproject_runyaml
 
-docker_env: registry.baidubce.com/paddlepaddle/paddle:2.2.1-gpu-cuda10.2-cudnn7
+docker_env: paddleflow/paddleflow-dev-test:v2 
 
 entry_points:
   
