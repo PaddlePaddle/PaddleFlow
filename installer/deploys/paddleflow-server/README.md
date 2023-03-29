@@ -8,7 +8,7 @@
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 # 创建基于sqllite的paddleflow-server
 # For x86:
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml -n paddleflow 
 # For arm64: todo
 ```
 
@@ -27,7 +27,7 @@ bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/devel
 # For x86:
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
 sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e "s/3306/${DB_PORT}/g" -e "s/user: paddleflow/user: ${DB_USER}/g"  -e "s/password: paddleflow/password: ${DB_PW}/g"  -e "s/database: paddleflow/database: ${DB_DATABASE}/g" \
-| kubectl apply -f -
+| kubectl apply -n paddleflow -f -
 # For arm64: todo
 ```
 
