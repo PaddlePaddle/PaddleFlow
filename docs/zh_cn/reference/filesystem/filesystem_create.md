@@ -84,7 +84,12 @@ paddleflow支持创建本地文件系统的fs，如果要使用hostpath的方式
 ```
 paddleflow fs create <fsname> local://<subpath>
 ```
-> 如果路径不存在会自动创建，用户想要使用本地路径的时候，需要将本地路径通过link的方式到本地/mnt路径下，这样paddleflow-server就可以获取本地路径的数据
+> 使用hostpath方式需要注意以下几点：
+- 如果是在分布式集群中运行pipeline, 且不同机器上的hostpath在底层是完全独立的存储，则需要注意如下两点
+    - cache功能不一定符合预期：因为不同机器上的hostpath同名文件modtime不一定相同
+    - 不能使用hostpath类型的存储来存放artifact：因为节点A和节点B有可能会调度到不同的机器上，此时节点A的输出artifact将无法被节点B访问到。
+- 如果是单机集群，或者分布式集群中所有机器上的hostpath使用了同一个存储（比如在所有的机器hostpath目录下都挂载了同一个BOS存储），此时则可以正常使用Pipeline的所有功能
+- hostpath 正常使用，需在server 将该目录做好挂载，否则会报无法mkdir 问题
 
 ```
 参考命令
