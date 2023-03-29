@@ -41,7 +41,8 @@ paddleflow fs showlink fsname fspath -u username// 显示某个link详情 -u 表
 +--------+---------+--------+------------------+------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 ```
 
-创建存储：用户输入```paddleflow fs create {fs_name} {fs_url} -o {}```，可以通过```paddleflow fs create --help```查看具体创建选项,界面上显示
+创建存储：用户输入```paddleflow fs create {fs_name} {fs_url} -o {}```，可以通过```paddleflow fs create --help```查看具体创建选项,界面上显示，查看[不同类型存储创建方式](filesystem_create.md)
+
 ```fs[{fs_name}] create success```
 
 删除存储：用户输入```paddleflow fs delete {fs_name}```，界面上显示
