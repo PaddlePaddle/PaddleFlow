@@ -70,7 +70,6 @@ paddleflow fs create glusterfsname glusterfs://127.0.0.1:default-volume
 [文件存储CFS](https://cloud.baidu.com/product/cfs.html)(Cloud File Storage)是百度智能云提供的安全、可扩展的文件存储服务。通过标准的文件访问协议，为云上的虚机、容器等计算资源提供无限扩展、高可靠、全球共享的文件存储能力
 创建的命令如下
 ```
-参考命令
 paddleflow fs create cfsname cfs://<cfs-id>/<subpath>
 ```
 > 需要paddleflow-server镜像支持nfs4协议，并且网络可访问云上cfs
@@ -78,4 +77,16 @@ paddleflow fs create cfsname cfs://<cfs-id>/<subpath>
 ```
 参考命令
 paddleflow fs create cfsname cfs://cfs-id/data/
+```
+
+## hostpath
+paddleflow支持创建本地文件系统的fs，如果要使用hostpath的方式挂载本地路径，需要paddleflow-server挂载宿主机的/mnt路径，用户如果想指定本地路径，需要将路径link到宿主机的/mnt路径下，并且保证运行的节点都有一个路径下的所有数据可以访问，创建方式如下
+```
+paddleflow fs create <fsname> local://<subpath>
+```
+> 如果路径不存在会自动创建，用户想要使用本地路径的时候，需要将本地路径通过link的方式到本地/mnt路径下，这样paddleflow-server就可以获取本地路径的数据
+
+```
+参考命令
+paddleflow fs create localname local://mnt/data
 ```
