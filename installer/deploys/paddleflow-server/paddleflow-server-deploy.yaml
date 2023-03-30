@@ -582,8 +582,6 @@ spec:
         helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
         app.kubernetes.io/name: 'paddleflow-server'
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow-server
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext:

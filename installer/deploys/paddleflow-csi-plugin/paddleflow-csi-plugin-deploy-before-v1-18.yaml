@@ -358,8 +358,6 @@ spec:
         helm.sh/chart: 'pfs-csi-plugin-0.0.80-rrnwa0'
         app.kubernetes.io/name: 'pfs-csi-plugin'
     spec:
-      imagePullSecrets:
-      - name: registry-pfs-csi-plugin
       dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
       hostNetwork: true
@@ -550,8 +548,6 @@ spec:
       annotations:
         app: pfs-csi-provisioner
     spec:
-      imagePullSecrets:
-      - name: registry-pfs-csi-plugin
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       tolerations:
