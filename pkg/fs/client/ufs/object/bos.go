@@ -78,7 +78,7 @@ func (storage Bos) Put(key string, in io.Reader) error {
 }
 
 func (storage Bos) Deletes(keys []string) error {
-	log.Tracef("bos.Deletes keys[%v]", keys)
+	log.Infof("bos.Deletes keys[%v]", keys)
 	numObjs := len(keys)
 	if numObjs == 0 {
 		log.Errorf("delete keys empty")
@@ -109,8 +109,7 @@ func (storage Bos) Deletes(keys []string) error {
 		multiDeleteObj := &api.DeleteMultipleObjectsArgs{Objects: deleteObjectList}
 		res, err := storage.bosClient.DeleteMultipleObjectsFromStruct(storage.bucket, multiDeleteObj)
 		if err != nil {
-			if err == io.EOF && res == nil { //完全删除成功
-				log.Info("bos.Delete delete all objects successfully")
+			if err == io.EOF && res == nil { // 完全删除成功
 				return nil
 			}
 			log.Errorf("bos.Delete err: %v", err.Error())

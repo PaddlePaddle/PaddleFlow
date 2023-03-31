@@ -80,7 +80,7 @@ func (storage S3Storage) Put(key string, in io.Reader) error {
 }
 
 func (storage S3Storage) Deletes(keys []string) error {
-	log.Tracef("s3.Deletes keys[%v]", keys)
+	log.Infof("s3.Deletes keys[%v]", keys)
 	numObjs := len(keys)
 	if numObjs == 0 {
 		log.Errorf("delete keys empty")
