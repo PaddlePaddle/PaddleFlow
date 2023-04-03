@@ -1,7 +1,7 @@
 # PaddleFlow命令行使用demo
 
 本页面提供一个从存储创建到任务发起的一个使用例子。
-点击[命令行操作说明](docs/zh_cn/reference/client_command_reference.md) 获取所有操作命令和示例。
+点击[命令行操作说明](./client_command_reference.md) 获取所有操作命令和示例。
 ## 环境依赖
 
 * python_requires >= 3.6.1
