@@ -424,9 +424,6 @@ spec:
           runAsGroup: 0
           runAsUser: 0
         resources:
-          limits:
-            cpu: "1.5"
-            memory: 3000Mi
           requests:
             cpu: "0.5"
             memory: 1000Mi
