@@ -747,7 +747,7 @@ spec:
       serviceAccountName: volcano-admission
       containers:
       - name: volcano-admission
-        image: "iregistry.baidu-int.com/bmlc/vc-webhook-manager:pf1.4-vc1.3-rc3"
+        image: "paddleflow/vc-webhook-manager:pf1.4-vc1.3-rc3"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -835,7 +835,7 @@ spec:
       serviceAccountName: volcano-controllers
       containers:
       - name: volcano-controller
-        image: "iregistry.baidu-int.com/bmlc/vc-controller-manager:pf1.4-vc1.3-rc3"
+        image: "paddleflow/vc-controller-manager:pf1.4-vc1.3-rc3"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -909,7 +909,7 @@ spec:
       serviceAccountName: volcano-scheduler
       containers:
       - name: volcano-scheduler
-        image: "iregistry.baidu-int.com/bmlc/vc-scheduler:pf1.4-vc1.3-rc3"
+        image: "paddleflow/vc-scheduler:pf1.4-vc1.3-rc3"
         imagePullPolicy: "IfNotPresent"
         args:
         #container_args list
@@ -987,7 +987,7 @@ spec:
       serviceAccountName: volcano-admission
       containers:
       - name: volcano-admission-init
-        image: "iregistry.baidu-int.com/bmlc/vc-webhook-manager:pf1.4-vc1.3-rc3"
+        image: "paddleflow/vc-webhook-manager:pf1.4-vc1.3-rc3"
         imagePullPolicy: "IfNotPresent"
         command:
         - ./gen-admission-secret.sh

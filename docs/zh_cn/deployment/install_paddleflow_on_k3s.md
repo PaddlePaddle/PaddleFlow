@@ -38,8 +38,8 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
-wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/paddleflow.sql
-bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
+wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/paddleflow.sql
+bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
@@ -54,9 +54,9 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml -n paddleflow
 # Kubernetes v1.13<version< v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml -n paddleflow
 # 为了在kubernetes == v1.13的集群中部署scsi插件，kubernetes集群需要满足以下配置。
 # kube-apiserver启动参数:
 --feature-gates=CSIDriverRegistry=true
@@ -65,7 +65,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/deve
 # kubelet启动参数
 --feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml -n paddleflow
 ```
 
 #### 2.3.3 安装volcano
