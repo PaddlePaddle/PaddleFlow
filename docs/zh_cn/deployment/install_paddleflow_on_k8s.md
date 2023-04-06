@@ -41,7 +41,9 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 
 ### 2.3 自定义安装
-#### 2.3.1 安装paddleflow-server
+#### 2.3.1 安装前创建namespace
+`kubectl create ns padddleflow`
+#### 2.3.2 安装paddleflow-server
 `paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
 - **指定用sqllite安装paddleflow-server**
 ```shell
@@ -72,7 +74,7 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 # For arm64: todo
 ```
 
-#### 2.3.2 安装paddleflow-csi-plugin
+#### 2.3.3 安装paddleflow-csi-plugin
 
 1. 检查 `kubelet root-dir` 路径
 
@@ -120,9 +122,10 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-#### 2.3.3 安装volcano
+#### 2.3.4 安装volcano
 ```shell
 # For x86_64:
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/volcano/crd.yaml -n paddleflow
 kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/volcano/pf-volcano-deploy.yaml -n paddleflow
 
 # For arm64:
