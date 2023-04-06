@@ -4,3 +4,7 @@
 ```shell
 docker build -t paddleflow/ubuntu:18.04 .
 ```
+`glusterfs`镜像
+```shell
+docker build -t paddleflow/ubuntu:18.04-glusterfs -f base.gluster .
+```

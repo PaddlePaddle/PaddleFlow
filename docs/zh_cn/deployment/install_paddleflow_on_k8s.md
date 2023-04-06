@@ -20,9 +20,9 @@ ps -ef | grep kubelet | grep root-dir
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment.yaml -n paddleflow
 # Kubernetes version < v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment-before-v1-18.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment-before-v1-18.yaml -n paddleflow
 # For x86: todo
 # For arm64: todo
 ```
@@ -30,9 +30,9 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
 # Kubernetes version >= v1.18
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # Kubernetes version < v1.18
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment-before-v1-18.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment-before-v1-18.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # For x86: todo
 # For arm64: todo
 ```
@@ -49,7 +49,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 # 创建基于sqllite的paddleflow-server
 # For x86:
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml -n paddleflow
 # For arm64: todo
 ```
 
@@ -66,7 +66,7 @@ wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer
 bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
 sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e "s/3306/${DB_PORT}/g" -e "s/user: paddleflow/user: ${DB_USER}/g"  -e "s/password: paddleflow/password: ${DB_PW}/g"  -e "s/database: paddleflow/database: ${DB_DATABASE}/g" \
 | kubectl apply -f -
 # For arm64: todo
@@ -104,9 +104,9 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/deve
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
 # Kubernetes version >= v1.18
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # Kubernetes version < v1.18
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # 为了在kubernetes == v1.13的集群中部署scsi插件，kubernetes集群需要满足以下配置。
 # kube-apiserver启动参数:
 --feature-gates=CSIDriverRegistry=true
@@ -115,7 +115,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 # kubelet启动参数
 --feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 ```
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
@@ -123,7 +123,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 #### 2.3.3 安装volcano
 ```shell
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/volcano/pf-volcano-deploy.yaml -n paddleflow
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/volcano/pf-volcano-deploy.yaml -n paddleflow
 
 # For arm64:
 todo
