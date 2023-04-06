@@ -41,7 +41,9 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 
 ### 2.3 自定义安装
-#### 2.3.1 安装paddleflow-server
+#### 2.3.1 安装前创建namespace
+`kubectl create ns padddleflow`
+#### 2.3.2 安装paddleflow-server
 `paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
 - **指定用sqllite安装paddleflow-server**
 ```shell
@@ -62,8 +64,8 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
-wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/paddleflow.sql
-bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
+wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/paddleflow.sql
+bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
@@ -72,7 +74,7 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 # For arm64: todo
 ```
 
-#### 2.3.2 安装paddleflow-csi-plugin
+#### 2.3.3 安装paddleflow-csi-plugin
 
 1. 检查 `kubelet root-dir` 路径
 
@@ -87,9 +89,9 @@ ps -ef | grep kubelet | grep root-dir
 **如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml -n paddleflow
 # Kubernetes v1.13<version< v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/ paddleflow-csi-plugin-deploy-before-v1-18.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/ paddleflow-csi-plugin-deploy-before-v1-18.yaml -n paddleflow
 # 为了在kubernetes == v1.13的集群中部署scsi插件，kubernetes集群需要满足以下配置。
 # kube-apiserver启动参数:
 --feature-gates=CSIDriverRegistry=true
@@ -98,7 +100,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/deve
 # kubelet启动参数
 --feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml -n paddleflow
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml -n paddleflow
 ```
 
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
@@ -120,9 +122,10 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-#### 2.3.3 安装volcano
+#### 2.3.4 安装volcano
 ```shell
 # For x86_64:
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/volcano/crd.yaml -n paddleflow
 kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/volcano/pf-volcano-deploy.yaml -n paddleflow
 
 # For arm64:
