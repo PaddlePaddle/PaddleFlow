@@ -20,8 +20,10 @@ ps -ef | grep kubelet | grep root-dir
 
 ```shell
 # Kubernetes version >= v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/crd.yaml -n paddleflow
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment.yaml -n paddleflow
 # Kubernetes version < v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/crd.yaml -n paddleflow
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment-before-v1-18.yaml -n paddleflow
 # For x86: todo
 # For arm64: todo
@@ -30,8 +32,10 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
 # Kubernetes version >= v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/crd.yaml -n paddleflow
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # Kubernetes version < v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/crd.yaml -n paddleflow
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment-before-v1-18.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f - -n paddleflow
 # For x86: todo
 # For arm64: todo
