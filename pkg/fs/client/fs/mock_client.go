@@ -238,3 +238,8 @@ func (c *MockClient) Stat(path string) (os.FileInfo, error) {
 	}
 	return attr, nil
 }
+
+func (c *MockClient) SetAttr(name string, set, mode, uid, gid uint32, atime, mtime int64, atimeSec, mtimeSec uint32, size uint64) (os.FileInfo, error) {
+	//
+	return nil, nil
+}

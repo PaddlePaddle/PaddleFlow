@@ -778,8 +778,8 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 	mode := attr.Mode
 	atime := attr.Atime
 	atimensec := attr.Atimensec
-	ctime := attr.Ctime
-	ctimensec := attr.Ctimensec
+	mtime := attr.Mtime
+	mtimesec := attr.Mtimensec
 	size := attr.Size
 	err := m.txn(func(tx kv.KvTxn) error {
 		absolutePath = m.absolutePath(inode, tx)
@@ -811,13 +811,18 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			log.Debugf("set mode %+v", set)
 			cur.attr.Mode = mode
 		}
-		if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-			log.Debugf("set time %+v", set)
+		if set&FATTR_ATIME != 0 {
+			log.Debugf("set Atime %+v", set)
 			cur.attr.Atime = atime
 			cur.attr.Atimensec = atimensec
-			cur.attr.Ctime = ctime
-			cur.attr.Ctimensec = ctimensec
 		}
+
+		if set&FATTR_MTIME != 0 {
+			log.Debugf("set Mtime %+v", set)
+			cur.attr.Mtime = mtime
+			cur.attr.Mtimensec = mtimesec
+		}
+
 		if set&FATTR_SIZE != 0 {
 			log.Debugf("set size %+v size %+v", set, size)
 			cur.attr.Size = size

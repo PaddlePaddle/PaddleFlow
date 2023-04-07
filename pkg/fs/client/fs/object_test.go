@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -20,7 +21,9 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
@@ -67,6 +70,7 @@ func TestS3(t *testing.T) {
 	testSmallFile(t, client)
 	testMkdirAndList(t, client)
 	testRename(t, client, "s3")
+	testSetAttr(t, client)
 }
 
 func TestBos(t *testing.T) {
@@ -338,4 +342,26 @@ func testRename(t *testing.T, client FSClient, fsType string) {
 		assert.NotNil(t, err)
 	}
 
+}
+
+func testSetAttr(t *testing.T, client FSClient) {
+	file := "setAttr.test"
+	fh, err := client.Create("setAttr.test")
+	assert.Nil(t, err)
+	assert.Nil(t, fh.Close())
+	defer client.Remove(file)
+	//set Mtime only
+	attr, err := client.SetAttr(file, uint32(32), 0, 0, 0, 10, 12, 12, 13, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, time.Unix(0, int64(12)*1e9+int64(13)), attr.ModTime())
+	//set Atime only
+	attr, err = client.SetAttr(file, uint32(16), 0, 0, 0, 10, 12, 120, 133, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, time.Unix(0, int64(12)*1e9+int64(13)), attr.ModTime())
+	p1 := gomonkey.ApplyMethod(reflect.TypeOf(&vfs.VFS{}), "SetAttr", func(_ *vfs.VFS, ctx *meta.Context, ino vfs.Ino, set, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
+		return nil, syscall.EACCES
+	})
+	defer p1.Reset()
+	_, err = client.SetAttr(file, uint32(16), 0, 0, 0, 10, 12, 120, 133, 0)
+	assert.NotNil(t, err)
 }
