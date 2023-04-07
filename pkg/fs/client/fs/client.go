@@ -92,6 +92,7 @@ type FSClient interface {
 	Chown(name string, uid, gid int) error
 	Walk(root string, walkFn filepath.WalkFunc) error
 	Stat(path string) (os.FileInfo, error)
+	SetAttr(name string, set, mode, uid, gid uint32, atime, mtime int64, atimeSec, mtimeSec uint32, size uint64) (os.FileInfo, error)
 }
 
 func NewFSClientWithServer(server, fsID string) (FSClient, error) {
