@@ -1294,6 +1294,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	inodeSlice := make([]inodeSliceItem, 0)
 	var parentIno Ino
 	now := time.Now()
+	var fromCache bool
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
 		if buf == nil {
@@ -1322,6 +1323,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					}
 					*entries = append(*entries, en)
 				}
+				fromCache = true
 				return nil
 			}
 		}
@@ -1364,6 +1366,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				return true
 			})
 		}
+		fromCache = false
 		log.Debugf("meta-kv got [%d]dirEntrys from ufs ", len(dirs))
 
 		var childEntryItem *Entry
@@ -1466,6 +1469,9 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	})
 	if err != nil {
 		return utils.ToSyscallErrno(err)
+	}
+	if fromCache {
+		return syscall.F_OK
 	}
 	err = m.updateDirentrys(inode, entrySlice, inodeSlice)
 	if err != nil {
