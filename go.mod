@@ -34,7 +34,7 @@ require (
 	github.com/panjf2000/ants/v2 v2.7.2
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.2
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.26.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
@@ -48,8 +48,8 @@ require (
 	github.com/vbauerster/mpb/v7 v7.4.1
 	github.com/viney-shih/go-lock v1.1.2
 	go.uber.org/automaxprocs v1.4.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/net v0.1.0
+	golang.org/x/crypto v0.0.0-20220314234659-1baeb1ce4c0b
+	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/grpc v1.42.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -60,7 +60,7 @@ require (
 	gorm.io/gorm v1.24.1
 	k8s.io/api v0.19.9
 	k8s.io/apimachinery v0.19.9
-	k8s.io/client-go v0.19.9
+	k8s.io/client-go v0.20.0-alpha.2
 	k8s.io/code-generator v0.19.9
 	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/controller-runtime v0.7.2
@@ -137,9 +137,9 @@ require (
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.1.0 // indirect
-	golang.org/x/term v0.1.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
