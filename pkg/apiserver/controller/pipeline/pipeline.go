@@ -151,6 +151,8 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 		err := fmt.Errorf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
 		return nil, err
 	}
+	fmt.Println("++++++", fsID, request.YamlPath)
+	fmt.Println(pipelineYaml)
 
 	return pipelineYaml, nil
 }
