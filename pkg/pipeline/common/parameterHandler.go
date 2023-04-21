@@ -164,6 +164,7 @@ func (s *ComponentParamChecker) Check(currentComponent string, isComp bool) erro
 	// 另外命令行参数替换默认值，会在workflow.go中完成
 	for paramName, paramVal := range component.GetParameters() {
 		// 有input artifact就必须有output artifact，在output那里检查是否有使用Fs即可，这里无需检查
+		fmt.Println("+++", paramName, paramVal)
 		if err = s.checkName(currentComponent, FieldParameters, paramName); err != nil {
 			return err
 		}
