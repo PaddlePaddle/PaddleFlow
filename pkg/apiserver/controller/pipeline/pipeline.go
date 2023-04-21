@@ -152,7 +152,7 @@ func getPipelineYamlFromYamlPath(ctx *logger.RequestContext, request *CreatePipe
 		return nil, err
 	}
 	fmt.Println("++++++", fsID, request.YamlPath)
-	fmt.Println(pipelineYaml)
+	fmt.Println(string(pipelineYaml))
 
 	return pipelineYaml, nil
 }
