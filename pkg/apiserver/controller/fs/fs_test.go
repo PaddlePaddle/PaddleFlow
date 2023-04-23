@@ -434,3 +434,62 @@ func Test_formatSubpath(t *testing.T) {
 		})
 	}
 }
+
+func Test_acl(t *testing.T) {
+	type args struct {
+		bucket  string
+		region  string
+		subpath string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "subpath empty",
+			args: args{
+				bucket:  "test",
+				region:  "bj",
+				subpath: "",
+			},
+			want: `
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["test"],
+	       "region": "bj",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`,
+		},
+		{
+			name: "subpath not empty",
+			args: args{
+				bucket:  "test",
+				region:  "bj",
+				subpath: "abc",
+			},
+			want: `
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["test/abc*"],
+	       "region": "bj",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, acl(tt.args.bucket, tt.args.region, tt.args.subpath), "acl(%v, %v, %v)", tt.args.bucket, tt.args.region, tt.args.subpath)
+		})
+	}
+}

@@ -580,40 +580,15 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	if duration < 60 || duration > 129600 {
 		return nil, fmt.Errorf("duration must be in [60,129600]")
 	}
-	acl := properties[fsCommon.StsACL]
+	acl_ := properties[fsCommon.StsACL]
 	subpath := modelsFs.SubPath
 	subpath = formatSubpath(subpath)
 
-	if acl == "" {
-		if subpath == "" {
-			acl = fmt.Sprintf(`
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["%s"],
-	       "region": "%s",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`, modelsFs.PropertiesMap[fsCommon.Bucket], properties[fsCommon.Region])
-		} else {
-			acl = fmt.Sprintf(`
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["%s/%s*"],
-	       "region": "%s",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
-		}
+	if acl_ == "" {
+		acl_ = acl(modelsFs.PropertiesMap[fsCommon.Bucket], properties[fsCommon.Region], subpath)
 	}
-	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
+
+	stsResult, err := object.StsSessionToken(ak, sk, duration, acl_)
 	if err != nil {
 		log.Errorf("StsSessionToken: %v", err)
 		return nil, err
@@ -645,4 +620,33 @@ func formatSubpath(subpath string) string {
 		subpath = ""
 	}
 	return subpath
+}
+
+func acl(bucket, region, subpath string) string {
+	if subpath == "" {
+		return fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, bucket, region)
+	}
+	return fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s/%s*"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, bucket, subpath, region)
 }
