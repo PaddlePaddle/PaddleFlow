@@ -660,7 +660,7 @@ func TestStsAPI(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, result.Code)
 
 	createFsReq = fs.CreateFileSystemRequest{
-		Name: mockFsName,
+		Name: mockFsName + "abc",
 		Url:  "bos://" + bucket + "/",
 		Properties: map[string]string{
 			"accessKey": ak,
