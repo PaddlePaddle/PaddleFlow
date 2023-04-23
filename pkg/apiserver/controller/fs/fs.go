@@ -585,7 +585,21 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	subpath = formatSubpath(subpath)
 
 	if acl == "" {
-		acl = fmt.Sprintf(`
+		if subpath == "" {
+			acl = fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, modelsFs.PropertiesMap[fsCommon.Bucket], properties[fsCommon.Region])
+		} else {
+			acl = fmt.Sprintf(`
 	{
 	   "accessControlList": [
 	   {
@@ -597,6 +611,7 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	   }
 	   ]
 	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
+		}
 	}
 	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
 	if err != nil {
