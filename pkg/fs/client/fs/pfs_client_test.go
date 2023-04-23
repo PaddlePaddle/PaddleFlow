@@ -322,6 +322,38 @@ func TestFSClient_case1(t *testing.T) {
 	assert.Equal(t, info.IsDir(), false)
 }
 
+func TestFSClient_read_blocksize0(t *testing.T) {
+	clean()
+	defer clean()
+	d := cache.Config{
+		BlockSize:    0,
+		MaxReadAhead: 4,
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "test String for Client"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	var buf []byte
+	var n int
+
+	buf = make([]byte, len([]byte(writeString)))
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), writeString)
+}
+
 func TestFSClient_read(t *testing.T) {
 	clean()
 	defer clean()
