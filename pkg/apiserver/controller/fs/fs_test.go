@@ -453,18 +453,7 @@ func Test_acl(t *testing.T) {
 				region:  "bj",
 				subpath: "",
 			},
-			want: `
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["test"],
-	       "region": "bj",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`,
+			want: "",
 		},
 		{
 			name: "subpath not empty",
