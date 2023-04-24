@@ -132,11 +132,11 @@ todo
 #### 2.3.4 部署sts服务
 如果使用bos sts类型的fs需要在部署成功paddleflow-server后，添加下面的步骤
 ```shell
-# 用户名密码是初始密码，如果用户有更改，请替换成用户自己设置的用户名密码
+# 使用root用户名和密码访问paddleflow-server服务获取token
 curl --location --request POST '{{pf-server}}/api/paddleflow/v1/login' \
 --data-raw '{
   "username": "root",
-  "password": "paddleflow"
+  "password": "*****"
 }'
 
 # 将authorization返回值写入到环境变量中
@@ -150,7 +150,7 @@ kubectl get secret -n paddleflow pf-secret -oyaml
 
 kubectl edit ds -n paddleflow pfs-csi-plugin
 ```
-然后在csi的csi-storage-driver容器加上环境变量
+然后在pfs-csi-plugin的csi-storage-driver容器加上环境变量
 ```yaml
 env:
 - name: PFToken
