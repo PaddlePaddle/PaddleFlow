@@ -9,9 +9,9 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment.yaml -n paddleflow
 # Kubernetes version < v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/paddleflow-deployment-before-v1-18.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/paddleflow-deployment-before-v1-18.yaml -n paddleflow
 # For x86: todo
 # For arm64: todo
 ```
@@ -25,7 +25,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 # 创建基于sqllite的paddleflow-server
 # For x86:
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml -n paddleflow
 # For arm64: todo
 ```
 
@@ -38,13 +38,13 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
-wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/paddleflow.sql
-bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
+wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/paddleflow.sql
+bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.5/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
 sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e "s/3306/${DB_PORT}/g" -e "s/user: paddleflow/user: ${DB_USER}/g"  -e "s/password: paddleflow/password: ${DB_PW}/g"  -e "s/database: paddleflow/database: ${DB_DATABASE}/g" \
-| kubectl apply -f -
+| kubectl apply -f - -n paddleflow
 # For arm64: todo
 ```
 
@@ -54,9 +54,9 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml -n paddleflow
 # Kubernetes v1.13<version< v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml -n paddleflow
 # 为了在kubernetes == v1.13的集群中部署scsi插件，kubernetes集群需要满足以下配置。
 # kube-apiserver启动参数:
 --feature-gates=CSIDriverRegistry=true
@@ -65,7 +65,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/deve
 # kubelet启动参数
 --feature-gates=CSIDriverRegistry=true
 # 1.13环境中的csi安装命令
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.6/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-v1-13.yaml -n paddleflow
 ```
 
 #### 2.3.3 安装volcano
