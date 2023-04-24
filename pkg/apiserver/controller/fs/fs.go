@@ -636,18 +636,7 @@ func formatSubpath(subpath string) string {
 
 func acl(bucket, region, subpath string) string {
 	if subpath == "" {
-		return fmt.Sprintf(`
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["%s"],
-	       "region": "%s",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`, bucket, region)
+		return ""
 	}
 	return fmt.Sprintf(`
 	{
