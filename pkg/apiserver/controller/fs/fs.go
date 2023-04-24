@@ -25,6 +25,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	k8sCore "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -417,14 +418,25 @@ func deletePvPvc(fsID string) error {
 		log.Errorf(err.Error())
 		return err
 	}
+	group := new(errgroup.Group)
 	for k8sRuntime, namespaces := range cnm {
+		k8sRuntime := k8sRuntime
+		namespaces := namespaces
 		for _, ns := range namespaces {
-			if err = patchAndDeletePvcPv(k8sRuntime, ns, fsID); err != nil {
-				err := fmt.Errorf("patchAndDeletePvcPv ns[%s] fsID[%s] failed: %v", ns, fsID, err)
-				log.Errorf(err.Error())
-				return err
-			}
+			ns := ns
+			group.Go(func() error {
+				if err = patchAndDeletePvcPv(k8sRuntime, ns, fsID); err != nil {
+					err := fmt.Errorf("patchAndDeletePvcPv ns[%s] fsID[%s] failed: %v", ns, fsID, err)
+					log.Errorf(err.Error())
+					return err
+				}
+				return nil
+			})
 		}
+	}
+	if err = group.Wait(); err != nil {
+		log.Errorf("deletePvPvc failed: %v", err)
+		return err
 	}
 	return nil
 }
@@ -580,25 +592,15 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	if duration < 60 || duration > 129600 {
 		return nil, fmt.Errorf("duration must be in [60,129600]")
 	}
-	acl := properties[fsCommon.StsACL]
+	acl_ := properties[fsCommon.StsACL]
 	subpath := modelsFs.SubPath
 	subpath = formatSubpath(subpath)
 
-	if acl == "" {
-		acl = fmt.Sprintf(`
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["%s/%s*"],
-	       "region": "%s",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
+	if acl_ == "" {
+		acl_ = acl(modelsFs.PropertiesMap[fsCommon.Bucket], properties[fsCommon.Region], subpath)
 	}
-	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
+
+	stsResult, err := object.StsSessionToken(ak, sk, duration, acl_)
 	if err != nil {
 		log.Errorf("StsSessionToken: %v", err)
 		return nil, err
@@ -630,4 +632,33 @@ func formatSubpath(subpath string) string {
 		subpath = ""
 	}
 	return subpath
+}
+
+func acl(bucket, region, subpath string) string {
+	if subpath == "" {
+		return fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, bucket, region)
+	}
+	return fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s/%s*"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, bucket, subpath, region)
 }

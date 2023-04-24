@@ -207,7 +207,7 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:        "mount-pod-expire",
-			Value:       7 * 24 * time.Hour,
+			Value:       1 * time.Hour,
 			Usage:       "the expiration time when the mount pod needs to be destroyed without used",
 			Destination: &fsConf.MountPodExpire,
 		},

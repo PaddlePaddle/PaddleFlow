@@ -434,3 +434,119 @@ func Test_formatSubpath(t *testing.T) {
 		})
 	}
 }
+
+func Test_deletePvPvc(t *testing.T) {
+	type args struct {
+		fsID string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "deletePvPvc ok",
+			args: args{
+				fsID: mockFSID,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return false
+			},
+		},
+		{
+			name: "deletePvPvc error",
+			args: args{
+				fsID: mockFSID,
+			},
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return true
+			},
+		},
+	}
+	mockNamespace := "default"
+	mockNamespace2 := "default2"
+
+	// monkey getClusterNamespaceMap()
+	p1 := gomonkey.ApplyFunc(getClusterNamespaceMap, func() (map[*runtime.KubeRuntime][]string, error) {
+		return map[*runtime.KubeRuntime][]string{
+			&runtime.KubeRuntime{}: {mockNamespace, mockNamespace2},
+		}, nil
+	})
+	defer p1.Reset()
+
+	// monkey patchAndDeletePvcPv
+	p2 := gomonkey.ApplyFunc(patchAndDeletePvcPv, func(k8sRuntime *runtime.KubeRuntime, namespace, fsID string) error {
+		return nil
+	})
+	defer p2.Reset()
+	for _, tt := range tests {
+		if tt.name == "deletePvPvc error" {
+			// monkey patchAndDeletePvcPv
+			p2 = gomonkey.ApplyFunc(patchAndDeletePvcPv, func(k8sRuntime *runtime.KubeRuntime, namespace, fsID string) error {
+				return fmt.Errorf("patchAndDeletePvcPv error")
+			})
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			tt.wantErr(t, deletePvPvc(tt.args.fsID), fmt.Sprintf("deletePvPvc(%v)", tt.args.fsID))
+		})
+	}
+}
+
+func Test_acl(t *testing.T) {
+	type args struct {
+		bucket  string
+		region  string
+		subpath string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "subpath empty",
+			args: args{
+				bucket:  "test",
+				region:  "bj",
+				subpath: "",
+			},
+			want: `
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["test"],
+	       "region": "bj",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`,
+		},
+		{
+			name: "subpath not empty",
+			args: args{
+				bucket:  "test",
+				region:  "bj",
+				subpath: "abc",
+			},
+			want: `
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["test/abc*"],
+	       "region": "bj",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, acl(tt.args.bucket, tt.args.region, tt.args.subpath), "acl(%v, %v, %v)", tt.args.bucket, tt.args.region, tt.args.subpath)
+		})
+	}
+}
