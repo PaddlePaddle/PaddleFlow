@@ -128,3 +128,36 @@ kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/relea
 # For arm64:
 todo
 ```
+
+#### 2.3.4 部署sts服务
+如果使用bos sts类型的fs需要在部署成功paddleflow-server后，添加下面的步骤
+```shell
+# 使用root用户名和密码访问paddleflow-server服务获取token
+curl --location --request POST '{{pf-server}}/api/paddleflow/v1/login' \
+--data-raw '{
+  "username": "root",
+  "password": "*****"
+}'
+
+# 将authorization返回值写入到环境变量中
+
+PFToken={{authorization}}
+echo -n "$PFToken" > ./PFToken
+# log-service in which one namespace?
+kubectl delete secret -n paddleflow pf-secret
+kubectl create secret -n paddleflow generic pf-secret --from-file=./PFToken
+kubectl get secret -n paddleflow pf-secret -oyaml
+
+kubectl edit ds -n paddleflow pfs-csi-plugin
+```
+然后在pfs-csi-plugin的csi-storage-driver容器加上环境变量
+```yaml
+env:
+- name: PFToken
+  valueFrom:
+    secretKeyRef:
+      key: PFToken
+      name: pf-secret
+```
+
+
