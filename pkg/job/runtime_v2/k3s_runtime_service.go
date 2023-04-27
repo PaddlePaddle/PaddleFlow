@@ -339,6 +339,12 @@ func (k3srs *K3SRuntimeService) ListNodeQuota() (pfschema.QuotaSummary, []pfsche
 	return k3srs.getNodeQuotaListImpl(k8s.SubQuota)
 }
 
+// CreateNamespace Create namespace if not exist
+func (k3srs *K3SRuntimeService) CreateNamespace(namespace string) error {
+	_, err := createNamespace(k3srs.clientSet(), namespace, metav1.CreateOptions{})
+	return err
+}
+
 func (k3srs *K3SRuntimeService) clientSet() kubernetes.Interface {
 	k3sClient := k3srs.client.(*client.K3SRuntimeClient)
 	return k3sClient.Client
@@ -397,9 +403,4 @@ func (k3srs *K3SRuntimeService) getNodeQuotaListImpl(subQuotaFn func(r *resource
 
 func (k3srs *K3SRuntimeService) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
 	return getQueueUsedQuota(k3srs.String(), k3srs.clientSet(), q)
-}
-
-// CreateNamespace Create namespace if not exist
-func (k3srs *K3SRuntimeService) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return createNamespace(k3srs.clientSet(), namespace, opts)
 }

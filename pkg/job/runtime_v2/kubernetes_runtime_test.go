@@ -315,13 +315,13 @@ func TestKubeRuntime_CreateNamespace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ns, err := kubeRuntime.CreateNamespace(tt.args.namespace, metav1.CreateOptions{})
+			err := kubeRuntime.CreateNamespace(tt.args.namespace)
 			if err != nil {
 				assert.NotNil(t, tt.wantErr)
 				assert.Contains(t, err.Error(), tt.wantErr.Error())
 			} else {
 				assert.Nil(t, tt.wantErr)
-				t.Logf("case[%s] create ns resp=%#v", tt.name, ns)
+				t.Logf("case[%s] create ns success", tt.name)
 			}
 		})
 	}
