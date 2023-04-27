@@ -19,7 +19,11 @@ limitations under the License.
 import os
 import re
 from setuptools import setup, find_packages
-from paddleflow.client import NAME, VERSION
+# from paddleflow.client import NAME, VERSION
+
+NAME = 'PaddleFlow'
+VERSION = '1.4.6'
+
 
 with open('requirements.txt') as f:
     REQUIRES = f.readlines()

@@ -34,8 +34,8 @@ from paddleflow.cluster import ClusterServiceApi
 from paddleflow.flavour import FlavouriceApi
 from paddleflow.version import VersionServiceApi
 
-NAME = 'PaddleFlow'
-VERSION = '1.4.6'
+# NAME = 'PaddleFlow'
+# VERSION = '1.4.6'
 
 class Client(object):
     """Client class """

@@ -19,9 +19,8 @@ limitations under the License.
 import sys
 import click
 
-
+from setup import NAME, VERSION
 from paddleflow.cli.output import print_output
-from paddleflow.client import NAME, VERSION
 
 @click.command()
 @click.pass_context
