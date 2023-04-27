@@ -138,6 +138,9 @@ func TestK3SRuntimeJob(t *testing.T) {
 	// update job
 	err = kubeRuntime.DeleteJob(pfJob)
 	assert.Error(t, err)
+	// update job
+	err = kubeRuntime.CreateNamespace("default")
+	assert.NoError(t, err)
 	t.SkipNow()
 }
 
