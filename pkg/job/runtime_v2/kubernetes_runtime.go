@@ -685,8 +685,9 @@ func (kr *KubeRuntime) clientset() kubernetes.Interface {
 }
 
 // CreateNamespace Create namespace if not exist
-func (kr *KubeRuntime) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return createNamespace(kr.clientset(), namespace, opts)
+func (kr *KubeRuntime) CreateNamespace(namespace string) error {
+	_, err := createNamespace(kr.clientset(), namespace, metav1.CreateOptions{})
+	return err
 }
 
 func createNamespace(client kubernetes.Interface, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
