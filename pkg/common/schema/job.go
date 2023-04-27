@@ -157,6 +157,8 @@ const (
 	QueueLabelKey        = "volcano.sh/queue-name"
 	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
 
+	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
+
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
 	DefaultFSMountPath   = "/home/paddleflow/storage/mnt"
