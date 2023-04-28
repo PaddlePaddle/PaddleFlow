@@ -354,7 +354,7 @@ func (js *JobStore) ListJobIDByLabels(labels map[string]string) ([]string, error
 	return jobIDs, nil
 }
 
-func (js *JobStore) GetJobTaskByID(id string) (model.JobTask, error) {
+func (js *JobStore) GetTaskByID(id string) (model.JobTask, error) {
 	var taskStatus model.JobTask
 	tx := js.db.Table(model.JobTaskTableName).Where("id = ?", id).First(&taskStatus)
 	if tx.Error != nil {

@@ -178,25 +178,24 @@ type JobStoreInterface interface {
 	// job
 	CreateJob(job *model.Job) error
 	GetJobByID(jobID string) (model.Job, error)
-	GetUnscopedJobByID(jobID string) (model.Job, error)
 	GetJobStatusByID(jobID string) (schema.JobStatus, error)
+	GetLastJob() (model.Job, error)
+	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
+	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
+	// ListQueueJob TODO(dongzezhao): merge list interface
 	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job
 	ListQueueInitJob(queueID string) []model.Job
 	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job
 	ListJobByStatus(status schema.JobStatus) []model.Job
-	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
 	ListJobByParentID(parentID string) ([]model.Job, error)
-	GetLastJob() (model.Job, error)
 	ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error)
-	// job_lable
-	ListJobIDByLabels(labels map[string]string) ([]string, error)
-	// job_task
-	GetJobTaskByID(id string) (model.JobTask, error)
+	// job task
+	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
 	ListByJobID(jobID string) ([]model.JobTask, error)
 }
