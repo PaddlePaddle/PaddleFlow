@@ -79,7 +79,7 @@ func TestGenerateLogURL(t *testing.T) {
 			// init db
 			err := storage.Job.UpdateTask(&tc.task)
 			assert.Equal(t, nil, err)
-			task, err := storage.Job.GetJobTaskByID(tc.task.ID)
+			task, err := storage.Job.GetTaskByID(tc.task.ID)
 			assert.Equal(t, nil, err)
 			// generate log url
 			url := GenerateLogURL(task)
