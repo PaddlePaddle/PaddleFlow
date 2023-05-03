@@ -324,7 +324,7 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 
 	// 参数值检查
 	switch param := param.(type) {
-	case float32, float64, int, int64:
+	case float32, float64, int, int64, json.Number:
 		return param, nil
 	case []interface{}:
 		if err := CheckListParam(param); err != nil {
