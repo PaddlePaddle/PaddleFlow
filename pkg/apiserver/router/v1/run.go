@@ -91,7 +91,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		defer timer.ObserveDuration()
 	}
 
-	if err = common.BindJSON(r, &createRunInfo); err != nil {
+	if err = common.BindJSONByDecoder(r, &createRunInfo); err != nil {
 		ctx.ErrorCode = common.MalformedJSON
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
