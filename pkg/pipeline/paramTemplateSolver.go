@@ -19,10 +19,10 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strings"
-	"math/big"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
@@ -73,8 +73,8 @@ func transToString(value interface{}) string {
 		return big_float.Text('f', -1)
 	default:
 		return fmt.Sprintf("%v", value)
+	}
 }
-
 
 // 用于解析 component 内部的引用模版，如env，condition，conditon，loop_argument 等字段中 parameter/artifact 模版
 type innerSolver struct {
