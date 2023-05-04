@@ -66,10 +66,11 @@ func parseSysParamerterTemplate(tpl string, sysParams map[string]string) (string
 }
 
 // float直接%v会使用科学计数法，%f会有精度丢失
+// todo：big.NewFloat不支持使用float32初始化，但是讲float32专成float64会有精度丢失。目前unmarshall结果都是float64，float32暂时不处理
 func transToString(value interface{}) string {
-	switch value := value.(type) {
-	case float32, float64:
-		big_float := big.NewFloat(value)
+	switch value.(type) {
+	case float64:
+		big_float := big.NewFloat(value.(float64))
 		return big_float.Text('f', -1)
 	default:
 		return fmt.Sprintf("%v", value)
