@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"math/big"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
@@ -63,6 +64,17 @@ func parseSysParamerterTemplate(tpl string, sysParams map[string]string) (string
 	}
 	return param, nil
 }
+
+// float直接%v会使用科学计数法，%f会有精度丢失
+func transToString(value interface{}) string {
+	switch value := value.(type) {
+	case float32, float64:
+		big_float := big.NewFloat(value)
+		return big_float.Text('f', -1)
+	default:
+		return fmt.Sprintf("%v", value)
+}
+
 
 // 用于解析 component 内部的引用模版，如env，condition，conditon，loop_argument 等字段中 parameter/artifact 模版
 type innerSolver struct {
@@ -107,7 +119,7 @@ func (isv *innerSolver) resloveParameterTemplate(tpl []string, fieldType string)
 			return value2, err
 		}
 
-		value = fmt.Sprintf("%v", value2)
+		value = transToString(value2)
 	}
 	return value, nil
 }
@@ -156,7 +168,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 	return result, nil
 }
 
-// resolveEnv: 将字符串中给定模板替换成具体值
+// resolveTemplate: 将字符串中给定模板替换成具体值
 func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
 	isv.logger.Debugf("begin to resolve template for %s[%s] with field[%s]", isv.Component.GetType(), isv.runtimeName, fieldType)
 	tpls, err := fetchTemplate(tplString)
@@ -200,7 +212,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 		if fieldType == FieldLoopArguemt {
 			return value, nil
 		} else {
-			valueString := fmt.Sprintf("%v", value)
+			valueString := transToString(value)
 			tplString = strings.Replace(tplString, tpl[0], valueString, -1)
 		}
 	}
@@ -363,7 +375,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 
 		// 如果 tplstring 与 tpls[0] 不相等，说明其是模板拼接而成，此时会将参数值转化为字符串
 		if tplString != tpls[0][0] {
-			valueString := fmt.Sprintf("%v", value)
+			valueString := transToString(value)
 			tplString = strings.Replace(tplString, tpl[0], valueString, -1)
 		} else {
 			return value, nil
@@ -456,7 +468,7 @@ func (ds *DependencySolver) ResolveBeforeRun(subComponent schema.Component) erro
 
 // ResolveAfterDone: 当dag运行成功时调用，解析输出artifact 模版
 func (ds *DependencySolver) ResolveAfterDone() error {
-	// 对于step 类型的节点，所有模版均在运行钱完成了解析
+	// 对于step 类型的节点，所有模版均在运行前完成了解析
 	_, ok := ds.component.(*schema.WorkflowSourceStep)
 	if ok {
 		return nil
