@@ -68,31 +68,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	requestId := ctx.RequestID
 	var createRunInfo pipeline.CreateRunRequest
 
-<<<<<<< HEAD
 	if err := common.BindJSONByDecoder(r, &createRunInfo); err != nil {
-=======
-	var err error
-	if config.GlobalServerConfig.Metrics.Enable {
-		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
-			var errCode string
-			if err != nil {
-				errCode = strconv.Itoa(common.GetHttpStatusByCode(ctx.ErrorCode))
-			} else {
-				errCode = strconv.Itoa(http.StatusOK)
-			}
-			metrics.APiDurationSummary.With(
-				prometheus.Labels{
-					metrics.ApiNameLabel:       "createRun",
-					metrics.RequestMethodLabel: r.Method,
-					metrics.ResponseCodeLabel:  errCode,
-				}).Observe(v * 1000)
-		}))
-		defer timer.ObserveDuration()
-	}
-
-	if err = common.BindJSONByDecoder(r, &createRunInfo); err != nil {
-		ctx.ErrorCode = common.MalformedJSON
->>>>>>> 45bd730 (fix bug for unmarshall(default float -> json.Number))
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
