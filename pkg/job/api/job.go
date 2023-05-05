@@ -138,6 +138,8 @@ type JobSyncInfo struct {
 	ID               string
 	Namespace        string
 	ParentJobID      string
+	Type             schema.JobType
+	Framework        schema.Framework
 	FrameworkVersion schema.FrameworkVersion
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}

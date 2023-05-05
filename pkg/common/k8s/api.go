@@ -17,7 +17,6 @@ limitations under the License.
 package k8s
 
 import (
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -117,32 +116,45 @@ func GetJobFrameworkVersion(jobType commomschema.JobType, framework commomschema
 	return commomschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
-func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, commomschema.Framework) {
+func GetJobType(gvk schema.GroupVersionKind) commomschema.JobType {
 	switch gvk {
 	case PodGVK:
-		return commomschema.TypeSingle, commomschema.FrameworkStandalone
-	case SparkAppGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkSpark
-	case PaddleJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkPaddle
-	case PyTorchJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkPytorch
-	case TFJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkTF
-	case MXNetJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkMXNet
-	case MPIJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkMPI
-	case RayJobGVK:
-		return commomschema.TypeDistributed, commomschema.FrameworkRay
+		return commomschema.TypeSingle
+	case ArgoWorkflowGVK:
+		return commomschema.TypeWorkflow
 	default:
-		log.Errorf("GroupVersionKind %s is not support", gvk)
-		return "", ""
+		return commomschema.TypeDistributed
 	}
 }
 
-type StatusInfo struct {
-	OriginStatus string
-	Status       commomschema.JobStatus
-	Message      string
+func GetJobFramework(gvk schema.GroupVersionKind) commomschema.Framework {
+	switch gvk {
+	case PodGVK:
+		return commomschema.FrameworkStandalone
+	case ArgoWorkflowGVK:
+		return ""
+	default:
+		return distributedJobFramework(gvk)
+	}
+}
+
+func distributedJobFramework(gvk schema.GroupVersionKind) commomschema.Framework {
+	switch gvk {
+	case SparkAppGVK:
+		return commomschema.FrameworkSpark
+	case PaddleJobGVK:
+		return commomschema.FrameworkPaddle
+	case PyTorchJobGVK:
+		return commomschema.FrameworkPytorch
+	case TFJobGVK:
+		return commomschema.FrameworkTF
+	case MXNetJobGVK:
+		return commomschema.FrameworkMXNet
+	case MPIJobGVK:
+		return commomschema.FrameworkMPI
+	case RayJobGVK:
+		return commomschema.FrameworkRay
+	default:
+		return ""
+	}
 }

@@ -321,11 +321,6 @@ func (k3s *K3SRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaS
 	return pfschema.QuotaSummary{}, nil, nil
 }
 
-func (k3s *K3SRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
-	gvk := frameworkVersionToGVK(fv)
-	return k8s.GetJobTypeAndFramework(gvk)
-}
-
 func (k3s *K3SRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
 	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
 	log.Infof("on %s, FrameworkVesion for job type %s framework %s, is %s", k3s.Cluster(), jobType, fw, frameworkVersion)
