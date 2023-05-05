@@ -441,39 +441,6 @@ func TestK3SNodeListener(t *testing.T) {
 
 }
 
-func TestK3SGetJobTypeFramework(t *testing.T) {
-	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
-	defer server.Close()
-	runtimeClient := NewFakeK3SRuntimeClient(server)
-
-	type args struct {
-		fv              pfschema.FrameworkVersion
-		expectJobType   pfschema.JobType
-		expectFramework pfschema.Framework
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{
-			name: "success",
-			args: args{
-				fv:              schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
-				expectJobType:   schema.TypeSingle,
-				expectFramework: schema.FrameworkStandalone,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			jobType, framework := runtimeClient.GetJobTypeFramework(tt.args.fv)
-			assert.Equal(t, tt.args.expectJobType, jobType)
-			assert.Equal(t, tt.args.expectFramework, framework)
-		})
-	}
-}
-
 func TestK3SJobFrameworkVersion(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()

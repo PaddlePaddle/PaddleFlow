@@ -148,12 +148,6 @@ func (krc *KubeRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw p
 	return frameworkVersion
 }
 
-func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
-	gvk := frameworkVersionToGVK(fv)
-	jobType, framework := k8s.GetJobTypeAndFramework(gvk)
-	return jobType, framework
-}
-
 func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
 	var err error
 	switch listenerType {

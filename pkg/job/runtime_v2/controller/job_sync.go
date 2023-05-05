@@ -166,17 +166,15 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
 			return err
 		}
-		// get job type and framework from FrameworkVersion
-		jobType, framework := j.runtimeClient.GetJobTypeFramework(jobSyncInfo.FrameworkVersion)
 		job := &model.Job{
 			ID:   jobSyncInfo.ID,
-			Type: string(jobType),
+			Type: string(jobSyncInfo.Type),
 			Config: &pfschema.Conf{
 				Env: map[string]string{
 					pfschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:     framework,
+			Framework:     jobSyncInfo.Framework,
 			QueueID:       parentJob.QueueID,
 			Status:        jobSyncInfo.Status,
 			Message:       jobSyncInfo.Message,
