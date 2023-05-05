@@ -163,8 +163,7 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 	}
 	// submit job
 	traceLogger.Infof("submit kubernetes job")
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	err := kr.Job(fwVersion).Submit(context.TODO(), job)
+	err := kr.getJobInterface(job).Submit(context.TODO(), job)
 	if err != nil {
 		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
 		return err
@@ -178,24 +177,26 @@ func (kr *KubeRuntime) StopJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("stop job failed, job is nil")
 	}
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Stop(context.TODO(), job)
+	return kr.getJobInterface(job).Stop(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Update(context.TODO(), job)
+	return kr.getJobInterface(job).Update(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) DeleteJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("delete job failed, job is nil")
 	}
+	return kr.getJobInterface(job).Delete(context.TODO(), job)
+}
+
+func (kr *KubeRuntime) getJobInterface(job *api.PFJob) framework.JobInterface {
 	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Delete(context.TODO(), job)
+	return kr.Job(fwVersion)
 }
 
 func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
