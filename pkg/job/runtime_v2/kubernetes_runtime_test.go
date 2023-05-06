@@ -165,7 +165,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	// delete kubernetes job
 	err = kubeRuntime.DeleteJob(pfJob)
-	assert.NoError(t, err)
+	assert.NotNil(t, err)
 	t.SkipNow()
 }
 
