@@ -140,6 +140,8 @@ type JobSyncInfo struct {
 	ParentJobID      string
 	Type             schema.JobType
 	Framework        schema.Framework
+	KindGroupVersion schema.KindGroupVersion
+	// FrameworkVersion deprecated
 	FrameworkVersion schema.FrameworkVersion
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
@@ -174,6 +176,8 @@ type FinishedJobInfo struct {
 	Namespace        string
 	Name             string
 	Duration         time.Duration
+	KindGroupVersion schema.KindGroupVersion
+	// FrameworkVersion deprecated
 	FrameworkVersion schema.FrameworkVersion
 }
 

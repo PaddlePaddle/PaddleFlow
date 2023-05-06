@@ -173,7 +173,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
 	for fv, _ := range jobPlugins {
-		gvk := frameworkVersionToGVK(fv)
+		gvk := schema.GroupVersionKind{Kind: fv.Kind, Group: fv.Group, Version: fv.APIVersion}
 		krc.unRegisteredMap[gvk] = true
 	}
 	krc.addJobInformers(workQueue)
@@ -190,7 +190,8 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
 	log.Debugf("add job informers")
 	for gvk := range krc.unRegisteredMap {
-		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
+		kindGroupVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, kindGroupVersion)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)

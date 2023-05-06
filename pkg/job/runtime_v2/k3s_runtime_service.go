@@ -225,7 +225,7 @@ func (k3srs *K3SRuntimeService) SubmitJob(job *api.PFJob) error {
 	traceLogger.Infof("submit k3s job")
 	traceLogger.Infof("k3s only support single job.")
 	traceLogger.Infof("current submit job type: %v, job framework: %v", job.JobType, job.Framework)
-	err = k3srs.Job(pfschema.FrameworkVersion{}).Submit(context.TODO(), job)
+	err = k3srs.Job(pfschema.KindGroupVersion{}).Submit(context.TODO(), job)
 	if err != nil {
 		errMsg := fmt.Sprintf("create k3s job[%s] failed, err: %v", job.Name, err)
 		log.Warnf(errMsg)
@@ -237,10 +237,10 @@ func (k3srs *K3SRuntimeService) SubmitJob(job *api.PFJob) error {
 	return nil
 }
 
-func (k3srs *K3SRuntimeService) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+func (k3srs *K3SRuntimeService) Job(kindVersion pfschema.KindGroupVersion) framework.JobInterface {
 	// default use pod gvk
 	gvk := k8s.PodGVK
-	fv := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	fv := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	jobPlugin, found := framework.GetJobPlugin(pfschema.K3SType, fv)
 	if !found {
 		errMsg := fmt.Sprintf("get job plugin on %s failed, err: %s job is not implemented", k3srs.String(), fv)
@@ -253,21 +253,21 @@ func (k3srs *K3SRuntimeService) StopJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("stop job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Stop(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Stop(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Update(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Update(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) DeleteJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("delete job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Stop(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Stop(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {

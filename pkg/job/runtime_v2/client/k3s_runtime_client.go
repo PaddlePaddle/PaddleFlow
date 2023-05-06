@@ -206,7 +206,7 @@ func (k3s *K3SRuntimeClient) registerJobListener(workQueue workqueue.RateLimitin
 	taskGvr := k8s.PodGVR
 	k3s.JobInformerMap[taskGvr] = k3s.DynamicFactory.ForResource(taskGvr).Informer()
 	gvk := k8s.PodGVK
-	jobPlugin, _ := framework.GetJobPlugin(pfschema.K3SType, KubeFrameworkVersion(gvk))
+	jobPlugin, _ := framework.GetJobPlugin(pfschema.K3SType, pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version))
 	jobClient := jobPlugin(k3s)
 	err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, k3s.JobInformerMap[taskGvr])
 	if err != nil {
