@@ -163,7 +163,8 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 	}
 	// submit job
 	traceLogger.Infof("submit kubernetes job")
-	err := kr.getJobInterface(job).Submit(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	err := kr.Job(kindGroupVersion).Submit(context.TODO(), job)
 	if err != nil {
 		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
 		return err
@@ -177,29 +178,27 @@ func (kr *KubeRuntime) StopJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("stop job failed, job is nil")
 	}
-	return kr.getJobInterface(job).Stop(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Stop(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	return kr.getJobInterface(job).Update(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Update(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) DeleteJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("delete job failed, job is nil")
 	}
-	return kr.getJobInterface(job).Delete(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Delete(context.TODO(), job)
 }
 
-func (kr *KubeRuntime) getJobInterface(job *api.PFJob) framework.JobInterface {
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion)
-}
-
-func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+func (kr *KubeRuntime) Job(fwVersion pfschema.KindGroupVersion) framework.JobInterface {
 	jobPlugin, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
 	if !found {
 		log.Errorf("get job plugin on %s failed, err: %s job is not implemented", kr.String(), fwVersion)

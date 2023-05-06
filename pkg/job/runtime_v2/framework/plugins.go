@@ -31,9 +31,9 @@ type JobPlugin = func(RuntimeClientInterface) JobInterface
 var kubeJobMutex sync.RWMutex
 
 // kubeJobMaps store JobPlugin
-var kubeJobMaps = map[schema.FrameworkVersion]JobPlugin{}
+var kubeJobMaps = map[schema.KindGroupVersion]JobPlugin{}
 
-func RegisterJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion, job JobPlugin) {
+func RegisterJobPlugin(runtimeType string, frameworkVersion schema.KindGroupVersion, job JobPlugin) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.Lock()
@@ -49,13 +49,13 @@ func CleanupJobPlugins(runtimeType string) {
 	case schema.KubernetesType:
 		kubeJobMutex.Lock()
 		defer kubeJobMutex.Unlock()
-		kubeJobMaps = map[schema.FrameworkVersion]JobPlugin{}
+		kubeJobMaps = map[schema.KindGroupVersion]JobPlugin{}
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
 }
 
-func GetJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion) (JobPlugin, bool) {
+func GetJobPlugin(runtimeType string, frameworkVersion schema.KindGroupVersion) (JobPlugin, bool) {
 	var jobPlugin JobPlugin
 	var found bool
 	switch runtimeType {
@@ -69,8 +69,8 @@ func GetJobPlugin(runtimeType string, frameworkVersion schema.FrameworkVersion) 
 	return jobPlugin, found
 }
 
-func ListJobPlugins(runtimeType string) map[schema.FrameworkVersion]JobPlugin {
-	jobPlugin := make(map[schema.FrameworkVersion]JobPlugin)
+func ListJobPlugins(runtimeType string) map[schema.KindGroupVersion]JobPlugin {
+	jobPlugin := make(map[schema.KindGroupVersion]JobPlugin)
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.RLock()
