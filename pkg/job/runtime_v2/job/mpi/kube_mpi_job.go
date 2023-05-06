@@ -31,14 +31,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
 var (
-	JobGVK           = k8s.MPIJobGVK
-	KubeMPIFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK = k8s.MPIJobGVK
 )
 
 // KubeMPIJob is a struct that runs a mpi job
@@ -48,7 +46,7 @@ type KubeMPIJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeMPIJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeMPIFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.MPIKindGroupVersion, kubeClient),
 	}
 }
 
@@ -76,7 +74,7 @@ func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), mpiJob)
-	err = mj.RuntimeClient.Create(mpiJob, mj.FrameworkVersion)
+	err = mj.RuntimeClient.Create(mpiJob, mj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err

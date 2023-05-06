@@ -29,14 +29,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
 var (
-	JobGVK                    = k8s.ArgoWorkflowGVK
-	KubeArgoWorkflowFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK = k8s.ArgoWorkflowGVK
 )
 
 // KubeArgoWorkflowJob is a struct that runs an argo workflow
@@ -46,7 +44,7 @@ type KubeArgoWorkflowJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeArgoWorkflowJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeArgoWorkflowFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.WorkflowKindGroupVersion, kubeClient),
 	}
 }
 
@@ -77,7 +75,7 @@ func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), argoWfJob)
-	err = pj.RuntimeClient.Create(argoWfJob, pj.FrameworkVersion)
+	err = pj.RuntimeClient.Create(argoWfJob, pj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err

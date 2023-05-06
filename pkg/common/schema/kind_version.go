@@ -36,7 +36,7 @@ func NewKindGroupVersion(kind, group, version string) KindGroupVersion {
 }
 
 func (kv KindGroupVersion) String() string {
-	return fmt.Sprintf("kind: %s, groupVersion: %s/%s ", kv.Kind, kv.Group, kv.APIVersion)
+	return fmt.Sprintf("kind: %s, groupVersion: %s/%s", kv.Kind, kv.Group, kv.APIVersion)
 }
 
 func ToKindGroupVersion(clusterType string, framework Framework, annotations map[string]string) KindGroupVersion {
@@ -98,4 +98,8 @@ var (
 		FrameworkSpark:      SparkKindGroupVersion,
 		FrameworkRay:        RayKindGroupVersion,
 	}
+
+	// ElasticQueueKindGroupVersion kind group version for elastic queue
+	ElasticQueueKindGroupVersion = KindGroupVersion{Kind: "ElasticResourceQuota", Group: "scheduling.volcano.sh", APIVersion: "v1beta1"}
+	VCQueueKindGroupVersion      = KindGroupVersion{Kind: "Queue", Group: "scheduling.volcano.sh", APIVersion: "v1beta1"}
 )

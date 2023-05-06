@@ -10,7 +10,7 @@ import (
 )
 
 func TestGetJobGVR(t *testing.T) {
-	gvr := GetJobGVR(pfschema.FrameworkPaddle)
+	gvr := GetJobGVR(pfschema.PaddleKindGroupVersion)
 	t.Logf("gvr is %v", gvr)
 }
 

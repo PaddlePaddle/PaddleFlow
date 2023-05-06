@@ -339,7 +339,8 @@ func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
 
 	// TODO: add more check
 	log.Infof("create kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Create(obj, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Create(obj, kindVersion); err != nil {
 		log.Errorf("create kubernetes %s resource failed. name:[%s/%s] err:[%s]", gvk.String(), namespace, name, err.Error())
 		return err
 	}
@@ -356,7 +357,8 @@ func (kr *KubeRuntime) UpdateObject(obj *unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	// TODO: add more check
 	log.Infof("update kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Update(obj, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Update(obj, kindVersion); err != nil {
 		log.Errorf("update kubernetes %s resource failed, name:[%s/%s] err:[%v]", gvk.String(), namespace, name, err.Error())
 		return err
 	}
@@ -365,7 +367,8 @@ func (kr *KubeRuntime) UpdateObject(obj *unstructured.Unstructured) error {
 
 func (kr *KubeRuntime) GetObject(namespace, name string, gvk schema.GroupVersionKind) (interface{}, error) {
 	log.Debugf("get kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	resourceObj, err := kr.kubeClient.Get(namespace, name, client.KubeFrameworkVersion(gvk))
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	resourceObj, err := kr.kubeClient.Get(namespace, name, kindVersion)
 	if err != nil {
 		log.Errorf("get kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
 		return nil, err
@@ -375,7 +378,8 @@ func (kr *KubeRuntime) GetObject(namespace, name string, gvk schema.GroupVersion
 
 func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk schema.GroupVersionKind) error {
 	log.Infof("delete kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Delete(namespace, name, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Delete(namespace, name, kindVersion); err != nil {
 		log.Errorf("delete kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
 		return err
 	}

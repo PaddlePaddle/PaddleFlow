@@ -191,7 +191,7 @@ func TestSparkJob_CreateJob(t *testing.T) {
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				_, err = kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSparkFwVersion)
+				_, err = kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.SparkKindGroupVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}

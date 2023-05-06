@@ -33,14 +33,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
 var (
-	JobGVK             = k8s.SparkAppGVK
-	KubeSparkFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK = k8s.SparkAppGVK
 )
 
 // KubeSparkJob is a struct that contains client to operate spark application on cluster
@@ -50,7 +48,7 @@ type KubeSparkJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeSparkJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeSparkFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.SparkKindGroupVersion, kubeClient),
 	}
 }
 
@@ -83,7 +81,7 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", sj.String(jobName), sparkJob)
-	err = sj.RuntimeClient.Create(sparkJob, sj.FrameworkVersion)
+	err = sj.RuntimeClient.Create(sparkJob, sj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sj.String(jobName), err)
 		return err

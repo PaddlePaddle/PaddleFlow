@@ -30,14 +30,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
 var (
-	JobGVK              = k8s.PodGVK
-	KubeSingleFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK = k8s.PodGVK
 )
 
 // KubeSingleJob is an executor struct that runs a single job
@@ -48,7 +46,7 @@ type KubeSingleJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeSingleJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeSingleFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.StandaloneKindGroupVersion, kubeClient),
 	}
 }
 
@@ -90,7 +88,7 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, singlePod: %s", sp.String(jobName), singlePod)
-	err = sp.RuntimeClient.Create(singlePod, sp.FrameworkVersion)
+	err = sp.RuntimeClient.Create(singlePod, sp.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(jobName), err)
 		return err

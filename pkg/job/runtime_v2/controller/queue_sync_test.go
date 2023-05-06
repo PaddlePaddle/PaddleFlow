@@ -35,8 +35,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/elasticqueue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/vcqueue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -66,7 +64,7 @@ func TestQueueSync(t *testing.T) {
 		queueName string
 		gvr       schema.GroupVersionResource
 		gvk       schema.GroupVersionKind
-		fv        pfschema.FrameworkVersion
+		fv        pfschema.KindGroupVersion
 		oldQueue  interface{}
 		newQueue  interface{}
 	}{
@@ -75,7 +73,7 @@ func TestQueueSync(t *testing.T) {
 			queueName: "q1",
 			gvr:       VCQueueGVR,
 			gvk:       k8s.VCQueueGVK,
-			fv:        vcqueue.KubeVCQueueQuotaType,
+			fv:        pfschema.VCQueueKindGroupVersion,
 			oldQueue: &v1beta1.Queue{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "q1",
@@ -104,7 +102,7 @@ func TestQueueSync(t *testing.T) {
 			queueName: "elasticQuota1",
 			gvr:       EQuotaGVR,
 			gvk:       k8s.EQuotaGVK,
-			fv:        elasticqueue.KubeElasticQueueQuotaType,
+			fv:        pfschema.ElasticQueueKindGroupVersion,
 			oldQueue: &v1beta1.ElasticResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "elasticQuota1",

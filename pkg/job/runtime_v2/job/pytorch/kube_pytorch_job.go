@@ -31,14 +31,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
 var (
-	JobGVK               = k8s.PyTorchJobGVK
-	KubePyTorchFwVersion = client.KubeFrameworkVersion(JobGVK)
+	JobGVK = k8s.PyTorchJobGVK
 )
 
 // KubePyTorchJob is a struct that runs a pytorch job
@@ -48,7 +46,7 @@ type KubePyTorchJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubePyTorchJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubePyTorchFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.PyTorchKindGroupVersion, kubeClient),
 	}
 }
 
@@ -79,7 +77,7 @@ func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), pdj)
-	err = pj.RuntimeClient.Create(pdj, pj.FrameworkVersion)
+	err = pj.RuntimeClient.Create(pdj, pj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
