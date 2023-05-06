@@ -72,15 +72,26 @@ func FromGroupVersion(groupVersion string) (string, string, error) {
 }
 
 var (
-	WorkflowKindGroupVersion     = KindGroupVersion{Kind: "Workflow", Group: "argoproj.io", APIVersion: "v1alpha1"}
+	// StandaloneKindGroupVersion kind group version for single job
+	StandaloneKindGroupVersion = KindGroupVersion{Kind: "Pod", Group: "", APIVersion: "v1"}
+	PaddleKindGroupVersion     = KindGroupVersion{Kind: "PaddleJob", Group: "batch.paddlepaddle.org", APIVersion: "v1"}
+	PyTorchKindGroupVersion    = KindGroupVersion{Kind: "PyTorchJob", Group: "kubeflow.org", APIVersion: "v1"}
+	TFKindGroupVersion         = KindGroupVersion{Kind: "TFJob", Group: "kubeflow.org", APIVersion: "v1"}
+	MPIKindGroupVersion        = KindGroupVersion{Kind: "MPIJob", Group: "kubeflow.org", APIVersion: "v1"}
+	MXNetKindGroupVersion      = KindGroupVersion{Kind: "MXJob", Group: "kubeflow.org", APIVersion: "v1"}
+	SparkKindGroupVersion      = KindGroupVersion{Kind: "SparkApplication", Group: "sparkoperator.k8s.io", APIVersion: "v1beta2"}
+	RayKindGroupVersion        = KindGroupVersion{Kind: "RayJob", Group: "ray.io", APIVersion: "v1alpha1"}
+	// WorkflowKindGroupVersion kind group version for argo workflow job
+	WorkflowKindGroupVersion = KindGroupVersion{Kind: "Workflow", Group: "argoproj.io", APIVersion: "v1alpha1"}
+
 	frameworkKindGroupVersionMap = map[Framework]KindGroupVersion{
-		FrameworkStandalone: {Kind: "Pod", Group: "", APIVersion: "v1"},
-		FrameworkPaddle:     {Kind: "PaddleJob", Group: "batch.paddlepaddle.org", APIVersion: "v1"},
-		FrameworkPytorch:    {Kind: "PyTorchJob", Group: "kubeflow.org", APIVersion: "v1"},
-		FrameworkTF:         {Kind: "TFJob", Group: "kubeflow.org", APIVersion: "v1"},
-		FrameworkMPI:        {Kind: "MPIJob", Group: "kubeflow.org", APIVersion: "v1"},
-		FrameworkMXNet:      {Kind: "MXJob", Group: "kubeflow.org", APIVersion: "v1"},
-		FrameworkSpark:      {Kind: "SparkApplication", Group: "sparkoperator.k8s.io", APIVersion: "v1beta2"},
-		FrameworkRay:        {Kind: "RayJob", Group: "ray.io", APIVersion: "v1alpha1"},
+		FrameworkStandalone: StandaloneKindGroupVersion,
+		FrameworkPaddle:     PaddleKindGroupVersion,
+		FrameworkPytorch:    PyTorchKindGroupVersion,
+		FrameworkTF:         TFKindGroupVersion,
+		FrameworkMPI:        MPIKindGroupVersion,
+		FrameworkMXNet:      MXNetKindGroupVersion,
+		FrameworkSpark:      SparkKindGroupVersion,
+		FrameworkRay:        RayKindGroupVersion,
 	}
 )
