@@ -237,7 +237,7 @@ func (k3srs *K3SRuntimeService) SubmitJob(job *api.PFJob) error {
 	return nil
 }
 
-func (k3srs *K3SRuntimeService) Job(fwVersion pfschema.KindGroupVersion) framework.JobInterface {
+func (k3srs *K3SRuntimeService) Job(kindVersion pfschema.KindGroupVersion) framework.JobInterface {
 	// default use pod gvk
 	gvk := k8s.PodGVK
 	fv := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)

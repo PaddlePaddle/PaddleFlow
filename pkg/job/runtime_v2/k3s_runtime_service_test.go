@@ -125,9 +125,8 @@ func TestK3SRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
-	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
+	err = kubeRuntime.Job(schema.StandaloneKindGroupVersion).Submit(context.TODO(), pfJob)
 	assert.NoError(t, err)
 	// update job
 	err = kubeRuntime.UpdateJob(pfJob)

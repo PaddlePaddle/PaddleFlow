@@ -153,12 +153,12 @@ func TestKubeRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
+	kindVersion := schema.StandaloneKindGroupVersion
 	// create kubernetes job
-	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
+	err = kubeRuntime.Job(kindVersion).Submit(context.TODO(), pfJob)
 	assert.NoError(t, err)
 	// stop kubernetes job
-	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
+	err = kubeRuntime.Job(kindVersion).Stop(context.TODO(), pfJob)
 	assert.NoError(t, err)
 	t.SkipNow()
 }
