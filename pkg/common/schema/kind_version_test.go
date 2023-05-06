@@ -76,6 +76,7 @@ func TestToKindGroupVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Logf("%s\n", tc.wantRes)
 			kgv := ToKindGroupVersion(tc.clusterType, tc.framework, tc.annotations)
 			assert.Equal(t, tc.wantRes, kgv)
 		})
