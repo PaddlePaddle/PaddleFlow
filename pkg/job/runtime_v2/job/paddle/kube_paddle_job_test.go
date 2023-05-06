@@ -562,7 +562,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.PaddleKindGroupVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}

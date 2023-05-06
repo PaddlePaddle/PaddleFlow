@@ -71,15 +71,15 @@ type RuntimeClientInterface interface {
 
 	ClusterName() string
 
-	Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error)
+	Get(namespace string, name string, kindVersion pfschema.KindGroupVersion) (interface{}, error)
 
-	Create(resource interface{}, fv pfschema.FrameworkVersion) error
+	Create(resource interface{}, kindVersion pfschema.KindGroupVersion) error
 
-	Delete(namespace string, name string, fv pfschema.FrameworkVersion) error
+	Delete(namespace string, name string, kindVersion pfschema.KindGroupVersion) error
 
-	Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error
+	Patch(namespace string, name string, kindVersion pfschema.KindGroupVersion, data []byte) error
 
-	Update(resource interface{}, fv pfschema.FrameworkVersion) error
+	Update(resource interface{}, kindVersion pfschema.KindGroupVersion) error
 
 	// RegisterListener register job/task/queue listener
 	RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error
@@ -88,6 +88,4 @@ type RuntimeClientInterface interface {
 
 	// ListNodeQuota resource api for cluster nodes
 	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
-
-	JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion
 }

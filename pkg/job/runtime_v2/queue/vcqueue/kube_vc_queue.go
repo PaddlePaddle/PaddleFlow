@@ -46,14 +46,14 @@ var (
 // KubeVCQueue is a struct that contains client to operate volcano queue on cluster
 type KubeVCQueue struct {
 	GVK             schema.GroupVersionKind
-	resourceVersion pfschema.FrameworkVersion
+	resourceVersion pfschema.KindGroupVersion
 	runtimeClient   framework.RuntimeClientInterface
 	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeVCQueue{
-		resourceVersion: KubeVCQueueQuotaType,
+		resourceVersion: pfschema.VCQueueKindGroupVersion,
 		runtimeClient:   client,
 		GVK:             QueueGVK,
 	}

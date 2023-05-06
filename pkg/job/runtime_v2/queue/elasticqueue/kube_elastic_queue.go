@@ -47,14 +47,14 @@ var (
 // Note: the CRD of elastic queue is ElasticResourceQuota
 type KubeElasticQueue struct {
 	GVK             schema.GroupVersionKind
-	resourceVersion pfschema.FrameworkVersion
+	resourceVersion pfschema.KindGroupVersion
 	runtimeClient   framework.RuntimeClientInterface
 	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeElasticQueue{
-		resourceVersion: KubeElasticQueueQuotaType,
+		resourceVersion: pfschema.ElasticQueueKindGroupVersion,
 		runtimeClient:   client,
 		GVK:             QueueGVK,
 	}

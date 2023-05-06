@@ -115,7 +115,7 @@ func TestWorkflowJob(t *testing.T) {
 			if err != nil {
 				t.Logf("create job failed, err: %v", err)
 			} else {
-				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeArgoWorkflowFwVersion)
+				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.WorkflowKindGroupVersion)
 				if err != nil {
 					t.Errorf(err.Error())
 				} else {

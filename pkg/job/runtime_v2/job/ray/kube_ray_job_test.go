@@ -123,7 +123,7 @@ func TestRayJob(t *testing.T) {
 			if err != nil {
 				t.Logf("create job failed, err: %v", err)
 			} else {
-				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeRayFwVersion)
+				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.RayKindGroupVersion)
 				if err != nil {
 					t.Errorf(err.Error())
 				} else {
@@ -182,10 +182,10 @@ func TestRayJobListener(t *testing.T) {
 			err := rayJob.AddEventListener(context.TODO(), schema.ListenerTypeJob, workQueue, informer)
 			assert.Equal(t, test.expectErr, err)
 
-			err = kubeRuntimeClient.Create(test.job, KubeRayFwVersion)
+			err = kubeRuntimeClient.Create(test.job, schema.RayKindGroupVersion)
 			assert.Equal(t, nil, err)
 
-			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, KubeRayFwVersion)
+			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, schema.RayKindGroupVersion)
 			assert.Equal(t, nil, err)
 		})
 	}

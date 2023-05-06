@@ -168,7 +168,7 @@ func TestK3SExecutor(t *testing.T) {
 	})
 	t.Logf("patch resource %s", string(patchJSON))
 	assert.Equal(t, nil, err)
-	frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	frameworkVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	// create kubernetes resource with dynamic client
 	err = runtimeClient.Create(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
@@ -403,7 +403,7 @@ func TestK3SNodeListener(t *testing.T) {
 				// start node listener
 				stopCh := make(chan struct{})
 
-				gvr := k8s.GetJobGVR(pfschema.Framework(schema.FrameworkStandalone))
+				gvr := k8s.GetJobGVR(pfschema.StandaloneKindGroupVersion)
 				runtimeClient.podInformer = runtimeClient.DynamicFactory.ForResource(gvr).Informer()
 				err = runtimeClient.StartListener(tt.args.listenerType, stopCh)
 				if err != nil {
@@ -439,37 +439,6 @@ func TestK3SNodeListener(t *testing.T) {
 		})
 	}
 
-}
-
-func TestK3SJobFrameworkVersion(t *testing.T) {
-	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
-	defer server.Close()
-	runtimeClient := NewFakeK3SRuntimeClient(server)
-
-	type args struct {
-		fv        pfschema.FrameworkVersion
-		jobType   pfschema.JobType
-		framework pfschema.Framework
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{
-			name: "success",
-			args: args{
-				fv:        schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
-				jobType:   schema.TypeSingle,
-				framework: schema.FrameworkStandalone,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fv := runtimeClient.JobFrameworkVersion(tt.args.jobType, tt.args.framework)
-			assert.Equal(t, tt.args.fv, fv)
-		})
-	}
 }
 
 func TestK3SGetTaskLogV2(t *testing.T) {

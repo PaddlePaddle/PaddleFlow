@@ -190,8 +190,8 @@ func TestSingleJob_Create(t *testing.T) {
 			jobObj: &api.PFJob{
 				JobType: schema.TypeSingle,
 			},
-			wantErr: fmt.Errorf("create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
-			wantMsg: "create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil",
+			wantErr: fmt.Errorf("create builtin kind: Pod, groupVersion: /v1 job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
+			wantMsg: "create builtin kind: Pod, groupVersion: /v1 job / on cluster default-cluster with type Kubernetes failed, job member is nil",
 		},
 		{
 			caseName: "pod_test2",
@@ -226,7 +226,7 @@ func TestSingleJob_Create(t *testing.T) {
 			if test.wantErr == nil {
 				assert.NoError(t, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeSingleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.StandaloneKindGroupVersion)
 				assert.NoError(t, err)
 
 				gettedPod := v1.Pod{}

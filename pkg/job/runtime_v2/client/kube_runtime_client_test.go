@@ -54,8 +54,8 @@ func TestExecutor(t *testing.T) {
 	runtimeClient := NewFakeKubeRuntimeClient(server)
 
 	// create namespaced kubernetes resource
-	gvk := k8s.VCJobGVK
-	name := "vcjob"
+	gvk := k8s.PaddleJobGVK
+	name := "paddlejob"
 	namespace := "default"
 
 	obj := &unstructured.Unstructured{
@@ -82,7 +82,7 @@ func TestExecutor(t *testing.T) {
 	})
 	t.Logf("patch resource %s", string(patchJSON))
 	assert.Equal(t, nil, err)
-	frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	frameworkVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	// create kubernetes resource with dynamic client
 	err = runtimeClient.Create(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
@@ -113,7 +113,7 @@ func TestExecutor(t *testing.T) {
 		},
 	}
 	// create kubernetes resource with dynamic client
-	frameworkVersion = pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	frameworkVersion = pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	err = runtimeClient.Create(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client

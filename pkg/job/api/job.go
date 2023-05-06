@@ -141,8 +141,6 @@ type JobSyncInfo struct {
 	Type             schema.JobType
 	Framework        schema.Framework
 	KindGroupVersion schema.KindGroupVersion
-	// FrameworkVersion deprecated
-	FrameworkVersion schema.FrameworkVersion
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
@@ -154,7 +152,7 @@ type JobSyncInfo struct {
 
 func (js *JobSyncInfo) String() string {
 	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
-		js.ID, js.ParentJobID, js.FrameworkVersion, js.Status, js.Message)
+		js.ID, js.ParentJobID, js.KindGroupVersion, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
@@ -177,8 +175,6 @@ type FinishedJobInfo struct {
 	Name             string
 	Duration         time.Duration
 	KindGroupVersion schema.KindGroupVersion
-	// FrameworkVersion deprecated
-	FrameworkVersion schema.FrameworkVersion
 }
 
 type StatusInfo struct {

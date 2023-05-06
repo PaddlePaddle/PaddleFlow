@@ -94,7 +94,7 @@ func TestPyTorchJob_CreateJob(t *testing.T) {
 			if err != nil {
 				t.Logf("create job failed, err: %v", err)
 			} else {
-				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePyTorchFwVersion)
+				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.PyTorchKindGroupVersion)
 				if err != nil {
 					t.Errorf(err.Error())
 				} else {

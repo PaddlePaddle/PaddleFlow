@@ -66,9 +66,9 @@ var (
 	}
 )
 
-func GetJobGVR(framework commomschema.Framework) schema.GroupVersionResource {
-	switch framework {
-	case commomschema.FrameworkStandalone:
+func GetJobGVR(kindGroupVersion commomschema.KindGroupVersion) schema.GroupVersionResource {
+	switch kindGroupVersion {
+	case commomschema.StandaloneKindGroupVersion:
 		return PodGVR
 		// TODO://reopen
 		// case commomschema.FrameworkTF:
@@ -88,32 +88,6 @@ func GetJobGVR(framework commomschema.Framework) schema.GroupVersionResource {
 	}
 	// default return pod gvr
 	return PodGVR
-}
-
-func GetJobFrameworkVersion(jobType commomschema.JobType, framework commomschema.Framework) commomschema.FrameworkVersion {
-	if jobType == commomschema.TypeWorkflow {
-		return commomschema.NewFrameworkVersion(ArgoWorkflowGVK.Kind, ArgoWorkflowGVK.GroupVersion().String())
-	}
-	var gvk schema.GroupVersionKind
-	switch framework {
-	case commomschema.FrameworkStandalone:
-		gvk = PodGVK
-	case commomschema.FrameworkTF:
-		gvk = TFJobGVK
-	case commomschema.FrameworkPytorch:
-		gvk = PyTorchJobGVK
-	case commomschema.FrameworkSpark:
-		gvk = SparkAppGVK
-	case commomschema.FrameworkPaddle:
-		gvk = PaddleJobGVK
-	case commomschema.FrameworkMXNet:
-		gvk = MXNetJobGVK
-	case commomschema.FrameworkMPI:
-		gvk = MPIJobGVK
-	case commomschema.FrameworkRay:
-		gvk = RayJobGVK
-	}
-	return commomschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
 func GetJobType(gvk schema.GroupVersionKind) commomschema.JobType {

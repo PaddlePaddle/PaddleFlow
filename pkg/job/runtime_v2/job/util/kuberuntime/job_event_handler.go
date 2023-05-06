@@ -79,9 +79,8 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 	runtimeStatus := jobObj.Object[RuntimeStatusKey]
 	runtimeInfo := jobObj.DeepCopy().Object
 	delete(runtimeInfo, RuntimeStatusKey)
-	// get framework version
-	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-	kindVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	// get job kind group version
+	kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	jobInfo := &api.JobSyncInfo{
 		ID:               jobObj.GetName(),
 		Namespace:        jobObj.GetNamespace(),
@@ -89,8 +88,7 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 		ParentJobID:      parentJobID,
 		Type:             k8s.GetJobType(gvk),
 		Framework:        k8s.GetJobFramework(gvk),
-		KindGroupVersion: kindVersion,
-		FrameworkVersion: frameworkVersion,
+		KindGroupVersion: kindGroupVersion,
 		Status:           jobStatus,
 		RuntimeInfo:      runtimeInfo,
 		RuntimeStatus:    runtimeStatus,
@@ -133,9 +131,8 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
 	}
-	// get framework version
-	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-	kindVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	// get job kind group version
+	kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	jobInfo := &api.JobSyncInfo{
 		ID:               newObj.GetName(),
 		Namespace:        newObj.GetNamespace(),
@@ -143,8 +140,7 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		ParentJobID:      GetParentJobID(newObj),
 		Type:             k8s.GetJobType(gvk),
 		Framework:        k8s.GetJobFramework(gvk),
-		KindGroupVersion: kindVersion,
-		FrameworkVersion: frameworkVersion,
+		KindGroupVersion: kindGroupVersion,
 		Status:           jobStatus,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
 		Message:          newStatusInfo.Message,
@@ -168,9 +164,8 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 		log.Errorf("get job status failed, and jobID: %s, error: %s", jobID, err)
 		return nil, err
 	}
-	// get framework version
-	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-	kindVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	// get job kind group version
+	kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	jobInfo := &api.JobSyncInfo{
 		ID:               jobObj.GetName(),
 		Namespace:        jobObj.GetNamespace(),
@@ -178,8 +173,7 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 		ParentJobID:      GetParentJobID(jobObj),
 		Type:             k8s.GetJobType(gvk),
 		Framework:        k8s.GetJobFramework(gvk),
-		KindGroupVersion: kindVersion,
-		FrameworkVersion: frameworkVersion,
+		KindGroupVersion: kindGroupVersion,
 		Status:           statusInfo.Status,
 		RuntimeStatus:    jobObj.Object[RuntimeStatusKey],
 		Message:          statusInfo.Message,
