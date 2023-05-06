@@ -115,6 +115,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 		ID:                testJobID,
 		Namespace:         "default",
 		JobType:           schema.TypeSingle,
+		Framework:         schema.FrameworkStandalone,
 		ExtensionTemplate: []byte(jobManifest),
 		Conf: schema.Conf{
 			Env: map[string]string{
@@ -153,12 +154,17 @@ func TestKubeRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	kindVersion := schema.StandaloneKindGroupVersion
 	// create kubernetes job
-	err = kubeRuntime.Job(kindVersion).Submit(context.TODO(), pfJob)
+	err = kubeRuntime.SubmitJob(pfJob)
+	assert.NoError(t, err)
+	// update kubernetes job
+	err = kubeRuntime.UpdateJob(pfJob)
 	assert.NoError(t, err)
 	// stop kubernetes job
-	err = kubeRuntime.Job(kindVersion).Stop(context.TODO(), pfJob)
+	err = kubeRuntime.StopJob(pfJob)
+	assert.NoError(t, err)
+	// delete kubernetes job
+	err = kubeRuntime.DeleteJob(pfJob)
 	assert.NoError(t, err)
 	t.SkipNow()
 }
