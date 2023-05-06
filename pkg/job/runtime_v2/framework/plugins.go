@@ -90,9 +90,9 @@ func ListJobPlugins(runtimeType string) map[schema.KindGroupVersion]JobPlugin {
 type QueuePlugin = func(RuntimeClientInterface) QueueInterface
 
 var queueMutex sync.RWMutex
-var queueMaps = map[schema.FrameworkVersion]QueuePlugin{}
+var queueMaps = map[schema.KindGroupVersion]QueuePlugin{}
 
-func RegisterQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion, queue QueuePlugin) {
+func RegisterQueuePlugin(runtimeType string, quotaType schema.KindGroupVersion, queue QueuePlugin) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		queueMutex.Lock()
@@ -108,13 +108,13 @@ func CleanupQueuePlugin(runtimeType string) {
 	case schema.KubernetesType:
 		queueMutex.Lock()
 		defer queueMutex.Unlock()
-		queueMaps = map[schema.FrameworkVersion]QueuePlugin{}
+		queueMaps = map[schema.KindGroupVersion]QueuePlugin{}
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
 }
 
-func GetQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion) (QueuePlugin, bool) {
+func GetQueuePlugin(runtimeType string, quotaType schema.KindGroupVersion) (QueuePlugin, bool) {
 	var queuePlugin QueuePlugin
 	var found bool
 	switch runtimeType {
@@ -128,8 +128,8 @@ func GetQueuePlugin(runtimeType string, quotaType schema.FrameworkVersion) (Queu
 	return queuePlugin, found
 }
 
-func ListQueuePlugins(runtimeType string) map[schema.FrameworkVersion]QueuePlugin {
-	pluginMaps := make(map[schema.FrameworkVersion]QueuePlugin)
+func ListQueuePlugins(runtimeType string) map[schema.KindGroupVersion]QueuePlugin {
+	pluginMaps := make(map[schema.KindGroupVersion]QueuePlugin)
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.RLock()

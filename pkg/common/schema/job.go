@@ -17,7 +17,6 @@ limitations under the License.
 package schema
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -287,22 +286,6 @@ type FileSystem struct {
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
-}
-
-type FrameworkVersion struct {
-	Framework  string `json:"framework"`
-	APIVersion string `json:"apiVersion"`
-}
-
-func (f *FrameworkVersion) String() string {
-	return fmt.Sprintf("%s-%s", f.Framework, f.APIVersion)
-}
-
-func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
-	return FrameworkVersion{
-		APIVersion: apiVersion,
-		Framework:  framework,
-	}
 }
 
 func (c *Conf) GetKindGroupVersion(framework Framework) KindGroupVersion {

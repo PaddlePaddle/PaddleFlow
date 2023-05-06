@@ -207,22 +207,22 @@ func (kr *KubeRuntime) Job(fwVersion pfschema.KindGroupVersion) framework.JobInt
 	return jobPlugin(kr.kubeClient)
 }
 
-func getQueueFrameworkVersion(quotaType string) pfschema.FrameworkVersion {
-	var gvk schema.GroupVersionKind
+func getQueueKindGroupVersion(quotaType string) pfschema.KindGroupVersion {
+	var kindGroupVersion pfschema.KindGroupVersion
 	switch quotaType {
 	case pfschema.TypeVolcanoCapabilityQuota:
-		gvk = k8s.VCQueueGVK
+		kindGroupVersion = pfschema.VCQueueKindGroupVersion
 	case pfschema.TypeElasticQuota:
-		gvk = k8s.EQuotaGVK
+		kindGroupVersion = pfschema.ElasticQueueKindGroupVersion
 	}
-	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	return kindGroupVersion
 }
 
 func (kr *KubeRuntime) CreateQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("create queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Create(context.TODO(), queue)
 }
 
@@ -230,7 +230,7 @@ func (kr *KubeRuntime) UpdateQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("update queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Update(context.TODO(), queue)
 }
 
@@ -238,11 +238,11 @@ func (kr *KubeRuntime) DeleteQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("delete queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Delete(context.TODO(), queue)
 }
 
-func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.QueueInterface {
+func (kr *KubeRuntime) Queue(fwVersion pfschema.KindGroupVersion) framework.QueueInterface {
 	queuePlugin, found := framework.GetQueuePlugin(kr.cluster.Type, fwVersion)
 	if !found {
 		log.Errorf("get queue plugin on %s failed, err: %s queue is not implemented", kr.String(), fwVersion)
