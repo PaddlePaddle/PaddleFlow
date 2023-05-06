@@ -433,6 +433,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 	schedulingPolicy.QueueType = queue.QuotaType
 	schedulingPolicy.MaxResources = queue.MaxResources
 	schedulingPolicy.ClusterId = queue.ClusterId
+	// TODO(add it in the future): schedulingPolicy.ClusterType = queue.ClusterType
 	schedulingPolicy.Namespace = queue.Namespace
 	return nil
 }
@@ -676,6 +677,13 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	if request.SchedulingPolicy.Priority != "" {
 		conf.Priority = request.SchedulingPolicy.Priority
 	}
+	// set job KindGroupVersion
+	if request.Type == schema.TypeWorkflow {
+		conf.KindGroupVersion = schema.WorkflowKindGroupVersion
+	} else {
+		conf.KindGroupVersion = schema.ToKindGroupVersion("", request.Framework, conf.Annotations)
+	}
+
 	// TODO: remove job mode
 	conf.SetEnv(schema.EnvJobMode, request.Mode)
 	return conf
