@@ -147,11 +147,15 @@ const (
 	PriorityClassHigh     = "high"
 	PriorityClassVeryHigh = "very-high"
 
+	// JobOwnerLabel the key of job label oor annotations
 	JobOwnerLabel     = "owner"
 	JobOwnerValue     = "paddleflow"
 	JobIDLabel        = "paddleflow-job-id"
-	JobTTLSeconds     = "padleflow/job-ttl-seconds"
+	JobTTLSeconds     = "paddleflow/job-ttl-seconds"
 	JobLabelFramework = "paddleflow-job-framework"
+	// JobKindAnnotation kind for job
+	JobKindAnnotation         = "paddleflow/job-kind"
+	JobGroupVersionAnnotation = "paddleflow/job-group-version"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
 	QueueLabelKey        = "volcano.sh/queue-name"
@@ -262,6 +266,8 @@ type Conf struct {
 	ClusterID    string  `json:"clusterID"`
 	QueueID      string  `json:"queueID"`
 	QueueName    string  `json:"queueName,omitempty"`
+	// 作业类型和版本
+	KindGroupVersion KindGroupVersion `json:"kindGroupVersion,omitempty"`
 	// 运行时需要的参数
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
@@ -297,6 +303,22 @@ func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
 		APIVersion: apiVersion,
 		Framework:  framework,
 	}
+}
+
+func (c *Conf) GetKindGroupVersion(framework Framework) KindGroupVersion {
+	if c.KindGroupVersion.Kind != "" && c.KindGroupVersion.APIVersion != "" {
+		return c.KindGroupVersion
+	}
+	// 兼容旧版本没有KindGroupVersion的情况
+	if framework == "" {
+		// 兼容旧版本workflow作业
+		return WorkflowKindGroupVersion
+	}
+	kindGV, ok := frameworkKindGroupVersionMap[framework]
+	if !ok {
+		return KindGroupVersion{}
+	}
+	return kindGV
 }
 
 func (c *Conf) GetName() string {
