@@ -103,7 +103,21 @@ func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
 				Conf: schema.Conf{
 					KindGroupVersion: schema.KFPaddleKindGroupVersion,
 				},
-				Tasks: []schema.Member{},
+				Tasks: []schema.Member{
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{
+								Name: "",
+								ResourceInfo: schema.ResourceInfo{
+									CPU: "1",
+									Mem: "2Gi",
+								},
+							},
+						},
+					},
+				},
 			},
 			wantErr: nil,
 		},
@@ -111,6 +125,39 @@ func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
 			name: "create custom kubeflow paddle job success",
 			job: &api.PFJob{
 				ID:        "job-custom-1",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					KindGroupVersion: schema.KFPaddleKindGroupVersion,
+				},
+				Tasks:             []schema.Member{},
+				ExtensionTemplate: []byte(extPaddleJobKubeflowV1ColletiveYaml),
+			},
+			wantErr: nil,
+		},
+		{
+			name: "create builtin kubeflow paddle job failed",
+			job: &api.PFJob{
+				ID:        "job-builtin-2",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   "xxx",
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					KindGroupVersion: schema.KFPaddleKindGroupVersion,
+				},
+				Tasks: []schema.Member{},
+			},
+			wantErr: fmt.Errorf("get default template failed, err: job template PaddleJob-kubeflow.org/v1-xxx is not found"),
+		},
+		{
+			name: "create builtin kubeflow paddle job failed, when resources is invalid",
+			job: &api.PFJob{
+				ID:        "job-builtin-1",
 				JobType:   schema.TypeDistributed,
 				Framework: schema.FrameworkPaddle,
 				JobMode:   schema.EnvJobModeCollective,
@@ -128,15 +175,14 @@ func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
 								Name: "",
 								ResourceInfo: schema.ResourceInfo{
 									CPU: "1",
-									Mem: "2Gi",
+									Mem: "2x",
 								},
 							},
 						},
 					},
 				},
-				ExtensionTemplate: []byte(extPaddleJobKubeflowV1ColletiveYaml),
 			},
-			wantErr: nil,
+			wantErr: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
 		},
 	}
 

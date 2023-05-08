@@ -81,7 +81,7 @@ func (pj *KubeKFPaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	return nil
 }
 
-func (pj *KubeKFPaddleJob) customPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, job *api.PFJob) error {
+func (pj *KubeKFPaddleJob) builtinPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, job *api.PFJob) error {
 	if job == nil || jobSpec == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -118,7 +118,7 @@ func (pj *KubeKFPaddleJob) customPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, 
 	return kuberuntime.KubeflowRunPolicy(&jobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
 }
 
-func (pj *KubeKFPaddleJob) builtinPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, job *api.PFJob) error {
+func (pj *KubeKFPaddleJob) customPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, job *api.PFJob) error {
 	if job == nil || jobSpec == nil {
 		return fmt.Errorf("job or jobSpec is nil")
 	}
