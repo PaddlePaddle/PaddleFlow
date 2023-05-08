@@ -35,10 +35,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
-var (
-	JobGVK = k8s.PyTorchJobGVK
-)
-
 // KubePyTorchJob is a struct that runs a pytorch job
 type KubePyTorchJob struct {
 	kuberuntime.KubeBaseJob
@@ -46,7 +42,7 @@ type KubePyTorchJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubePyTorchJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.PyTorchKindGroupVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.PyTorchKindGroupVersion, kubeClient),
 	}
 }
 
@@ -56,7 +52,7 @@ func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	pdj := &pytorchv1.PyTorchJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.GVK, job); err != nil {
+	if err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.KindGroupVersion, job); err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
@@ -161,7 +157,7 @@ func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert to PyTorchJob struct
 	job := &pytorchv1.PyTorchJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.KindGroupVersion, err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status

@@ -52,16 +52,14 @@ const (
 )
 
 type KubeBaseJob struct {
-	GVK              kubeschema.GroupVersionKind
 	KindGroupVersion schema.KindGroupVersion
 	RuntimeClient    framework.RuntimeClientInterface
 	JobQueue         workqueue.RateLimitingInterface
 	getStatusFunc    api.GetStatusFunc
 }
 
-func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, kindVersion schema.KindGroupVersion, c framework.RuntimeClientInterface) KubeBaseJob {
+func NewKubeBaseJob(kindVersion schema.KindGroupVersion, c framework.RuntimeClientInterface) KubeBaseJob {
 	return KubeBaseJob{
-		GVK:              gvk,
 		KindGroupVersion: kindVersion,
 		RuntimeClient:    c,
 	}
@@ -209,7 +207,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	return jobTemplate, nil
 }
 
-func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.GroupVersionKind, job *api.PFJob) error {
+func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVersion, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -238,8 +236,10 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 	}
 	parsedGVK := unstructuredObj.GroupVersionKind()
 	log.Debugf("unstructuredObj=%v, GroupVersionKind=[%v]", unstructuredObj, parsedGVK)
-	if parsedGVK.String() != groupVersionKind.String() {
-		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", groupVersionKind.String(), parsedGVK.String())
+	kindGroupVersion := kubeschema.GroupVersionKind{Group: kindVersion.Group,
+		Kind: kindVersion.Kind, Version: kindVersion.APIVersion}
+	if parsedGVK.String() != kindGroupVersion.String() {
+		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", kindGroupVersion.String(), parsedGVK.String())
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(job.ExtensionTemplate), err)
 		return err
 	}

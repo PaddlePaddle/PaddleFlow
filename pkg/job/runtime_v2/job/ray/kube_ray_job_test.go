@@ -18,6 +18,7 @@ package ray
 
 import (
 	"context"
+	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"net/http/httptest"
 	"testing"
 
@@ -146,7 +147,9 @@ func TestRayJobListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
-	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(JobGVK)
+	jobGVK := kubeschema.GroupVersionKind{Kind: schema.RayKindGroupVersion.Kind,
+		Group: schema.MPIKindGroupVersion.Group, Version: schema.MPIKindGroupVersion.APIVersion}
+	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(jobGVK)
 	assert.Equal(t, nil, gvrErr)
 	// mock db
 	driver.InitMockDB()

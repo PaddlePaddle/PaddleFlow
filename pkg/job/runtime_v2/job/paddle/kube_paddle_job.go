@@ -35,10 +35,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
 )
 
-var (
-	JobGVK = k8s.PaddleJobGVK
-)
-
 // KubePaddleJob is an executor struct that runs a paddle job
 type KubePaddleJob struct {
 	kuberuntime.KubeBaseJob
@@ -46,7 +42,7 @@ type KubePaddleJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubePaddleJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.PaddleKindGroupVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.PaddleKindGroupVersion, kubeClient),
 	}
 }
 
@@ -58,7 +54,7 @@ func (pj *KubePaddleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	log.Debugf("begin to create %s", pj.String(jobName))
 
 	pdj := &paddlejobv1.PaddleJob{}
-	err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.GVK, job)
+	err := kuberuntime.CreateKubeJobFromYaml(pdj, pj.KindGroupVersion, job)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -248,7 +244,7 @@ func (pj *KubePaddleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert to PaddleJob struct
 	job := &paddlejobv1.PaddleJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.KindGroupVersion, err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status

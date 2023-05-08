@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
@@ -51,7 +50,8 @@ func GetParentJobID(obj *unstructured.Unstructured) string {
 	}
 	owner := ownerReferences[0]
 	gvk := k8sschema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind)
-	if gvk != k8s.ArgoWorkflowGVK {
+	kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if kindGroupVersion != schema.WorkflowKindGroupVersion {
 		log.Warnf("job %s/%s is not belong to ArgoWorkflow, skip it", namespace, name)
 		return ""
 	}
@@ -86,8 +86,8 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 		Namespace:        jobObj.GetNamespace(),
 		Annotations:      jobObj.GetAnnotations(),
 		ParentJobID:      parentJobID,
-		Type:             k8s.GetJobType(gvk),
-		Framework:        k8s.GetJobFramework(gvk),
+		Type:             schema.GetJobType(kindGroupVersion),
+		Framework:        schema.GetJobFramework(kindGroupVersion),
 		KindGroupVersion: kindGroupVersion,
 		Status:           jobStatus,
 		RuntimeInfo:      runtimeInfo,
@@ -138,8 +138,8 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		Namespace:        newObj.GetNamespace(),
 		Annotations:      newObj.GetAnnotations(),
 		ParentJobID:      GetParentJobID(newObj),
-		Type:             k8s.GetJobType(gvk),
-		Framework:        k8s.GetJobFramework(gvk),
+		Type:             schema.GetJobType(kindGroupVersion),
+		Framework:        schema.GetJobFramework(kindGroupVersion),
 		KindGroupVersion: kindGroupVersion,
 		Status:           jobStatus,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
@@ -171,8 +171,8 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 		Namespace:        jobObj.GetNamespace(),
 		Annotations:      jobObj.GetAnnotations(),
 		ParentJobID:      GetParentJobID(jobObj),
-		Type:             k8s.GetJobType(gvk),
-		Framework:        k8s.GetJobFramework(gvk),
+		Type:             schema.GetJobType(kindGroupVersion),
+		Framework:        schema.GetJobFramework(kindGroupVersion),
 		KindGroupVersion: kindGroupVersion,
 		Status:           statusInfo.Status,
 		RuntimeStatus:    jobObj.Object[RuntimeStatusKey],
@@ -351,7 +351,8 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 		// get job name for distributed job
 		ownerReference := ownerReferences[0]
 		gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
-		_, find := k8s.GVKJobStatusMap[gvk]
+		kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+		_, find := schema.JobKindGroupVersionMap[kindGroupVersion]
 		if find {
 			return ownerReference.Name
 		}
