@@ -36,12 +36,17 @@ func NewKindGroupVersion(kind, group, version string) KindGroupVersion {
 }
 
 func (kv KindGroupVersion) String() string {
-	return fmt.Sprintf("kind: %s, groupVersion: %s/%s", kv.Kind, kv.Group, kv.APIVersion)
+	return fmt.Sprintf("kind: %s, groupVersion: %s", kv.Kind, kv.GroupVersion())
+}
+
+func (kv KindGroupVersion) GroupVersion() string {
+	return fmt.Sprintf("%s/%s", kv.Group, kv.APIVersion)
 }
 
 func ToKindGroupVersion(clusterType string, framework Framework, annotations map[string]string) KindGroupVersion {
 	// TODO: get KindGroupVersion for different cluster
 	// get KindGroupVersion from job annotations
+	// TODO: check KindGroupVersion from user
 	kind := annotations[JobKindAnnotation]
 	groupVersion := annotations[JobGroupVersionAnnotation]
 	if kind != "" && groupVersion != "" {

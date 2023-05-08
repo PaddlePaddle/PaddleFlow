@@ -48,6 +48,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "pytorchjobs", Namespaced: true, Kind: "PyTorchJob"},
 				{Name: "tfjobs", Namespaced: true, Kind: "TFJob"},
 				{Name: "mpijobs", Namespaced: true, Kind: "MPIJob"},
+				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
 			},
 		}
 	case "/apis/argoproj.io/v1alpha1":
