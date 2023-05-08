@@ -33,7 +33,6 @@ func init() {
 	// Plugins for Jobs
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.StandaloneKindGroupVersion, single.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.PaddleKindGroupVersion, paddle.New)
-	framework.RegisterJobPlugin(schema.KubernetesType, schema.KFPaddleKindGroupVersion, paddle.KFNew)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.MPIKindGroupVersion, mpi.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.PyTorchKindGroupVersion, pytorch.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.TFKindGroupVersion, tensorflow.New)
