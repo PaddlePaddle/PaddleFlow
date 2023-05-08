@@ -134,16 +134,8 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}, nil
 }
 
-func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
-	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
-}
-
 func toGVK(kv pfschema.KindGroupVersion) schema.GroupVersionKind {
 	return schema.GroupVersionKind{Kind: kv.Kind, Group: kv.Group, Version: kv.APIVersion}
-}
-
-func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion {
-	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
 func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
@@ -246,7 +238,7 @@ func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimi
 		return fmt.Errorf("on %s, register queue listener failed, err: plugins is nil", krc.Cluster())
 	}
 	for fv, plugin := range queuePlugins {
-		gvk := frameworkVersionToGVK(fv)
+		gvk := toGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)

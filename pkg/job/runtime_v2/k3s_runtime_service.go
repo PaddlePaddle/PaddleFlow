@@ -315,8 +315,8 @@ func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mix
 }
 
 // Queue quota type???
-func (k3srs *K3SRuntimeService) Queue(quotaType pfschema.FrameworkVersion) framework.QueueInterface {
-	log.Infof("k3s runtime not support queue info, so skip it, queue info:%v", quotaType)
+func (k3srs *K3SRuntimeService) Queue(kindVersion pfschema.KindGroupVersion) framework.QueueInterface {
+	log.Infof("k3s runtime not support queue info, so skip it, queue info:%v", kindVersion)
 	return nil
 }
 

@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -33,19 +32,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/util/kuberuntime"
 )
 
-var (
-	QueueGVK             = k8s.VCQueueGVK
-	KubeVCQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
-)
-
 // KubeVCQueue is a struct that contains client to operate volcano queue on cluster
 type KubeVCQueue struct {
-	GVK             schema.GroupVersionKind
 	resourceVersion pfschema.KindGroupVersion
 	runtimeClient   framework.RuntimeClientInterface
 	workQueue       workqueue.RateLimitingInterface
@@ -55,12 +47,11 @@ func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeVCQueue{
 		resourceVersion: pfschema.VCQueueKindGroupVersion,
 		runtimeClient:   client,
-		GVK:             QueueGVK,
 	}
 }
 
 func (vcq *KubeVCQueue) String(name string) string {
-	return fmt.Sprintf("%s queue %s on %s", vcq.GVK.String(), name, vcq.runtimeClient.Cluster())
+	return fmt.Sprintf("%s queue %s on %s", vcq.resourceVersion, name, vcq.runtimeClient.Cluster())
 }
 
 func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {

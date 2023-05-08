@@ -549,7 +549,7 @@ func mockCreateK3SEvents(t *testing.T, kr *K3SRuntimeService, objectName, namesp
 func TestK3SRuntimeService_QueueRelated(t *testing.T) {
 	k3src := K3SRuntimeService{}
 	k3src.Init()
-	assert.Nil(t, k3src.Queue(schema.FrameworkVersion{}))
+	assert.Nil(t, k3src.Queue(schema.KindGroupVersion{}))
 	assert.Nil(t, k3src.CreateQueue(&api.QueueInfo{}))
 	assert.Nil(t, k3src.DeleteQueue(&api.QueueInfo{}))
 	assert.Nil(t, k3src.UpdateQueue(&api.QueueInfo{}))
