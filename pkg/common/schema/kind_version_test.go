@@ -154,6 +154,11 @@ func TestGetJobFramework(t *testing.T) {
 			framework:   FrameworkPaddle,
 		},
 		{
+			name:        "kubeflow paddle job framework",
+			kindVersion: KFPaddleKindGroupVersion,
+			framework:   FrameworkPaddle,
+		},
+		{
 			name:        "pytorch job framework",
 			kindVersion: PyTorchKindGroupVersion,
 			framework:   FrameworkPytorch,

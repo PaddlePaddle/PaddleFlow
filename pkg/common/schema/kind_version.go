@@ -65,7 +65,7 @@ func ToKindGroupVersion(clusterType string, framework Framework, annotations map
 	return kindGV, nil
 }
 
-// xFromGroupVersion convert kind group version str to struct, str format is {kind}.{group}/{version}
+// parseKindGroupVersion convert KinGroupVersion str to struct, str format is {kind}.{group}/{version}
 func parseKindGroupVersion(kindGVStr string) (KindGroupVersion, error) {
 	kindGV := KindGroupVersion{}
 	kindVersion := strings.Split(kindGVStr, "/")
