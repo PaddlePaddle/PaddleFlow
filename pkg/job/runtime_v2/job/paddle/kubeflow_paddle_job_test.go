@@ -18,9 +18,12 @@ package paddle
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http/httptest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -29,6 +32,45 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+)
+
+var (
+	extPaddleJobKubeflowV1ColletiveYaml = `apiVersion: "kubeflow.org/v1"
+kind: PaddleJob
+metadata:
+  name: paddle-simple-gpu
+  namespace: kubeflow
+spec:
+  paddleReplicaSpecs:
+    Worker:
+      replicas: 2
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: paddle
+              image: registry.baidubce.com/paddlepaddle/paddle:2.4.0rc0-gpu-cuda11.2-cudnn8.1-trt8.0
+              command:
+                - python
+              args:
+                - "-m"
+                - paddle.distributed.launch
+                - "run_check"
+              ports:
+                - containerPort: 37777
+                  name: master
+              imagePullPolicy: Always
+              resources:
+                  limits:
+                      nvidia.com/gpu: 2
+              volumeMounts:
+                  - mountPath: /dev/shm
+                    name: dshm
+          volumes:
+            - name: dshm
+              emptyDir:
+                medium: Memory
+`
 )
 
 func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
@@ -43,15 +85,16 @@ func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
 	// mock db
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
-	tests := []struct {
+	testCases := []struct {
 		name    string
 		job     *api.PFJob
 		wantErr error
 		wantMsg string
 	}{
 		{
-			name: "create kubeflow paddle job success",
+			name: "create builtin kubeflow paddle job success",
 			job: &api.PFJob{
+				ID:        "job-builtin-1",
 				JobType:   schema.TypeDistributed,
 				Framework: schema.FrameworkPaddle,
 				JobMode:   schema.EnvJobModeCollective,
@@ -64,13 +107,117 @@ func TestKubeKFPaddleJob_CreateJob(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "create custom kubeflow paddle job success",
+			job: &api.PFJob{
+				ID:        "job-custom-1",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					KindGroupVersion: schema.KFPaddleKindGroupVersion,
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{
+								Name: "",
+								ResourceInfo: schema.ResourceInfo{
+									CPU: "1",
+									Mem: "2Gi",
+								},
+							},
+						},
+					},
+				},
+				ExtensionTemplate: []byte(extPaddleJobKubeflowV1ColletiveYaml),
+			},
+			wantErr: nil,
+		},
 	}
 
 	paddleJob := KFNew(kubeRuntimeClient)
-	for _, tc := range tests {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := paddleJob.Submit(context.TODO(), tc.job)
 			assert.Equal(t, tc.wantErr, err)
 		})
 	}
+}
+
+func TestKubeKFPaddleJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name    string
+		obj     interface{}
+		wantErr error
+	}{
+		{
+			name: "kubeflow paddle job pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.KFPaddleKindGroupVersion.Kind,
+					"apiVersion": schema.KFPaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobCreated,
+								"message": "kubeflow paddle job is created",
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "kubeflow paddle job running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.KFPaddleKindGroupVersion.Kind,
+					"apiVersion": schema.KFPaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobRunning,
+								"message": "kubeflow paddle job is running",
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "kubeflow paddle job status is invalid",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.KFPaddleKindGroupVersion.Kind,
+					"apiVersion": schema.KFPaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    "xxx",
+								"message": "kubeflow paddle job status is unknown",
+							},
+						},
+					},
+				},
+			},
+			wantErr: fmt.Errorf("unexpected job status: xxx"),
+		},
+	}
+
+	paddleJob := KubeKFPaddleJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := paddleJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			t.Logf("job status: %v", status)
+		})
+	}
+
 }
