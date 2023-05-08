@@ -43,41 +43,46 @@ func (kv KindGroupVersion) GroupVersion() string {
 	return fmt.Sprintf("%s/%s", kv.Group, kv.APIVersion)
 }
 
-func ToKindGroupVersion(clusterType string, framework Framework, annotations map[string]string) KindGroupVersion {
+func ToKindGroupVersion(clusterType string, framework Framework, annotations map[string]string) (KindGroupVersion, error) {
 	// TODO: get KindGroupVersion for different cluster
-	// get KindGroupVersion from job annotations
-	// TODO: check KindGroupVersion from user
-	kind := annotations[JobKindAnnotation]
-	groupVersion := annotations[JobGroupVersionAnnotation]
-	if kind != "" && groupVersion != "" {
-		group, version, err := FromGroupVersion(groupVersion)
+	// 1. get KindGroupVersion from default
+	kindGV := frameworkKindGroupVersionMap[framework]
+	// 2. get KindGroupVersion from job annotations if set
+	kindGroupVersionStr := annotations[JobKindGroupVersionAnnotation]
+	if kindGroupVersionStr != "" {
+		kv, err := parseKindGroupVersion(kindGroupVersionStr)
 		if err == nil {
-			return NewKindGroupVersion(kind, group, version)
+			kindGV = kv
+		} else {
+			return KindGroupVersion{}, err
 		}
 	}
-	// get KindGroupVersion from default
-	kv, ok := frameworkKindGroupVersionMap[framework]
-	if !ok {
-		return KindGroupVersion{}
+	// 3. check KindGroupVersion
+	_, find := JobKindGroupVersionMap[kindGV]
+	if !find {
+		return KindGroupVersion{}, fmt.Errorf("the KindGroupVersion %s is not supported", kindGV)
 	}
-	return kv
+	return kindGV, nil
 }
 
-func FromGroupVersion(groupVersion string) (string, string, error) {
-	group := ""
-	version := ""
-	var err error
-	items := strings.Split(groupVersion, "/")
-	switch len(items) {
-	case 1:
-		version = items[0]
-	case 2:
-		version = items[1]
-		group = items[0]
-	default:
-		err = fmt.Errorf("unexpected GroupVersion string: %v", groupVersion)
+// xFromGroupVersion convert kind group version str to struct, str format is {kind}.{group}/{version}
+func parseKindGroupVersion(kindGVStr string) (KindGroupVersion, error) {
+	kindGV := KindGroupVersion{}
+	kindVersion := strings.Split(kindGVStr, "/")
+	if len(kindVersion) != 2 {
+		return kindGV, fmt.Errorf("the KindGroupVersion %s is invalid, "+
+			"and it's format must be {kind}.{group}/{version}", kindGVStr)
 	}
-	return group, version, err
+	// get kind and group
+	kindGroups := strings.Split(kindVersion[0], ".")
+	if len(kindGroups) < 2 {
+		return kindGV, fmt.Errorf("the KindGroupVersion %s is invalid, "+
+			"and it's format must be {kind}.{group}/{version}", kindGVStr)
+	}
+	kindGV.Kind = kindGroups[0]
+	kindGV.Group = strings.TrimPrefix(kindVersion[0], kindGV.Kind+".")
+	kindGV.APIVersion = kindVersion[1]
+	return kindGV, nil
 }
 
 var (
@@ -108,6 +113,7 @@ var (
 		StandaloneKindGroupVersion: true,
 		SparkKindGroupVersion:      true,
 		PaddleKindGroupVersion:     true,
+		KFPaddleKindGroupVersion:   true,
 		PyTorchKindGroupVersion:    true,
 		TFKindGroupVersion:         true,
 		MXNetKindGroupVersion:      true,
