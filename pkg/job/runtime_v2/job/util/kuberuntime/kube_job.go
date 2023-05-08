@@ -175,22 +175,26 @@ func ResponsibleForJob(obj interface{}) bool {
 }
 
 // getDefaultTemplate get default template from file
-func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string) ([]byte, error) {
+func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string, kv schema.KindGroupVersion) ([]byte, error) {
 	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
 	jobTemplateName := ""
 
+	// TODO: update footer comment format
 	// the footer comment of all type job as the follow:
 	//  single -> single-job, workflow -> workflow-job,
-	//  spark -> spark-job, ray -> ray-job
+	//  spark -> spark-job, ray -> ray-job, mpi -> mpi-job
 	//  paddle with ps mode -> paddle-ps-job
 	//  paddle with collective mode -> paddle-collective-job
+	//  kubeflow paddle job -> PaddleJob-kubeflow.org/v1-collective
 	//  tensorflow with ps mode -> tensorflow-ps-job
 	//  pytorch with ps mode -> pytorch-ps-job
 	switch jobType {
 	case schema.TypeSingle, schema.TypeWorkflow:
 		jobTemplateName = fmt.Sprintf("%s-job", jobType)
 	case schema.TypeDistributed:
-		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
+		if kv == schema.KFPaddleKindGroupVersion {
+			jobTemplateName = fmt.Sprintf("%s-%s-%s", kv.Kind, kv.GroupVersion(), strings.ToLower(jobMode))
+		} else if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
 			jobTemplateName = fmt.Sprintf("%s-job", framework)
 		} else {
 			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(jobMode))
@@ -217,7 +221,7 @@ func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVe
 		// get builtin template
 		var err error
 		job.IsCustomYaml = false
-		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode)
+		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode, kindVersion)
 		if err != nil {
 			return fmt.Errorf("get default template failed, err: %v", err)
 		}

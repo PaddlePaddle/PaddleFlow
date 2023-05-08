@@ -620,11 +620,13 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	log.Debugf("begin build job with request: %#v", request)
 	// build main job config
-	conf := buildMainConf(request)
+	conf, err := buildMainConf(request)
+	if err != nil {
+		return nil, err
+	}
 	// convert job members if necessary
 	var members []schema.Member
 	var templateJson string
-	var err error
 	if len(request.Members) != 0 {
 		members = buildMembers(request)
 		log.Debugf("members is %v", members)
@@ -652,7 +654,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	return jobInfo, nil
 }
 
-func buildMainConf(request *CreateJobInfo) *schema.Conf {
+func buildMainConf(request *CreateJobInfo) (*schema.Conf, error) {
 	log.Debugf("buildMainConf request %v", request)
 	var conf = &schema.Conf{
 		Name: request.Name,
@@ -681,12 +683,16 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	if request.Type == schema.TypeWorkflow {
 		conf.KindGroupVersion = schema.WorkflowKindGroupVersion
 	} else {
-		conf.KindGroupVersion = schema.ToKindGroupVersion("", request.Framework, conf.Annotations)
+		var err error
+		conf.KindGroupVersion, err = schema.ToKindGroupVersion("", request.Framework, conf.Annotations)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO: remove job mode
 	conf.SetEnv(schema.EnvJobMode, request.Mode)
-	return conf
+	return conf, nil
 }
 
 func buildMembers(request *CreateJobInfo) []schema.Member {

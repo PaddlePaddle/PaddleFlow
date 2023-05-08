@@ -152,9 +152,8 @@ const (
 	JobIDLabel        = "paddleflow-job-id"
 	JobTTLSeconds     = "paddleflow/job-ttl-seconds"
 	JobLabelFramework = "paddleflow-job-framework"
-	// JobKindAnnotation kind for job
-	JobKindAnnotation         = "paddleflow/job-kind"
-	JobGroupVersionAnnotation = "paddleflow/job-group-version"
+	// JobKindGroupVersionAnnotation KindGroupVersion for job, format: {kind}.{group}/{version}
+	JobKindGroupVersionAnnotation = "paddleflow/job-kind-group-version"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
 	QueueLabelKey        = "volcano.sh/queue-name"

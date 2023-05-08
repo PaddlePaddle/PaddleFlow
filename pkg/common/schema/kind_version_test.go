@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,7 @@ func TestToKindGroupVersion(t *testing.T) {
 		framework   Framework
 		annotations map[string]string
 		wantRes     KindGroupVersion
+		wantErr     error
 	}{
 		{
 			name:        "default paddle job kind group version",
@@ -41,43 +43,54 @@ func TestToKindGroupVersion(t *testing.T) {
 			clusterType: KubernetesType,
 			framework:   FrameworkPaddle,
 			annotations: map[string]string{
-				JobKindAnnotation:         "PaddleJob",
-				JobGroupVersionAnnotation: "kubeflow.org/v1",
+				JobKindGroupVersionAnnotation: "PaddleJob.kubeflow.org/v1",
 			},
 			wantRes: KindGroupVersion{Kind: "PaddleJob", Group: "kubeflow.org", APIVersion: "v1"},
 		},
 		{
-			name:        "custom paddle job kind group version failed",
+			name:        "custom paddle job kind group version, using default when version format is wrong",
 			clusterType: KubernetesType,
 			framework:   FrameworkPaddle,
 			annotations: map[string]string{
-				JobKindAnnotation:         "PaddleJob",
-				JobGroupVersionAnnotation: "xx/kubeflow.org/v1",
+				JobKindGroupVersionAnnotation: "PaddleJob.xx/kubeflow.org/v1",
 			},
-			wantRes: PaddleKindGroupVersion,
+			wantRes: KindGroupVersion{Kind: "", Group: "", APIVersion: ""},
+			wantErr: fmt.Errorf("the KindGroupVersion PaddleJob.xx/kubeflow.org/v1 is invalid, and it's format must be {kind}.{group}/{version}"),
 		},
 		{
-			name:        "custom tf job kind group version",
+			name:        "custom paddle job kind group version, using default when kind group format is wrong",
+			clusterType: KubernetesType,
+			framework:   FrameworkPaddle,
+			annotations: map[string]string{
+				JobKindGroupVersionAnnotation: "PaddleJob-kubeflow-org/v1",
+			},
+			wantRes: KindGroupVersion{Kind: "", Group: "", APIVersion: ""},
+			wantErr: fmt.Errorf("the KindGroupVersion PaddleJob-kubeflow-org/v1 is invalid, and it's format must be {kind}.{group}/{version}"),
+		},
+		{
+			name:        "custom tf job kind group version, when kind group version is not support",
 			clusterType: KubernetesType,
 			framework:   FrameworkTF,
 			annotations: map[string]string{
-				JobKindAnnotation:         "TFJob",
-				JobGroupVersionAnnotation: "v1",
+				JobKindGroupVersionAnnotation: "TFJob./v1",
 			},
-			wantRes: KindGroupVersion{Kind: "TFJob", Group: "", APIVersion: "v1"},
+			wantRes: KindGroupVersion{Kind: "", Group: "", APIVersion: ""},
+			wantErr: fmt.Errorf("the KindGroupVersion kind: TFJob, groupVersion: /v1 is not supported"),
 		},
 		{
 			name:        "unexcepted framework",
 			clusterType: KubernetesType,
 			framework:   Framework("xxx"),
 			wantRes:     KindGroupVersion{},
+			wantErr:     fmt.Errorf("the KindGroupVersion kind: , groupVersion: / is not supported"),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("%s\n", tc.wantRes)
-			kgv := ToKindGroupVersion(tc.clusterType, tc.framework, tc.annotations)
+			kgv, err := ToKindGroupVersion(tc.clusterType, tc.framework, tc.annotations)
+			assert.Equal(t, tc.wantErr, err)
 			assert.Equal(t, tc.wantRes, kgv)
 		})
 	}
@@ -138,6 +151,11 @@ func TestGetJobFramework(t *testing.T) {
 		{
 			name:        "paddle job framework",
 			kindVersion: PaddleKindGroupVersion,
+			framework:   FrameworkPaddle,
+		},
+		{
+			name:        "kubeflow paddle job framework",
+			kindVersion: KFPaddleKindGroupVersion,
 			framework:   FrameworkPaddle,
 		},
 		{
