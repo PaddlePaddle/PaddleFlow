@@ -18,7 +18,7 @@ package ray
 
 import (
 	"context"
-	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	"net/http/httptest"
 	"testing"
 
@@ -147,8 +147,7 @@ func TestRayJobListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
-	jobGVK := kubeschema.GroupVersionKind{Kind: schema.RayKindGroupVersion.Kind,
-		Group: schema.MPIKindGroupVersion.Group, Version: schema.MPIKindGroupVersion.APIVersion}
+	jobGVK := kubeutil.ToGVK(schema.RayKindGroupVersion)
 	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(jobGVK)
 	assert.Equal(t, nil, gvrErr)
 	// mock db

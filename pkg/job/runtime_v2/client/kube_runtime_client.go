@@ -54,6 +54,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -134,10 +135,6 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}, nil
 }
 
-func toGVK(kv pfschema.KindGroupVersion) schema.GroupVersionKind {
-	return schema.GroupVersionKind{Kind: kv.Kind, Group: kv.Group, Version: kv.APIVersion}
-}
-
 func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
 	var err error
 	switch listenerType {
@@ -163,7 +160,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
 	for fv, _ := range jobPlugins {
-		gvk := toGVK(fv)
+		gvk := kubeutil.ToGVK(fv)
 		krc.unRegisteredMap[gvk] = true
 	}
 	krc.addJobInformers(workQueue)
@@ -238,7 +235,7 @@ func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimi
 		return fmt.Errorf("on %s, register queue listener failed, err: plugins is nil", krc.Cluster())
 	}
 	for fv, plugin := range queuePlugins {
-		gvk := toGVK(fv)
+		gvk := kubeutil.ToGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
@@ -660,7 +657,7 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 }
 
 func (krc *KubeRuntimeClient) Get(namespace string, name string, kindVersion pfschema.KindGroupVersion) (interface{}, error) {
-	gvk := toGVK(kindVersion)
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to get kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return nil, fmt.Errorf("dynamic client is nil")
@@ -682,7 +679,7 @@ func (krc *KubeRuntimeClient) Get(namespace string, name string, kindVersion pfs
 }
 
 func (krc *KubeRuntimeClient) Create(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
-	gvk := toGVK(kindVersion)
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to create kuberentes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -715,7 +712,7 @@ func (krc *KubeRuntimeClient) Create(resource interface{}, kindVersion pfschema.
 }
 
 func (krc *KubeRuntimeClient) Delete(namespace string, name string, kindVersion pfschema.KindGroupVersion) error {
-	gvk := toGVK(kindVersion)
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to delete kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -740,7 +737,7 @@ func (krc *KubeRuntimeClient) Delete(namespace string, name string, kindVersion 
 }
 
 func (krc *KubeRuntimeClient) Patch(namespace string, name string, kindVersion pfschema.KindGroupVersion, data []byte) error {
-	gvk := toGVK(kindVersion)
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to patch kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -763,7 +760,7 @@ func (krc *KubeRuntimeClient) Patch(namespace string, name string, kindVersion p
 }
 
 func (krc *KubeRuntimeClient) Update(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
-	gvk := toGVK(kindVersion)
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to update kubernetes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
