@@ -27,15 +27,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
-)
-
-var (
-	JobGVK = k8s.PodGVK
 )
 
 // KubeSingleJob is an executor struct that runs a single job
@@ -46,7 +41,7 @@ type KubeSingleJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeSingleJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.StandaloneKindGroupVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.StandaloneKindGroupVersion, kubeClient),
 	}
 }
 
@@ -58,7 +53,7 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	log.Debugf("begin to create %s", sp.String(jobName))
 
 	singlePod := &v1.Pod{}
-	err := kuberuntime.CreateKubeJobFromYaml(singlePod, sp.GVK, job)
+	err := kuberuntime.CreateKubeJobFromYaml(singlePod, sp.KindGroupVersion, job)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(jobName), err)
 		return err
@@ -165,7 +160,7 @@ func (sp *KubeSingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert to Pod struct
 	job := &v1.Pod{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.GVK.String(), err.Error())
+		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.KindGroupVersion, err.Error())
 		return api.StatusInfo{}, err
 	}
 	// convert job status

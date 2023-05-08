@@ -29,15 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
-)
-
-var (
-	JobGVK = k8s.RayJobGVK
 )
 
 // KubeRayJob is a struct that runs a ray job
@@ -47,7 +42,7 @@ type KubeRayJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeRayJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, pfschema.RayKindGroupVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.RayKindGroupVersion, kubeClient),
 	}
 }
 
@@ -57,7 +52,7 @@ func (rj *KubeRayJob) Submit(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	rayJob := &rayV1alpha1.RayJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(rayJob, rj.GVK, job); err != nil {
+	if err := kuberuntime.CreateKubeJobFromYaml(rayJob, rj.KindGroupVersion, job); err != nil {
 		log.Errorf("create %s failed, err %v", rj.String(jobName), err)
 		return err
 	}

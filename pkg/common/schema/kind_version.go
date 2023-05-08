@@ -79,6 +79,7 @@ var (
 	// StandaloneKindGroupVersion kind group version for single job
 	StandaloneKindGroupVersion = KindGroupVersion{Kind: "Pod", Group: "", APIVersion: "v1"}
 	PaddleKindGroupVersion     = KindGroupVersion{Kind: "PaddleJob", Group: "batch.paddlepaddle.org", APIVersion: "v1"}
+	KFPaddleKindGroupVersion   = KindGroupVersion{Kind: "PaddleJob", Group: "kubeflow.org", APIVersion: "v1"}
 	PyTorchKindGroupVersion    = KindGroupVersion{Kind: "PyTorchJob", Group: "kubeflow.org", APIVersion: "v1"}
 	TFKindGroupVersion         = KindGroupVersion{Kind: "TFJob", Group: "kubeflow.org", APIVersion: "v1"}
 	MPIKindGroupVersion        = KindGroupVersion{Kind: "MPIJob", Group: "kubeflow.org", APIVersion: "v1"}
@@ -98,8 +99,62 @@ var (
 		FrameworkSpark:      SparkKindGroupVersion,
 		FrameworkRay:        RayKindGroupVersion,
 	}
+	JobKindGroupVersionMap = map[KindGroupVersion]bool{
+		StandaloneKindGroupVersion: true,
+		SparkKindGroupVersion:      true,
+		PaddleKindGroupVersion:     true,
+		PyTorchKindGroupVersion:    true,
+		TFKindGroupVersion:         true,
+		MXNetKindGroupVersion:      true,
+		MPIKindGroupVersion:        true,
+		RayKindGroupVersion:        true,
+		WorkflowKindGroupVersion:   true,
+	}
 
 	// ElasticQueueKindGroupVersion kind group version for elastic queue
 	ElasticQueueKindGroupVersion = KindGroupVersion{Kind: "ElasticResourceQuota", Group: "scheduling.volcano.sh", APIVersion: "v1beta1"}
 	VCQueueKindGroupVersion      = KindGroupVersion{Kind: "Queue", Group: "scheduling.volcano.sh", APIVersion: "v1beta1"}
 )
+
+func GetJobType(kindVersion KindGroupVersion) JobType {
+	switch kindVersion {
+	case StandaloneKindGroupVersion:
+		return TypeSingle
+	case WorkflowKindGroupVersion:
+		return TypeWorkflow
+	default:
+		return TypeDistributed
+	}
+}
+
+func GetJobFramework(gvk KindGroupVersion) Framework {
+	switch gvk {
+	case StandaloneKindGroupVersion:
+		return FrameworkStandalone
+	case WorkflowKindGroupVersion:
+		return ""
+	default:
+		return distributedJobFramework(gvk)
+	}
+}
+
+func distributedJobFramework(gvk KindGroupVersion) Framework {
+	switch gvk {
+	case SparkKindGroupVersion:
+		return FrameworkSpark
+	case PaddleKindGroupVersion, KFPaddleKindGroupVersion:
+		return FrameworkPaddle
+	case PyTorchKindGroupVersion:
+		return FrameworkPytorch
+	case TFKindGroupVersion:
+		return FrameworkTF
+	case MXNetKindGroupVersion:
+		return FrameworkMXNet
+	case MPIKindGroupVersion:
+		return FrameworkMPI
+	case RayKindGroupVersion:
+		return FrameworkRay
+	default:
+		return ""
+	}
+}

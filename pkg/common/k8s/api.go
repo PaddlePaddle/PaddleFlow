@@ -24,7 +24,6 @@ import (
 
 var (
 	PodGVK       = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
-	VCJobGVK     = schema.GroupVersionKind{Group: "batch.volcano.sh", Version: "v1alpha1", Kind: "Job"}
 	PodGroupGVK  = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "PodGroup"}
 	VCQueueGVK   = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "Queue"}
 	EQuotaGVK    = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
@@ -35,7 +34,6 @@ var (
 	TFJobGVK      = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "TFJob"}
 	MPIJobGVK     = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MPIJob"}
 	MXNetJobGVK   = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MXJob"}
-	XGBoostJobGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "XGBoostJob"}
 	RayJobGVK     = schema.GroupVersionKind{Group: "ray.io", Version: "v1alpha1", Kind: "RayJob"}
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
@@ -51,19 +49,6 @@ var (
 	XGBoostJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
 	RayJobGVR       = schema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
 	ArgoWorkflowGVR = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
-
-	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
-	GVKJobStatusMap = map[schema.GroupVersionKind]bool{
-		SparkAppGVK:     true,
-		PaddleJobGVK:    true,
-		PodGVK:          true,
-		ArgoWorkflowGVK: true,
-		PyTorchJobGVK:   true,
-		TFJobGVK:        true,
-		MXNetJobGVK:     true,
-		MPIJobGVK:       true,
-		RayJobGVK:       true,
-	}
 )
 
 func GetJobGVR(kindGroupVersion commomschema.KindGroupVersion) schema.GroupVersionResource {
@@ -88,47 +73,4 @@ func GetJobGVR(kindGroupVersion commomschema.KindGroupVersion) schema.GroupVersi
 	}
 	// default return pod gvr
 	return PodGVR
-}
-
-func GetJobType(gvk schema.GroupVersionKind) commomschema.JobType {
-	switch gvk {
-	case PodGVK:
-		return commomschema.TypeSingle
-	case ArgoWorkflowGVK:
-		return commomschema.TypeWorkflow
-	default:
-		return commomschema.TypeDistributed
-	}
-}
-
-func GetJobFramework(gvk schema.GroupVersionKind) commomschema.Framework {
-	switch gvk {
-	case PodGVK:
-		return commomschema.FrameworkStandalone
-	case ArgoWorkflowGVK:
-		return ""
-	default:
-		return distributedJobFramework(gvk)
-	}
-}
-
-func distributedJobFramework(gvk schema.GroupVersionKind) commomschema.Framework {
-	switch gvk {
-	case SparkAppGVK:
-		return commomschema.FrameworkSpark
-	case PaddleJobGVK:
-		return commomschema.FrameworkPaddle
-	case PyTorchJobGVK:
-		return commomschema.FrameworkPytorch
-	case TFJobGVK:
-		return commomschema.FrameworkTF
-	case MXNetJobGVK:
-		return commomschema.FrameworkMXNet
-	case MPIJobGVK:
-		return commomschema.FrameworkMPI
-	case RayJobGVK:
-		return commomschema.FrameworkRay
-	default:
-		return ""
-	}
 }

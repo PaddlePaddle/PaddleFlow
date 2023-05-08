@@ -19,6 +19,7 @@ package mpi
 import (
 	"context"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http/httptest"
@@ -761,7 +762,8 @@ func TestMPIJobListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
-	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(JobGVK)
+	jobGVK := kubeutil.ToGVK(pfschema.MPIKindGroupVersion)
+	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(jobGVK)
 	assert.Equal(t, nil, gvrErr)
 	// mock db
 	driver.InitMockDB()
