@@ -124,16 +124,6 @@ func TestK3SRuntimeClient_Cluster(t *testing.T) {
 	assert.Contains(t, runtimeClient.ClusterName(), "mockNodeName")
 }
 
-func TestK3SRuntimeClient_ListNodeQuota(t *testing.T) {
-	// todo://add list node quota
-	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
-	defer server.Close()
-	runtimeClient := NewFakeK3SRuntimeClient(server)
-	_, ret2, err := runtimeClient.ListNodeQuota(context.TODO())
-	assert.Nil(t, ret2)
-	assert.Nil(t, err)
-}
-
 func TestK3SExecutor(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()

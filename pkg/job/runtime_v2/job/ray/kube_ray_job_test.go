@@ -18,7 +18,7 @@ package ray
 
 import (
 	"context"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -34,6 +35,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -189,6 +192,101 @@ func TestRayJobListener(t *testing.T) {
 
 			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, schema.RayKindGroupVersion)
 			assert.Equal(t, nil, err)
+		})
+	}
+}
+
+func TestKubeRayJob_JobStatus(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
+
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "ray job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.RayKindGroupVersion.Kind,
+					"apiVersion": schema.RayKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"jobStatus": rayV1alpha1.JobStatusPending,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "ray job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.RayKindGroupVersion.Kind,
+					"apiVersion": schema.RayKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"jobStatus": rayV1alpha1.JobStatusRunning,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "ray job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.RayKindGroupVersion.Kind,
+					"apiVersion": schema.RayKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"jobStatus": rayV1alpha1.JobStatusSucceeded,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "ray job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.RayKindGroupVersion.Kind,
+					"apiVersion": schema.RayKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"jobStatus": rayV1alpha1.JobStatusFailed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "ray job status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.RayKindGroupVersion.Kind,
+					"apiVersion": schema.RayKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"jobStatus": "xxx",
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected ray job status: xxx"),
+		},
+	}
+
+	rayJob := KubeRayJob{
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(schema.RayKindGroupVersion, kubeRuntimeClient)}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := rayJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("ray job status: %v", status)
 		})
 	}
 }

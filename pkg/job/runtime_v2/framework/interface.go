@@ -85,7 +85,4 @@ type RuntimeClientInterface interface {
 	RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error
 
 	StartListener(listenerType string, stopCh <-chan struct{}) error
-
-	// ListNodeQuota resource api for cluster nodes
-	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
 }

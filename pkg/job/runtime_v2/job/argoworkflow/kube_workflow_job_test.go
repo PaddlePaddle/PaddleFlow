@@ -18,10 +18,13 @@ package argoworkflow
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
+	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -122,6 +125,96 @@ func TestWorkflowJob(t *testing.T) {
 					t.Logf("obj=%#v", jobObj)
 				}
 			}
+		})
+	}
+}
+
+func TestKubeArgoWorkflowJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "workflow job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodePending,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeRunning,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeSucceeded,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeFailed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": "xxx",
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected ArgoWorkflow status: xxx"),
+		},
+	}
+
+	wfJob := KubeArgoWorkflowJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := wfJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("workflow job status: %v", status)
 		})
 	}
 }

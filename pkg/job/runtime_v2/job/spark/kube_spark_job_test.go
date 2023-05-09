@@ -18,11 +18,14 @@ package spark
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -199,6 +202,111 @@ func TestSparkJob_CreateJob(t *testing.T) {
 				assert.NotNil(t, err)
 				assert.Equal(t, test.wantErr.Error(), err.Error())
 			}
+		})
+	}
+}
+
+func TestKubeSparkJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "spark app is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.SubmittedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.RunningState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.CompletedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.FailedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        "xxx",
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected spark application status: xxx"),
+		},
+	}
+
+	sparkJob := KubeSparkJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sparkStatus, err := sparkJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, sparkStatus.Status)
+			t.Logf("spark job status: %v", sparkStatus)
 		})
 	}
 }

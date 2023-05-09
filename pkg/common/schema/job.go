@@ -28,18 +28,12 @@ type Framework string
 type MemberRole string
 
 const (
-	EnvJobType        = "PF_JOB_TYPE"
-	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
-	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
-	EnvJobClusterName = "PF_JOB_CLUSTER_NAME"
-	EnvJobClusterID   = "PF_JOB_CLUSTER_ID"
-	EnvJobNamespace   = "PF_JOB_NAMESPACE"
-	EnvJobUserName    = "PF_USER_NAME"
-	EnvJobFsID        = "PF_FS_ID"
-	EnvJobPVCName     = "PF_JOB_PVC_NAME"
-	EnvJobPriority    = "PF_JOB_PRIORITY"
-	EnvJobMode        = "PF_JOB_MODE"
-	EnvJobFramework   = "PF_JOB_FRAMEWORK"
+	EnvJobType      = "PF_JOB_TYPE"
+	EnvJobQueueName = "PF_JOB_QUEUE_NAME"
+	EnvJobNamespace = "PF_JOB_NAMESPACE"
+	EnvJobUserName  = "PF_USER_NAME"
+	EnvJobMode      = "PF_JOB_MODE"
+	EnvJobFramework = "PF_JOB_FRAMEWORK"
 	// EnvJobYamlPath Additional configuration for a specific job
 	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
 	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
@@ -52,32 +46,17 @@ const (
 	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
 
 	// EnvJobModePS env
-	EnvJobModePS          = "PS"
-	EnvJobPSPort          = "PF_JOB_PS_PORT"
-	EnvJobPServerReplicas = "PF_JOB_PSERVER_REPLICAS"
-	EnvJobPServerFlavour  = "PF_JOB_PSERVER_FLAVOUR"
-	EnvJobPServerCommand  = "PF_JOB_PSERVER_COMMAND"
-	EnvJobWorkerReplicas  = "PF_JOB_WORKER_REPLICAS"
-	EnvJobWorkerFlavour   = "PF_JOB_WORKER_FLAVOUR"
-	EnvJobWorkerCommand   = "PF_JOB_WORKER_COMMAND"
-
+	EnvJobModePS = "PS"
 	// EnvJobModeCollective env
 	EnvJobModeCollective   = "Collective"
-	EnvJobReplicas         = "PF_JOB_REPLICAS"
 	EnvJobFlavour          = "PF_JOB_FLAVOUR"
 	EnvJobLimitFlavour     = "PF_JOB_LIMIT_FLAVOUR"
 	EnvJobLimitFlavourNone = "NONE"
 
-	// EnvJobModePod env reuse EnvJobReplicas and EnvJobFlavour
-	EnvJobModePod = "Pod"
-
 	// spark job env
-	EnvJobSparkMainFile    = "PF_JOB_SPARK_MAIN_FILE"
-	EnvJobSparkMainClass   = "PF_JOB_SPARK_MAIN_CLASS"
-	EnvJobSparkArguments   = "PF_JOB_SPARK_ARGUMENTS"
-	EnvJobDriverFlavour    = "PF_JOB_DRIVER_FLAVOUR"
-	EnvJobExecutorReplicas = "PF_JOB_EXECUTOR_REPLICAS"
-	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
+	EnvJobSparkMainFile  = "PF_JOB_SPARK_MAIN_FILE"
+	EnvJobSparkMainClass = "PF_JOB_SPARK_MAIN_CLASS"
+	EnvJobSparkArguments = "PF_JOB_SPARK_ARGUMENTS"
 
 	// TODO move to framework
 	TypeVcJob      JobType = "vcjob"

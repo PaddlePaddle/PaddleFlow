@@ -628,11 +628,6 @@ func (krc *KubeRuntimeClient) ClusterID() string {
 	return clusterID
 }
 
-func (krc *KubeRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
-	// TODO: add ListNodeQuota logic
-	return pfschema.QuotaSummary{}, []pfschema.NodeQuotaInfo{}, nil
-}
-
 func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
 	gvr, ok := krc.GVKToGVR.Load(gvk.String())
 	if ok {

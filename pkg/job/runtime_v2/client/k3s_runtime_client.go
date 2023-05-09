@@ -316,11 +316,6 @@ func (k3s *K3SRuntimeClient) startDynamicListener(listenerType string, stopCh <-
 	return err
 }
 
-// ListNodeQuota resource api for cluster nodes
-func (k3s *K3SRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
-	return pfschema.QuotaSummary{}, nil, nil
-}
-
 func (k3s *K3SRuntimeClient) GetTaskLogV2(namespace, name string, logPage utils.LogPage) ([]pfschema.TaskLogInfo, error) {
 	return getTaskLogV2(k3s.Client, namespace, name, logPage)
 }

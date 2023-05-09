@@ -245,3 +245,93 @@ func TestSingleJob_Create(t *testing.T) {
 		})
 	}
 }
+
+func TestKubeSingleJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "single job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.StandaloneKindGroupVersion.Kind,
+					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": v1.PodPending,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "single job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.StandaloneKindGroupVersion.Kind,
+					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": v1.PodRunning,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "single job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.StandaloneKindGroupVersion.Kind,
+					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": v1.PodSucceeded,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "single job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.StandaloneKindGroupVersion.Kind,
+					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": v1.PodFailed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "single job status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.StandaloneKindGroupVersion.Kind,
+					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": "xxx",
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected single job status: xxx"),
+		},
+	}
+
+	singleJob := KubeSingleJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := singleJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("single job status: %v", status)
+		})
+	}
+}
