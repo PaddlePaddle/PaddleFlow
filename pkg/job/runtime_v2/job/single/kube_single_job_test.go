@@ -303,6 +303,28 @@ func TestKubeSingleJob_JobStatus(t *testing.T) {
 					"apiVersion": schema.StandaloneKindGroupVersion.GroupVersion(),
 					"status": map[string]interface{}{
 						"phase": v1.PodFailed,
+						"initContainerStatuses": []map[string]interface{}{
+							{
+								"state": map[string]interface{}{
+									"terminated": map[string]interface{}{
+										"exitCode": 137,
+										"reason":   "OOMKilled",
+										"message":  "Pod is OOMKilled",
+									},
+								},
+							},
+						},
+						"containerStatuses": []map[string]interface{}{
+							{
+								"state": map[string]interface{}{
+									"terminated": map[string]interface{}{
+										"exitCode": 137,
+										"reason":   "OOMKilled",
+										"message":  "Pod is OOMKilled",
+									},
+								},
+							},
+						},
 					},
 				},
 			},

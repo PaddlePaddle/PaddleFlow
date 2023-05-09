@@ -134,9 +134,10 @@ const (
 	// JobKindGroupVersionAnnotation KindGroupVersion for job, format: {kind}.{group}/{version}
 	JobKindGroupVersionAnnotation = "paddleflow/job-kind-group-version"
 
-	VolcanoJobNameLabel  = "volcano.sh/job-name"
-	QueueLabelKey        = "volcano.sh/queue-name"
-	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
+	VolcanoJobNameLabel     = "volcano.sh/job-name"
+	QueueLabelKey           = "volcano.sh/queue-name"
+	SchedulingQueueLabelKey = "scheduling.volcano.sh/queue-name"
+	SparkAPPJobNameLabel    = "sparkoperator.k8s.io/app-name"
 
 	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
 
