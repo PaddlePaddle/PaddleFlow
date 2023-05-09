@@ -153,9 +153,10 @@ const (
 	JobTTLSeconds     = "padleflow/job-ttl-seconds"
 	JobLabelFramework = "paddleflow-job-framework"
 
-	VolcanoJobNameLabel  = "volcano.sh/job-name"
-	QueueLabelKey        = "volcano.sh/queue-name"
-	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
+	VolcanoJobNameLabel     = "volcano.sh/job-name"
+	QueueLabelKey           = "volcano.sh/queue-name"
+	SchedulingQueueLabelKey = "scheduling.volcano.sh/queue-name"
+	SparkAPPJobNameLabel    = "sparkoperator.k8s.io/app-name"
 
 	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
 
