@@ -116,6 +116,7 @@ func (sp *KubeSingleJob) buildSchedulingPolicy(jobPod *v1.Pod, job *api.PFJob) e
 	// set queue
 	if len(job.QueueName) > 0 {
 		jobPod.Annotations[pfschema.QueueLabelKey] = job.QueueName
+		jobPod.Annotations[pfschema.SchedulingQueueLabelKey] = job.QueueName
 	}
 	// set priority
 	jobPod.Spec.PriorityClassName = kuberuntime.KubePriorityClass(job.PriorityClassName)
