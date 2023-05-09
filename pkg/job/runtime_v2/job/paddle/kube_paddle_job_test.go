@@ -44,7 +44,6 @@ metadata:
 spec:
   withGloo: 1
   intranet: PodIP
-  cleanPodPolicy: OnCompletion
   worker:
     replicas: 2
     template:
@@ -554,6 +553,68 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			jobObj:   &mockPaddlePSJob,
 			wantErr:  nil,
 			wantMsg:  "",
+		},
+		{
+			caseName: "create builtin paddle job with Collective mode",
+			jobObj: &api.PFJob{
+				ID:        "job-builtin-normal-1",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+			wantMsg: "",
+		},
+		{
+			caseName: "create builtin paddle job with PS mode",
+			jobObj: &api.PFJob{
+				ID:        "job-builtin-normal-2",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+						Conf: schema.Conf{
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+					{
+						ID:       "task-normal-0002",
+						Replicas: 0,
+						Role:     schema.RolePWorker,
+						Conf: schema.Conf{
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+			wantMsg: "",
 		},
 	}
 

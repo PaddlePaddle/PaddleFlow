@@ -112,6 +112,40 @@ func TestPyTorchJob_CreateJob(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			caseName: "create builtin job failed",
+			jobObj: &api.PFJob{
+				Name:      "test-built-pytorch-job",
+				ID:        "job-test-pytorch",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkPytorch,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Xi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+			wantErr:   true,
+		},
+		{
 			caseName: "create custom job successfully",
 			jobObj: &api.PFJob{
 				Name:      "test-custom-pytorch-job",

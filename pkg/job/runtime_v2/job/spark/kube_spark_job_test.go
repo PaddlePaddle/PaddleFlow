@@ -47,16 +47,9 @@ metadata:
   namespace: default
 spec:
   driver:
-    coreLimit: "3"
-    cores: 3
-    memory: 3G
     podName: normal
-    serviceAccount: spark
   executor:
-    coreLimit: "2"
-    cores: 2
     instances: 1
-    memory: 2Gi
   image: mockImage
   imagePullPolicy: IfNotPresent
   mainApplicationFile: null
@@ -77,9 +70,10 @@ spec:
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf: schema.Conf{
-			Name:  "normal",
-			Image: "mockImage",
-			Env:   map[string]string{},
+			Name:      "normal",
+			Image:     "mockImage",
+			Env:       map[string]string{},
+			QueueName: "mockQueueName",
 		},
 		Tasks: []schema.Member{
 			{
@@ -95,7 +89,12 @@ spec:
 						schema.EnvJobSparkMainClass: "org.apache.spark.examples.SparkPi",
 						schema.EnvJobSparkArguments: "a=b,c=d",
 					},
-					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3G"}},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "3",
+							Mem: "3G",
+						}},
 				},
 			},
 			{
@@ -109,7 +108,15 @@ spec:
 					Env: map[string]string{
 						schema.EnvJobType: string(schema.TypeSparkJob),
 					},
-					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "2",
+							Mem: "2Gi",
+							ScalarResources: schema.ScalarResourcesType{
+								"nvidia.com/gpu": "2",
+							},
+						}},
 				},
 			},
 		},
@@ -158,8 +165,9 @@ spec:
 func TestSparkJob_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
-	config.InitJobTemplate(defaultJobYamlPath)
+	config.DefaultJobTemplate = map[string][]byte{
+		"spark-job": []byte(extensionSparkYaml),
+	}
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -174,7 +182,7 @@ func TestSparkJob_CreateJob(t *testing.T) {
 		wantMsg  string
 	}{
 		{
-			caseName: "spark",
+			caseName: "create builtin spark job",
 			jobObj:   &mockSparkJob,
 			wantErr:  nil,
 			wantMsg:  "",

@@ -113,6 +113,41 @@ func TestTFJob_CreateJob(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			caseName: "create builtin tf job failed",
+			jobObj: &api.PFJob{
+				Name:      "test-tf-job-failed",
+				ID:        "job-test-tf",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkTF,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Env:     map[string]string{},
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4x", Mem: "4Gi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+			wantErr:   true,
+		},
+		{
 			caseName: "create custom tf job successfully",
 			jobObj: &api.PFJob{
 				Name:      "test-custom-tf-job",

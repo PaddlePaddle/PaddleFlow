@@ -83,7 +83,7 @@ func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
 
 // builtinPyTorchJobSpec set build-in PyTorchJob spec
 func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec, job *api.PFJob) error {
-	if job == nil {
+	if job == nil || torchJobSpec == nil {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
