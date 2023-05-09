@@ -25,6 +25,7 @@ import (
 )
 
 func TestQueueInfo_JobOrderFn(t *testing.T) {
+	currentTime := time.Now()
 	testCases := []struct {
 		name    string
 		left    *PFJob
@@ -37,7 +38,19 @@ func TestQueueInfo_JobOrderFn(t *testing.T) {
 				CreateTime: time.Now(),
 			},
 			right: &PFJob{
-				CreateTime: time.Now(),
+				CreateTime: time.Now().Add(20 * time.Minute),
+			},
+			wantAns: true,
+		},
+		{
+			name: "left = right",
+			left: &PFJob{
+				ID:         "aa",
+				CreateTime: currentTime,
+			},
+			right: &PFJob{
+				ID:         "ab",
+				CreateTime: currentTime,
 			},
 			wantAns: true,
 		},
