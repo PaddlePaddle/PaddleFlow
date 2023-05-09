@@ -232,6 +232,44 @@ func TestKubePyTorchJob_JobStatus(t *testing.T) {
 			wantErr:    nil,
 		},
 		{
+			name: "pytorch job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobSucceeded,
+								"message": "kubeflow pytorch job is success",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "pytorch job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobFailed,
+								"message": "kubeflow pytorch job is failed",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
 			name: "pytorch job status is invalid",
 			obj: &unstructured.Unstructured{
 				Object: map[string]interface{}{
