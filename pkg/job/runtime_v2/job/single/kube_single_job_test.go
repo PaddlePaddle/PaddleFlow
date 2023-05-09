@@ -188,7 +188,8 @@ func TestSingleJob_Create(t *testing.T) {
 		{
 			caseName: "pod_test1",
 			jobObj: &api.PFJob{
-				JobType: schema.TypeSingle,
+				JobType:   schema.TypeSingle,
+				QueueName: "mockQueueName",
 			},
 			wantErr: fmt.Errorf("create builtin kind: Pod, groupVersion: /v1 job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
 			wantMsg: "create builtin kind: Pod, groupVersion: /v1 job / on cluster default-cluster with type Kubernetes failed, job member is nil",

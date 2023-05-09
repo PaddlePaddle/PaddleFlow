@@ -83,8 +83,9 @@ spec:
 func TestWorkflowJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
-	config.InitJobTemplate(defaultJobYamlPath)
+	config.DefaultJobTemplate = map[string][]byte{
+		"workflow-job": []byte(extArgoWorkflowYaml),
+	}
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -98,7 +99,7 @@ func TestWorkflowJob(t *testing.T) {
 		expectErr error
 	}{
 		{
-			caseName: "create workflow job",
+			caseName: "create custom workflow job success",
 			jobObj: &api.PFJob{
 				ID:                "wf-test1",
 				Namespace:         "default",
@@ -107,6 +108,17 @@ func TestWorkflowJob(t *testing.T) {
 				ExtensionTemplate: []byte(extArgoWorkflowYaml),
 			},
 			expectErr: nil,
+		},
+		{
+			caseName: "create workflow job failed",
+			jobObj: &api.PFJob{
+				ID:        "wf-test2",
+				Namespace: "default",
+				JobType:   schema.TypeWorkflow,
+				Conf:      schema.Conf{},
+			},
+			expectErr: fmt.Errorf("cannot create kind: Workflow, groupVersion: argoproj.io/v1alpha1 " +
+				"job default/wf-test2 on cluster default-cluster with type Kubernetes from builtin template"),
 		},
 	}
 
