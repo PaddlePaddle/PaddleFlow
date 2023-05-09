@@ -910,10 +910,6 @@ func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task
 	// set RestartPolicy
 	// TODO: make RestartPolicy configurable
 	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
-	// TODO: remove hard coded schedulerName when upstream package is fixed
-	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
-	// see issue https://github.com/kubeflow/training-operator/issues/1630
-	replicaSpec.Template.Spec.SchedulerName = "default-scheduler"
 	// set PodTemplate
 	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
 }

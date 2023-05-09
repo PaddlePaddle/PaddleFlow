@@ -18,10 +18,13 @@ package pytorch
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -30,6 +33,30 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
+
+var pyTorchJobYaml = `apiVersion: "kubeflow.org/v1"
+kind: "PyTorchJob"
+metadata:
+  name: "pytorch-dist-basic-sendrecv"
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: kubeflow/pytorch-dist-sendrecv-test:latest
+    Worker:
+      replicas: 3
+      restartPolicy: OnFailure
+      template:
+        spec:
+          containers:
+            - name: pytorch
+              image: kubeflow/pytorch-dist-sendrecv-test:latest
+`
 
 func TestPyTorchJob_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
@@ -51,7 +78,7 @@ func TestPyTorchJob_CreateJob(t *testing.T) {
 		wantMsg   string
 	}{
 		{
-			caseName: "create job successfully",
+			caseName: "create builtin job successfully",
 			jobObj: &api.PFJob{
 				Name:      "test-pytorch-job",
 				ID:        "job-test-pytorch",
@@ -84,6 +111,60 @@ func TestPyTorchJob_CreateJob(t *testing.T) {
 			expectErr: nil,
 			wantErr:   false,
 		},
+		{
+			caseName: "create builtin job failed",
+			jobObj: &api.PFJob{
+				Name:      "test-built-pytorch-job",
+				ID:        "job-test-pytorch",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkPytorch,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+				},
+				Tasks: []schema.Member{
+					{
+						Replicas: 1,
+						Role:     schema.RoleMaster,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Xi"}},
+						},
+					},
+					{
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4", Mem: "4Gi"}},
+						},
+					},
+				},
+			},
+			expectErr: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+			wantErr:   true,
+		},
+		{
+			caseName: "create custom job successfully",
+			jobObj: &api.PFJob{
+				Name:      "test-custom-pytorch-job",
+				ID:        "job-test-custom-pytorch",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				JobMode:   schema.EnvJobModePS,
+				Framework: schema.FrameworkPytorch,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep3000",
+					Image:   "mockImage",
+				},
+				Tasks:             []schema.Member{},
+				ExtensionTemplate: []byte(pyTorchJobYaml),
+			},
+			expectErr: nil,
+			wantErr:   false,
+		},
 	}
 
 	pytorchJob := New(kubeRuntimeClient)
@@ -101,6 +182,121 @@ func TestPyTorchJob_CreateJob(t *testing.T) {
 					t.Logf("obj=%#v", jobObj)
 				}
 			}
+		})
+	}
+}
+
+func TestKubePyTorchJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "pytorch job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobCreated,
+								"message": "kubeflow pytorch job is created",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "pytorch job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobRunning,
+								"message": "kubeflow pytorch job is running",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "pytorch job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobSucceeded,
+								"message": "kubeflow pytorch job is success",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "pytorch job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    kubeflowv1.JobFailed,
+								"message": "kubeflow pytorch job is failed",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "pytorch job status is invalid",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PyTorchKindGroupVersion.Kind,
+					"apiVersion": schema.PyTorchKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"conditions": []map[string]interface{}{
+							{
+								"type":    "xxx",
+								"message": "kubeflow pytorch job status is unknown",
+							},
+						},
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected job status: xxx"),
+		},
+	}
+
+	pyTorchJob := KubePyTorchJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := pyTorchJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("%s", status)
 		})
 	}
 }

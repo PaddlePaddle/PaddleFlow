@@ -18,10 +18,13 @@ package argoworkflow
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
+	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -80,8 +83,9 @@ spec:
 func TestWorkflowJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
-	config.InitJobTemplate(defaultJobYamlPath)
+	config.DefaultJobTemplate = map[string][]byte{
+		"workflow-job": []byte(extArgoWorkflowYaml),
+	}
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -95,7 +99,7 @@ func TestWorkflowJob(t *testing.T) {
 		expectErr error
 	}{
 		{
-			caseName: "create workflow job",
+			caseName: "create custom workflow job success",
 			jobObj: &api.PFJob{
 				ID:                "wf-test1",
 				Namespace:         "default",
@@ -104,6 +108,17 @@ func TestWorkflowJob(t *testing.T) {
 				ExtensionTemplate: []byte(extArgoWorkflowYaml),
 			},
 			expectErr: nil,
+		},
+		{
+			caseName: "create workflow job failed",
+			jobObj: &api.PFJob{
+				ID:        "wf-test2",
+				Namespace: "default",
+				JobType:   schema.TypeWorkflow,
+				Conf:      schema.Conf{},
+			},
+			expectErr: fmt.Errorf("cannot create kind: Workflow, groupVersion: argoproj.io/v1alpha1 " +
+				"job default/wf-test2 on cluster default-cluster with type Kubernetes from builtin template"),
 		},
 	}
 
@@ -122,6 +137,96 @@ func TestWorkflowJob(t *testing.T) {
 					t.Logf("obj=%#v", jobObj)
 				}
 			}
+		})
+	}
+}
+
+func TestKubeArgoWorkflowJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "workflow job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodePending,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeRunning,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeSucceeded,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": wfv1.NodeFailed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "workflow job status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.WorkflowKindGroupVersion.Kind,
+					"apiVersion": schema.WorkflowKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": "xxx",
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected ArgoWorkflow status: xxx"),
+		},
+	}
+
+	wfJob := KubeArgoWorkflowJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := wfJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("workflow job status: %v", status)
 		})
 	}
 }

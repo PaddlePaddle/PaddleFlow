@@ -18,11 +18,14 @@ package spark
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -44,16 +47,9 @@ metadata:
   namespace: default
 spec:
   driver:
-    coreLimit: "3"
-    cores: 3
-    memory: 3G
     podName: normal
-    serviceAccount: spark
   executor:
-    coreLimit: "2"
-    cores: 2
     instances: 1
-    memory: 2Gi
   image: mockImage
   imagePullPolicy: IfNotPresent
   mainApplicationFile: null
@@ -74,9 +70,10 @@ spec:
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf: schema.Conf{
-			Name:  "normal",
-			Image: "mockImage",
-			Env:   map[string]string{},
+			Name:      "normal",
+			Image:     "mockImage",
+			Env:       map[string]string{},
+			QueueName: "mockQueueName",
 		},
 		Tasks: []schema.Member{
 			{
@@ -92,7 +89,12 @@ spec:
 						schema.EnvJobSparkMainClass: "org.apache.spark.examples.SparkPi",
 						schema.EnvJobSparkArguments: "a=b,c=d",
 					},
-					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3G"}},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "3",
+							Mem: "3G",
+						}},
 				},
 			},
 			{
@@ -106,7 +108,15 @@ spec:
 					Env: map[string]string{
 						schema.EnvJobType: string(schema.TypeSparkJob),
 					},
-					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "2",
+							Mem: "2Gi",
+							ScalarResources: schema.ScalarResourcesType{
+								"nvidia.com/gpu": "2",
+							},
+						}},
 				},
 			},
 		},
@@ -155,8 +165,9 @@ spec:
 func TestSparkJob_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	defaultJobYamlPath := "../../../../../config/server/default/job/job_template.yaml"
-	config.InitJobTemplate(defaultJobYamlPath)
+	config.DefaultJobTemplate = map[string][]byte{
+		"spark-job": []byte(extensionSparkYaml),
+	}
 
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
@@ -171,7 +182,7 @@ func TestSparkJob_CreateJob(t *testing.T) {
 		wantMsg  string
 	}{
 		{
-			caseName: "spark",
+			caseName: "create builtin spark job",
 			jobObj:   &mockSparkJob,
 			wantErr:  nil,
 			wantMsg:  "",
@@ -199,6 +210,111 @@ func TestSparkJob_CreateJob(t *testing.T) {
 				assert.NotNil(t, err)
 				assert.Equal(t, test.wantErr.Error(), err.Error())
 			}
+		})
+	}
+}
+
+func TestKubeSparkJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "spark app is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.SubmittedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.RunningState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.CompletedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        v1beta2.FailedState,
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "spark app status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.SparkKindGroupVersion.Kind,
+					"apiVersion": schema.SparkKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"applicationState": map[string]interface{}{
+							"state":        "xxx",
+							"errorMessage": "",
+						},
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected spark application status: xxx"),
+		},
+	}
+
+	sparkJob := KubeSparkJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sparkStatus, err := sparkJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, sparkStatus.Status)
+			t.Logf("spark job status: %v", sparkStatus)
 		})
 	}
 }

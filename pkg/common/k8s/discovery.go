@@ -25,6 +25,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			APIResources: []metav1.APIResource{
 				{Name: "queues", Namespaced: false, Kind: "Queue"},
 				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
+				{Name: "podgroups", Namespaced: true, Kind: "PodGroup"},
 			},
 		}
 	case "/apis/sparkoperator.k8s.io/v1beta2":
