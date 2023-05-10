@@ -182,12 +182,6 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Usage:       "the salt of job log token",
 			Destination: &jobConf.Log.SaltStr,
 		},
-		&cli.StringFlag{
-			Name:        "log-time-format",
-			Value:       jobConf.Log.TimeFormat,
-			Usage:       "the time format of job log token",
-			Destination: &jobConf.Log.TimeFormat,
-		},
 	}
 }
 

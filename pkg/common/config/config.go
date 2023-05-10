@@ -116,7 +116,6 @@ type JobLogConfig struct {
 	ServiceHost string `yaml:"serviceHost"`
 	ServicePort string `yaml:"servicePort"`
 	SaltStr     string `yaml:"saltStr"`
-	TimeFormat  string `yaml:"timeFormat"`
 }
 
 type ImageConfig struct {
