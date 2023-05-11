@@ -1,3 +1,4 @@
+// Due to kubernetes version conflict, RayJob define referenced from https://github.com/ray-project/kuberay.
 package v1alpha1
 
 import (
@@ -72,9 +73,9 @@ type RayJobStatus struct {
 	RayClusterStatus RayClusterStatus `json:"rayClusterStatus,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +genclient
 // RayJob is the Schema for the rayjobs API
 type RayJob struct {
 	metav1.TypeMeta   `json:",inline"`
