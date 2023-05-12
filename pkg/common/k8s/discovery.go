@@ -25,6 +25,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			APIResources: []metav1.APIResource{
 				{Name: "queues", Namespaced: false, Kind: "Queue"},
 				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
+				{Name: "podgroups", Namespaced: true, Kind: "PodGroup"},
 			},
 		}
 	case "/apis/sparkoperator.k8s.io/v1beta2":
@@ -48,6 +49,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "pytorchjobs", Namespaced: true, Kind: "PyTorchJob"},
 				{Name: "tfjobs", Namespaced: true, Kind: "TFJob"},
 				{Name: "mpijobs", Namespaced: true, Kind: "MPIJob"},
+				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
 			},
 		}
 	case "/apis/argoproj.io/v1alpha1":

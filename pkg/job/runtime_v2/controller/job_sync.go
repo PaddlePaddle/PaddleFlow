@@ -166,17 +166,15 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
 			return err
 		}
-		// get job type and framework from FrameworkVersion
-		jobType, framework := j.runtimeClient.GetJobTypeFramework(jobSyncInfo.FrameworkVersion)
 		job := &model.Job{
 			ID:   jobSyncInfo.ID,
-			Type: string(jobType),
+			Type: string(jobSyncInfo.Type),
 			Config: &pfschema.Conf{
 				Env: map[string]string{
 					pfschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:     framework,
+			Framework:     jobSyncInfo.Framework,
 			QueueID:       parentJob.QueueID,
 			Status:        jobSyncInfo.Status,
 			Message:       jobSyncInfo.Message,
@@ -232,7 +230,7 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 	if job.Status != pfschema.StatusJobPending {
 		return nil
 	}
-	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, jobSyncInfo.FrameworkVersion)
+	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, jobSyncInfo.KindGroupVersion)
 	if err != nil {
 		log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
 	}
@@ -315,7 +313,7 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
-		fwVersion := j.runtimeClient.JobFrameworkVersion(pfschema.JobType(job.Type), job.Framework)
+		fwVersion := job.Config.GetKindGroupVersion(job.Framework)
 
 		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
 		_, err := j.runtimeClient.Get(namespace, name, fwVersion)
@@ -350,13 +348,13 @@ func (j *JobSync) processJobGCWorkItem() bool {
 	}
 	log.Infof("clean job info: %+v", gcjob)
 
-	err := j.runtimeClient.Delete(gcjob.Namespace, gcjob.Name, gcjob.FrameworkVersion)
+	err := j.runtimeClient.Delete(gcjob.Namespace, gcjob.Name, gcjob.KindGroupVersion)
 	if err != nil {
 		log.Errorf("clean %s job [%s/%s] failed, error：%v",
-			gcjob.FrameworkVersion, gcjob.Namespace, gcjob.Name, err)
+			gcjob.KindGroupVersion, gcjob.Namespace, gcjob.Name, err)
 		return true
 	}
-	log.Infof("auto clean %s job [%s/%s] succeed.", gcjob.FrameworkVersion, gcjob.Namespace, gcjob.Name)
+	log.Infof("auto clean %s job [%s/%s] succeed.", gcjob.KindGroupVersion, gcjob.Namespace, gcjob.Name)
 	return true
 }
 
@@ -371,7 +369,7 @@ func (j *JobSync) gcFinishedJob(jobInfo *api.JobSyncInfo) {
 			Name:             jobInfo.ID,
 			Namespace:        jobInfo.Namespace,
 			Duration:         getJobTTLSeconds(jobInfo.Annotations, jobInfo.Status),
-			FrameworkVersion: jobInfo.FrameworkVersion,
+			KindGroupVersion: jobInfo.KindGroupVersion,
 		}
 		duration := finishedJob.Duration
 		log.Infof("finishedJobDelayEnqueue job[%s] in ns[%s] duration[%v]",

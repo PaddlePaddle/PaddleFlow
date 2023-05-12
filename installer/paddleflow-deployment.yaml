@@ -1,4 +1,9 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: paddleflow
+---
 # Source: pfchart/charts/paddleflow-server/templates/ServiceAccount-paddleflow-server.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -56,8 +61,8 @@ metadata:
         app.kubernetes.io/instance: 'paddleflow'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'paddleflow-server'
-        chart: 'paddleflow-server-0.10.61-rrnw8z'
-        helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
+        chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
+        helm.sh/chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
         heritage: 'Helm'
         release: 'paddleflow'
     name: 'paddleflow-server'
@@ -85,13 +90,13 @@ apiVersion: v1
 metadata:
     labels:
         app: 'pfs-csi-provisioner'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'pfs-csi-provisioner'
         chart: 'pfs-csi-provisioner-0.0.15-rr8wr7'
         helm.sh/chart: 'pfs-csi-provisioner-0.0.15-rr8wr7'
         heritage: 'Helm'
-        release: 'paddleflow'
+        release: 'volcano'
     name: 'pfs-csi-provisioner'
 data: {}
 ---
@@ -101,13 +106,13 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-admission-init'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-admission-init'
         chart: 'volcano-admission-init-0.0.8-rrm1o4'
         helm.sh/chart: 'volcano-admission-init-0.0.8-rrm1o4'
         heritage: 'Helm'
-        release: 'paddleflow'
+        release: 'volcano'
     name: 'volcano-admission-init'
 data: {}
 ---
@@ -117,13 +122,13 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-admission'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-admission'
         chart: 'volcano-admission-0.0.21-rrm1l0'
         helm.sh/chart: 'volcano-admission-0.0.21-rrm1l0'
         heritage: 'Helm'
-        release: 'paddleflow'
+        release: 'volcano'
     name: 'volcano-admission'
 data: {}
 ---
@@ -133,13 +138,13 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-controller'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-controller'
         chart: 'volcano-controller-0.0.11-rrm1js'
         helm.sh/chart: 'volcano-controller-0.0.11-rrm1js'
         heritage: 'Helm'
-        release: 'paddleflow'
+        release: 'volcano'
     name: 'volcano-controller'
 data: {}
 ---
@@ -149,13 +154,13 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-scheduler'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-scheduler'
         chart: 'volcano-scheduler-0.0.23-rrm1mf'
         helm.sh/chart: 'volcano-scheduler-0.0.23-rrm1mf'
         heritage: 'Helm'
-        release: 'paddleflow'
+        release: 'volcano'
     name: 'volcano-scheduler'
 data: {}
 ---
@@ -168,8 +173,8 @@ metadata:
         app.kubernetes.io/instance: 'paddleflow'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'paddleflow-server'
-        chart: 'paddleflow-server-0.10.61-rrnw8z'
-        helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
+        chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
+        helm.sh/chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
         heritage: 'Helm'
         release: 'paddleflow'
     name: 'paddleflow-server'
@@ -633,7 +638,7 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-admission-init'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-admission-init'
         chart: 'volcano-admission-init-0.0.8-rrm1o4'
@@ -652,7 +657,7 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-admission'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-admission'
         chart: 'volcano-admission-0.0.21-rrm1l0'
@@ -671,7 +676,7 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-controller'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-controller'
         chart: 'volcano-controller-0.0.11-rrm1js'
@@ -690,7 +695,7 @@ apiVersion: v1
 metadata:
     labels:
         app: 'volcano-scheduler'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/name: 'volcano-scheduler'
         chart: 'volcano-scheduler-0.0.23-rrm1mf'
@@ -1451,12 +1456,12 @@ metadata:
   name: paddleflow-server
   labels:
     app: paddleflow-server
-    chart: "paddleflow-server-0.10.61-rrnw8z"
+    chart: "paddleflow-server-0.10.61-rrx7rl-tmp"
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
-    helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
+    app.kubernetes.io/instance: 'volcano'
+    helm.sh/chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
     app.kubernetes.io/name: 'paddleflow-server'
 
   annotations:
@@ -1491,7 +1496,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'pfs-csi-provisioner-0.0.15-rr8wr7'
     app.kubernetes.io/name: 'pfs-csi-provisioner'
 
@@ -1521,7 +1526,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-admission-0.0.21-rrm1l0'
     app.kubernetes.io/name: 'volcano-admission'
 
@@ -1552,7 +1557,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-scheduler-0.0.23-rrm1mf'
     app.kubernetes.io/name: 'volcano-scheduler'
 
@@ -1570,6 +1575,21 @@ spec:
     targetPort: 8080
   selector:
     app: volcano-scheduler
+---
+kind: ElasticResourceQuota
+spec:
+  max:
+    cpu: '0'
+    memory: '0'
+  min:
+    cpu: '0'
+    memory: '0'
+  namespace: default
+metadata:
+  name: root
+  labels:
+    paddleflow.baidu.com/resource-isolation-type: logical
+apiVersion: scheduling.volcano.sh/v1beta1
 ---
 # Source: pfchart/charts/pfs-csi-plugin/templates/pfs-csi-plugin-daemonset.yaml
 apiVersion: apps/v1
@@ -1601,8 +1621,6 @@ spec:
         helm.sh/chart: 'pfs-csi-plugin-0.0.80-rrnwa0'
         app.kubernetes.io/name: 'pfs-csi-plugin'
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
       hostNetwork: true
@@ -1669,9 +1687,6 @@ spec:
           runAsGroup: 0
           runAsUser: 0
         resources:
-          limits:
-            cpu: "1.5"
-            memory: 3000Mi
           requests:
             cpu: "0.5"
             memory: 1000Mi
@@ -1765,12 +1780,12 @@ metadata:
   name: paddleflow-server
   labels:
     app: paddleflow-server
-    chart: "paddleflow-server-0.10.61-rrnw8z"
+    chart: "paddleflow-server-0.10.61-rrx7rl-tmp"
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
     app.kubernetes.io/instance: 'paddleflow'
-    helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
+    helm.sh/chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
     app.kubernetes.io/name: 'paddleflow-server'
   annotations:
     reloader.stakater.com/auto: "false"
@@ -1785,11 +1800,9 @@ spec:
         app: paddleflow-server
         app.kubernetes.io/managed-by: 'Helm'
         app.kubernetes.io/instance: 'paddleflow'
-        helm.sh/chart: 'paddleflow-server-0.10.61-rrnw8z'
+        helm.sh/chart: 'paddleflow-server-0.10.61-rrx7rl-tmp'
         app.kubernetes.io/name: 'paddleflow-server'
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       securityContext:
@@ -1890,8 +1903,6 @@ spec:
       annotations:
         app: pfs-csi-provisioner
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       tolerations:
@@ -1954,7 +1965,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-admission-0.0.21-rrm1l0'
     app.kubernetes.io/name: 'volcano-admission'
     app: volcano-admission
@@ -1971,15 +1982,13 @@ spec:
       labels:
         app: volcano-admission
         app.kubernetes.io/managed-by: 'Helm'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         helm.sh/chart: 'volcano-admission-0.0.21-rrm1l0'
         app.kubernetes.io/name: 'volcano-admission'
         app: volcano-admission
       annotations:
         app: volcano-admission
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       serviceAccountName: volcano-admission
@@ -2002,20 +2011,6 @@ spec:
           - --log_dir=/tmp/log
           - --log_file=/tmp/log/webhook.log
           - --log_file_max_size=300
-          - --nvidia-mps-dev-volume-host-path=/dev/shm
-          - --nvidia-mps-dev-volume-container-path=/dev/shm
-          - --nvidia-cgpu-volume-host-path=/baidu-cgpu
-          - --nvidia-cgpu-volume-container-path=/home/baidu-cgpu
-          - --nvidia-lib-cuda-volume-host-path=/opt/baidu-cgpu/lib64/libcuda.so.1
-          - --nvidia-lib-cuda-volume-centos-container-path=/usr/lib64/libcuda.so.1
-          - --nvidia-lib-cuda-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libcuda.so.1
-          - --nvidia-lib-cuda-original-volume-host-path=/usr/lib64/libcuda.so.1
-          - --nvidia-lib-cuda-original-volume-container-path=/usr/lib64/libcuda_original.so
-          - --nvidia-libml-volume-host-path=/opt/baidu-cgpu/lib64/libnvidia-ml.so.1
-          - --nvidia-libml-volume-centos-container-path=/usr/lib64/libnvidia-ml.so.1
-          - --nvidia-libml-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
-          - --nvidia-libml-original-volume-host-path=/usr/lib64/libnvidia-ml.so
-          - --nvidia-libml-original-volume-container-path=/usr/lib64/libnvidia-ml_original.so
         securityContext:
           privileged: false
         #服务启动暴露的端口，list形式，根据服务情况增加或删减
@@ -2058,7 +2053,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-controller-0.0.11-rrm1js'
     app.kubernetes.io/name: 'volcano-controller'
     app: volcano-controller
@@ -2075,15 +2070,13 @@ spec:
       labels:
         app: volcano-controller
         app.kubernetes.io/managed-by: 'Helm'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         helm.sh/chart: 'volcano-controller-0.0.11-rrm1js'
         app.kubernetes.io/name: 'volcano-controller'
         app: volcano-controller
       annotations:
         app: volcano-controller
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       serviceAccountName: volcano-controllers
@@ -2134,7 +2127,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-scheduler-0.0.23-rrm1mf'
     app.kubernetes.io/name: 'volcano-scheduler'
     app: volcano-scheduler
@@ -2151,15 +2144,13 @@ spec:
       labels:
         app: volcano-scheduler
         app.kubernetes.io/managed-by: 'Helm'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         helm.sh/chart: 'volcano-scheduler-0.0.23-rrm1mf'
         app.kubernetes.io/name: 'volcano-scheduler'
         app: volcano-scheduler
       annotations:
         app: volcano-scheduler
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       serviceAccountName: volcano-scheduler
@@ -2220,7 +2211,7 @@ metadata:
     release: "paddleflow"
     heritage: "Helm"
     app.kubernetes.io/managed-by: 'Helm'
-    app.kubernetes.io/instance: 'paddleflow'
+    app.kubernetes.io/instance: 'volcano'
     helm.sh/chart: 'volcano-admission-init-0.0.8-rrm1o4'
     app.kubernetes.io/name: 'volcano-admission-init'
     app: volcano-admission-init
@@ -2236,12 +2227,10 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/managed-by: 'Helm'
-        app.kubernetes.io/instance: 'paddleflow'
+        app.kubernetes.io/instance: 'volcano'
         helm.sh/chart: 'volcano-admission-init-0.0.8-rrm1o4'
         app.kubernetes.io/name: 'volcano-admission-init'
     spec:
-      imagePullSecrets:
-      - name: registry-paddleflow
       serviceAccountName: volcano-admission
       containers:
       - name: volcano-admission-init
@@ -2263,7 +2252,6 @@ spec:
         securityContext:
           privileged: false
         #服务的环境变量，list形式，根据服务情况增加或删减
-        env:
         #container_envs list
         #注意：这里的name跟后面volumes里name是一一对应的
         volumeMounts:
@@ -2328,4 +2316,4 @@ metadata:
     name: very-low
     selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/very-low
 value: 10
-
+---

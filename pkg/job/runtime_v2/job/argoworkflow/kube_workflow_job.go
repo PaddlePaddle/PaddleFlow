@@ -26,17 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
-)
-
-var (
-	JobGVK                    = k8s.ArgoWorkflowGVK
-	KubeArgoWorkflowFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
 // KubeArgoWorkflowJob is a struct that runs an argo workflow
@@ -46,7 +39,7 @@ type KubeArgoWorkflowJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeArgoWorkflowJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeArgoWorkflowFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.WorkflowKindGroupVersion, kubeClient),
 	}
 }
 
@@ -56,7 +49,7 @@ func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error
 	}
 	jobName := job.NamespacedName()
 	argoWfJob := &wfv1.Workflow{}
-	if err := kuberuntime.CreateKubeJobFromYaml(argoWfJob, pj.GVK, job); err != nil {
+	if err := kuberuntime.CreateKubeJobFromYaml(argoWfJob, pj.KindGroupVersion, job); err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
@@ -77,7 +70,7 @@ func (pj *KubeArgoWorkflowJob) Submit(ctx context.Context, job *api.PFJob) error
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), argoWfJob)
-	err = pj.RuntimeClient.Create(argoWfJob, pj.FrameworkVersion)
+	err = pj.RuntimeClient.Create(argoWfJob, pj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -107,7 +100,7 @@ func (pj *KubeArgoWorkflowJob) JobStatus(obj interface{}) (api.StatusInfo, error
 	// convert to argo workflow struct
 	job := &wfv1.Workflow{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, pj.KindGroupVersion, err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status

@@ -54,6 +54,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -134,26 +135,6 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}, nil
 }
 
-func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
-	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
-}
-
-func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion {
-	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-}
-
-func (krc *KubeRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
-	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
-	log.Infof("on %s, FrameworkVesion for job type %s framework %s, is %s", krc.Cluster(), jobType, fw, frameworkVersion)
-	return frameworkVersion
-}
-
-func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
-	gvk := frameworkVersionToGVK(fv)
-	jobType, framework := k8s.GetJobTypeAndFramework(gvk)
-	return jobType, framework
-}
-
 func (krc *KubeRuntimeClient) RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error {
 	var err error
 	switch listenerType {
@@ -179,7 +160,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 		return fmt.Errorf("register job Listener failed, err: job plugins is nil")
 	}
 	for fv, _ := range jobPlugins {
-		gvk := frameworkVersionToGVK(fv)
+		gvk := kubeutil.ToGVK(fv)
 		krc.unRegisteredMap[gvk] = true
 	}
 	krc.addJobInformers(workQueue)
@@ -196,7 +177,8 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 func (krc *KubeRuntimeClient) addJobInformers(workQueue workqueue.RateLimitingInterface) {
 	log.Debugf("add job informers")
 	for gvk := range krc.unRegisteredMap {
-		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, KubeFrameworkVersion(gvk))
+		kindGroupVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+		jobPlugin, _ := framework.GetJobPlugin(pfschema.KubernetesType, kindGroupVersion)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Debugf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
@@ -253,7 +235,7 @@ func (krc *KubeRuntimeClient) registerQueueListener(workQueue workqueue.RateLimi
 		return fmt.Errorf("on %s, register queue listener failed, err: plugins is nil", krc.Cluster())
 	}
 	for fv, plugin := range queuePlugins {
-		gvk := frameworkVersionToGVK(fv)
+		gvk := kubeutil.ToGVK(fv)
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("on %s, cann't find GroupVersionKind %s, err: %v", krc.Cluster(), gvk.String(), err)
@@ -646,11 +628,6 @@ func (krc *KubeRuntimeClient) ClusterID() string {
 	return clusterID
 }
 
-func (krc *KubeRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
-	// TODO: add ListNodeQuota logic
-	return pfschema.QuotaSummary{}, []pfschema.NodeQuotaInfo{}, nil
-}
-
 func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
 	gvr, ok := krc.GVKToGVR.Load(gvk.String())
 	if ok {
@@ -674,8 +651,8 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 	return *mapping, nil
 }
 
-func (krc *KubeRuntimeClient) Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error) {
-	gvk := frameworkVersionToGVK(fv)
+func (krc *KubeRuntimeClient) Get(namespace string, name string, kindVersion pfschema.KindGroupVersion) (interface{}, error) {
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to get kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return nil, fmt.Errorf("dynamic client is nil")
@@ -696,8 +673,8 @@ func (krc *KubeRuntimeClient) Get(namespace string, name string, fv pfschema.Fra
 	return obj, err
 }
 
-func (krc *KubeRuntimeClient) Create(resource interface{}, fv pfschema.FrameworkVersion) error {
-	gvk := frameworkVersionToGVK(fv)
+func (krc *KubeRuntimeClient) Create(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to create kuberentes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -729,8 +706,8 @@ func (krc *KubeRuntimeClient) Create(resource interface{}, fv pfschema.Framework
 	return err
 }
 
-func (krc *KubeRuntimeClient) Delete(namespace string, name string, fv pfschema.FrameworkVersion) error {
-	gvk := frameworkVersionToGVK(fv)
+func (krc *KubeRuntimeClient) Delete(namespace string, name string, kindVersion pfschema.KindGroupVersion) error {
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to delete kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -754,8 +731,8 @@ func (krc *KubeRuntimeClient) Delete(namespace string, name string, fv pfschema.
 	return err
 }
 
-func (krc *KubeRuntimeClient) Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error {
-	gvk := frameworkVersionToGVK(fv)
+func (krc *KubeRuntimeClient) Patch(namespace string, name string, kindVersion pfschema.KindGroupVersion, data []byte) error {
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to patch kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -777,8 +754,8 @@ func (krc *KubeRuntimeClient) Patch(namespace, name string, fv pfschema.Framewor
 	return err
 }
 
-func (krc *KubeRuntimeClient) Update(resource interface{}, fv pfschema.FrameworkVersion) error {
-	gvk := frameworkVersionToGVK(fv)
+func (krc *KubeRuntimeClient) Update(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
+	gvk := kubeutil.ToGVK(kindVersion)
 	log.Debugf("executor begin to update kubernetes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")

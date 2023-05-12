@@ -69,7 +69,7 @@ func TestGenerateLogURL(t *testing.T) {
 				ExtRuntimeStatusJSON: taskStatus,
 			},
 			containerID: "8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6",
-			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d",
 		},
 	}
 
@@ -79,14 +79,15 @@ func TestGenerateLogURL(t *testing.T) {
 			// init db
 			err := storage.Job.UpdateTask(&tc.task)
 			assert.Equal(t, nil, err)
-			task, err := storage.Job.GetJobTaskByID(tc.task.ID)
+			task, err := storage.Job.GetTaskByID(tc.task.ID)
 			assert.Equal(t, nil, err)
 			// generate log url
 			url := GenerateLogURL(task)
-			tokenStr := getLogToken(task.JobID, tc.containerID)
+			tokenStr, timeStamp := getLogToken(task.JobID, tc.containerID)
 			token := md5.Sum([]byte(tokenStr))
-			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]))
+			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp)
 			assert.Equal(t, expectURL, url)
+			t.Logf("log url %s", expectURL)
 		})
 	}
 }

@@ -361,7 +361,7 @@ func TestJobGC(t *testing.T) {
 			finishedJobInfo: &api.FinishedJobInfo{
 				Name:             "test-job",
 				Namespace:        "default",
-				FrameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+				KindGroupVersion: schema.StandaloneKindGroupVersion,
 			},
 		},
 	}
@@ -549,7 +549,7 @@ func TestTaskSync(t *testing.T) {
 	})
 	assert.Equal(t, nil, err)
 
-	podFrameworkVer := schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String())
+	podFrameworkVer := schema.StandaloneKindGroupVersion
 	for _, test := range tests {
 		t.Run(test.caseName, func(t *testing.T) {
 			c := newFakeJobSyncController()

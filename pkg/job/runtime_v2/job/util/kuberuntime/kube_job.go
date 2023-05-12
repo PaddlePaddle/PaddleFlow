@@ -52,23 +52,21 @@ const (
 )
 
 type KubeBaseJob struct {
-	GVK              kubeschema.GroupVersionKind
-	FrameworkVersion schema.FrameworkVersion
+	KindGroupVersion schema.KindGroupVersion
 	RuntimeClient    framework.RuntimeClientInterface
 	JobQueue         workqueue.RateLimitingInterface
 	getStatusFunc    api.GetStatusFunc
 }
 
-func NewKubeBaseJob(gvk kubeschema.GroupVersionKind, fv schema.FrameworkVersion, c framework.RuntimeClientInterface) KubeBaseJob {
+func NewKubeBaseJob(kindVersion schema.KindGroupVersion, c framework.RuntimeClientInterface) KubeBaseJob {
 	return KubeBaseJob{
-		GVK:              gvk,
-		FrameworkVersion: fv,
+		KindGroupVersion: kindVersion,
 		RuntimeClient:    c,
 	}
 }
 
 func (kj *KubeBaseJob) String(name string) string {
-	return fmt.Sprintf("%s job %s on %s", kj.GVK.String(), name, kj.RuntimeClient.Cluster())
+	return fmt.Sprintf("%s job %s on %s", kj.KindGroupVersion, name, kj.RuntimeClient.Cluster())
 }
 
 func (kj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
@@ -77,7 +75,7 @@ func (kj *KubeBaseJob) Stop(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to stop %s", kj.String(jobName))
-	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.KindGroupVersion); err != nil {
 		log.Errorf("stop %s failed, err: %v", kj.String(jobName), err)
 		return err
 	}
@@ -90,7 +88,7 @@ func (kj *KubeBaseJob) Update(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to update %s", kj.String(jobName))
-	if err := UpdateKubeJob(job, kj.RuntimeClient, kj.FrameworkVersion); err != nil {
+	if err := UpdateKubeJob(job, kj.RuntimeClient, kj.KindGroupVersion); err != nil {
 		log.Errorf("update %s failed, err: %v", kj.String(jobName), err)
 		return err
 	}
@@ -103,7 +101,7 @@ func (kj *KubeBaseJob) Delete(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to delete %s ", kj.String(jobName))
-	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.FrameworkVersion); err != nil {
+	if err := kj.RuntimeClient.Delete(job.Namespace, job.ID, kj.KindGroupVersion); err != nil {
 		log.Errorf("delete %s failed, err %v", kj.String(jobName), err)
 		return err
 	}
@@ -177,22 +175,26 @@ func ResponsibleForJob(obj interface{}) bool {
 }
 
 // getDefaultTemplate get default template from file
-func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string) ([]byte, error) {
+func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string, kv schema.KindGroupVersion) ([]byte, error) {
 	// jobTemplateName corresponds to the footer comment of yaml file `config/server/default/job/job_template.yaml`
 	jobTemplateName := ""
 
+	// TODO: update footer comment format
 	// the footer comment of all type job as the follow:
 	//  single -> single-job, workflow -> workflow-job,
-	//  spark -> spark-job, ray -> ray-job
+	//  spark -> spark-job, ray -> ray-job, mpi -> mpi-job
 	//  paddle with ps mode -> paddle-ps-job
 	//  paddle with collective mode -> paddle-collective-job
+	//  kubeflow paddle job -> PaddleJob-kubeflow.org/v1-collective
 	//  tensorflow with ps mode -> tensorflow-ps-job
 	//  pytorch with ps mode -> pytorch-ps-job
 	switch jobType {
 	case schema.TypeSingle, schema.TypeWorkflow:
 		jobTemplateName = fmt.Sprintf("%s-job", jobType)
 	case schema.TypeDistributed:
-		if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
+		if kv == schema.KFPaddleKindGroupVersion {
+			jobTemplateName = fmt.Sprintf("%s-%s-%s", kv.Kind, kv.GroupVersion(), strings.ToLower(jobMode))
+		} else if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
 			jobTemplateName = fmt.Sprintf("%s-job", framework)
 		} else {
 			jobTemplateName = fmt.Sprintf("%s-%s-job", framework, strings.ToLower(jobMode))
@@ -209,7 +211,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	return jobTemplate, nil
 }
 
-func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.GroupVersionKind, job *api.PFJob) error {
+func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVersion, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
@@ -219,7 +221,7 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 		// get builtin template
 		var err error
 		job.IsCustomYaml = false
-		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode)
+		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode, kindVersion)
 		if err != nil {
 			return fmt.Errorf("get default template failed, err: %v", err)
 		}
@@ -238,8 +240,10 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 	}
 	parsedGVK := unstructuredObj.GroupVersionKind()
 	log.Debugf("unstructuredObj=%v, GroupVersionKind=[%v]", unstructuredObj, parsedGVK)
-	if parsedGVK.String() != groupVersionKind.String() {
-		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", groupVersionKind.String(), parsedGVK.String())
+	kindGroupVersion := kubeschema.GroupVersionKind{Group: kindVersion.Group,
+		Kind: kindVersion.Kind, Version: kindVersion.APIVersion}
+	if parsedGVK.String() != kindGroupVersion.String() {
+		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", kindGroupVersion.String(), parsedGVK.String())
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(job.ExtensionTemplate), err)
 		return err
 	}
@@ -791,9 +795,9 @@ func KubePriorityClass(priority string) string {
 // patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
 // environments for paddle para job:
 //
-// 	PF_PADDLE_PARA_JOB: defines the job is a paddle para job
-// 	PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
-// 	PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
+//	PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+//	PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+//	PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
 func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member) error {
 	// get parameters from user's job config
 	var paddleParaPriority string
@@ -906,10 +910,6 @@ func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task
 	// set RestartPolicy
 	// TODO: make RestartPolicy configurable
 	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
-	// TODO: remove hard coded schedulerName when upstream package is fixed
-	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
-	// see issue https://github.com/kubeflow/training-operator/issues/1630
-	replicaSpec.Template.Spec.SchedulerName = "default-scheduler"
 	// set PodTemplate
 	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
 }
@@ -981,8 +981,8 @@ func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 		log.Errorln(err)
 		return err
 	}
-	frameworkVersion := schema.NewFrameworkVersion(k8s.PodGroupGVK.Kind, k8s.PodGroupGVK.GroupVersion().String())
-	obj, err := runtimeClient.Get(jobInfo.Namespace, pgName, frameworkVersion)
+	kindVersion := schema.NewKindGroupVersion(k8s.PodGroupGVK.Kind, k8s.PodGroupGVK.Group, k8s.PodGroupGVK.Version)
+	obj, err := runtimeClient.Get(jobInfo.Namespace, pgName, kindVersion)
 	if err != nil {
 		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
 		return err
@@ -1009,14 +1009,14 @@ func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 		return err
 	}
 
-	err = runtimeClient.Update(oldPG, frameworkVersion)
+	err = runtimeClient.Update(oldPG, kindVersion)
 	if err != nil {
 		log.Errorf("update priority for job %s failed. err: %v", jobInfo.ID, err)
 	}
 	return err
 }
 
-func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.FrameworkVersion) error {
+func UpdateKubeJob(job *api.PFJob, runtimeClient framework.RuntimeClientInterface, fv schema.KindGroupVersion) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}

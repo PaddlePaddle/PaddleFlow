@@ -102,7 +102,7 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
-			Value: 5 * time.Second,
+			Value: 1 * time.Second,
 			Usage: "entry cache expire",
 		},
 		&cli.DurationFlag{

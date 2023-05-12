@@ -778,8 +778,8 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 	mode := attr.Mode
 	atime := attr.Atime
 	atimensec := attr.Atimensec
-	ctime := attr.Ctime
-	ctimensec := attr.Ctimensec
+	mtime := attr.Mtime
+	mtimesec := attr.Mtimensec
 	size := attr.Size
 	err := m.txn(func(tx kv.KvTxn) error {
 		absolutePath = m.absolutePath(inode, tx)
@@ -811,13 +811,18 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 			log.Debugf("set mode %+v", set)
 			cur.attr.Mode = mode
 		}
-		if set&FATTR_ATIME != 0 || set&FATTR_MTIME != 0 || set&FATTR_CTIME != 0 {
-			log.Debugf("set time %+v", set)
+		if set&FATTR_ATIME != 0 {
+			log.Debugf("set Atime %+v", set)
 			cur.attr.Atime = atime
 			cur.attr.Atimensec = atimensec
-			cur.attr.Ctime = ctime
-			cur.attr.Ctimensec = ctimensec
 		}
+
+		if set&FATTR_MTIME != 0 {
+			log.Debugf("set Mtime %+v", set)
+			cur.attr.Mtime = mtime
+			cur.attr.Mtimensec = mtimesec
+		}
+
 		if set&FATTR_SIZE != 0 {
 			log.Debugf("set size %+v size %+v", set, size)
 			cur.attr.Size = size
@@ -1289,6 +1294,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	inodeSlice := make([]inodeSliceItem, 0)
 	var parentIno Ino
 	now := time.Now()
+	var fromCache bool
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
 		if buf == nil {
@@ -1317,6 +1323,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					}
 					*entries = append(*entries, en)
 				}
+				fromCache = true
 				return nil
 			}
 		}
@@ -1359,7 +1366,8 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				return true
 			})
 		}
-		log.Debugf("meta-kv got [%d]dirEntrys from ufs ", len(dirs))
+		fromCache = false
+		log.Debugf("meta-kv got [%d] dirEntries from ufs ", len(dirs))
 
 		var childEntryItem *Entry
 		var expire int64
@@ -1394,6 +1402,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				return err
 			}
 			var childEntryItemFromCache *entryItem
+			insertChildEntry := &entryItem{}
 			if childEntryBuf != nil {
 				childEntryItemFromCache = &entryItem{}
 				m.parseEntry(childEntryBuf, childEntryItemFromCache)
@@ -1404,19 +1413,18 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					return err
 				}
 				newInode = newInodeNumber
-				insertChildEntry := &entryItem{
-					ino: newInode,
-				}
 				if dir.Attr.Type == TypeDirectory {
 					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFDIR | uint32(FuseConf.DirMode))))
 				} else {
 					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFREG | uint32(FuseConf.FileMode))))
 				}
-				entrySlice = append(entrySlice, entrySliceItem{
-					dir.Name,
-					insertChildEntry,
-				})
+
 			}
+			insertChildEntry.ino = newInode
+			entrySlice = append(entrySlice, entrySliceItem{
+				dir.Name,
+				insertChildEntry,
+			})
 			expire = now.Add(m.attrTimeOut).Unix()
 			insertChildInode = &inodeItem{
 				attr:      *childEntryItem.Attr,
@@ -1460,6 +1468,34 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 		return nil
 	})
 	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	if fromCache {
+		return syscall.F_OK
+	}
+
+	//从远端拉取dir的entries时 更新badger（删除badger里存在的dir下的entries）,目的是避免远端删除了dir下的一些entries,但badger里还存在这些entries的情况
+	err = m.txn(func(tx kv.KvTxn) error {
+		ens, err := tx.ScanValues(m.entryKey(inode, ""))
+		if err != nil {
+			return err
+		}
+		for _, childEntryBuf := range ens {
+			childEntryItem := &entryItem{}
+			m.parseEntry(childEntryBuf, childEntryItem)
+			childInoItem := &inodeItem{}
+			if childInodeBuf := tx.Get(m.inodeKey(childEntryItem.ino)); len(childInodeBuf) != 0 {
+				m.parseInode(childInodeBuf, childInoItem)
+				_ = tx.Dels(m.entryKey(inode, string(childInoItem.name)))
+
+			}
+			_ = tx.Dels(m.inodeKey(childEntryItem.ino))
+
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("meta-kv read dir[%v]. deletes invalid entries err: %s", inode, err.Error())
 		return utils.ToSyscallErrno(err)
 	}
 	err = m.updateDirentrys(inode, entrySlice, inodeSlice)

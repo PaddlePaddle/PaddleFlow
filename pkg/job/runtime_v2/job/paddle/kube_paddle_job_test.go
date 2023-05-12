@@ -19,10 +19,13 @@ package paddle
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
+	paddlejobv1 "github.com/paddleflow/paddle-operator/api/v1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -41,7 +44,6 @@ metadata:
 spec:
   withGloo: 1
   intranet: PodIP
-  cleanPodPolicy: OnCompletion
   worker:
     replicas: 2
     template:
@@ -552,6 +554,68 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			wantErr:  nil,
 			wantMsg:  "",
 		},
+		{
+			caseName: "create builtin paddle job with Collective mode",
+			jobObj: &api.PFJob{
+				ID:        "job-builtin-normal-1",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 2,
+						Role:     schema.RoleWorker,
+						Conf: schema.Conf{
+							Name:    "normal",
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+			wantMsg: "",
+		},
+		{
+			caseName: "create builtin paddle job with PS mode",
+			jobObj: &api.PFJob{
+				ID:        "job-builtin-normal-2",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModePS,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Tasks: []schema.Member{
+					{
+						ID:       "task-normal-0001",
+						Replicas: 1,
+						Role:     schema.RolePServer,
+						Conf: schema.Conf{
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+					{
+						ID:       "task-normal-0002",
+						Replicas: 0,
+						Role:     schema.RolePWorker,
+						Conf: schema.Conf{
+							Command: "sleep 200",
+							Image:   "mockImage",
+						},
+					},
+				},
+			},
+			wantErr: nil,
+			wantMsg: "",
+		},
 	}
 
 	paddleJob := New(kubeRuntimeClient)
@@ -562,7 +626,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			if test.wantErr == nil {
 				assert.Equal(t, test.wantErr, err)
 				t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, test.jobObj)
-				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubePaddleFwVersion)
+				obj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, schema.PaddleKindGroupVersion)
 				if !assert.NoError(t, err) {
 					t.Errorf(err.Error())
 				}
@@ -572,6 +636,124 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 					assert.Equal(t, test.wantErr.Error(), err.Error())
 				}
 			}
+		})
+	}
+}
+
+func TestKubePaddleJob_JobStatus(t *testing.T) {
+	testCases := []struct {
+		name       string
+		obj        interface{}
+		wantStatus schema.JobStatus
+		wantErr    error
+	}{
+		{
+			name: "paddle job is pending",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Pending,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobPending,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job is running",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Running,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobRunning,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job is terminating",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Terminating,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobTerminating,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job is terminated",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Aborted,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobTerminated,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job is success",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Succeed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobSucceeded,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job is failed",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": paddlejobv1.Failed,
+					},
+				},
+			},
+			wantStatus: schema.StatusJobFailed,
+			wantErr:    nil,
+		},
+		{
+			name: "paddle job status is unknown",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"kind":       schema.PaddleKindGroupVersion.Kind,
+					"apiVersion": schema.PaddleKindGroupVersion.GroupVersion(),
+					"status": map[string]interface{}{
+						"phase": "xxx",
+					},
+				},
+			},
+			wantStatus: "",
+			wantErr:    fmt.Errorf("unexpected paddlejob status: xxx"),
+		},
+	}
+
+	paddleJob := KubePaddleJob{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, err := paddleJob.JobStatus(tc.obj)
+			assert.Equal(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantStatus, status.Status)
+			t.Logf("paddle job status: %v", status)
 		})
 	}
 }

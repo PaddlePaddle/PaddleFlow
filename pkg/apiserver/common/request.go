@@ -47,3 +47,14 @@ func BindJSON(r *http.Request, data interface{}) error {
 	}
 	return nil
 }
+
+func BindJSONByDecoder(r *http.Request, data interface{}) error {
+	decoder := json.NewDecoder(r.Body)
+	decoder.UseNumber()
+	err := decoder.Decode(&data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

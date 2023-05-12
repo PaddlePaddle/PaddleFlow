@@ -33,14 +33,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
-)
-
-var (
-	JobGVK             = k8s.SparkAppGVK
-	KubeSparkFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
 // KubeSparkJob is a struct that contains client to operate spark application on cluster
@@ -50,7 +44,7 @@ type KubeSparkJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeSparkJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeSparkFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.SparkKindGroupVersion, kubeClient),
 	}
 }
 
@@ -60,7 +54,7 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	sparkJob := &v1beta2.SparkApplication{}
-	if err := kuberuntime.CreateKubeJobFromYaml(sparkJob, sj.GVK, job); err != nil {
+	if err := kuberuntime.CreateKubeJobFromYaml(sparkJob, sj.KindGroupVersion, job); err != nil {
 		log.Errorf("create %s failed, err %v", sj.String(jobName), err)
 		return err
 	}
@@ -83,7 +77,7 @@ func (sj *KubeSparkJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", sj.String(jobName), sparkJob)
-	err = sj.RuntimeClient.Create(sparkJob, sj.FrameworkVersion)
+	err = sj.RuntimeClient.Create(sparkJob, sj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sj.String(jobName), err)
 		return err
@@ -290,7 +284,7 @@ func (sj *KubeSparkJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert to SparkApplication struct
 	job := &v1beta2.SparkApplication{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, sj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, sj.KindGroupVersion, err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status
