@@ -1,3 +1,4 @@
+// Due to kubernetes version conflict, RayCluster define referenced from https://github.com/ray-project/kuberay.
 package v1alpha1
 
 import (
@@ -130,9 +131,9 @@ const (
 )
 
 // RayCluster is the Schema for the RayClusters API
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+genclient
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +genclient
 type RayCluster struct {
 	// Standard object metadata.
 	metav1.TypeMeta   `json:",inline"`

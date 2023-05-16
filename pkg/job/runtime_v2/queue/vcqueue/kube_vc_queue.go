@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -33,34 +32,26 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/util/kuberuntime"
 )
 
-var (
-	QueueGVK             = k8s.VCQueueGVK
-	KubeVCQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
-)
-
 // KubeVCQueue is a struct that contains client to operate volcano queue on cluster
 type KubeVCQueue struct {
-	GVK             schema.GroupVersionKind
-	resourceVersion pfschema.FrameworkVersion
+	resourceVersion pfschema.KindGroupVersion
 	runtimeClient   framework.RuntimeClientInterface
 	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeVCQueue{
-		resourceVersion: KubeVCQueueQuotaType,
+		resourceVersion: pfschema.VCQueueKindGroupVersion,
 		runtimeClient:   client,
-		GVK:             QueueGVK,
 	}
 }
 
 func (vcq *KubeVCQueue) String(name string) string {
-	return fmt.Sprintf("%s queue %s on %s", vcq.GVK.String(), name, vcq.runtimeClient.Cluster())
+	return fmt.Sprintf("%s queue %s on %s", vcq.resourceVersion, name, vcq.runtimeClient.Cluster())
 }
 
 func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {
@@ -153,6 +144,10 @@ func (vcq *KubeVCQueue) AddEventListener(ctx context.Context, listenerType strin
 func (vcq *KubeVCQueue) add(obj interface{}) {
 	newObj := obj.(*unstructured.Unstructured)
 	name := newObj.GetName()
+	namespace := newObj.GetAnnotations()[pfschema.QueueNamespaceAnnotation]
+	if namespace == "" {
+		namespace = "default"
+	}
 	// convert to vc queue struct
 	vcQueue := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newObj.Object, vcQueue); err != nil {
@@ -167,7 +162,7 @@ func (vcq *KubeVCQueue) add(obj interface{}) {
 		// set vc queue status
 		Status:    getVCQueueStatus(vcQueue.Status.State),
 		QuotaType: pfschema.TypeVolcanoCapabilityQuota,
-		Namespace: "default",
+		Namespace: namespace,
 	}
 	vcq.workQueue.Add(qSyncInfo)
 	log.Infof("watch %s is added", vcq.String(name))

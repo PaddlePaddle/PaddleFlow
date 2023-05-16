@@ -88,8 +88,8 @@ func (k3s *K3SRuntimeClient) ClusterName() string {
 	return nodes.Items[0].Name
 }
 
-func (k3s *K3SRuntimeClient) Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error) {
-	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
+func (k3s *K3SRuntimeClient) Get(namespace string, name string, kindVersion pfschema.KindGroupVersion) (interface{}, error) {
+	gvr := k8s.GetJobGVR(kindVersion)
 	var obj *unstructured.Unstructured
 	// 操作pod相关资源默认用namespaced scope
 	obj, err := k3s.DynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, v1.GetOptions{})
@@ -100,8 +100,8 @@ func (k3s *K3SRuntimeClient) Get(namespace string, name string, fv pfschema.Fram
 	return obj, err
 }
 
-func (k3s *K3SRuntimeClient) Create(resource interface{}, fv pfschema.FrameworkVersion) error {
-	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
+func (k3s *K3SRuntimeClient) Create(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
+	gvr := k8s.GetJobGVR(kindVersion)
 	log.Debugf("executor begin to create k3s resource[%s]", gvr.String())
 	if k3s == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -122,8 +122,8 @@ func (k3s *K3SRuntimeClient) Create(resource interface{}, fv pfschema.FrameworkV
 	return err
 }
 
-func (k3s *K3SRuntimeClient) Delete(namespace string, name string, fv pfschema.FrameworkVersion) error {
-	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
+func (k3s *K3SRuntimeClient) Delete(namespace string, name string, kindVersion pfschema.KindGroupVersion) error {
+	gvr := k8s.GetJobGVR(kindVersion)
 	log.Debugf("executor begin to delete k3s resource[%s]. ns:[%s] name:[%s]", gvr.String(), namespace, name)
 	if k3s == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -141,8 +141,8 @@ func (k3s *K3SRuntimeClient) Delete(namespace string, name string, fv pfschema.F
 	return err
 }
 
-func (k3s *K3SRuntimeClient) Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error {
-	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
+func (k3s *K3SRuntimeClient) Patch(namespace string, name string, kindVersion pfschema.KindGroupVersion, data []byte) error {
+	gvr := k8s.GetJobGVR(kindVersion)
 	log.Debugf("executor begin to patch k3s resource[%s]. ns:[%s] name:[%s]", gvr.String(), namespace, name)
 	if k3s == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -157,8 +157,8 @@ func (k3s *K3SRuntimeClient) Patch(namespace, name string, fv pfschema.Framework
 	return err
 }
 
-func (k3s *K3SRuntimeClient) Update(resource interface{}, fv pfschema.FrameworkVersion) error {
-	gvr := k8s.GetJobGVR(pfschema.Framework(fv.Framework))
+func (k3s *K3SRuntimeClient) Update(resource interface{}, kindVersion pfschema.KindGroupVersion) error {
+	gvr := k8s.GetJobGVR(kindVersion)
 	log.Debugf("executor begin to update k3s resource[%s]", gvr.String())
 	if k3s.DynamicClient == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -206,7 +206,7 @@ func (k3s *K3SRuntimeClient) registerJobListener(workQueue workqueue.RateLimitin
 	taskGvr := k8s.PodGVR
 	k3s.JobInformerMap[taskGvr] = k3s.DynamicFactory.ForResource(taskGvr).Informer()
 	gvk := k8s.PodGVK
-	jobPlugin, _ := framework.GetJobPlugin(pfschema.K3SType, KubeFrameworkVersion(gvk))
+	jobPlugin, _ := framework.GetJobPlugin(pfschema.K3SType, pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version))
 	jobClient := jobPlugin(k3s)
 	err := jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, k3s.JobInformerMap[taskGvr])
 	if err != nil {
@@ -314,22 +314,6 @@ func (k3s *K3SRuntimeClient) startDynamicListener(listenerType string, stopCh <-
 		}
 	}
 	return err
-}
-
-// ListNodeQuota resource api for cluster nodes
-func (k3s *K3SRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
-	return pfschema.QuotaSummary{}, nil, nil
-}
-
-func (k3s *K3SRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
-	gvk := frameworkVersionToGVK(fv)
-	return k8s.GetJobTypeAndFramework(gvk)
-}
-
-func (k3s *K3SRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
-	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
-	log.Infof("on %s, FrameworkVesion for job type %s framework %s, is %s", k3s.Cluster(), jobType, fw, frameworkVersion)
-	return frameworkVersion
 }
 
 func (k3s *K3SRuntimeClient) GetTaskLogV2(namespace, name string, logPage utils.LogPage) ([]pfschema.TaskLogInfo, error) {

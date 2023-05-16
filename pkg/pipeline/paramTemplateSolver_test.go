@@ -6,7 +6,6 @@ you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,6 +40,7 @@ func mockComponentForInnerSolver() *schema.WorkflowSourceStep {
 			"p3": "abcdefg",
 			"p4": "[1, 2, 3, 4]",
 			"p5": "[1, 2, \"D3\", 4]",
+			"p6": float64(1234567890.67),
 		},
 		Artifacts: schema.Artifacts{
 			Input: map[string]string{
@@ -51,12 +51,12 @@ func mockComponentForInnerSolver() *schema.WorkflowSourceStep {
 				"out1": "out1.txt",
 			},
 		},
-		Command:      "echo {{p1}} && cat {{in2}} >> {{out1}} && echo {{PF_RUN_ID}} ",
+		Command:      "echo {{p1}}_{{p6}} && cat {{in2}} >> {{out1}} && echo {{PF_RUN_ID}} ",
 		Condition:    "{{p1}} > 10",
 		LoopArgument: "{{p2}}",
 		Env: map[string]string{
 			"e1": "{{p1}}",
-			"e2": "0_{{p1}}_{{p3}}_4",
+			"e2": "0_{{p1}}_{{p3}}_{{p6}}_4",
 			"e3": "e3_{{PF_RUN_ID}}_{{p2}}",
 		},
 	}
@@ -193,13 +193,13 @@ func TestResolveCommand(t *testing.T) {
 	err := is.resolveCommand(true)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> {{out1}} && echo abc ")
+	assert.Equal(t, component.Command, "echo 1_1234567890.67 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> {{out1}} && echo abc ")
 
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
 	assert.Equal(t, component.Command,
-		"echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> /home/paddleflow/storage/mnt/1234/out1.txt && echo abc ")
+		"echo 1_1234567890.67 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> /home/paddleflow/storage/mnt/1234/out1.txt && echo abc ")
 }
 
 func TestResolveEnv(t *testing.T) {
@@ -216,7 +216,7 @@ func TestResolveEnv(t *testing.T) {
 
 	env := component.Env
 	assert.Equal(t, "1", env["e1"])
-	assert.Equal(t, "0_1_abcdefg_4", env["e2"])
+	assert.Equal(t, "0_1_abcdefg_1234567890.67_4", env["e2"])
 	assert.Equal(t, "e3_abc_[1 2 3 4]", env["e3"])
 
 	component.Env["e4"] = "{{in1}}"

@@ -515,3 +515,12 @@ func (c *PFSClient) Stat(path string) (os.FileInfo, error) {
 	}
 	return attr, nil
 }
+
+func (c *PFSClient) SetAttr(name string, set, mode, uid, gid uint32, atime, mtime int64, atimeSec, mtimeSec uint32, size uint64) (os.FileInfo, error) {
+	info, err := c.pfs.SetAttr(name, set, mode, uid, gid, atime, mtime, atimeSec, mtimeSec, size)
+	if err != nil {
+		log.Errorf("PFSClient.SetAttr for name[%s] failed: %v", name, err.Error())
+		return nil, err
+	}
+	return info, nil
+}

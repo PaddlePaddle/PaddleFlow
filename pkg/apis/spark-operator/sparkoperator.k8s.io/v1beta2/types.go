@@ -1,3 +1,4 @@
+// Due to kubernetes version conflict, SparkApplication define referenced from https://github.com/GoogleCloudPlatform/spark-on-k8s-operator.
 /*
 Copyright 2017 Google LLC
 

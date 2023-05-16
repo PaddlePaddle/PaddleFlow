@@ -24,7 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -284,26 +283,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	// create namespace if not exist in cluster
-	switch clusterInfo.ClusterType {
-	case schema.KubernetesType:
-		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
-		if _, err = k8sRuntime.CreateNamespace(request.Namespace, metav1.CreateOptions{}); err != nil {
-			ctx.ErrorCode = common.InternalError
-			ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
-				request.Namespace, request.ClusterName, err)
-			return CreateQueueResponse{}, err
-		}
-	case schema.K3SType:
-		k3sRuntime := runtimeSvc.(*runtime.K3SRuntimeService)
-		if _, err = k3sRuntime.CreateNamespace(request.Namespace, metav1.CreateOptions{}); err != nil {
-			ctx.ErrorCode = common.InternalError
-			ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
-				request.Namespace, request.ClusterName, err)
-			return CreateQueueResponse{}, err
-		}
-
-	default:
-		ctx.Logging().Warningf("pass create namespace on %s", clusterInfo.ClusterType)
+	if err = runtimeSvc.CreateNamespace(request.Namespace); err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("create namespace [%s] resource on cluster %s failed, err: %v",
+			request.Namespace, request.ClusterName, err)
+		return CreateQueueResponse{}, err
 	}
 
 	request.Status = schema.StatusQueueCreating

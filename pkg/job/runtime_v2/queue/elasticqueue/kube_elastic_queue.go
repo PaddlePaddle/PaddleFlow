@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -33,35 +32,27 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue/util/kuberuntime"
-)
-
-var (
-	QueueGVK                  = k8s.EQuotaGVK
-	KubeElasticQueueQuotaType = client.KubeFrameworkVersion(QueueGVK)
 )
 
 // KubeElasticQueue is a struct that contains client to operate elastic queue on cluster
 // Note: the CRD of elastic queue is ElasticResourceQuota
 type KubeElasticQueue struct {
-	GVK             schema.GroupVersionKind
-	resourceVersion pfschema.FrameworkVersion
+	resourceVersion pfschema.KindGroupVersion
 	runtimeClient   framework.RuntimeClientInterface
 	workQueue       workqueue.RateLimitingInterface
 }
 
 func New(client framework.RuntimeClientInterface) framework.QueueInterface {
 	return &KubeElasticQueue{
-		resourceVersion: KubeElasticQueueQuotaType,
+		resourceVersion: pfschema.ElasticQueueKindGroupVersion,
 		runtimeClient:   client,
-		GVK:             QueueGVK,
 	}
 }
 
 func (eq *KubeElasticQueue) String(name string) string {
-	return fmt.Sprintf("%s queue %s on %s", eq.GVK.String(), name, eq.runtimeClient.Cluster())
+	return fmt.Sprintf("%s queue %s on %s", eq.resourceVersion, name, eq.runtimeClient.Cluster())
 }
 
 func (eq *KubeElasticQueue) Create(ctx context.Context, q *api.QueueInfo) error {

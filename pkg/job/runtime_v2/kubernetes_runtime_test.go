@@ -115,6 +115,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 		ID:                testJobID,
 		Namespace:         "default",
 		JobType:           schema.TypeSingle,
+		Framework:         schema.FrameworkStandalone,
 		ExtensionTemplate: []byte(jobManifest),
 		Conf: schema.Conf{
 			Env: map[string]string{
@@ -153,13 +154,18 @@ func TestKubeRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
-	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
+	err = kubeRuntime.SubmitJob(pfJob)
+	assert.NoError(t, err)
+	// update kubernetes job
+	err = kubeRuntime.UpdateJob(pfJob)
 	assert.NoError(t, err)
 	// stop kubernetes job
-	err = kubeRuntime.Job(fwVersion).Stop(context.TODO(), pfJob)
+	err = kubeRuntime.StopJob(pfJob)
 	assert.NoError(t, err)
+	// delete kubernetes job
+	err = kubeRuntime.DeleteJob(pfJob)
+	assert.NotNil(t, err)
 	t.SkipNow()
 }
 
@@ -315,13 +321,13 @@ func TestKubeRuntime_CreateNamespace(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ns, err := kubeRuntime.CreateNamespace(tt.args.namespace, metav1.CreateOptions{})
+			err := kubeRuntime.CreateNamespace(tt.args.namespace)
 			if err != nil {
 				assert.NotNil(t, tt.wantErr)
 				assert.Contains(t, err.Error(), tt.wantErr.Error())
 			} else {
 				assert.Nil(t, tt.wantErr)
-				t.Logf("case[%s] create ns resp=%#v", tt.name, ns)
+				t.Logf("case[%s] create ns success", tt.name)
 			}
 		})
 	}

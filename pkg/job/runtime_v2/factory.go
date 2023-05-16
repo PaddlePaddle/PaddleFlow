@@ -55,6 +55,9 @@ type RuntimeService interface {
 
 	ListNodeQuota() (schema.QuotaSummary, []schema.NodeQuotaInfo, error)
 
+	// CreateNamespace create a namespace on cluster
+	CreateNamespace(namespace string) error
+
 	framework.JobGetter
 	framework.QueueGetter
 }

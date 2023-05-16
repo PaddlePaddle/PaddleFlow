@@ -19,17 +19,12 @@ limitations under the License.
 import sys
 import click
 
-
+from setup import NAME, VERSION
 from paddleflow.cli.output import print_output
 
-@click.group()
-def version():
-    """show paddleflow server version"""
-    pass
-
-@version.command()
+@click.command()
 @click.pass_context
-def show(ctx):
+def version(ctx):
     """show paddleflow server version\n
     """
     client = ctx.obj['client']
@@ -44,6 +39,9 @@ def show(ctx):
 
 def _print_version_info(response, out_format):
     """print server version info """
-    headers = ['PaddleFlow Server Version']
-    data = [[response]]
-    print_output(data, headers, "json", table_format='grid')
+    data = {
+        'client': NAME + "-" + VERSION,
+        'server': response,
+    }
+
+    print_output(data, None, "json", table_format='dict')

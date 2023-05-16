@@ -44,9 +44,8 @@ var (
 	}
 	UpdateTime = time.Now()
 
-	defaultSaltStr    = "paddleflow"
-	defaultTimeFormat = "2006-01-02 15"
-	LogURLFormat      = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s"
+	defaultSaltStr = "paddleflow"
+	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d"
 )
 
 func init() {
@@ -408,23 +407,20 @@ func GenerateLogURL(task model.JobTask) string {
 			containerID = items[1]
 		}
 	}
-	tokenStr := getLogToken(task.JobID, containerID)
+	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t)
 }
 
-func getLogToken(jobID, containerID string) string {
+func getLogToken(jobID, containerID string) (string, int64) {
 	saltStr := config.GlobalServerConfig.Job.Log.SaltStr
 	if saltStr == "" {
 		saltStr = defaultSaltStr
 	}
-	timeFormat := config.GlobalServerConfig.Job.Log.TimeFormat
-	if timeFormat == "" {
-		timeFormat = defaultTimeFormat
-	}
-	return fmt.Sprintf("%s/%s/%s@%s", jobID, containerID, saltStr, time.Now().Format(timeFormat))
+	timeStamp := time.Now().Unix()
+	return fmt.Sprintf("%s/%s/%s@%d", jobID, containerID, saltStr, timeStamp), timeStamp
 }
