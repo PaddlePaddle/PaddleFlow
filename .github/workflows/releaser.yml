@@ -80,9 +80,6 @@ jobs:
         with:
           config-name: common/release-drafter.yml
           token: ${{ secrets.GITHUB_TOKEN }}
-        #   disable-autolabeler: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
       - name: mkdir for download assets
         run: |
@@ -102,7 +99,7 @@ jobs:
         run: echo ${{steps.download.outputs.download-path}}
       - name: upload assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "GH_TOKEN is $GITHUB_TOKEN"
           j=0
