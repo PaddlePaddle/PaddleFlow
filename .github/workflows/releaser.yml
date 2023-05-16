@@ -2,8 +2,6 @@ name: Release
 on:
   push:
   # branches to consider in the event; optional, defaults to all
-  # pull_request event is required only for autolabeler
-  pull_request:
 env:
   FILES_DIR: /tmp/paddleflow
 
@@ -113,6 +111,5 @@ jobs:
 
           for filepath in ${folder_list[@]};
           do
-              #gh release upload ${{ steps.drafter.outputs.tag_name }} ${filepath}/${filepath} --clobber --repo ${{ github.repository }}
-              gh release upload untagged-7aac994419246a0dd6ff ${filepath}/${filepath} --clobber --repo ${{ github.repository }}
+              gh release upload ${{ steps.drafter.outputs.tag_name }} ${filepath}/${filepath} --clobber --repo ${{ github.repository }}
           done
