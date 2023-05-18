@@ -1,6 +1,8 @@
 name: Release
 on:
   push:
+    branches:
+      - develop
   # branches to consider in the event; optional, defaults to all
 env:
   FILES_DIR: /tmp/paddleflow
