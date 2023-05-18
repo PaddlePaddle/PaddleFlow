@@ -60,7 +60,7 @@ jobs:
       matrix:
         go-version: [1.18.x]
         goos: [linux]
-        goarch: [amd64]
+        goarch: [arm64,amd64]
     permissions:
       # write permission is required to create a github release
       contents: write
