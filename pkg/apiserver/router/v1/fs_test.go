@@ -439,6 +439,27 @@ func Test_getListResult(t *testing.T) {
 	}
 }
 
+func TestCreateAFS(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "afs://afs.com:8000/fs/data",
+		Properties: map[string]string{
+			fsCommon.AFSUser:     "test",
+			fsCommon.AFSPassword: "test",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+}
+
 func TestCreateFSDuplicateName(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	str, err := os.Getwd()
