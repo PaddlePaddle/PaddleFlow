@@ -96,6 +96,8 @@ var (
 	MXNetKindGroupVersion      = KindGroupVersion{Kind: "MXJob", Group: "kubeflow.org", APIVersion: "v1"}
 	SparkKindGroupVersion      = KindGroupVersion{Kind: "SparkApplication", Group: "sparkoperator.k8s.io", APIVersion: "v1beta2"}
 	RayKindGroupVersion        = KindGroupVersion{Kind: "RayJob", Group: "ray.io", APIVersion: "v1alpha1"}
+	// AITrainingKindGroupVersion kind group version for single job
+	AITrainingKindGroupVersion = KindGroupVersion{Kind: "AITrainingJob", Group: "kongming.cce.baiudbce.com", APIVersion: "v1"}
 	// WorkflowKindGroupVersion kind group version for argo workflow job
 	WorkflowKindGroupVersion = KindGroupVersion{Kind: "Workflow", Group: "argoproj.io", APIVersion: "v1alpha1"}
 
@@ -120,6 +122,7 @@ var (
 		MPIKindGroupVersion:        true,
 		RayKindGroupVersion:        true,
 		WorkflowKindGroupVersion:   true,
+		AITrainingKindGroupVersion: true,
 	}
 
 	// ElasticQueueKindGroupVersion kind group version for elastic queue
@@ -165,6 +168,8 @@ func distributedJobFramework(gvk KindGroupVersion) Framework {
 		return FrameworkMPI
 	case RayKindGroupVersion:
 		return FrameworkRay
+	case AITrainingKindGroupVersion:
+		return FrameworkAITJ
 	default:
 		return ""
 	}

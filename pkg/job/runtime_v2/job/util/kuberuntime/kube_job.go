@@ -192,7 +192,7 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	case schema.TypeSingle, schema.TypeWorkflow:
 		jobTemplateName = fmt.Sprintf("%s-job", jobType)
 	case schema.TypeDistributed:
-		if kv == schema.KFPaddleKindGroupVersion {
+		if kv == schema.KFPaddleKindGroupVersion || kv == schema.AITrainingKindGroupVersion {
 			jobTemplateName = fmt.Sprintf("%s-%s-%s", kv.Kind, kv.GroupVersion(), strings.ToLower(jobMode))
 		} else if framework == schema.FrameworkSpark || framework == schema.FrameworkRay || framework == schema.FrameworkMPI {
 			jobTemplateName = fmt.Sprintf("%s-job", framework)
@@ -285,6 +285,7 @@ func BuildJobMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 
 	if len(job.QueueName) > 0 {
 		metadata.Annotations[schema.QueueLabelKey] = job.QueueName
+		metadata.Annotations[schema.SchedulingQueueLabelKey] = job.QueueName
 		metadata.Labels[schema.QueueLabelKey] = job.QueueName
 	}
 }
