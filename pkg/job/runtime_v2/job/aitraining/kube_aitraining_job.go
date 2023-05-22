@@ -93,8 +93,8 @@ func (pj *KubeAITrainingJob) buildSchedulingPolicy(pdj *v1.TrainingJobSpec, job 
 	}
 	log.Infof("build scheduling policy for AITrainingJob")
 	// patch priority
-	if job.PriorityClassName != "" {
-		pdj.Priority = job.PriorityClassName
+	if job.Conf.GetPriority() != "" {
+		pdj.Priority = kuberuntime.KubePriorityClass(job.Conf.GetPriority())
 	}
 	// patch scheduler
 	pdj.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
@@ -102,9 +102,6 @@ func (pj *KubeAITrainingJob) buildSchedulingPolicy(pdj *v1.TrainingJobSpec, job 
 }
 
 func (pj *KubeAITrainingJob) customAITrainingJob(pdj *v1.TrainingJobSpec, job *api.PFJob) error {
-	if pdj == nil || job == nil {
-		return fmt.Errorf("AITrainingJob or PFJob is nil")
-	}
 	jobName := job.NamespacedName()
 	log.Infof("custom AITrainingJob %s fill resource", pj.String(jobName))
 	// patch resources and fs
