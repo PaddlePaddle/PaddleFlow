@@ -110,6 +110,7 @@ var (
 		FrameworkMXNet:      MXNetKindGroupVersion,
 		FrameworkSpark:      SparkKindGroupVersion,
 		FrameworkRay:        RayKindGroupVersion,
+		FrameworkAITJ:       AITrainingKindGroupVersion,
 	}
 	JobKindGroupVersionMap = map[KindGroupVersion]bool{
 		StandaloneKindGroupVersion: true,
