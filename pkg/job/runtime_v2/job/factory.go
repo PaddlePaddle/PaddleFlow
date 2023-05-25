@@ -19,6 +19,7 @@ package job
 import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/aitraining"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/argoworkflow"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/mpi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
@@ -40,5 +41,6 @@ func init() {
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.SparkKindGroupVersion, spark.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.RayKindGroupVersion, ray.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.WorkflowKindGroupVersion, argoworkflow.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.AITrainingKindGroupVersion, aitraining.New)
 	// TODO: add more plugins
 }

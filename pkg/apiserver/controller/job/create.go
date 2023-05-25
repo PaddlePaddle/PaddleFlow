@@ -544,8 +544,8 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 		}
 	case schema.TypeDistributed:
 		switch framework {
-		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay, schema.FrameworkMPI:
+		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkMPI,
+			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay, schema.FrameworkAITJ:
 			err = nil
 		default:
 			err = fmt.Errorf("invalid framework %s for distributed job", framework)
@@ -566,7 +566,7 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 	var err error
 	var jobMode string
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkAITJ:
 		if roles[schema.RolePServer] > 0 {
 			// parameter server mode
 			jobMode = schema.EnvJobModePS
@@ -600,7 +600,7 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 	var roles = make(map[schema.MemberRole]int)
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkAITJ:
 		roles[schema.RolePServer] = 0
 		roles[schema.RolePWorker] = 0
 		roles[schema.RoleWorker] = 0

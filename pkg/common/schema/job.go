@@ -99,6 +99,7 @@ const (
 	FrameworkMXNet      Framework = "mxnet"
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
+	FrameworkAITJ       Framework = "aitj"
 
 	ListenerTypeJob      = "job"
 	ListenerTypeTask     = "task"
