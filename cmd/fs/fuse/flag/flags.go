@@ -132,6 +132,11 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 			Value: 200 * 1024 * 1024,
 			Usage: "size of read-ahead data",
 		},
+		&cli.Float64Flag{
+			Name:  "free-space-ratio",
+			Value: 0.1,
+			Usage: "min free space (ratio)",
+		},
 		&cli.BoolFlag{
 			Name:  "clean-cache",
 			Value: false,
