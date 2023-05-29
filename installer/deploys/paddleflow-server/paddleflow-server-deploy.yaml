@@ -495,6 +495,7 @@ rules:
   - argoproj.io
   - kubeflow.org
   - ray.io
+  - kongming.cce.baiudbce.com
   resources:
   - '*'
   verbs:
