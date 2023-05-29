@@ -121,6 +121,81 @@ spec:
               imagePullPolicy: Always
 # PaddleJob-kubeflow.org/v1-collective
 ---
+apiVersion: kongming.cce.baiudbce.com/v1
+kind: AITrainingJob
+metadata:
+  name: job-horovod-test
+  namespace: default
+spec:
+  # 任务结束时，pod的清理策略，All表示所有pod，none表示不清理
+  cleanPodPolicy: All
+  # 完成策略，All表示所有pod完成即任务完成，Any表示任何pod完成即任务完成
+  completePolicy: Any
+  # 失败策略，All表示所有pod失败即任务失败，Any表示任何pod完成即任务完成
+  failPolicy: Any
+  # 支持horovod与paddle框架
+  frameworkType: paddle
+  # 弹性选项，true表示开启弹性，false不开启，开启时需开启trainer容器的容错选项
+  faultTolerant: true
+  plugin:
+    ssh:
+      - ""
+    discovery:
+      - ""
+  priority: normal
+  replicaSpecs:
+    trainer:
+      completePolicy: None
+      failPolicy: None
+      # 容错配置，控制器将会以下面的配置作为容错判断条件进行容错
+      faultTolerantPolicy:
+        # 程序退出码
+        - exitCodes: 129,10001,127,137,143,129
+          restartPolicy: ExitCode
+          restartScope: Pod
+        # 集群异常事件
+        - exceptionalEvent: "nodeNotReady,PodForceDeleted"
+          restartPolicy: OnNodeFail
+          restartScope: Pod
+      # 开启弹性的最大副本数
+      maxReplicas: 5
+      # 开启弹性的最小副本数
+      minReplicas: 1
+      replicaType: worker
+      replicas: 3
+      restartLimit: 100
+      restartPolicy: OnNodeFailWithExitCode
+      restartTimeLimit: 60
+      restartTimeout: 864000
+      template:
+        metadata:
+          creationTimestamp: null
+        spec:
+          containers:
+            - command:
+                - /bin/bash
+                - -c
+                - /usr/sbin/sshd && sleep 40000
+              image: registry.baidubce.com/cce-plugin-dev/horovod:v0.1.0
+              imagePullPolicy: Always
+              name: aitj-0
+              securityContext:
+                capabilities:
+                  add:
+                    - SYS_ADMIN
+              volumeMounts:
+                - mountPath: /dev/shm
+                  name: cache-volume
+          dnsPolicy: ClusterFirstWithHostNet
+          terminationGracePeriodSeconds: 300
+          volumes:
+            - emptyDir:
+                medium: Memory
+                sizeLimit: 100Gi
+              name: cache-volume
+  schedulerName: volcano
+# AITrainingJob-kongming.cce.baiudbce.com/v1-collective
+---
 apiVersion: "kubeflow.org/v1"
 kind: "PyTorchJob"
 metadata:
