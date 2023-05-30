@@ -20,7 +20,7 @@ jobs:
         go-version: [1.18.x]
         goos: [linux] # 需要打包的系统
         goarch: [amd64, arm64] # 需要打包的架构
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Install go
         uses: actions/setup-go@v3
@@ -69,7 +69,7 @@ jobs:
       # write permission is required for autolabeler
       # otherwise, read permission is required at least
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       # Drafts your next Release notes as Pull Requests are merged into "master"
       - name: create or update a drafter
