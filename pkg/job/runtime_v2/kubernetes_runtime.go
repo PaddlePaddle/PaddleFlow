@@ -163,8 +163,8 @@ func (kr *KubeRuntime) SubmitJob(job *api.PFJob) error {
 	}
 	// submit job
 	traceLogger.Infof("submit kubernetes job")
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	err := kr.Job(fwVersion).Submit(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	err := kr.Job(kindGroupVersion).Submit(context.TODO(), job)
 	if err != nil {
 		log.Warnf("create kubernetes job[%s] failed, err: %v", job.Name, err)
 		return err
@@ -178,27 +178,27 @@ func (kr *KubeRuntime) StopJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("stop job failed, job is nil")
 	}
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Stop(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Stop(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Update(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Update(context.TODO(), job)
 }
 
 func (kr *KubeRuntime) DeleteJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("delete job failed, job is nil")
 	}
-	fwVersion := kr.Client().JobFrameworkVersion(job.JobType, job.Framework)
-	return kr.Job(fwVersion).Delete(context.TODO(), job)
+	kindGroupVersion := job.Conf.GetKindGroupVersion(job.Framework)
+	return kr.Job(kindGroupVersion).Delete(context.TODO(), job)
 }
 
-func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+func (kr *KubeRuntime) Job(fwVersion pfschema.KindGroupVersion) framework.JobInterface {
 	jobPlugin, found := framework.GetJobPlugin(kr.cluster.Type, fwVersion)
 	if !found {
 		log.Errorf("get job plugin on %s failed, err: %s job is not implemented", kr.String(), fwVersion)
@@ -207,22 +207,22 @@ func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInt
 	return jobPlugin(kr.kubeClient)
 }
 
-func getQueueFrameworkVersion(quotaType string) pfschema.FrameworkVersion {
-	var gvk schema.GroupVersionKind
+func getQueueKindGroupVersion(quotaType string) pfschema.KindGroupVersion {
+	var kindGroupVersion pfschema.KindGroupVersion
 	switch quotaType {
 	case pfschema.TypeVolcanoCapabilityQuota:
-		gvk = k8s.VCQueueGVK
+		kindGroupVersion = pfschema.VCQueueKindGroupVersion
 	case pfschema.TypeElasticQuota:
-		gvk = k8s.EQuotaGVK
+		kindGroupVersion = pfschema.ElasticQueueKindGroupVersion
 	}
-	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	return kindGroupVersion
 }
 
 func (kr *KubeRuntime) CreateQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("create queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Create(context.TODO(), queue)
 }
 
@@ -230,7 +230,7 @@ func (kr *KubeRuntime) UpdateQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("update queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Update(context.TODO(), queue)
 }
 
@@ -238,11 +238,11 @@ func (kr *KubeRuntime) DeleteQueue(queue *api.QueueInfo) error {
 	if queue == nil {
 		return fmt.Errorf("delete queue failed, queue is nil")
 	}
-	fwVersion := getQueueFrameworkVersion(queue.Type)
+	fwVersion := getQueueKindGroupVersion(queue.Type)
 	return kr.Queue(fwVersion).Delete(context.TODO(), queue)
 }
 
-func (kr *KubeRuntime) Queue(fwVersion pfschema.FrameworkVersion) framework.QueueInterface {
+func (kr *KubeRuntime) Queue(fwVersion pfschema.KindGroupVersion) framework.QueueInterface {
 	queuePlugin, found := framework.GetQueuePlugin(kr.cluster.Type, fwVersion)
 	if !found {
 		log.Errorf("get queue plugin on %s failed, err: %s queue is not implemented", kr.String(), fwVersion)
@@ -339,7 +339,8 @@ func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
 
 	// TODO: add more check
 	log.Infof("create kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Create(obj, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Create(obj, kindVersion); err != nil {
 		log.Errorf("create kubernetes %s resource failed. name:[%s/%s] err:[%s]", gvk.String(), namespace, name, err.Error())
 		return err
 	}
@@ -356,7 +357,8 @@ func (kr *KubeRuntime) UpdateObject(obj *unstructured.Unstructured) error {
 	gvk := obj.GroupVersionKind()
 	// TODO: add more check
 	log.Infof("update kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Update(obj, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Update(obj, kindVersion); err != nil {
 		log.Errorf("update kubernetes %s resource failed, name:[%s/%s] err:[%v]", gvk.String(), namespace, name, err.Error())
 		return err
 	}
@@ -365,7 +367,8 @@ func (kr *KubeRuntime) UpdateObject(obj *unstructured.Unstructured) error {
 
 func (kr *KubeRuntime) GetObject(namespace, name string, gvk schema.GroupVersionKind) (interface{}, error) {
 	log.Debugf("get kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	resourceObj, err := kr.kubeClient.Get(namespace, name, client.KubeFrameworkVersion(gvk))
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	resourceObj, err := kr.kubeClient.Get(namespace, name, kindVersion)
 	if err != nil {
 		log.Errorf("get kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
 		return nil, err
@@ -375,7 +378,8 @@ func (kr *KubeRuntime) GetObject(namespace, name string, gvk schema.GroupVersion
 
 func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk schema.GroupVersionKind) error {
 	log.Infof("delete kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
-	if err := kr.kubeClient.Delete(namespace, name, client.KubeFrameworkVersion(gvk)); err != nil {
+	kindVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
+	if err := kr.kubeClient.Delete(namespace, name, kindVersion); err != nil {
 		log.Errorf("delete kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
 		return err
 	}
@@ -685,8 +689,9 @@ func (kr *KubeRuntime) clientset() kubernetes.Interface {
 }
 
 // CreateNamespace Create namespace if not exist
-func (kr *KubeRuntime) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return createNamespace(kr.clientset(), namespace, opts)
+func (kr *KubeRuntime) CreateNamespace(namespace string) error {
+	_, err := createNamespace(kr.clientset(), namespace, metav1.CreateOptions{})
+	return err
 }
 
 func createNamespace(client kubernetes.Interface, namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {

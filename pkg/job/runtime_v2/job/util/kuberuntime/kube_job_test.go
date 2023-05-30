@@ -18,16 +18,20 @@ package kuberuntime
 
 import (
 	"fmt"
+	"net/http/httptest"
 	"testing"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -381,4 +385,159 @@ func TestGenerateResourceRequirements(t *testing.T) {
 		})
 	}
 
+}
+
+func TestUpdateKubeJob(t *testing.T) {
+	mockJobID := "test-job-id"
+	pgKindGroupVersion := schema.NewKindGroupVersion(k8s.PodGroupGVK.Kind,
+		k8s.PodGroupGVK.Group, k8s.PodGroupGVK.Version)
+	testCases := []struct {
+		name     string
+		job      *api.PFJob
+		jobObj   interface{}
+		dbJob    *model.Job
+		podgroup interface{}
+		kv       schema.KindGroupVersion
+		wantErr  error
+	}{
+		{
+			name: "update single job priority",
+			dbJob: &model.Job{
+				ID: mockJobID,
+				RuntimeInfo: map[string]interface{}{
+					"kind":       "Pod",
+					"apiVersion": "v1",
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							schedulingv1beta1.KubeGroupNameAnnotationKey: "podgroup-xxxx",
+						},
+					},
+				},
+			},
+			job: &api.PFJob{
+				ID:                mockJobID,
+				Namespace:         "default",
+				Framework:         schema.FrameworkStandalone,
+				PriorityClassName: schema.PriorityClassHigh,
+			},
+			podgroup: &schedulingv1beta1.PodGroup{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       pgKindGroupVersion.Kind,
+					APIVersion: pgKindGroupVersion.GroupVersion(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "podgroup-xxxx",
+					Namespace: "default",
+				},
+				Status: schedulingv1beta1.PodGroupStatus{
+					Phase: schedulingv1beta1.PodGroupInqueue,
+				},
+			},
+			kv: schema.StandaloneKindGroupVersion,
+		},
+		{
+			name: "update spark job priority",
+			dbJob: &model.Job{
+				ID:        "test-spark-job",
+				Framework: schema.FrameworkSpark,
+			},
+			job: &api.PFJob{
+				ID:                "test-spark-job",
+				Namespace:         "default",
+				Framework:         schema.FrameworkSpark,
+				PriorityClassName: schema.PriorityClassHigh,
+			},
+			podgroup: &schedulingv1beta1.PodGroup{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       pgKindGroupVersion.Kind,
+					APIVersion: pgKindGroupVersion.GroupVersion(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "spark-test-spark-job-pg",
+					Namespace: "default",
+				},
+				Status: schedulingv1beta1.PodGroupStatus{
+					Phase: schedulingv1beta1.PodGroupInqueue,
+				},
+			},
+			kv: schema.SparkKindGroupVersion,
+		},
+		{
+			name: "update paddle job priority",
+			dbJob: &model.Job{
+				ID:        "test-paddle-job",
+				Framework: schema.FrameworkPaddle,
+			},
+			job: &api.PFJob{
+				ID:                "test-paddle-job",
+				Namespace:         "default",
+				Framework:         schema.FrameworkPaddle,
+				PriorityClassName: schema.PriorityClassHigh,
+			},
+			podgroup: &schedulingv1beta1.PodGroup{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       pgKindGroupVersion.Kind,
+					APIVersion: pgKindGroupVersion.GroupVersion(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-paddle-job",
+					Namespace: "default",
+				},
+				Status: schedulingv1beta1.PodGroupStatus{
+					Phase: schedulingv1beta1.PodGroupInqueue,
+				},
+			},
+			kv: schema.PaddleKindGroupVersion,
+		},
+		//{
+		//	name: "update paddle job annotations failed",
+		//	dbJob: &model.Job{
+		//		ID:        "test-paddle-job",
+		//		Framework: schema.FrameworkPaddle,
+		//	},
+		//	job: &api.PFJob{
+		//		ID:        "test-paddle-job",
+		//		Namespace: "default",
+		//		Framework: schema.FrameworkPaddle,
+		//		Annotations: map[string]string{
+		//			"ab": "b1",
+		//		},
+		//	},
+		//	jobObj: &paddlejobv1.PaddleJob{
+		//		TypeMeta: metav1.TypeMeta{
+		//			Kind:       schema.PaddleKindGroupVersion.Kind,
+		//			APIVersion: schema.PaddleKindGroupVersion.GroupVersion(),
+		//		},
+		//		ObjectMeta: metav1.ObjectMeta{
+		//			Name:      "test-paddle-job",
+		//			Namespace: "default",
+		//			Annotations: map[string]string{
+		//				"kk": "ka",
+		//			},
+		//		},
+		//	},
+		//	kv: schema.PaddleKindGroupVersion,
+		//},
+	}
+
+	driver.InitMockDB()
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := storage.Job.CreateJob(tc.dbJob)
+			assert.Equal(t, nil, err)
+			if tc.podgroup != nil {
+				err = kubeClient.Create(tc.podgroup, pgKindGroupVersion)
+				assert.Equal(t, nil, err)
+			}
+			if tc.jobObj != nil {
+				err = kubeClient.Create(tc.jobObj, tc.kv)
+				assert.Equal(t, nil, err)
+			}
+			err = UpdateKubeJob(tc.job, kubeClient, tc.kv)
+			assert.Equal(t, tc.wantErr, err)
+		})
+	}
 }

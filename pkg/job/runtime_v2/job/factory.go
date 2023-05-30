@@ -17,8 +17,9 @@ limitations under the License.
 package job
 
 import (
-	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/aitraining"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/argoworkflow"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/mpi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
@@ -31,13 +32,15 @@ import (
 
 func init() {
 	// Plugins for Jobs
-	framework.RegisterJobPlugin(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, paddle.KubePaddleFwVersion, paddle.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, mpi.KubeMPIFwVersion, mpi.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, pytorch.KubePyTorchFwVersion, pytorch.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, tensorflow.KubeTFFwVersion, tensorflow.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, spark.KubeSparkFwVersion, spark.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, ray.KubeRayFwVersion, ray.New)
-	framework.RegisterJobPlugin(pfschema.KubernetesType, argoworkflow.KubeArgoWorkflowFwVersion, argoworkflow.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.StandaloneKindGroupVersion, single.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.PaddleKindGroupVersion, paddle.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.KFPaddleKindGroupVersion, paddle.KFNew)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.MPIKindGroupVersion, mpi.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.PyTorchKindGroupVersion, pytorch.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.TFKindGroupVersion, tensorflow.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.SparkKindGroupVersion, spark.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.RayKindGroupVersion, ray.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.WorkflowKindGroupVersion, argoworkflow.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.AITrainingKindGroupVersion, aitraining.New)
 	// TODO: add more plugins
 }

@@ -97,7 +97,7 @@ func TestGetPFJobLogs(t *testing.T) {
 	}
 
 	gvk := k8s.PodGVK
-	frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	frameworkVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	err := krc.Create(&pod, frameworkVersion)
 	assert.NoError(t, err)
 	findPod, err := krc.Get(pod.Namespace, pod.Name, frameworkVersion)
@@ -212,7 +212,7 @@ func TestGetKubernetesResourceLogs(t *testing.T) {
 	}
 
 	gvk := k8s.PodGVK
-	frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	frameworkVersion := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	err := krc.Create(&pod, frameworkVersion)
 	assert.NoError(t, err)
 	findPod, err := krc.Get(pod.Namespace, pod.Name, frameworkVersion)

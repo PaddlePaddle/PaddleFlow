@@ -125,9 +125,8 @@ func TestK3SRuntimeJob(t *testing.T) {
 	assert.NoError(t, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
-	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
+	err = kubeRuntime.Job(schema.StandaloneKindGroupVersion).Submit(context.TODO(), pfJob)
 	assert.NoError(t, err)
 	// update job
 	err = kubeRuntime.UpdateJob(pfJob)
@@ -138,6 +137,9 @@ func TestK3SRuntimeJob(t *testing.T) {
 	// update job
 	err = kubeRuntime.DeleteJob(pfJob)
 	assert.Error(t, err)
+	// update job
+	err = kubeRuntime.CreateNamespace("default")
+	assert.NoError(t, err)
 	t.SkipNow()
 }
 
@@ -547,7 +549,7 @@ func mockCreateK3SEvents(t *testing.T, kr *K3SRuntimeService, objectName, namesp
 func TestK3SRuntimeService_QueueRelated(t *testing.T) {
 	k3src := K3SRuntimeService{}
 	k3src.Init()
-	assert.Nil(t, k3src.Queue(schema.FrameworkVersion{}))
+	assert.Nil(t, k3src.Queue(schema.KindGroupVersion{}))
 	assert.Nil(t, k3src.CreateQueue(&api.QueueInfo{}))
 	assert.Nil(t, k3src.DeleteQueue(&api.QueueInfo{}))
 	assert.Nil(t, k3src.UpdateQueue(&api.QueueInfo{}))

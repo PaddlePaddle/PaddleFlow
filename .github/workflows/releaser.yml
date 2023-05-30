@@ -1,17 +1,17 @@
 name: Release
 on:
   push:
+    branches:
+      - develop
   # branches to consider in the event; optional, defaults to all
-  # pull_request event is required only for autolabeler
-  pull_request:
-    # Only following types are handled by the action, but one can default to all as well
-    types: [opened, reopened, synchronize]
 env:
   FILES_DIR: /tmp/paddleflow
 
 permissions:
-  contents: read
-  issues: write #__This fixed the HttpError: Resource not accessible by integration
+  contents: write
+  issues: write
+  pages: write
+  pull-requests: write
   
 jobs:
   release_compile:
@@ -34,6 +34,7 @@ jobs:
           echo '${{ toJSON(github) }}'
           echo '$(uname -m)'
           echo '$(uname -s)'
+          sudo apt-get update
           sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
       - name: Run build
         run: |
@@ -62,7 +63,7 @@ jobs:
       matrix:
         go-version: [1.18.x]
         goos: [linux]
-        goarch: [amd64]
+        goarch: [arm64,amd64]
     permissions:
       # write permission is required to create a github release
       contents: write
@@ -79,9 +80,6 @@ jobs:
         with:
           config-name: common/release-drafter.yml
           token: ${{ secrets.GITHUB_TOKEN }}
-        #   disable-autolabeler: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
 
       - name: mkdir for download assets
         run: |
@@ -101,7 +99,7 @@ jobs:
         run: echo ${{steps.download.outputs.download-path}}
       - name: upload assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "GH_TOKEN is $GITHUB_TOKEN"
           j=0

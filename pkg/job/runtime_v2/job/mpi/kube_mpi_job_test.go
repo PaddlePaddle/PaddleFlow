@@ -19,6 +19,7 @@ package mpi
 import (
 	"context"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/util/kubeutil"
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http/httptest"
@@ -367,7 +368,7 @@ func TestMPIJob_CreateJob(t *testing.T) {
 		t.Run(test.caseName, func(t *testing.T) {
 			t.Logf("case[%s]", test.caseName)
 			if test.mockCreateFailed {
-				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Create", func(resource interface{}, fv pfschema.FrameworkVersion) error {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Create", func(resource interface{}, fv pfschema.KindGroupVersion) error {
 					return fmt.Errorf("err")
 				})
 				defer patch.Reset()
@@ -394,7 +395,7 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				}
 				_, err := MPIJob.GetLog(context.TODO(), jobLogRequest)
 				assert.NoError(t, err)
-				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, KubeMPIFwVersion)
+				jobObj, err := kubeRuntimeClient.Get(test.jobObj.Namespace, test.jobObj.ID, pfschema.MPIKindGroupVersion)
 				if err != nil {
 					t.Errorf(err.Error())
 				} else {
@@ -503,7 +504,7 @@ func TestKubeMPIJob_Update(t *testing.T) {
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			if test.mockRuntimeFailed {
 				patch := gomonkey.ApplyFunc(kuberuntime.UpdateKubeJob, func(job *api.PFJob,
-					runtimeClient framework.RuntimeClientInterface, fv pfschema.FrameworkVersion) error {
+					runtimeClient framework.RuntimeClientInterface, fv pfschema.KindGroupVersion) error {
 					return fmt.Errorf("err")
 				})
 				defer patch.Reset()
@@ -622,7 +623,7 @@ func TestKubeMPIJob_Stop(t *testing.T) {
 			assert.NoError(t, err)
 
 			if test.mockRuntimeFailed {
-				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.FrameworkVersion) error {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.KindGroupVersion) error {
 					return fmt.Errorf("err")
 				})
 				defer patch.Reset()
@@ -739,7 +740,7 @@ func TestKubeMPIJob_Delete(t *testing.T) {
 			err := MPIJob.Submit(context.TODO(), test.jobObj)
 			assert.NoError(t, err)
 			if test.mockRuntimeFailed {
-				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.FrameworkVersion) error {
+				patch := gomonkey.ApplyMethodFunc(reflect.TypeOf(kubeRuntimeClient), "Delete", func(namespace string, name string, fv pfschema.KindGroupVersion) error {
 					return fmt.Errorf("err")
 				})
 				defer patch.Reset()
@@ -761,7 +762,8 @@ func TestMPIJobListener(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
-	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(JobGVK)
+	jobGVK := kubeutil.ToGVK(pfschema.MPIKindGroupVersion)
+	gvrMap, gvrErr := kubeRuntimeClient.GetGVR(jobGVK)
 	assert.Equal(t, nil, gvrErr)
 	// mock db
 	driver.InitMockDB()
@@ -797,16 +799,16 @@ func TestMPIJobListener(t *testing.T) {
 			err := mpiJob.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, workQueue, informer)
 			assert.Equal(t, test.expectErr, err)
 
-			err = kubeRuntimeClient.Create(test.job, KubeMPIFwVersion)
+			err = kubeRuntimeClient.Create(test.job, pfschema.MPIKindGroupVersion)
 			assert.Equal(t, nil, err)
 			if len(test.job.Labels) == 0 {
 				test.job.Labels = make(map[string]string)
 			}
 			test.job.Labels["a"] = "a"
-			err = kubeRuntimeClient.Update(test.job, KubeMPIFwVersion)
+			err = kubeRuntimeClient.Update(test.job, pfschema.MPIKindGroupVersion)
 			assert.Equal(t, nil, err)
 
-			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, KubeMPIFwVersion)
+			err = kubeRuntimeClient.Delete(test.job.Namespace, test.job.Name, pfschema.MPIKindGroupVersion)
 			assert.Equal(t, nil, err)
 		})
 	}

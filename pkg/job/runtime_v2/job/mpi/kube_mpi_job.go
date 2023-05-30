@@ -31,14 +31,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/util/kuberuntime"
-)
-
-var (
-	JobGVK           = k8s.MPIJobGVK
-	KubeMPIFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
 // KubeMPIJob is a struct that runs a mpi job
@@ -48,14 +42,14 @@ type KubeMPIJob struct {
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubeMPIJob{
-		KubeBaseJob: kuberuntime.NewKubeBaseJob(JobGVK, KubeMPIFwVersion, kubeClient),
+		KubeBaseJob: kuberuntime.NewKubeBaseJob(pfschema.MPIKindGroupVersion, kubeClient),
 	}
 }
 
 func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 	jobName := job.NamespacedName()
 	mpiJob := &mpiv1.MPIJob{}
-	if err := kuberuntime.CreateKubeJobFromYaml(mpiJob, mj.GVK, job); err != nil {
+	if err := kuberuntime.CreateKubeJobFromYaml(mpiJob, mj.KindGroupVersion, job); err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
 	}
@@ -76,7 +70,7 @@ func (mj *KubeMPIJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", mj.String(jobName), mpiJob)
-	err = mj.RuntimeClient.Create(mpiJob, mj.FrameworkVersion)
+	err = mj.RuntimeClient.Create(mpiJob, mj.KindGroupVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", mj.String(jobName), err)
 		return err
@@ -147,7 +141,7 @@ func (mj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 	// convert to MPIJob struct
 	job := &mpiv1.MPIJob{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, mj.GVK.String(), err)
+		log.Errorf("convert unstructured object [%+v] to %s job failed. error: %s", obj, mj.KindGroupVersion, err)
 		return api.StatusInfo{}, err
 	}
 	// convert job status

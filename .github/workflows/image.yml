@@ -36,6 +36,7 @@ jobs:
       - name: Install gcc
         id: install_gcc
         run: |
+          sudo apt-get update
           sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
       - name: Run build
         run: make all

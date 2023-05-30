@@ -25,6 +25,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			APIResources: []metav1.APIResource{
 				{Name: "queues", Namespaced: false, Kind: "Queue"},
 				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
+				{Name: "podgroups", Namespaced: true, Kind: "PodGroup"},
 			},
 		}
 	case "/apis/sparkoperator.k8s.io/v1beta2":
@@ -41,6 +42,13 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
 			},
 		}
+	case "/apis/kongming.cce.baiudbce.com/v1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "kongming.cce.baiudbce.com/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "aitrainingjobs", Namespaced: true, Kind: "AITrainingJob"},
+			},
+		}
 	case "/apis/kubeflow.org/v1":
 		obj = &metav1.APIResourceList{
 			GroupVersion: "kubeflow.org/v1",
@@ -48,6 +56,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "pytorchjobs", Namespaced: true, Kind: "PyTorchJob"},
 				{Name: "tfjobs", Namespaced: true, Kind: "TFJob"},
 				{Name: "mpijobs", Namespaced: true, Kind: "MPIJob"},
+				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
 			},
 		}
 	case "/apis/argoproj.io/v1alpha1":
@@ -104,6 +113,12 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 					Name: "batch.paddlepaddle.org",
 					Versions: []metav1.GroupVersionForDiscovery{
 						{GroupVersion: "batch.paddlepaddle.org/v1", Version: "v1"},
+					},
+				},
+				{
+					Name: "kongming.cce.baiudbce.com",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "kongming.cce.baiudbce.com/v1", Version: "v1"},
 					},
 				},
 				{

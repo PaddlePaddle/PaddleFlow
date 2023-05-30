@@ -225,7 +225,7 @@ func (k3srs *K3SRuntimeService) SubmitJob(job *api.PFJob) error {
 	traceLogger.Infof("submit k3s job")
 	traceLogger.Infof("k3s only support single job.")
 	traceLogger.Infof("current submit job type: %v, job framework: %v", job.JobType, job.Framework)
-	err = k3srs.Job(pfschema.FrameworkVersion{}).Submit(context.TODO(), job)
+	err = k3srs.Job(pfschema.KindGroupVersion{}).Submit(context.TODO(), job)
 	if err != nil {
 		errMsg := fmt.Sprintf("create k3s job[%s] failed, err: %v", job.Name, err)
 		log.Warnf(errMsg)
@@ -237,10 +237,10 @@ func (k3srs *K3SRuntimeService) SubmitJob(job *api.PFJob) error {
 	return nil
 }
 
-func (k3srs *K3SRuntimeService) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+func (k3srs *K3SRuntimeService) Job(kindVersion pfschema.KindGroupVersion) framework.JobInterface {
 	// default use pod gvk
 	gvk := k8s.PodGVK
-	fv := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	fv := pfschema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
 	jobPlugin, found := framework.GetJobPlugin(pfschema.K3SType, fv)
 	if !found {
 		errMsg := fmt.Sprintf("get job plugin on %s failed, err: %s job is not implemented", k3srs.String(), fv)
@@ -253,21 +253,21 @@ func (k3srs *K3SRuntimeService) StopJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("stop job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Stop(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Stop(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) UpdateJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("update job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Update(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Update(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) DeleteJob(job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("delete job failed, job is nil")
 	}
-	return k3srs.Job(pfschema.FrameworkVersion{}).Stop(context.TODO(), job)
+	return k3srs.Job(pfschema.KindGroupVersion{}).Stop(context.TODO(), job)
 }
 
 func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mixedLogRequest pfschema.MixedLogRequest) (pfschema.JobLogInfo, error) {
@@ -315,8 +315,8 @@ func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mix
 }
 
 // Queue quota type???
-func (k3srs *K3SRuntimeService) Queue(quotaType pfschema.FrameworkVersion) framework.QueueInterface {
-	log.Infof("k3s runtime not support queue info, so skip it, queue info:%v", quotaType)
+func (k3srs *K3SRuntimeService) Queue(kindVersion pfschema.KindGroupVersion) framework.QueueInterface {
+	log.Infof("k3s runtime not support queue info, so skip it, queue info:%v", kindVersion)
 	return nil
 }
 
@@ -337,6 +337,12 @@ func (k3srs *K3SRuntimeService) UpdateQueue(queue *api.QueueInfo) error {
 
 func (k3srs *K3SRuntimeService) ListNodeQuota() (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
 	return k3srs.getNodeQuotaListImpl(k8s.SubQuota)
+}
+
+// CreateNamespace Create namespace if not exist
+func (k3srs *K3SRuntimeService) CreateNamespace(namespace string) error {
+	_, err := createNamespace(k3srs.clientSet(), namespace, metav1.CreateOptions{})
+	return err
 }
 
 func (k3srs *K3SRuntimeService) clientSet() kubernetes.Interface {
@@ -397,9 +403,4 @@ func (k3srs *K3SRuntimeService) getNodeQuotaListImpl(subQuotaFn func(r *resource
 
 func (k3srs *K3SRuntimeService) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
 	return getQueueUsedQuota(k3srs.String(), k3srs.clientSet(), q)
-}
-
-// CreateNamespace Create namespace if not exist
-func (k3srs *K3SRuntimeService) CreateNamespace(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-	return createNamespace(k3srs.clientSet(), namespace, opts)
 }

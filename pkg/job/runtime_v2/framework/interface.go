@@ -27,7 +27,7 @@ import (
 
 // JobGetter return FrameworkJobInterface
 type JobGetter interface {
-	Job(fwVersion pfschema.FrameworkVersion) JobInterface
+	Job(fwVersion pfschema.KindGroupVersion) JobInterface
 }
 
 type JobInterface interface {
@@ -48,7 +48,7 @@ type JobInterface interface {
 
 // QueueGetter return RuntimeQueueInterface
 type QueueGetter interface {
-	Queue(quotaType pfschema.FrameworkVersion) QueueInterface
+	Queue(kindVersion pfschema.KindGroupVersion) QueueInterface
 }
 
 // QueueInterface defines Queue operator methods
@@ -71,25 +71,18 @@ type RuntimeClientInterface interface {
 
 	ClusterName() string
 
-	Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error)
+	Get(namespace string, name string, kindVersion pfschema.KindGroupVersion) (interface{}, error)
 
-	Create(resource interface{}, fv pfschema.FrameworkVersion) error
+	Create(resource interface{}, kindVersion pfschema.KindGroupVersion) error
 
-	Delete(namespace string, name string, fv pfschema.FrameworkVersion) error
+	Delete(namespace string, name string, kindVersion pfschema.KindGroupVersion) error
 
-	Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error
+	Patch(namespace string, name string, kindVersion pfschema.KindGroupVersion, data []byte) error
 
-	Update(resource interface{}, fv pfschema.FrameworkVersion) error
+	Update(resource interface{}, kindVersion pfschema.KindGroupVersion) error
 
 	// RegisterListener register job/task/queue listener
 	RegisterListener(listenerType string, workQueue workqueue.RateLimitingInterface) error
 
 	StartListener(listenerType string, stopCh <-chan struct{}) error
-
-	// ListNodeQuota resource api for cluster nodes
-	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
-
-	GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework)
-
-	JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion
 }

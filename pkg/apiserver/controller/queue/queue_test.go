@@ -24,8 +24,6 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -298,14 +296,14 @@ func TestCreateQueue(t *testing.T) {
 			}
 			if tt.args.mockCreateNSErr != nil {
 				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
-					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-						return &corev1.Namespace{}, tt.args.mockCreateNSErr
+					func(namespace string) error {
+						return tt.args.mockCreateNSErr
 					})
 				defer p7.Reset()
 			} else {
 				var p7 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CreateNamespace",
-					func(namespace string, opts metav1.CreateOptions) (*corev1.Namespace, error) {
-						return &corev1.Namespace{}, nil
+					func(namespace string) error {
+						return nil
 					})
 				defer p7.Reset()
 			}
