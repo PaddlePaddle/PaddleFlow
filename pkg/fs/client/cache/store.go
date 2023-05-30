@@ -53,9 +53,10 @@ type ReadCloser interface {
 
 type Config struct {
 	kv.Config
-	BlockSize    int
-	MaxReadAhead int
-	Expire       time.Duration
+	BlockSize      int
+	MaxReadAhead   int
+	FreeSpaceRatio float64
+	Expire         time.Duration
 }
 
 type store struct {

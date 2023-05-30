@@ -40,7 +40,7 @@ func TestCacheFlags(t *testing.T) {
 			args: args{
 				fuseConf: meta.FuseConf,
 			},
-			want: 12,
+			want: 13,
 		},
 	}
 	for _, tt := range tests {

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -409,9 +410,10 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		},
 	}
 	d := cache.Config{
-		BlockSize:    c.Int("block-size"),
-		MaxReadAhead: c.Int("data-read-ahead-size"),
-		Expire:       c.Duration("data-cache-expire"),
+		BlockSize:      c.Int("block-size"),
+		MaxReadAhead:   c.Int("data-read-ahead-size"),
+		FreeSpaceRatio: math.Max(0.1, c.Float64("free-space-ratio")),
+		Expire:         c.Duration("data-cache-expire"),
 		Config: kv.Config{
 			CachePath: c.String("data-cache-path"),
 		},
