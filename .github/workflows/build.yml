@@ -28,7 +28,7 @@ jobs:
         echo '${{ toJSON(github) }}'
         echo $(uname -m)
         echo $(uname -s)
-        sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
+        sudo apt-get update && apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
     - name: Run build
       run: make all
       env:
