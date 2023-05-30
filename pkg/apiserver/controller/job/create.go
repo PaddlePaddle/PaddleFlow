@@ -896,6 +896,8 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	case schema.TypeDistributed:
 		if framework == schema.FrameworkRay {
 			err = fillRayJobInfo(jobInfo, conf)
+		} else if framework == schema.FrameworkPaddle {
+			err = fillPaddleJobInfo(jobInfo, conf)
 		} else {
 			err = fmt.Errorf("distributed job is not implemented")
 		}
@@ -908,6 +910,90 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	}
 
 	return jobInfo, nil
+}
+
+func fillPaddleJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+	jobInfo.Members = make([]MemberSpec, 0)
+	err := fillPaddleJobPSMember(jobInfo, conf)
+	if err != nil {
+		return err
+	}
+
+	return fillPaddleJobWorkerMember(jobInfo, conf)
+}
+
+func fillPaddleJobWorkerMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+	workerReplicasStr := conf.GetEnvValue(schema.EnvPaddleJobWorkerReplicas)
+	workerReplicas, err := strconv.Atoi(workerReplicasStr)
+	if err != nil {
+		return err
+	}
+	args := make([]string, 0)
+	args = append(args, conf.GetEnvValue(schema.EnvPaddleJobWorkerArgs))
+	image := conf.GetEnvValue(schema.EnvPaddleJobWorkerImage)
+	if image == "" {
+		image = conf.GetImage()
+	}
+	workerMember := MemberSpec{
+		CommonJobInfo: jobInfo.CommonJobInfo,
+		JobSpec: JobSpec{
+			Flavour: schema.Flavour{
+				Name: conf.GetEnvValue(schema.EnvPaddleJobWorkerFlavour),
+			},
+			FileSystem:       conf.GetFileSystem(),
+			ExtraFileSystems: conf.GetExtraFS(),
+			Image:            image,
+			Command:          conf.GetEnvValue(schema.EnvPaddleJobEntryPoint),
+			Env:              conf.GetEnv(),
+			Args:             args,
+		},
+		Role:     string(schema.RolePWorker),
+		Replicas: workerReplicas,
+	}
+
+	if workerPriority := conf.GetEnvValue(schema.EnvRayJobWorkerPriority); workerPriority != "" {
+		workerMember.CommonJobInfo.SchedulingPolicy.Priority = workerPriority
+	}
+	workerMember.Name = ""
+	jobInfo.Members = append(jobInfo.Members, workerMember)
+	return nil
+}
+
+func fillPaddleJobPSMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+	psReplicasStr := conf.GetEnvValue(schema.EnvPaddleJobPSReplicas)
+	psReplicas, err := strconv.Atoi(psReplicasStr)
+	args := make([]string, 0)
+	args = append(args, conf.GetEnvValue(schema.EnvPaddleJobPSArgs))
+	if err != nil {
+		return err
+	}
+	image := conf.GetEnvValue(schema.EnvPaddleJobPSImage)
+	if image == "" {
+		image = conf.GetImage()
+	}
+	workerMember := MemberSpec{
+		CommonJobInfo: jobInfo.CommonJobInfo,
+		JobSpec: JobSpec{
+			Flavour: schema.Flavour{
+				Name: conf.GetEnvValue(schema.EnvPaddleJobPSFlavour),
+			},
+			FileSystem:       conf.GetFileSystem(),
+			ExtraFileSystems: conf.GetExtraFS(),
+			Image:            conf.GetEnvValue(schema.EnvPaddleJobPSImage),
+			Command:          conf.GetEnvValue(schema.EnvPaddleJobEntryPoint),
+			Env:              conf.GetEnv(),
+			Args:             args,
+		},
+		Role:     string(schema.RolePServer),
+		Replicas: psReplicas,
+	}
+
+	if workerPriority := conf.GetEnvValue(schema.EnvRayJobWorkerPriority); workerPriority != "" {
+		workerMember.CommonJobInfo.SchedulingPolicy.Priority = workerPriority
+	}
+	workerMember.Name = ""
+	jobInfo.Members = append(jobInfo.Members, workerMember)
+	return nil
 }
 
 func generateJobID(param string) string {
