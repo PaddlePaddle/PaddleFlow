@@ -36,7 +36,7 @@ jobs:
       - name: Install gcc
         id: install_gcc
         run: |
-          sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
+          sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu  --fix-missing
       - name: Run build
         run: make all
         env:
