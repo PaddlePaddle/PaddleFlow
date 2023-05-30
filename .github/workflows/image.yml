@@ -14,7 +14,7 @@ jobs:
       matrix:
         go-version: [1.18.x]
         goos: [linux] # 需要打包的系统
-        goarch: [amd64] # 需要打包的架构
+        goarch: [amd64, arm64] # 需要打包的架构
     runs-on: ubuntu-latest
     steps:
       - name: Dump GitHub context
