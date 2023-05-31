@@ -19,17 +19,12 @@ limitations under the License.
 import sys
 import click
 
-
 from paddleflow.cli.output import print_output
 
-@click.group()
-def version():
-    """show paddleflow server version"""
-    pass
 
-@version.command()
+@click.command()
 @click.pass_context
-def show(ctx):
+def version(ctx):
     """show paddleflow server version\n
     """
     client = ctx.obj['client']
@@ -41,9 +36,19 @@ def show(ctx):
         click.echo("get paddleflow server version failed with message[%s]" % response)
         sys.exit(1)
 
+def get_package_version():
+    from pkg_resources import get_distribution, DistributionNotFound
+    try:
+        version = get_distribution('PaddleFlow').version
+    except DistributionNotFound:
+        version = "Unknown"
+    return version
 
 def _print_version_info(response, out_format):
     """print server version info """
-    headers = ['PaddleFlow Server Version']
-    data = [[response]]
-    print_output(data, headers, "json", table_format='grid')
+    data = {
+        'client': "PaddleFlow-" + get_package_version(),
+        'server': response,
+    }
+
+    print_output(data, None, "json", table_format='dict')
