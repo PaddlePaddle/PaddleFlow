@@ -19,7 +19,6 @@ limitations under the License.
 import sys
 import click
 
-from setup import NAME, VERSION
 from paddleflow.cli.output import print_output
 
 @click.command()
@@ -36,11 +35,18 @@ def version(ctx):
         click.echo("get paddleflow server version failed with message[%s]" % response)
         sys.exit(1)
 
+def get_package_version():
+    from pkg_resources import get_distribution, DistributionNotFound
+    try:
+        version = get_distribution('PaddleFlow').version
+    except DistributionNotFound:
+        version = "Unknown"
+    return version
 
 def _print_version_info(response, out_format):
     """print server version info """
     data = {
-        'client': NAME + "-" + VERSION,
+        'client': "PaddleFlow-" + get_package_version(),
         'server': response,
     }
 
