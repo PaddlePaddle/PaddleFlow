@@ -21,14 +21,10 @@ import click
 
 from paddleflow.cli.output import print_output
 
-@click.group()
-def version():
-    """show paddleflow server version"""
-    pass
 
-@version.command()
+@click.command()
 @click.pass_context
-def show(ctx):
+def version(ctx):
     """show paddleflow server version\n
     """
     client = ctx.obj['client']
