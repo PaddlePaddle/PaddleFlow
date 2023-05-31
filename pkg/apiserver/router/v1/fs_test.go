@@ -771,4 +771,27 @@ func TestCreateAFS(t *testing.T) {
 
 	result, err = PerformPostRequest(router, fsUrl, createFsReq)
 	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "afs://afs.com:8000/fs/data",
+		Properties: map[string]string{
+			fsCommon.AFSPassword: "test",
+		},
+	}
+
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "afs://afs.com:8000/fs/data",
+		Properties: map[string]string{
+			fsCommon.AFSUser: "test",
+		},
+	}
+
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
 }
