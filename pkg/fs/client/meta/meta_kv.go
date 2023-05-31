@@ -499,7 +499,8 @@ func (m *kvMeta) absolutePath(inode Ino, tx kv.KvTxn) string {
 		} else {
 			d := tx.Get(m.inodeKey(inode))
 			if d == nil {
-				panic(fmt.Sprintf("full path parse fail with inode %v %+v", inode, attr))
+				log.Errorf("full path parse fail with inode %v %+v", inode, attr)
+				return ""
 			}
 
 			attr = &inodeItem{}
@@ -727,9 +728,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		info, err := ufs_.GetAttr(path)
 		if err != nil {
 			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, path, absolutePath)
-			if utils.IfNotExist(err) {
-				_ = tx.Dels(m.inodeKey(inode), m.entryKey(inodeItem_.parentIno, string(inodeItem_.name)))
-			}
+
 			return err
 		}
 		if isLink {
@@ -1474,7 +1473,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 		return syscall.F_OK
 	}
 
-	//从远端拉取dir的entries时 更新badger（删除badger里存在的dir下的entries）,目的是避免远端删除了dir下的一些entries,但badger里还存在这些entries的情况
+	// 从远端拉取dir的entries时 更新badger（删除badger里存在的dir下的entries）,目的是避免远端删除了dir下的一些entries,但badger里还存在这些entries的情况
 	err = m.txn(func(tx kv.KvTxn) error {
 		ens, err := tx.ScanValues(m.entryKey(inode, ""))
 		if err != nil {

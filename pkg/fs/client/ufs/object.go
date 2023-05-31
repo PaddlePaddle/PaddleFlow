@@ -78,7 +78,7 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 	if off >= l {
 		return 0, nil
 	}
-	if fh.size == 0 {
+	if off >= fh.size {
 		return 0, nil
 	}
 
