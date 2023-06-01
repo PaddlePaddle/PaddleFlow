@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	DefaultJobPendingTTLSeconds = 300
+	DefaultJobPendingTTLSeconds = 600
 
 	RuntimeStatusKey = "status"
 
@@ -277,16 +277,20 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName, podName, namespace strin
 	}
 	jobQueue.Add(jobInfo)
 
-	if isValidWaiting {
+	if isValidWaiting || config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds <= 0 {
 		return
 	}
 	terminateJobInfo := &api.JobSyncInfo{
-		ID:     jobName,
-		Action: schema.Terminate,
+		ID:        jobName,
+		Namespace: namespace,
+		Action:    schema.Terminate,
 	}
 	terminateDuration := DefaultJobPendingTTLSeconds
 	if config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds > 0 {
 		terminateDuration = config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds
+	}
+	if podStatus.StartTime == nil || podStatus.StartTime.Unix()+int64(terminateDuration) <= time.Now().Unix() {
+		return
 	}
 	log.Infof("terminate job. namespace: %s, jobName: %s", namespace, jobName)
 	jobQueue.AddAfter(terminateJobInfo, time.Duration(terminateDuration)*time.Second)
