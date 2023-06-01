@@ -277,7 +277,7 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName, podName, namespace strin
 	}
 	jobQueue.Add(jobInfo)
 
-	if isValidWaiting {
+	if isValidWaiting || config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds <= 0 {
 		return
 	}
 	terminateJobInfo := &api.JobSyncInfo{
