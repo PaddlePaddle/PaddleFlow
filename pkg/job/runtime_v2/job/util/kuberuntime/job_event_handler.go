@@ -289,7 +289,7 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName, podName, namespace strin
 	if config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds > 0 {
 		terminateDuration = config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds
 	}
-	if podStatus.StartTime.Unix()+int64(terminateDuration) <= time.Now().Unix() {
+	if podStatus.StartTime == nil || podStatus.StartTime.Unix()+int64(terminateDuration) <= time.Now().Unix() {
 		return
 	}
 	log.Infof("terminate job. namespace: %s, jobName: %s", namespace, jobName)
