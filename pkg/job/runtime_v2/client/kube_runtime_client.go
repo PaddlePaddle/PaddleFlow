@@ -642,7 +642,7 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 	// Find GVR
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		log.Warningf("find GVR with restMapping failed: %v", err)
+		log.Debugf("find GVR with restMapping failed: %v", err)
 		return meta.RESTMapping{}, err
 	}
 	// Store GVR
