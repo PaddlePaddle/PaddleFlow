@@ -148,6 +148,78 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	}
 }
 
+func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo{
+
+	common := job.CommonJobInfo{
+		ID:   pfj.ID,
+		Name: pfj.Name,
+		UserName: pfj.userName,
+	}
+	createJobInfo := job.CreateJobInfo {
+		CommonJobInfo: common,
+	}
+
+	fs := schema.FileSystem{}
+
+	if pfj.mainFS != nil {
+		fs = schema.FileSystem{
+			ID:        pfj.mainFS.ID,
+			Name:      pfj.mainFS.Name,
+			SubPath:   pfj.mainFS.SubPath,
+			MountPath: pfj.mainFS.MountPath,
+			ReadOnly:  pfj.mainFS.ReadOnly,
+		}
+	}
+
+	efs := []schema.FileSystem{}
+	for _, fsMount := range pfj.extraFS {
+		fs := schema.FileSystem{
+			ID:        fsMount.ID,
+			Name:      fsMount.Name,
+			SubPath:   fsMount.SubPath,
+			MountPath: fsMount.MountPath,
+			ReadOnly:  fsMount.ReadOnly,
+		}
+		efs = append(efs, fs)
+	}
+
+	queueName := ""
+	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
+		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
+	}
+
+	if len(pfj.Members) == 0 {
+		createJobInfo.Type = schema.TypeSingle
+		createJobInfo.Framework = schema.FrameworkStandalone
+		createJobInfo.SchedulingPolicy.Queue = queueName
+		createJobInfo.Members = []job.MemberSpec{
+			{
+				CommonJobInfo: createJobInfo.CommonJobInfo,
+				JobSpec: job.JobSpec{
+					Flavour: schema.Flavour{
+						Name: pfj.,
+					},
+					LimitFlavour: schema.Flavour{
+						Name: conf.GetLimitFlavour(),
+					},
+					FileSystem:       fs,
+					ExtraFileSystems: efs,
+					Image:            pfj.Image,
+					Env:              pfj.Env,
+					Command:          pfj.Command,
+					Args:             pfj.Env,
+				},
+				Role:     string(schema.RoleWorker),
+				Replicas: 1,
+			},
+		}
+
+
+	}else{
+		createJobInfo.Type = schema.TypeDistributed
+		createJobInfo.Framework = pfj.Framework
+	}
+}
 // 生成job 的conf 信息
 func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 	fs := schema.FileSystem{}
@@ -239,6 +311,22 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 		framework := pfj.Framework
 		pfj.ID, err = job.CreateDistributedPPLJob(&conf, members, framework)
 	}
+
+
+
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return "", err
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	jobResponse, err := job.CreatePFJob(ctx, createJobInfo)
+	if err != nil {
+		log.Errorf("create pipeline job failed. err: %s", err)
+		return "", err
+	}
+
 
 	if err != nil {
 		return "", err
