@@ -1,0 +1,15 @@
+name: distributed_pipeline
+
+entry_points:
+  train:
+    docker_env: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+    command: ""
+    parameters:
+      epoch: 5
+      model_path: ./output/{{PF_RUN_ID}}
+    distributed_jobs:
+      framework: "paddle"
+      members:
+        - { "role": "pserver", "command": "","replicas": 2, "flavour": { "name": "queue1" }}
+        - { "role": "pworker", "command": "","replicas": 2, "flavour": { "name": "queue1" }}
+parallelism: 1

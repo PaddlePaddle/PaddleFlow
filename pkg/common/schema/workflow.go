@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"reflect"
 	"strings"
 
@@ -47,9 +48,10 @@ const (
 
 	FsPrefix = "fs-"
 
-	CompTypeComponents  = "components"
-	CompTypeEntryPoints = "entryPoints"
-	CompTypePostProcess = "postProcess"
+	CompTypeDistributedJobs = "distributed_jobs"
+	CompTypeComponents      = "components"
+	CompTypeEntryPoints     = "entryPoints"
+	CompTypePostProcess     = "postProcess"
 )
 
 func ID(userName, fsName string) string {
@@ -134,18 +136,19 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name         string                 `yaml:"-"                 json:"name"`
-	LoopArgument interface{}            `yaml:"loop_argument"     json:"loopArgument"`
-	Condition    string                 `yaml:"condition"         json:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"        json:"parameters"`
-	Command      string                 `yaml:"command"           json:"command"`
-	Deps         string                 `yaml:"deps"              json:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"         json:"artifacts"`
-	Env          map[string]string      `yaml:"env"               json:"env"`
-	DockerEnv    string                 `yaml:"docker_env"        json:"dockerEnv"`
-	Cache        Cache                  `yaml:"cache"             json:"cache"`
-	Reference    Reference              `yaml:"reference"         json:"reference"`
-	ExtraFS      []FsMount              `yaml:"extra_fs"          json:"extraFS"`
+	Name            string                 `yaml:"-"                 json:"name"`
+	LoopArgument    interface{}            `yaml:"loop_argument"     json:"loopArgument"`
+	Condition       string                 `yaml:"condition"         json:"condition"`
+	Parameters      map[string]interface{} `yaml:"parameters"        json:"parameters"`
+	Command         string                 `yaml:"command"           json:"command"`
+	Deps            string                 `yaml:"deps"              json:"deps"`
+	Artifacts       Artifacts              `yaml:"artifacts"         json:"artifacts"`
+	Env             map[string]string      `yaml:"env"               json:"env"`
+	DockerEnv       string                 `yaml:"docker_env"        json:"dockerEnv"`
+	Cache           Cache                  `yaml:"cache"             json:"cache"`
+	Reference       Reference              `yaml:"reference"         json:"reference"`
+	ExtraFS         []FsMount              `yaml:"extra_fs"          json:"extraFS"`
+	DistributedJobs job.DistributedJobSpec `yaml:"distributed_jobs"  json:"distributedJobs"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -171,6 +174,10 @@ func (s *WorkflowSourceStep) GetArtifacts() Artifacts {
 
 func (s *WorkflowSourceStep) GetParameters() map[string]interface{} {
 	return s.Parameters
+}
+
+func (s *WorkflowSourceStep) GetFramework() string {
+	return string(s.DistributedJobs.Framework)
 }
 
 func (s *WorkflowSourceStep) GetCondition() string {
@@ -521,7 +528,6 @@ func (wfs *WorkflowSource) UnmarshalJSON(data []byte) error {
 	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
 		return err
 	}
-
 	if err := p.ParseWorkflowSource(bodyMap, wfs); err != nil {
 		return err
 	}
@@ -653,6 +659,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
+
 	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, CompTypeEntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
@@ -697,10 +704,10 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
-
 			// Reference节点不用替换
 			if step.Reference.Component == "" {
 				// DockerEnv字段替换检查
+
 				if step.DockerEnv == "" {
 					step.DockerEnv = wfs.DockerEnv
 				}

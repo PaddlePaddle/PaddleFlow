@@ -57,7 +57,7 @@ func init() {
 
 type DistributedJobSpec struct {
 	Framework schema.Framework `json:"framework,omitempty"`
-	Members   []schema.Member  `json:"members,omitempty"`
+	Members   []MemberSpec     `json:"members,omitempty"`
 }
 
 type ListJobRequest struct {

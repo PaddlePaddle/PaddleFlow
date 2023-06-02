@@ -56,10 +56,10 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	srt := &StepRuntime{
 		baseComponentRuntime: cr,
 	}
-
 	jobName := generateJobName(config.runID, step.GetName(), seq)
+
 	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.userName, srt.receiveEventChildren,
-		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
+		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, step.DistributedJobs.Framework, step.DistributedJobs.Members)
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], "+
@@ -228,8 +228,9 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	defer srt.catchPanic()
 
+	distibuteJobs := srt.getWorkFlowStep().DistributedJobs
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName, distibuteJobs.Framework, distibuteJobs.Members)
 
 	srt.pk = view.PK
 	err := srt.updateStatus(view.Status)
@@ -320,6 +321,8 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
+	distributedJobs := srt.getWorkFlowStep().DistributedJobs
+
 	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
 	for atfName, atfValue := range srt.GetArtifacts().Input {
 		artifacts.Input[atfName] = atfValue
@@ -352,7 +355,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, &distributedJobs)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
 		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().ExtraFS)
 	return nil
@@ -598,6 +601,7 @@ func (srt *StepRuntime) startJob() (err error) {
 
 	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	srt.logger.Debugf("begin to launch job for step [%s]", srt.name)
+
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())

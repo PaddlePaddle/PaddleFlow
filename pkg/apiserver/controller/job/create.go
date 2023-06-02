@@ -70,6 +70,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	if request.ID == "" {
 		request.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
+
 	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, request.ID); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
@@ -859,6 +860,49 @@ func CreatePPLJob(conf schema.PFJobConf) (string, error) {
 	return jobResponse.ID, nil
 }
 
+// CreatePPLJob create a run job, used by pipeline
+func CreateDistributedPPLJob(conf schema.PFJobConf, members []MemberSpec, framework schema.Framework) (string, error) {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return "", err
+	}
+
+	createJobInfo.Members = members
+	createJobInfo.Framework = framework
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+
+	jobResponse, err := CreatePFJob(ctx, createJobInfo)
+	if err != nil {
+		log.Errorf("create pipeline job failed. err: %s", err)
+		return "", err
+	}
+	return jobResponse.ID, nil
+}
+
+func ValidateDistributedPPLJob(conf schema.PFJobConf, members []MemberSpec, framework schema.Framework) error {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return err
+	}
+	createJobInfo.Members = members
+	createJobInfo.Framework = framework
+	// pipeline job check
+	if len(createJobInfo.Name) == 0 {
+		return errors.EmptyJobNameError()
+	}
+	if len(createJobInfo.UserName) == 0 {
+		return errors.EmptyUserNameError()
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	return validateJob(ctx, createJobInfo)
+}
+
 func ValidatePPLJob(conf schema.PFJobConf) error {
 	createJobInfo, err := jobConfToCreateJobInfo(conf)
 	if err != nil {
@@ -896,8 +940,6 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	case schema.TypeDistributed:
 		if framework == schema.FrameworkRay {
 			err = fillRayJobInfo(jobInfo, conf)
-		} else if framework == schema.FrameworkPaddle {
-			err = fillPaddleJobInfo(jobInfo, conf)
 		} else {
 			err = fmt.Errorf("distributed job is not implemented")
 		}
@@ -912,17 +954,7 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	return jobInfo, nil
 }
 
-func fillPaddleJobInfo(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
-	jobInfo.Members = make([]MemberSpec, 0)
-	err := fillPaddleJobPSMember(jobInfo, conf)
-	if err != nil {
-		return err
-	}
-
-	return fillPaddleJobWorkerMember(jobInfo, conf)
-}
-
-func fillPaddleJobWorkerMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
+/*func fillPaddleJobWorkerMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error {
 	workerReplicasStr := conf.GetEnvValue(schema.EnvPaddleJobWorkerReplicas)
 	workerReplicas, err := strconv.Atoi(workerReplicasStr)
 	if err != nil {
@@ -994,7 +1026,7 @@ func fillPaddleJobPSMember(jobInfo *CreateJobInfo, conf schema.PFJobConf) error 
 	workerMember.Name = ""
 	jobInfo.Members = append(jobInfo.Members, workerMember)
 	return nil
-}
+}*/
 
 func generateJobID(param string) string {
 	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))

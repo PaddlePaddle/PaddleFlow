@@ -18,8 +18,11 @@ package schema
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 type Parser struct {
@@ -39,12 +42,14 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[name] of workflow should be string type")
 			}
 			wfs.Name = value
+
 		case "docker_env":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[docker_env] of workflow should be string type")
 			}
 			wfs.DockerEnv = value
+
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -58,6 +63,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				EntryPoints: entryPointsMap,
 			}
 			wfs.EntryPoints = entryPoints
+
 		case "components":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -68,6 +74,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("parse [components] failed, error: %s", err.Error())
 			}
 			wfs.Components = componentsMap
+
 		case "cache":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -78,8 +85,8 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("parse [cache] in workflow failed, error: %s", err.Error())
 			}
 			wfs.Cache = cache
-		case "parallelism":
 
+		case "parallelism":
 			value1, ok1 := value.(int64)
 			value2, ok2 := value.(float64) // 这里是为了兼容一个由json.Unmarshal得到的parallelism值
 			if ok1 {
@@ -96,6 +103,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[disabled] of workflow should be string type")
 			}
 			wfs.Disabled = value
+
 		case "failure_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -115,6 +123,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 			}
 			wfs.FailureOptions = options
+
 		case "post_process":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -132,6 +141,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 				wfs.PostProcess[postkey] = postValue
 			}
+
 		case "fs_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -142,6 +152,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return err
 			}
 			wfs.FsOptions = fsOptions
+
 		default:
 			return fmt.Errorf("workflow has no attribute [%s]", key)
 		}
@@ -258,6 +269,88 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Artifacts = artifacts
+		case CompTypeDistributedJobs:
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[distributed_jobs] in step should be map type")
+			}
+
+			distJobs := job.DistributedJobSpec{}
+			// parse framework
+			framework, ok := value["framework"].(string)
+			if !ok {
+				return fmt.Errorf("extract framework from [distributed_jobs] failed")
+			}
+			distJobs.Framework = Framework(framework)
+
+			// parse members
+			members, ok, err := unstructured.NestedSlice(value, "members")
+			if !ok {
+				return fmt.Errorf("extract members from [distributed_jobs] failed because [%v]", err)
+			}
+			distJobs.Members = make([]job.MemberSpec, 0)
+
+			for index, member := range members {
+				distributedJob := job.MemberSpec{}
+				memberMap, ok := member.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("the member %v defined in [distributed_jobs] should be map type", index)
+				}
+
+				for memberKey, memberValue := range memberMap {
+					switch memberKey {
+					case "role":
+						refValue, ok := memberValue.(string)
+						if !ok {
+							return fmt.Errorf("[role] defined in member %v should be string type", index)
+						}
+						distributedJob.Role = refValue
+					case "command":
+						refValue, ok := memberValue.(string)
+						if !ok {
+							return fmt.Errorf("[command] defined in member %v should be string type", index)
+						}
+						distributedJob.Command = refValue
+					case "replicas":
+						refValue, ok := memberValue.(int)
+						if !ok {
+							return fmt.Errorf("[replicas] defined in member %v should be int type", index)
+						}
+						distributedJob.Replicas = refValue
+					case "image":
+						refValue, ok := memberValue.(string)
+						if !ok {
+							return fmt.Errorf("[image] defined in member %v should be string type", index)
+						}
+						distributedJob.Image = refValue
+					case "port":
+						refValue, ok := memberValue.(int64)
+						if !ok {
+							return fmt.Errorf("[port] defined in member %v should be int type", index)
+						}
+						distributedJob.Port = *(*int)(unsafe.Pointer(&refValue))
+					case "queue":
+						refValue, ok := memberValue.(string)
+						if !ok {
+							return fmt.Errorf("[queue] defined in member %v should be string type", index)
+						}
+						distributedJob.SchedulingPolicy.Queue = refValue
+					case "flavour":
+						refValue, ok := memberValue.(map[string]interface{})
+						flavour := Flavour{}
+						if !ok {
+							return fmt.Errorf("[flavour] defined in member %v should be map type", index)
+						}
+
+						if flavour, err = MapToFlavour(refValue); err != nil {
+							return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
+						}
+						distributedJob.Flavour = flavour
+					}
+				}
+				distJobs.Members = append(distJobs.Members, distributedJob)
+			}
+			step.DistributedJobs = distJobs
 		case "env":
 			value, ok := value.(map[string]interface{})
 			if !ok {
