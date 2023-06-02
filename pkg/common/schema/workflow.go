@@ -176,10 +176,6 @@ func (s *WorkflowSourceStep) GetParameters() map[string]interface{} {
 	return s.Parameters
 }
 
-func (s *WorkflowSourceStep) GetFramework() string {
-	return string(s.DistributedJobs.Framework)
-}
-
 func (s *WorkflowSourceStep) GetCondition() string {
 	return s.Condition
 }
