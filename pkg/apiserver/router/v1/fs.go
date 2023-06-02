@@ -72,6 +72,7 @@ var URLPrefix = map[string]bool{
 	fsCommon.CFSType:       true,
 	fsCommon.GlusterFSType: true,
 	fsCommon.BosType:       true,
+	fsCommon.AFSType:       true,
 }
 
 const FsNameMaxLen = 63
@@ -188,7 +189,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType || fileSystemType == fsCommon.CFSType {
+	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType || fileSystemType == fsCommon.CFSType || fileSystemType == fsCommon.AFSType {
 		return nil
 	}
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
@@ -294,6 +295,16 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		namespace := req.Properties[fsCommon.Namespace]
 		if namespace == "" {
 			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
+		}
+		return nil
+	case fsCommon.AFSType:
+		if req.Properties[fsCommon.AFSUser] == "" {
+			log.Error("afs user is empty")
+			return common.InvalidField("properties", fmt.Sprintf("%s is empty", fsCommon.AFSUser))
+		}
+		if req.Properties[fsCommon.AFSPassword] == "" {
+			log.Error("afs password empty")
+			return common.InvalidField("properties", fmt.Sprintf("%s is empty", fsCommon.AFSPassword))
 		}
 		return nil
 	case fsCommon.BosType:

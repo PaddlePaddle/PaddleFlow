@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/baidubce/bce-sdk-go/auth"
+	"github.com/baidubce/bce-sdk-go/bce"
 	"github.com/baidubce/bce-sdk-go/services/bos"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -77,7 +78,7 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 	if off >= l {
 		return 0, nil
 	}
-	if fh.size == 0 {
+	if off >= fh.size {
 		return 0, nil
 	}
 
@@ -1226,6 +1227,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			Endpoint:         aws.String(endpoint),
 			DisableSSL:       aws.Bool(!ssl),
 			S3ForcePathStyle: aws.Bool(false),
+			MaxRetries:       aws.Int(5),
 		}
 
 		if properties[fsCommon.S3ForcePathStyle] == "true" {
@@ -1252,6 +1254,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
 		_, ok = properties[fsCommon.StsServer].(string)
+		bce.NewBackOffRetryPolicy(5, 20000, 300)
 		// use stsCredential
 		if ok {
 			log.Infof("init sts")
