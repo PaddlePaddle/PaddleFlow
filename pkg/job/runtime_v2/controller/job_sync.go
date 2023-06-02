@@ -230,7 +230,7 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 	if job.Status != pfschema.StatusJobPending {
 		return nil
 	}
-	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, jobSyncInfo.KindGroupVersion)
+	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, job.Config.GetKindGroupVersion(job.Framework))
 	if err != nil {
 		log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
 	}

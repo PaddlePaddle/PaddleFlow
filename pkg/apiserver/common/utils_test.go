@@ -90,6 +90,13 @@ func TestInformationFromUrl(t *testing.T) {
 			wantServerAddress:  "192.168.1.4",
 			wantSubPath:        "/",
 		},
+		{
+			name:               "afs",
+			args:               args{url: "afs://beijing.afs.com:8000/data/test", properties: map[string]string{common.AFSUser: "test", common.AFSPassword: "test"}},
+			wantFileSystemType: "afs",
+			wantServerAddress:  "afs://beijing.afs.com:8000",
+			wantSubPath:        "/data/test",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

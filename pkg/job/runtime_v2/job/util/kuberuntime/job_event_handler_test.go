@@ -287,7 +287,8 @@ func TestTaskUpdate(t *testing.T) {
 						},
 					},
 					"status": map[string]interface{}{
-						"phase": v1.PodPending,
+						"phase":     v1.PodPending,
+						"startTime": "2020-06-01T02:24:30Z",
 						"initContainerStatuses": []interface{}{
 							map[string]interface{}{
 								"name": "init-c",
