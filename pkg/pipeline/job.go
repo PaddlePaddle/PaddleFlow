@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	log "github.com/sirupsen/logrus"
 )
 
 type Job interface {
@@ -148,19 +149,17 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	}
 }
 
-func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo{
-
-	common := job.CommonJobInfo{
-		ID:   pfj.ID,
-		Name: pfj.Name,
+func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
+	commonInfo := job.CommonJobInfo{
+		ID:       pfj.ID,
+		Name:     pfj.Name,
 		UserName: pfj.userName,
 	}
-	createJobInfo := job.CreateJobInfo {
-		CommonJobInfo: common,
+	createJobInfo := job.CreateJobInfo{
+		CommonJobInfo: commonInfo,
 	}
 
 	fs := schema.FileSystem{}
-
 	if pfj.mainFS != nil {
 		fs = schema.FileSystem{
 			ID:        pfj.mainFS.ID,
@@ -170,7 +169,6 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo{
 			ReadOnly:  pfj.mainFS.ReadOnly,
 		}
 	}
-
 	efs := []schema.FileSystem{}
 	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
@@ -187,39 +185,45 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo{
 	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
 		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
 	}
+	priority := ""
+	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
+		priority = pfj.Env["PF_JOB_PRIORITY"]
+	}
+	createJobInfo.SchedulingPolicy.Queue = queueName
+	createJobInfo.SchedulingPolicy.Priority = priority
 
 	if len(pfj.Members) == 0 {
 		createJobInfo.Type = schema.TypeSingle
 		createJobInfo.Framework = schema.FrameworkStandalone
-		createJobInfo.SchedulingPolicy.Queue = queueName
 		createJobInfo.Members = []job.MemberSpec{
 			{
 				CommonJobInfo: createJobInfo.CommonJobInfo,
 				JobSpec: job.JobSpec{
 					Flavour: schema.Flavour{
-						Name: pfj.,
+						Name: pfj.Env[schema.EnvJobFlavour],
 					},
 					LimitFlavour: schema.Flavour{
-						Name: conf.GetLimitFlavour(),
+						Name: pfj.Env[schema.EnvJobLimitFlavour],
 					},
 					FileSystem:       fs,
 					ExtraFileSystems: efs,
 					Image:            pfj.Image,
 					Env:              pfj.Env,
 					Command:          pfj.Command,
-					Args:             pfj.Env,
 				},
 				Role:     string(schema.RoleWorker),
 				Replicas: 1,
 			},
 		}
 
-
-	}else{
+	} else {
 		createJobInfo.Type = schema.TypeDistributed
 		createJobInfo.Framework = pfj.Framework
+		createJobInfo.Members = pfj.Members
 	}
+	return createJobInfo
 }
+
 // 生成job 的conf 信息
 func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 	fs := schema.FileSystem{}
@@ -300,38 +304,18 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 	var err error
 
 	// 调用job子系统接口发起运行
-	if len(pfj.Members) == 0 {
-		// Create Single PaddleFlow Job
-		conf := pfj.generateJobConf()
-		pfj.ID, err = job.CreatePPLJob(&conf)
-	} else {
-		// Create Distributed PaddleFlow Job
-		conf := pfj.generateJobConf()
-		members := pfj.Members
-		framework := pfj.Framework
-		pfj.ID, err = job.CreateDistributedPPLJob(&conf, members, framework)
-	}
-
-
-
-	if err != nil {
-		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
-		return "", err
-	}
+	createJobInfo := pfj.generateCreateJobInfo()
 	ctx := &logger.RequestContext{
 		UserName: createJobInfo.UserName,
 	}
-	jobResponse, err := job.CreatePFJob(ctx, createJobInfo)
+
+	jobResponse, err := job.CreatePFJob(ctx, &createJobInfo)
 	if err != nil {
 		log.Errorf("create pipeline job failed. err: %s", err)
 		return "", err
 	}
 
-
-	if err != nil {
-		return "", err
-	}
-
+	pfj.ID = jobResponse.ID
 	if pfj.ID == "" {
 		err = fmt.Errorf("watch paddleflow job[%s] failed, job not started, id is empty", pfj.Job().Name)
 		return "", err
