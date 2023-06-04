@@ -147,7 +147,7 @@ type WorkflowSourceStep struct {
 	Cache           Cache                  `yaml:"cache"             json:"cache"`
 	Reference       Reference              `yaml:"reference"         json:"reference"`
 	ExtraFS         []FsMount              `yaml:"extra_fs"          json:"extraFS"`
-	DistributedJobs []Member               `yaml:"distributed_jobs"  json:"distributedJobs"`
+	DistributedJobs DistributedJob         `yaml:"distributed_jobs"  json:"distributedJobs"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {

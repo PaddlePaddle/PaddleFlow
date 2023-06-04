@@ -903,12 +903,7 @@ func ValidateDistributedPPLJob(conf schema.PFJobConf, members []MemberSpec, fram
 	return validateJob(ctx, createJobInfo)
 }
 
-func ValidatePPLJob(conf schema.PFJobConf) error {
-	createJobInfo, err := jobConfToCreateJobInfo(conf)
-	if err != nil {
-		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
-		return err
-	}
+func ValidatePPLJob(createJobInfo *CreateJobInfo) error {
 	// pipeline job check
 	if len(createJobInfo.Name) == 0 {
 		return errors.EmptyJobNameError()

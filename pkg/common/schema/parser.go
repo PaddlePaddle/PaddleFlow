@@ -18,7 +18,6 @@ package schema
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
@@ -275,7 +274,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				return fmt.Errorf("[distributed_jobs] in step should be map type")
 			}
 
-			distJobs := job.DistributedJobSpec{}
+			distJobs := DistributedJob{}
 			// parse framework
 			framework, ok := value["framework"].(string)
 			if !ok {
@@ -288,10 +287,10 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if !ok {
 				return fmt.Errorf("extract members from [distributed_jobs] failed because [%v]", err)
 			}
-			distJobs.Members = make([]job.MemberSpec, 0)
+			distJobs.Members = make([]Member, 0)
 
 			for index, member := range members {
-				distributedJob := job.MemberSpec{}
+				mem := Member{}
 				memberMap, ok := member.(map[string]interface{})
 				if !ok {
 					return fmt.Errorf("the member %v defined in [distributed_jobs] should be map type", index)
@@ -300,41 +299,41 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				for memberKey, memberValue := range memberMap {
 					switch memberKey {
 					case "role":
-						refValue, ok := memberValue.(string)
+						refValue, ok := memberValue.(MemberRole)
 						if !ok {
 							return fmt.Errorf("[role] defined in member %v should be string type", index)
 						}
-						distributedJob.Role = refValue
+						mem.Role = refValue
 					case "command":
 						refValue, ok := memberValue.(string)
 						if !ok {
 							return fmt.Errorf("[command] defined in member %v should be string type", index)
 						}
-						distributedJob.Command = refValue
+						mem.Command = refValue
 					case "replicas":
 						refValue, ok := memberValue.(int)
 						if !ok {
 							return fmt.Errorf("[replicas] defined in member %v should be int type", index)
 						}
-						distributedJob.Replicas = refValue
+						mem.Replicas = refValue
 					case "image":
 						refValue, ok := memberValue.(string)
 						if !ok {
 							return fmt.Errorf("[image] defined in member %v should be string type", index)
 						}
-						distributedJob.Image = refValue
+						mem.Image = refValue
 					case "port":
 						refValue, ok := memberValue.(int64)
 						if !ok {
 							return fmt.Errorf("[port] defined in member %v should be int type", index)
 						}
-						distributedJob.Port = *(*int)(unsafe.Pointer(&refValue))
+						mem.Port = *(*int)(unsafe.Pointer(&refValue))
 					case "queue":
 						refValue, ok := memberValue.(string)
 						if !ok {
 							return fmt.Errorf("[queue] defined in member %v should be string type", index)
 						}
-						distributedJob.SchedulingPolicy.Queue = refValue
+						mem.QueueName = refValue
 					case "flavour":
 						refValue, ok := memberValue.(map[string]interface{})
 						flavour := Flavour{}
@@ -345,10 +344,10 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 						if flavour, err = MapToFlavour(refValue); err != nil {
 							return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
 						}
-						distributedJob.Flavour = flavour
+						mem.Flavour = flavour
 					}
 				}
-				distJobs.Members = append(distJobs.Members, distributedJob)
+				distJobs.Members = append(distJobs.Members, mem)
 			}
 			step.DistributedJobs = distJobs
 		case "env":

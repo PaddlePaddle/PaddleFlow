@@ -31,7 +31,7 @@ import (
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, distributedJob *job.DistributedJobSpec)
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, distributedJob *schema.DistributedJob)
 	Validate() error
 	Start() (string, error)
 	Stop() error
@@ -77,12 +77,12 @@ type PaddleFlowJob struct {
 	mainFS       *schema.FsMount
 	extraFS      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
-	Members      []job.MemberSpec
+	Members      []schema.Member
 	Framework    schema.Framework
 }
 
 func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount,
-	extraFS []schema.FsMount, framework schema.Framework, members []job.MemberSpec) *PaddleFlowJob {
+	extraFS []schema.FsMount, framework schema.Framework, members []schema.Member) *PaddleFlowJob {
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
@@ -96,7 +96,7 @@ func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- Workflow
 }
 
 func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChannel chan<- WorkflowEvent,
-	mainFS *schema.FsMount, extraFS []schema.FsMount, userName string, framework schema.Framework, members []job.MemberSpec) *PaddleFlowJob {
+	mainFS *schema.FsMount, extraFS []schema.FsMount, userName string, framework schema.Framework, members []schema.Member) *PaddleFlowJob {
 	pfj := PaddleFlowJob{
 		BaseJob: BaseJob{
 			ID:         view.JobID,
@@ -126,7 +126,7 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 // 发起作业接口
 func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
-	artifacts *schema.Artifacts, distributedJob *job.DistributedJobSpec) {
+	artifacts *schema.Artifacts, distributedJob *schema.DistributedJob) {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -219,7 +219,60 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 	} else {
 		createJobInfo.Type = schema.TypeDistributed
 		createJobInfo.Framework = pfj.Framework
-		createJobInfo.Members = pfj.Members
+		members := make([]job.MemberSpec, 0)
+		for _, member := range pfj.Members {
+			mem := job.MemberSpec{
+				CommonJobInfo: createJobInfo.CommonJobInfo,
+				Role:          string(member.Role),
+				Replicas:      member.Replicas,
+			}
+
+			if member.QueueName != "" {
+				mem.CommonJobInfo.SchedulingPolicy.Queue = member.QueueName
+			}
+
+			image := ""
+			if member.Image != "" {
+				image = member.Image
+			} else {
+				image = pfj.Image
+			}
+
+			env := make(map[string]string)
+			if member.Env != nil {
+				env = member.Env
+			} else {
+				env = pfj.Env
+			}
+
+			command := ""
+			if member.Command != "" {
+				command = member.Command
+			} else {
+				command = pfj.Command
+			}
+
+			flavour := schema.Flavour{}
+			if member.Flavour.Name != "" {
+				flavour = member.Flavour
+			} else {
+				flavour.Name = pfj.Env[schema.EnvJobFlavour]
+			}
+
+			jobInfo := job.JobSpec{
+				Flavour:      flavour,
+				LimitFlavour: member.LimitFlavour,
+				FileSystem:   member.FileSystem,
+				Env:          env,
+				Command:      command,
+				Image:        image,
+				Port:         member.Port,
+				Args:         member.Args,
+			}
+			mem.JobSpec = jobInfo
+			members = append(members, mem)
+		}
+		createJobInfo.Members = members
 	}
 	return createJobInfo
 }
@@ -279,18 +332,9 @@ func (pfj *PaddleFlowJob) Validate() error {
 	var err error
 
 	// 调用job子系统接口进行校验
-	if len(pfj.Members) == 0 {
-		// Validate Single PaddleFlow Job
-		conf := pfj.generateJobConf()
-		err = job.ValidatePPLJob(&conf)
-	} else {
-		// Validate Distributed PaddleFlow Job
-		conf := pfj.generateJobConf()
-		members := pfj.Members
-		framework := pfj.Framework
-		err = job.ValidateDistributedPPLJob(&conf, members, framework)
-	}
+	jobInfo := pfj.generateCreateJobInfo()
 
+	err = job.ValidatePPLJob(&jobInfo)
 	if err != nil {
 		return err
 	}

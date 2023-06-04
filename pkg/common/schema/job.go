@@ -516,3 +516,8 @@ type Member struct {
 	Role     MemberRole `json:"role"`
 	Conf     `json:",inline"`
 }
+
+type DistributedJob struct {
+	Members   []Member  `json:"members,omitempty"`
+	Framework Framework `json:"framework,omitempty"`
+}
