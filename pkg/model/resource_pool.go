@@ -33,7 +33,7 @@ type ResourcePool struct {
 	TotalResources Resource `json:"totalResources" gorm:"column:total_resources;type:text"`
 	Location       Map      `json:"location" gorm:"column:location;type:text"`
 	Status         string   `json:"status"`
-	DeletedAt      string   `json:"-" gorm:"index:idx_id"`
+	DeletedAt      string   `json:"-" gorm:"index:idx_id,unique"`
 }
 
 func (ResourcePool) TableName() string {
