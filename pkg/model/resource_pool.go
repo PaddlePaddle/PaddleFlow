@@ -31,7 +31,8 @@ type ResourcePool struct {
 	QuotaType      string   `json:"quotaType"`
 	MinResources   Resource `json:"minResources" gorm:"column:min_resources;type:text"`
 	TotalResources Resource `json:"totalResources" gorm:"column:total_resources;type:text"`
-	Location       Map      `json:"location" gorm:"column:location;type:text"`
+	Labels         Map      `json:"labels" gorm:"column:labels;type:text"`
+	Annotations    Map      `json:"annotations" gorm:"column:annotations;type:text"`
 	Status         string   `json:"status"`
 	DeletedAt      string   `json:"-" gorm:"index:rp_idx_name,unique"`
 }
