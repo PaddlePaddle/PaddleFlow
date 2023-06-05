@@ -311,11 +311,11 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 						}
 						mem.Command = refValue
 					case "replicas":
-						refValue, ok := memberValue.(int)
+						refValue, ok := memberValue.(int64)
 						if !ok {
 							return fmt.Errorf("[replicas] defined in member %v should be int type", index)
 						}
-						mem.Replicas = refValue
+						mem.Replicas = *(*int)(unsafe.Pointer(&refValue))
 					case "image":
 						refValue, ok := memberValue.(string)
 						if !ok {

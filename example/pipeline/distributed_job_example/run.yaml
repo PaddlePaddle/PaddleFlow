@@ -10,6 +10,6 @@ entry_points:
     distributed_jobs:
       framework: "paddle"
       members:
-        - { "role": "pserver", "command": "","replicas": 2, "flavour": { "name": "queue1" }}
-        - { "role": "pworker", "command": "","replicas": 2, "flavour": { "name": "queue1" }}
+        - { "role": "pserver", "command": "","image": registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1,"replicas":2, "flavour": { "name": "flavour1" }}
+        - { "role": "pworker", "command": "","image": registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1,"replicas":2, "flavour": { "name": "flavour1" }}
 parallelism: 1
