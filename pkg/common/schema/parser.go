@@ -18,7 +18,6 @@ package schema
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
@@ -160,11 +159,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 	return nil
 }
 
-var (
-	fileLogger *logrus.Logger
-	logger     *logrus.Entry
-)
-
 func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string]Component, error) {
 	components := map[string]Component{}
 	for name, component := range entryPoints {
@@ -181,7 +175,6 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 			components[name] = &dagComp
 		} else {
 			stepComp := WorkflowSourceStep{}
-			logger.Infof("Distribued Jobs: ", compMap["distributed_jobs"].(string))
 			if err := p.ParseStep(compMap, &stepComp); err != nil {
 				return nil, fmt.Errorf("parse step[%s] failed, %v", name, err)
 			}
