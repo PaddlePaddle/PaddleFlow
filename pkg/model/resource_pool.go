@@ -19,7 +19,7 @@ package model
 type ResourcePool struct {
 	Model          `gorm:"embedded"`
 	Pk             int64    `json:"-" gorm:"primaryKey;autoIncrement"`
-	Name           string   `json:"name" gorm:"index:idx_id,unique"`
+	Name           string   `json:"name" gorm:"index:rp_idx_name,unique"`
 	Namespace      string   `json:"namespace" gorm:"column:"`
 	Type           string   `json:"type" gorm:"column:resource_type"`
 	Provider       string   `json:"provider" gorm:"column:resource_provider"`
@@ -33,7 +33,7 @@ type ResourcePool struct {
 	TotalResources Resource `json:"totalResources" gorm:"column:total_resources;type:text"`
 	Location       Map      `json:"location" gorm:"column:location;type:text"`
 	Status         string   `json:"status"`
-	DeletedAt      string   `json:"-" gorm:"index:idx_id,unique"`
+	DeletedAt      string   `json:"-" gorm:"index:rp_idx_name,unique"`
 }
 
 func (ResourcePool) TableName() string {
