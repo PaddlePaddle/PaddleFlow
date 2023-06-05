@@ -34,6 +34,7 @@ type ResourcePool struct {
 	Labels         Map      `json:"labels" gorm:"column:labels;type:text"`
 	Annotations    Map      `json:"annotations" gorm:"column:annotations;type:text"`
 	Status         string   `json:"status"`
+	IsHybrid       int      `json:"isHybrid"`
 	DeletedAt      string   `json:"-" gorm:"index:rp_idx_name,unique"`
 }
 

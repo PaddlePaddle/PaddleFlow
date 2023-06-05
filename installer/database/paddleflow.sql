@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `resource_pool` (
     `labels` text DEFAULT NULL  COMMENT 'the label of resource pool',
     `annotations` text DEFAULT NULL  COMMENT 'the annotation of resource pool',
     `status` varchar(32) NOT NULL DEFAULT 'open' COMMENT 'the status of resource pool',
+    `is_hybrid` tinyint(3) DEFAULT 0 COMMENT 'is hybrid resource pool',
     `created_at` datetime DEFAULT NULL COMMENT 'create time',
     `updated_at` datetime DEFAULT NULL COMMENT 'update time',
     `deleted_at` char(32) NOT NULL DEFAULT '' COMMENT 'deleted flag, not null means deleted',
