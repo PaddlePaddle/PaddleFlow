@@ -300,11 +300,11 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				for memberKey, memberValue := range memberMap {
 					switch memberKey {
 					case "role":
-						refValue, ok := memberValue.(MemberRole)
+						refValue, ok := memberValue.(string)
 						if !ok {
 							return fmt.Errorf("[role] defined in member %v should be string type", index)
 						}
-						mem.Role = refValue
+						mem.Role = MemberRole(refValue)
 					case "command":
 						refValue, ok := memberValue.(string)
 						if !ok {
