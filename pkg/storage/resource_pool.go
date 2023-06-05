@@ -17,12 +17,13 @@ limitations under the License.
 package storage
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 

@@ -29,8 +29,8 @@ type ResourcePool struct {
 	ClusterId      string   `json:"-" gorm:"column:cluster_id"`
 	ClusterName    string   `json:"clusterName" gorm:"column:cluster_name;->"`
 	QuotaType      string   `json:"quotaType"`
-	MinResources   Resource `json:"minResources" gorm:"column:min_resources"`
-	TotalResources Resource `json:"totalResources" gorm:"column:total_resources;default:'{}'"`
+	MinResources   Resource `json:"minResources" gorm:"column:min_resources;type:text"`
+	TotalResources Resource `json:"totalResources" gorm:"column:total_resources;type:text"`
 	Location       Map      `json:"location" gorm:"column:location;type:text"`
 	Status         string   `json:"status"`
 	DeletedAt      string   `json:"-" gorm:"index:idx_id"`
