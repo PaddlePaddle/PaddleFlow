@@ -228,9 +228,9 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	defer srt.catchPanic()
 
-	distibuteJobs := srt.getWorkFlowStep().DistributedJobs
+	distributedJobs := srt.getWorkFlowStep().DistributedJobs
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName, distibuteJobs.Framework, distibuteJobs.Members)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName, distributedJobs.Framework, distributedJobs.Members)
 
 	srt.pk = view.PK
 	err := srt.updateStatus(view.Status)

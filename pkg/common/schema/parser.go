@@ -268,7 +268,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Artifacts = artifacts
-		case CompTypeDistributedJobs:
+		case "distributed_jobs":
 			value, ok := value.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("[distributed_jobs] in step should be map type")
