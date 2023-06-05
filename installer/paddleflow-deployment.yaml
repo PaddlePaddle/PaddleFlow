@@ -2278,7 +2278,7 @@ kind: PriorityClass
 metadata:
     name: high
     selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/high
-value: 1000
+value: 100
 ---
 # Source: pfchart/charts/volcano-scheduler/templates/low.yaml
 apiVersion: scheduling.k8s.io/v1
@@ -2287,17 +2287,16 @@ kind: PriorityClass
 metadata:
     name: low
     selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/low
-value: 50
+value: -10
 ---
 # Source: pfchart/charts/volcano-scheduler/templates/normal.yaml
 apiVersion: scheduling.k8s.io/v1
 description: Used for normal pods.
-globalDefault: true
 kind: PriorityClass
 metadata:
     name: normal
     selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/normal
-value: 100
+value: 0
 ---
 # Source: pfchart/charts/volcano-scheduler/templates/very-high.yaml
 apiVersion: scheduling.k8s.io/v1
@@ -2315,5 +2314,5 @@ kind: PriorityClass
 metadata:
     name: very-low
     selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/very-low
-value: 10
+value: -2000
 ---
