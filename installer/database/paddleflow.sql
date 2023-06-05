@@ -22,6 +22,32 @@ CREATE TABLE IF NOT EXISTS `cluster_info` (
     UNIQUE KEY idx_id (`id`, `deleted_at`)
     ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
+CREATE TABLE IF NOT EXISTS `resource_pool` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL COMMENT 'resource pool id',
+    `name` varchar(255) NOT NULL COMMENT 'resource pool name',
+    `namespace` varchar(64) DEFAULT NULL COMMENT 'resource pool namespace',
+    `resource_type` varchar(32) DEFAULT NULL COMMENT 'the type of resource pool',
+    `resource_provider` varchar(32) DEFAULT NULL COMMENT 'the provider of resource pool',
+    `org_id` varchar(64) DEFAULT NULL COMMENT 'the id of org',
+    `creator_id` varchar(64) DEFAULT NULL COMMENT 'the creator of resource pool',
+    `description` varchar(2048) NOT NULL DEFAULT '' COMMENT 'resource pool description',
+    `cluster_id` varchar(60) NOT NULL DEFAULT '' COMMENT 'the id of cluster',
+    `quota_type` varchar(255) DEFAULT NULL,
+    `total_resources` text DEFAULT NULL COMMENT 'the total of resource pool',
+    `min_resources` text DEFAULT NULL,
+    `labels` text DEFAULT NULL  COMMENT 'the label of resource pool',
+    `annotations` text DEFAULT NULL  COMMENT 'the annotation of resource pool',
+    `status` varchar(32) NOT NULL DEFAULT 'open' COMMENT 'the status of resource pool',
+    `is_hybrid` tinyint(3) DEFAULT 0 COMMENT 'is hybrid resource pool',
+    `created_at` datetime DEFAULT NULL COMMENT 'create time',
+    `updated_at` datetime DEFAULT NULL COMMENT 'update time',
+    `deleted_at` char(32) NOT NULL DEFAULT '' COMMENT 'deleted flag, not null means deleted',
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY rp_idx_name (`name`, `deleted_at`),
+    UNIQUE KEY rp_idx_id (`id`, `deleted_at`)
+    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+
 CREATE TABLE IF NOT EXISTS `flavour` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL COMMENT 'id',
