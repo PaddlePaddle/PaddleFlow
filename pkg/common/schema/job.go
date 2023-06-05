@@ -178,21 +178,6 @@ const (
 	EnvRayJobWorkerMaxReplicas       = "RAY_JOB_WORKER_MAX_REPLICAS"
 	EnvRayJobWorkerStartParamsPrefix = "RAY_JOB_WORKER_START_PARAMS_"
 
-	// Distributed Job keywords
-	EnvDistributedMembers       = "PF_JOB_MEMBERS"
-	EnvDistributedJobEntryPoint = "PF_JOB_ENTRY_POINT"
-	EnvDistributedJobFlavour    = "flavour"
-	EnvDistributedJobReplicas   = "replicas"
-	EnvDistributedJobImage      = "image"
-	EnvPaddleJobWorkerImage     = "PD_JOB_WORKER_IMAGE"
-	EnvPaddleJobWorkerArgs      = "PD_JOB_WORKER_ARGS"
-	EnvPaddleJobPSFlavour       = "PD_JOB_PS_FLAVOUR"
-
-	EnvPaddleJobPSImage = "PD_JOB_PS_IMAGE"
-	EnvPaddleJobPSArgs  = "PD_JOB_PS_ARGS"
-
-	ENV
-
 	// ENVK3SNodeName  makesure schedule without volcano
 	ENVK3SNodeName = "K3S_NODE_NAME"
 )

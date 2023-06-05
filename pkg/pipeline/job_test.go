@@ -12,7 +12,7 @@ import (
 )
 
 func TestStopJob(t *testing.T) {
-	pfj := NewPaddleFlowJob("abc", "abc:qe", "root", make(chan<- WorkflowEvent), nil, nil)
+	pfj := NewPaddleFlowJob("abc", "abc:qe", "root", make(chan<- WorkflowEvent), nil, nil, "paddle", nil)
 
 	assert.Equal(t, "root", pfj.userName)
 

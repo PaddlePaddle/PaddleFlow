@@ -860,49 +860,6 @@ func CreatePPLJob(conf schema.PFJobConf) (string, error) {
 	return jobResponse.ID, nil
 }
 
-// CreatePPLJob create a run job, used by pipeline
-func CreateDistributedPPLJob(conf schema.PFJobConf, members []MemberSpec, framework schema.Framework) (string, error) {
-	createJobInfo, err := jobConfToCreateJobInfo(conf)
-	if err != nil {
-		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
-		return "", err
-	}
-
-	createJobInfo.Members = members
-	createJobInfo.Framework = framework
-	ctx := &logger.RequestContext{
-		UserName: createJobInfo.UserName,
-	}
-
-	jobResponse, err := CreatePFJob(ctx, createJobInfo)
-	if err != nil {
-		log.Errorf("create pipeline job failed. err: %s", err)
-		return "", err
-	}
-	return jobResponse.ID, nil
-}
-
-func ValidateDistributedPPLJob(conf schema.PFJobConf, members []MemberSpec, framework schema.Framework) error {
-	createJobInfo, err := jobConfToCreateJobInfo(conf)
-	if err != nil {
-		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
-		return err
-	}
-	createJobInfo.Members = members
-	createJobInfo.Framework = framework
-	// pipeline job check
-	if len(createJobInfo.Name) == 0 {
-		return errors.EmptyJobNameError()
-	}
-	if len(createJobInfo.UserName) == 0 {
-		return errors.EmptyUserNameError()
-	}
-	ctx := &logger.RequestContext{
-		UserName: createJobInfo.UserName,
-	}
-	return validateJob(ctx, createJobInfo)
-}
-
 func ValidatePPLJob(createJobInfo *CreateJobInfo) error {
 	// pipeline job check
 	if len(createJobInfo.Name) == 0 {
