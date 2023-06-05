@@ -355,6 +355,8 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
+	srt.logger.Infof("step[%s]: , distributed jobs %v", srt.name, distributedJobs)
+
 	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, &distributedJobs)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
 		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().ExtraFS)

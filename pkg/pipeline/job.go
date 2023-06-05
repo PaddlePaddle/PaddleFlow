@@ -151,7 +151,7 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 
 func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 	entry := logger.LoggerForJob(pfj.ID)
-	entry.Infof("PaddleFlowJob: %v", pfj)
+	entry.Infof("PaddleFlowJob: %v", &pfj)
 	commonInfo := job.CommonJobInfo{
 		ID:       pfj.ID,
 		Name:     pfj.Name,
