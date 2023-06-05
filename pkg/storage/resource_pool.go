@@ -57,7 +57,10 @@ func (rps *ResourcePoolStore) Get(name string) (model.ResourcePool, error) {
 
 func (rps *ResourcePoolStore) List(pk int64, maxKeys int, filters map[string]string) ([]model.ResourcePool, error) {
 	log.Debugf("list resource pools, pk: %d, maxKeys: %d, filters: %#v", pk, maxKeys, filters)
-	tx := rps.db.Model(&model.ResourcePool{}).Where("deleted_at = ''").Where("pk > ?", pk)
+	tx := rps.db.Model(&model.ResourcePool{}).Where("deleted_at = ''")
+	if pk >= 0 {
+		tx = tx.Where("pk >= ?", pk)
+	}
 	if maxKeys > 0 {
 		tx = tx.Limit(maxKeys)
 	}
