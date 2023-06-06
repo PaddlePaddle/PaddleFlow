@@ -41,6 +41,7 @@ const (
 	ResourceTypeImage         = "image"
 	ResourceTypePipeline      = "pipeline"
 	ResourceTypeCluster       = "cluster"
+	ResourceTypeResourcePool  = "resource_pool"
 	ResourceTypeJob           = "job"
 
 	HeaderKeyRequestID     = "x-pf-request-id"
