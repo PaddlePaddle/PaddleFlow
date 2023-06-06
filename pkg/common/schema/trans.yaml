@@ -1,0 +1,293 @@
+name: myproject
+docker_env: random:int
+entry_points:
+  disStep:
+    loop_argument: null
+    condition: ""
+    parameters: {}
+    command: echo dis
+    deps: ""
+    artifacts:
+      input: {}
+      output: {}
+    env: {}
+    docker_env: random:int
+    cache:
+      enable: false
+      max_expired_time: "400"
+      fs_scope:
+      - name: cy
+        path: /path/to/run,/path/to/run2
+    reference:
+      component: ""
+    extra_fs:
+    - name: abc
+      mount_path: ""
+      sub_path: ""
+      read_only: false
+    distributed_jobs:
+      members: []
+      framework: ""
+  process-negetive:
+    loop_argument: null
+    condition: ""
+    parameters: {}
+    command: ""
+    deps: split-by-threshold
+    artifacts:
+      input:
+        loop_args: '{{split-by-threshold.less}}'
+      output: {}
+    env: {}
+    docker_env: ""
+    cache:
+      enable: false
+      max_expired_time: ""
+      fs_scope: []
+    reference:
+      component: process-negetive
+    extra_fs: []
+    distributed_jobs:
+      members: []
+      framework: ""
+  process-positive:
+    loop_argument: '{{greater}}'
+    condition: ""
+    parameters: {}
+    deps: split-by-threshold
+    artifacts:
+      input:
+        greater: '{{split-by-threshold.greater}}'
+      output: {}
+    entry_points:
+      condition1:
+        loop_argument: null
+        condition: '{{pf_parent_loop_argument}} < 10'
+        parameters:
+          pf_parent_loop_argument: '{{PF_PARENT.PF_LOOP_ARGUMENT}}'
+        deps: ""
+        artifacts:
+          input: {}
+          output: {}
+        entry_points:
+          show:
+            loop_argument: null
+            condition: ""
+            parameters:
+              num: '{{PF_PARENT.pf_parent_loop_argument}}'
+            command: ""
+            deps: ""
+            artifacts:
+              input: {}
+              output: {}
+            env: {}
+            docker_env: ""
+            cache:
+              enable: false
+              max_expired_time: ""
+              fs_scope: []
+            reference:
+              component: show
+            extra_fs: []
+            distributed_jobs:
+              members: []
+              framework: ""
+  randint:
+    loop_argument: null
+    condition: ""
+    parameters:
+      max: 10
+      min: -10
+      num: 5
+      pFloat:
+        default: 0.66
+        type: float
+      pPath:
+        default: /path/to/anywhere
+        type: path
+      pString:
+        default: dictparam
+        type: string
+    command: randint {{min}} {{max}} {{random_int}}
+    deps: ""
+    artifacts:
+      input: {}
+      output:
+        random_int: ""
+    env:
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+    docker_env: random:int
+    cache:
+      enable: false
+      max_expired_time: "400"
+      fs_scope:
+      - name: cy
+        path: /path/to/run,/path/to/run2
+    reference:
+      component: ""
+    extra_fs:
+    - name: abc
+      mount_path: ""
+      sub_path: ""
+      read_only: false
+    distributed_jobs:
+      members: []
+      framework: ""
+  split-by-threshold:
+    loop_argument: null
+    condition: ""
+    parameters: {}
+    command: python3 split.py 0 {{nums}}
+    deps: randint
+    artifacts:
+      input:
+        nums: '{{randint.random_int}}'
+      output:
+        all: ""
+        greater: ""
+        less: ""
+    env:
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+    docker_env: random:int
+    cache:
+      enable: false
+      max_expired_time: "400"
+      fs_scope:
+      - name: cy
+        path: /path/to/run,/path/to/run2
+    reference:
+      component: ""
+    extra_fs:
+    - name: abc
+      mount_path: ""
+      sub_path: ""
+      read_only: false
+    distributed_jobs:
+      members: []
+      framework: ""
+  square-loop:
+    loop_argument: '{{random_int}}'
+    condition: ""
+    parameters: {}
+    deps: randint
+    artifacts:
+      input:
+        random_int: '{{randint.random_int}}'
+      output:
+        square_result: '{{square.result}}'
+    entry_points:
+      square:
+        loop_argument: null
+        condition: ""
+        parameters:
+          num: '{{PF_PARENT.PF_LOOP_ARGUMENT}}'
+        command: echo  $(({{num}} * {{num}}))
+        deps: ""
+        artifacts:
+          input:
+            in: '{{PF_PARENT.random_int}}'
+          output:
+            result: ""
+        env:
+          PF_JOB_PRIORITY: high
+          PF_JOB_QUEUE: CPU-32G
+          PF_JOB_QUEUE_NAME: qdh
+          PF_JOB_TYPE: vcjob
+        docker_env: random:int
+        cache:
+          enable: false
+          max_expired_time: "400"
+          fs_scope:
+          - name: cy
+            path: /path/to/run,/path/to/run2
+        reference:
+          component: ""
+        extra_fs:
+        - name: abc
+          mount_path: ""
+          sub_path: ""
+          read_only: false
+        distributed_jobs:
+          members: []
+          framework: ""
+  sum:
+    loop_argument: null
+    condition: ""
+    parameters: {}
+    command: python3 sum.py {{nums}}
+    deps: square-loop
+    artifacts:
+      input:
+        nums: '{{square-loop.square_result}}'
+      output: {}
+    env:
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+    docker_env: random:int
+    cache:
+      enable: false
+      max_expired_time: "400"
+      fs_scope:
+      - name: cy
+        path: /path/to/run,/path/to/run2
+    reference:
+      component: ""
+    extra_fs:
+    - name: abc
+      mount_path: ""
+      sub_path: ""
+      read_only: false
+    distributed_jobs:
+      members: []
+      framework: ""
+cache:
+  enable: false
+  max_expired_time: "400"
+  fs_scope:
+  - name: cy
+    path: /path/to/run,/path/to/run2
+parallelism: 5
+disabled: disStep
+failure_options:
+  strategy: fail_fast
+post_process:
+  post:
+    loop_argument: null
+    condition: ""
+    parameters: {}
+    command: echo post
+    deps: ""
+    artifacts:
+      input: {}
+      output: {}
+    env: {}
+    docker_env: ""
+    cache:
+      enable: false
+      max_expired_time: ""
+      fs_scope: []
+    reference:
+      component: ""
+    extra_fs: []
+    distributed_jobs:
+      members: []
+      framework: ""
+fs_options:
+  main_fs:
+    name: cy
+    mount_path: ""
+    sub_path: ""
+    read_only: false
+  extra_fs:
+  - name: abc
+    mount_path: ""
+    sub_path: ""
+    read_only: false

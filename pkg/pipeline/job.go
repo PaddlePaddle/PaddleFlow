@@ -139,6 +139,7 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 		pfj.Env = envs
 	}
 
+	// members和framework添加到PaddleFlowJob中
 	if distributedJob != nil {
 		pfj.Framework = distributedJob.Framework
 		pfj.Members = distributedJob.Members
@@ -150,8 +151,6 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 }
 
 func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
-	entry := logger.LoggerForJob(pfj.ID)
-	entry.Infof("PaddleFlowJob: %v", &pfj)
 	commonInfo := job.CommonJobInfo{
 		ID:       pfj.ID,
 		Name:     pfj.Name,
@@ -194,6 +193,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 	createJobInfo.SchedulingPolicy.Queue = queueName
 	createJobInfo.SchedulingPolicy.Priority = priority
 
+	// 生成single或distributed job的createJobInfo信息
 	if len(pfj.Members) == 0 {
 		createJobInfo.Type = schema.TypeSingle
 		createJobInfo.Framework = schema.FrameworkStandalone
@@ -349,12 +349,12 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 	// 此函数不更新job.Status，job.startTime，统一通过watch更新
 	var err error
 
-	// 调用job子系统接口发起运行
+	// 生成CreateJobInfo
 	createJobInfo := pfj.generateCreateJobInfo()
 	ctx := &logger.RequestContext{
 		UserName: createJobInfo.UserName,
 	}
-
+	// 调用job子系统接口发起运行
 	jobResponse, err := job.CreatePFJob(ctx, &createJobInfo)
 	if err != nil {
 		log.Errorf("create pipeline job failed. err: %s", err)

@@ -503,6 +503,6 @@ type Member struct {
 }
 
 type DistributedJob struct {
-	Members   []Member  `json:"members,omitempty"`
-	Framework Framework `json:"framework,omitempty"`
+	Members   []Member  `json:"members"`
+	Framework Framework `json:"framework"`
 }

@@ -161,7 +161,6 @@ func (srt *StepRuntime) Start() {
 	// TODO: 此时是否需要同步至数据库？
 	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())
-	srt.logger.Infof("current run train step %v", srt.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
 	err := srt.setSysParams()
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -355,8 +354,6 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 			newEnvs[GetOutputArtifactEnvName(atfName)] = GetArtifactMountPath(srt.runConfig.mainFS, atfValue)
 		}
 	}
-
-	srt.logger.Infof("step[%s]: , distributed jobs %v", srt.name, distributedJobs)
 
 	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, &distributedJobs)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",

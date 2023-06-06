@@ -520,7 +520,6 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			if err != nil {
 				return err
 			}
-			logger.Logger().Infof("Entry Points Parse: %v", entryPoints["train"].(*WorkflowSourceStep))
 			dagComp.EntryPoints = entryPoints
 		case "type":
 			value, ok := value.(string)
@@ -739,6 +738,12 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
+		case "distributedJobs":
+			if err := p.transJsonDistributedJobs2Yaml(value); err != nil {
+				return err
+			}
+			jsonMap["distributed_jobs"] = value
+			delete(jsonMap, "distributedJobs")
 		}
 	}
 	return nil
@@ -828,6 +833,7 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 	if !ok {
 		return fmt.Errorf("[fsOptions] should be map type")
 	}
+	fmt.Println("fs opt", fsOptMap)
 	for key, value := range fsOptMap {
 		switch key {
 		case "extraFS":
@@ -842,6 +848,72 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 				return err
 			}
 			delete(fsOptMap, "mainFS")
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
+	distJobMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[distributedJobs] should be map type")
+	}
+	for distKey, distValue := range distJobMap {
+		switch distKey {
+		case "framework":
+			distJobMap["framework"] = distValue
+			delete(distJobMap, "framework")
+		case "members":
+			if err := p.transJsonMembers2Yaml(value); err != nil {
+				return err
+			}
+			distJobMap["members"] = distValue
+			delete(distJobMap, "members")
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonMembers2Yaml(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+
+	memberMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[members] should be map type")
+	}
+
+	memberList, ok, _ := unstructured.NestedSlice(memberMap, "")
+
+	if !ok {
+		return fmt.Errorf("[members] should be list type")
+	}
+	for i, member := range memberList {
+		if err := p.transJsonMember2Yaml(member); err != nil {
+			return err
+		}
+		memberList[i] = member
+	}
+	return nil
+}
+
+func (p *Parser) transJsonMember2Yaml(value interface{}) error {
+	memberMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[members] should map type")
+	}
+	for memberKey, memberValue := range memberMap {
+		switch memberKey {
+		case "id":
+			memberMap["id"] = memberValue
+			delete(memberMap, "id")
+		case "replicas":
+			memberMap["replicas"] = memberValue
+			delete(memberMap, "replicas")
+		case "role":
+			memberMap["role"] = memberValue
+			delete(memberMap, "role")
 		}
 	}
 	return nil

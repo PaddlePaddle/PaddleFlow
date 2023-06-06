@@ -239,8 +239,7 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
 	}
-	logger.Logger().Infof("Get Run Yaml %s", runYaml)
-	logger.Logger().Infof("Yaml To Workflow Source entryPoint distributed jobs: %v", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep).DistributedJobs)
+
 	return wfs, source, runYaml, nil
 }
 
