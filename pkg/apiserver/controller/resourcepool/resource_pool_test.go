@@ -338,7 +338,7 @@ func TestUpdateRequest_Validate(t *testing.T) {
 		err        error
 	}{
 		{
-			name:       "not upate",
+			name:       "not update",
 			request:    &UpdateRequest{},
 			needUpdate: false,
 			err:        nil,
@@ -410,6 +410,7 @@ func TestUpdateRequest_Validate(t *testing.T) {
 					Mem: "10Gi",
 					ScalarResources: schema.ScalarResourcesType{
 						"nvidia.com/gpu": "10",
+						"xx.xx/rdma":     "",
 					},
 				},
 			},
@@ -441,6 +442,75 @@ func TestUpdateRequest_Validate(t *testing.T) {
 			needUpdated, err := tc.request.Validate(ctx, rpInfo)
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.needUpdate, needUpdated)
+		})
+	}
+}
+
+func TestUpate(t *testing.T) {
+	testCases := []struct {
+		name     string
+		request  *UpdateRequest
+		userName string
+		err      error
+	}{
+		{
+			name:     "permission deny",
+			request:  &UpdateRequest{},
+			userName: "mock-user",
+			err:      fmt.Errorf("update resource pool failed. error: admin is needed"),
+		},
+		{
+			name: "validate update request failed",
+			request: &UpdateRequest{
+				Name: rp1.Name,
+				TotalResources: schema.ResourceInfo{
+					CPU: "-20",
+					Mem: "10Gi",
+				},
+			},
+			userName: "root",
+			err:      fmt.Errorf("parse cpu resource[-20] failed"),
+		},
+		{
+			name: "resource pool  not found",
+			request: &UpdateRequest{
+				Name: "xx",
+				TotalResources: schema.ResourceInfo{
+					CPU: "20",
+					Mem: "10Gi",
+				},
+			},
+			userName: "root",
+			err:      fmt.Errorf("record not found"),
+		},
+		{
+			name: "skip update request",
+			request: &UpdateRequest{
+				Name: rp1.Name,
+			},
+			userName: "root",
+		},
+		{
+			name: "update request successfully",
+			request: &UpdateRequest{
+				Name: rp1.Name,
+				TotalResources: schema.ResourceInfo{
+					CPU: "20",
+					Mem: "10Gi",
+				},
+			},
+			userName: "root",
+		},
+	}
+
+	driver.InitMockDB()
+	assert.Nil(t, storage.ResourcePool.Create(&rp1))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := &logger.RequestContext{UserName: tc.userName}
+			updatedReq, err := Update(ctx, tc.request)
+			assert.Equal(t, tc.err, err)
+			t.Logf("after update: %v", updatedReq)
 		})
 	}
 }

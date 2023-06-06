@@ -54,8 +54,6 @@ type CreateRequest struct {
 type UpdateRequest struct {
 	Name           string              `json:"-"`
 	Namespace      string              `json:"-"`
-	ClusterName    string              `json:"-"`
-	QuotaType      string              `json:"-"`
 	TotalResources schema.ResourceInfo `json:"totalResources,omitempty"`
 	Annotations    map[string]string   `json:"annotations,omitempty"`
 	Status         string              `json:"status,omitempty"`
@@ -80,23 +78,18 @@ type ListResponse struct {
 
 func (c *CreateRequest) validateString(ctx *logger.RequestContext) error {
 	if err := common.CheckName("name", c.Name); err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	if err := common.CheckName("namespace", c.Namespace); err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	if err := common.CheckLength("type", c.Type, 32); err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	if err := common.CheckLength("provider", c.Provider, 32); err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	if err := common.CheckLength("description", c.Description, 2048); err != nil {
-		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	return nil
@@ -149,6 +142,7 @@ func (c *CreateRequest) validateResources(ctx *logger.RequestContext) error {
 func (c *CreateRequest) Validate(ctx *logger.RequestContext) error {
 	err := c.validateString(ctx)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
 		return err
 	}
 	err = c.validateCluster(ctx)
@@ -253,7 +247,6 @@ func (u *UpdateRequest) validateAnnotations(ctx *logger.RequestContext, rpInfo *
 	if rpInfo.QuotaType == schema.TypeElasticQuota {
 		_, exist := u.Annotations[v1beta1.QuotaTypeKey]
 		if exist {
-			ctx.ErrorCode = common.InvalidArguments
 			return false, fmt.Errorf("the isolaction type of resource pool cannot be changed")
 		}
 		// remove parent for physical elastic quota
@@ -278,7 +271,6 @@ func (u *UpdateRequest) validateStatus(ctx *logger.RequestContext, rpInfo *model
 		return false, nil
 	}
 	if u.Status != schema.StatusQueueOpen && u.Status != schema.StatusQueueClosed {
-		ctx.ErrorCode = common.InvalidArguments
 		return false, fmt.Errorf("the status of resource pool[%s] is invalid", u.Status)
 	}
 	return u.Status != rpInfo.Status, nil
@@ -309,7 +301,7 @@ func Update(ctx *logger.RequestContext, request *UpdateRequest) (RPResponse, err
 	ctx.Logging().Debugf("begin update request. request:%s", config.PrettyFormat(request))
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
-		msg := fmt.Sprintf("update request failed. error: admin is needed")
+		msg := fmt.Sprintf("update resource pool failed. error: admin is needed")
 		ctx.Logging().Errorln(msg)
 		return RPResponse{}, errors.New(msg)
 	}
@@ -321,6 +313,7 @@ func Update(ctx *logger.RequestContext, request *UpdateRequest) (RPResponse, err
 	}
 	needUpdate, err := request.Validate(ctx, &rpInfo)
 	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
 		return RPResponse{}, err
 	}
 	if !needUpdate {
