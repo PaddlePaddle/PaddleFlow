@@ -654,7 +654,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
-
+	logger.Logger().Infof("GetWorkflowSourceByMap entryPointsMap: %v", entryPointsMap)
 	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, CompTypeEntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
