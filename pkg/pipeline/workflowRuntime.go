@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"sync"
 	"time"
 
@@ -118,6 +119,7 @@ func (wfr *WorkflowRuntime) Start() {
 		wfr.callback("begin to running, update status to running")
 
 		go wfr.Listen()
+		logger.Logger().Infof("Workflow Runtime Start Step:%v", wfr.entryPoints.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
 		wfr.entryPoints.Start()
 	}
 }

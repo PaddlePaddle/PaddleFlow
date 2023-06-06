@@ -282,18 +282,19 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 	fsMount := append(s.ExtraFS, []FsMount{}...)
 
 	ns := &WorkflowSourceStep{
-		Name:         s.Name,
-		LoopArgument: s.LoopArgument,
-		Condition:    s.Condition,
-		Parameters:   params,
-		Command:      s.Command,
-		Deps:         s.Deps,
-		Env:          env,
-		Artifacts:    *s.Artifacts.DeepCopy(),
-		DockerEnv:    s.DockerEnv,
-		Cache:        s.Cache,
-		Reference:    s.Reference,
-		ExtraFS:      fsMount,
+		Name:            s.Name,
+		LoopArgument:    s.LoopArgument,
+		Condition:       s.Condition,
+		Parameters:      params,
+		Command:         s.Command,
+		Deps:            s.Deps,
+		Env:             env,
+		Artifacts:       *s.Artifacts.DeepCopy(),
+		DockerEnv:       s.DockerEnv,
+		Cache:           s.Cache,
+		Reference:       s.Reference,
+		ExtraFS:         fsMount,
+		DistributedJobs: s.DistributedJobs,
 	}
 
 	return ns

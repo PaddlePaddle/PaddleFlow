@@ -240,7 +240,7 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		return schema.WorkflowSource{}, "", "", err
 	}
 	logger.Logger().Infof("Get Run Yaml %s", runYaml)
-	logger.Logger().Infof("Yaml To Workflow Source entryPoint %v", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
+	logger.Logger().Infof("Yaml To Workflow Source entryPoint distributed jobs: %v", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep).DistributedJobs)
 	return wfs, source, runYaml, nil
 }
 

@@ -275,6 +275,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 		} else {
 			subRuntime = NewDagRuntime(subName, subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+			drt.logger.Infof("new dag runtime is %v", dag)
 		}
 		drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subRuntime)
 
