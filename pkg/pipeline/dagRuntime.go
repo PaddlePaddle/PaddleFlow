@@ -271,7 +271,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 			// 这里需要对 step 进行复制， 避免多个subRuntime 使用了同一个 component， 导致并发问题
 			subRuntime = NewStepRuntime(subName, subFullName, step.DeepCopy().(*schema.WorkflowSourceStep), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-			drt.logger.Infof("new step runtime is %v", subRuntime.(*StepRuntime))
+			drt.logger.Infof("new step runtime is %v", step.DeepCopy().(*schema.WorkflowSourceStep))
 		} else {
 			subRuntime = NewDagRuntime(subName, subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
@@ -396,6 +396,7 @@ func (drt *DagRuntime) scheduleSubComponent() {
 		}
 
 		// 4. 创建 runtime 并运行 runtime
+		drt.logger.Infof("new workflow source step %v", newSubCp.(*schema.WorkflowSourceStep))
 		drt.createAndStartSubComponentRuntime(subComponentName, newSubCp, map[int]int{})
 	}
 }
