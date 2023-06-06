@@ -230,7 +230,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 	// 1. 获取 新的副本，避免循环结构的多次运行访问了同一个对象, 因为子节点是以指针形式存储的
 	newSubComponent := subComponent.DeepCopy()
-
+	drt.logger.Infof("new sub component is %v", newSubComponent)
 	// 2. 替换上下游参数模板
 	err := drt.DependencySolver.ResolveBeforeRun(newSubComponent)
 	if err != nil {
@@ -270,6 +270,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 			// 这里需要对 step 进行复制， 避免多个subRuntime 使用了同一个 component， 导致并发问题
 			subRuntime = NewStepRuntime(subName, subFullName, step.DeepCopy().(*schema.WorkflowSourceStep), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+			drt.logger.Infof("new step runtime is %v", subRuntime)
 		} else {
 			subRuntime = NewDagRuntime(subName, subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
