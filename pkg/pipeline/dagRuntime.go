@@ -191,6 +191,7 @@ func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
 	}
 
 	drt.logger.Infof("get ready subStep or subDag[%v] for dag[%s]", readyComponent, drt.name)
+
 	return readyComponent
 }
 
@@ -270,7 +271,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 			// 这里需要对 step 进行复制， 避免多个subRuntime 使用了同一个 component， 导致并发问题
 			subRuntime = NewStepRuntime(subName, subFullName, step.DeepCopy().(*schema.WorkflowSourceStep), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-			drt.logger.Infof("new step runtime is %v", subRuntime)
+			drt.logger.Infof("new step runtime is %v", subRuntime.(*StepRuntime))
 		} else {
 			subRuntime = NewDagRuntime(subName, subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
@@ -371,7 +372,7 @@ func (drt *DagRuntime) scheduleSubComponent() {
 
 		drt.logger.Infof("begin to schedule sub%s[%s] of dag[%s]",
 			subComponent.GetType(), subComponentName, drt.name)
-
+		drt.logger.Infof("begin to schedule step %v", subComponent.(*schema.WorkflowSourceStep))
 		// 如果此时的状态为 terminating 或者处于终态， 也不应该在调度子节点
 		if drt.isTerminating() || drt.isDone() {
 			drt.logger.Infof("the status of dag[%s] is [%s], so it's subStep or subDag wouldn't be scheduled anymore",

@@ -161,7 +161,7 @@ func (srt *StepRuntime) Start() {
 	// TODO: 此时是否需要同步至数据库？
 	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())
-
+	srt.logger.Infof("current run step %v", srt)
 	err := srt.setSysParams()
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -644,6 +644,8 @@ func (srt *StepRuntime) Execute() {
 	}()
 	srt.logger.Infof(logMsg)
 	logMsg = ""
+
+	srt.logger.Infof("Get WorkFlow Step in Execute: %v", srt.getWorkFlowStep())
 	// 1、 查看是否命中cache
 	if srt.getWorkFlowStep().Cache.Enable {
 		cachedFound, err := srt.checkCached()
