@@ -29,16 +29,17 @@ import (
 var (
 	DB *gorm.DB
 
-	Pipeline   PipelineStoreInterface
-	Filesystem FileSystemStoreInterface
-	FsCache    FsCacheStoreInterface
-	Auth       AuthStoreInterface
-	Cluster    ClusterStoreInterface
-	Flavour    FlavourStoreInterface
-	Queue      QueueStoreInterface
-	Job        JobStoreInterface
-	Image      ImageStoreInterface
-	Artifact   ArtifactStoreInterface
+	Pipeline     PipelineStoreInterface
+	Filesystem   FileSystemStoreInterface
+	FsCache      FsCacheStoreInterface
+	Auth         AuthStoreInterface
+	Cluster      ClusterStoreInterface
+	ResourcePool ResourcePoolStoreInterface
+	Flavour      FlavourStoreInterface
+	Queue        QueueStoreInterface
+	Job          JobStoreInterface
+	Image        ImageStoreInterface
+	Artifact     ArtifactStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
@@ -48,6 +49,7 @@ func InitStores(db *gorm.DB) {
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
 	Cluster = newClusterStore(db)
+	ResourcePool = newResourcePoolStore(db)
 	Flavour = newFlavourStore(db)
 	Job = newJobStore(db)
 	Queue = newQueueStore(db)
@@ -91,6 +93,14 @@ type ClusterStoreInterface interface {
 	DeleteCluster(clusterName string) error
 	UpdateCluster(clusterId string, clusterInfo *model.ClusterInfo) error
 	ActiveClusters() []model.ClusterInfo
+}
+
+type ResourcePoolStoreInterface interface {
+	Create(rp *model.ResourcePool) error
+	Get(name string) (model.ResourcePool, error)
+	List(pk int64, maxKeys int, filters map[string]string) ([]model.ResourcePool, error)
+	Update(rp *model.ResourcePool) error
+	Delete(name string) error
 }
 
 type FlavourStoreInterface interface {
