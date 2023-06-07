@@ -56,9 +56,8 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	srt := &StepRuntime{
 		baseComponentRuntime: cr,
 	}
+
 	jobName := generateJobName(config.runID, step.GetName(), seq)
-	srt.logger.Infof("original step is %v", step)
-	srt.logger.Infof("get workflow step is %v", srt.getWorkFlowStep())
 	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.userName, srt.receiveEventChildren,
 		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, step.DistributedJobs.Framework, step.DistributedJobs.Members)
 	srt.job = job
@@ -641,8 +640,6 @@ func (srt *StepRuntime) Execute() {
 	}()
 	srt.logger.Infof(logMsg)
 	logMsg = ""
-
-	srt.logger.Infof("Get WorkFlow Step in Execute: %v", srt.getWorkFlowStep())
 	// 1、 查看是否命中cache
 	if srt.getWorkFlowStep().Cache.Enable {
 		cachedFound, err := srt.checkCached()

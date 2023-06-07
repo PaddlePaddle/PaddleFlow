@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"reflect"
 	"testing"
 
@@ -28,4 +29,89 @@ func TestStopJob(t *testing.T) {
 	defer patches2.Reset()
 
 	pfj.Stop()
+}
+
+func TestGenerateCreateJobInfo(t *testing.T) {
+	testCases := []struct {
+		name      string
+		image     string
+		userName  string
+		mainFS    *schema.FsMount
+		extraFs   []schema.FsMount
+		framework string
+		members   []schema.Member
+		wantRes   job.CreateJobInfo
+	}{
+		{
+			name:      "CreateJobInfo for distributed paddle job",
+			image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+			userName:  "root",
+			mainFS:    &schema.FsMount{Name: "xd"},
+			extraFs:   []schema.FsMount{},
+			framework: "paddle",
+			members: []schema.Member{
+				{
+					Replicas: 2,
+					Role:     "pworker",
+					Conf: schema.Conf{
+						QueueName: "default-queue",
+						Command:   "echo worker",
+						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+						Env:       map[string]string{"Worker": "1"},
+						Flavour:   schema.Flavour{Name: "flavour1"},
+					},
+				},
+				{
+					Replicas: 2,
+					Role:     "pserver",
+					Conf: schema.Conf{
+						QueueName: "default-queue",
+						Command:   "echo server",
+						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+						Env:       map[string]string{"PS": "1"},
+						Flavour:   schema.Flavour{Name: "flavour1"},
+					},
+				},
+			},
+			wantRes: job.CreateJobInfo{
+				CommonJobInfo: job.CommonJobInfo{
+					Name:     "CreateJobInfo for distributed paddle job",
+					UserName: "root",
+				},
+				Framework: "paddle",
+				Type:      schema.TypeDistributed,
+				Members: []job.MemberSpec{
+					{
+						CommonJobInfo: job.CommonJobInfo{
+							Name:             "CreateJobInfo for distributed paddle job",
+							UserName:         "root",
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+						},
+						Replicas: 2,
+						Role:     "pworker",
+						JobSpec: job.JobSpec{Image: "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", Flavour: schema.Flavour{Name: "flavour1"}, Command: "echo worker",
+							Env: map[string]string{"Worker": "1"}, FileSystem: schema.FileSystem{Name: "xd"}, ExtraFileSystems: []schema.FileSystem{}},
+					},
+					{
+						CommonJobInfo: job.CommonJobInfo{
+							Name:             "CreateJobInfo for distributed paddle job",
+							UserName:         "root",
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+						},
+						Replicas: 2,
+						Role:     "pserver",
+						JobSpec: job.JobSpec{Image: "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", Flavour: schema.Flavour{Name: "flavour1"}, Command: "echo server",
+							Env: map[string]string{"PS": "1"}, FileSystem: schema.FileSystem{Name: "xd"}, ExtraFileSystems: []schema.FileSystem{}},
+					},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pfj := NewPaddleFlowJob(tc.name, tc.image, tc.userName, make(chan<- WorkflowEvent), tc.mainFS, tc.extraFs, schema.Framework(tc.framework), tc.members)
+			jobInfo := pfj.generateCreateJobInfo()
+			assert.Equal(t, tc.wantRes, jobInfo)
+		})
+	}
 }

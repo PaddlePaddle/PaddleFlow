@@ -42,14 +42,12 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[name] of workflow should be string type")
 			}
 			wfs.Name = value
-
 		case "docker_env":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[docker_env] of workflow should be string type")
 			}
 			wfs.DockerEnv = value
-
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -63,7 +61,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				EntryPoints: entryPointsMap,
 			}
 			wfs.EntryPoints = entryPoints
-
 		case "components":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -74,7 +71,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("parse [components] failed, error: %s", err.Error())
 			}
 			wfs.Components = componentsMap
-
 		case "cache":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -85,7 +81,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("parse [cache] in workflow failed, error: %s", err.Error())
 			}
 			wfs.Cache = cache
-
 		case "parallelism":
 			value1, ok1 := value.(int64)
 			value2, ok2 := value.(float64) // 这里是为了兼容一个由json.Unmarshal得到的parallelism值
@@ -96,14 +91,12 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			} else {
 				return fmt.Errorf("[parallelism] of workflow should be int type")
 			}
-
 		case "disabled":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[disabled] of workflow should be string type")
 			}
 			wfs.Disabled = value
-
 		case "failure_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -123,7 +116,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 			}
 			wfs.FailureOptions = options
-
 		case "post_process":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -141,7 +133,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 				wfs.PostProcess[postkey] = postValue
 			}
-
 		case "fs_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {

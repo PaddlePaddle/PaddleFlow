@@ -261,15 +261,24 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 				flavour.Name = pfj.Env[schema.EnvJobFlavour]
 			}
 
+			if member.FileSystem.Name != "" {
+				fs = member.FileSystem
+			}
+
+			if member.ExtraFileSystem != nil {
+				efs = member.ExtraFileSystem
+			}
+
 			jobInfo := job.JobSpec{
-				Flavour:      flavour,
-				LimitFlavour: member.LimitFlavour,
-				FileSystem:   member.FileSystem,
-				Env:          env,
-				Command:      command,
-				Image:        image,
-				Port:         member.Port,
-				Args:         member.Args,
+				Flavour:          flavour,
+				LimitFlavour:     member.LimitFlavour,
+				FileSystem:       fs,
+				ExtraFileSystems: efs,
+				Env:              env,
+				Command:          command,
+				Image:            image,
+				Port:             member.Port,
+				Args:             member.Args,
 			}
 			mem.JobSpec = jobInfo
 			members = append(members, mem)

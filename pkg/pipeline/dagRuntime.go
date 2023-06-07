@@ -231,7 +231,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 	// 1. 获取 新的副本，避免循环结构的多次运行访问了同一个对象, 因为子节点是以指针形式存储的
 	newSubComponent := subComponent.DeepCopy()
-	drt.logger.Infof("new sub component is %v", newSubComponent)
+
 	// 2. 替换上下游参数模板
 	err := drt.DependencySolver.ResolveBeforeRun(newSubComponent)
 	if err != nil {
@@ -271,11 +271,9 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 			// 这里需要对 step 进行复制， 避免多个subRuntime 使用了同一个 component， 导致并发问题
 			subRuntime = NewStepRuntime(subName, subFullName, step.DeepCopy().(*schema.WorkflowSourceStep), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-			drt.logger.Infof("new step runtime is %v", step)
 		} else {
 			subRuntime = NewDagRuntime(subName, subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
 				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
-			drt.logger.Infof("new dag runtime is %v", dag)
 		}
 		drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subRuntime)
 
@@ -373,7 +371,7 @@ func (drt *DagRuntime) scheduleSubComponent() {
 
 		drt.logger.Infof("begin to schedule sub%s[%s] of dag[%s]",
 			subComponent.GetType(), subComponentName, drt.name)
-		drt.logger.Infof("begin to schedule step %v", subComponent.(*schema.WorkflowSourceStep))
+
 		// 如果此时的状态为 terminating 或者处于终态， 也不应该在调度子节点
 		if drt.isTerminating() || drt.isDone() {
 			drt.logger.Infof("the status of dag[%s] is [%s], so it's subStep or subDag wouldn't be scheduled anymore",
@@ -397,7 +395,6 @@ func (drt *DagRuntime) scheduleSubComponent() {
 		}
 
 		// 4. 创建 runtime 并运行 runtime
-		drt.logger.Infof("new workflow source step %v", newSubCp.(*schema.WorkflowSourceStep))
 		drt.createAndStartSubComponentRuntime(subComponentName, newSubCp, map[int]int{})
 	}
 }
