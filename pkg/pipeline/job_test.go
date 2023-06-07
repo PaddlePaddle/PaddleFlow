@@ -106,6 +106,89 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "CreateJobInfo for distributed paddle job",
+			image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+			userName:  "root",
+			mainFS:    &schema.FsMount{Name: "xd"},
+			extraFs:   []schema.FsMount{},
+			framework: "paddle",
+			members: []schema.Member{
+				{
+					Replicas: 2,
+					Role:     "pworker",
+					Conf: schema.Conf{
+						QueueName:  "default-queue",
+						FileSystem: schema.FileSystem{Name: "xd"},
+					},
+				},
+				{
+					Replicas: 2,
+					Role:     "pserver",
+					Conf: schema.Conf{
+						QueueName:  "default-queue",
+						FileSystem: schema.FileSystem{Name: "xd"},
+					},
+				},
+			},
+			wantRes: job.CreateJobInfo{
+				CommonJobInfo: job.CommonJobInfo{
+					Name:     "CreateJobInfo for distributed paddle job",
+					UserName: "root",
+				},
+				Framework: "paddle",
+				Type:      schema.TypeDistributed,
+				Members: []job.MemberSpec{
+					{
+						CommonJobInfo: job.CommonJobInfo{
+							Name:             "CreateJobInfo for distributed paddle job",
+							UserName:         "root",
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+						},
+						Replicas: 2,
+						Role:     "pworker",
+						JobSpec:  job.JobSpec{Image: "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", FileSystem: schema.FileSystem{Name: "xd"}, ExtraFileSystems: []schema.FileSystem{}},
+					},
+					{
+						CommonJobInfo: job.CommonJobInfo{
+							Name:             "CreateJobInfo for distributed paddle job",
+							UserName:         "root",
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+						},
+						Replicas: 2,
+						Role:     "pserver",
+						JobSpec:  job.JobSpec{Image: "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", FileSystem: schema.FileSystem{Name: "xd"}, ExtraFileSystems: []schema.FileSystem{}},
+					},
+				},
+			},
+		},
+		{
+			name:      "CreateJobInfo for single job",
+			image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+			userName:  "root",
+			mainFS:    &schema.FsMount{Name: "xd"},
+			extraFs:   []schema.FsMount{},
+			framework: "paddle",
+			wantRes: job.CreateJobInfo{
+				CommonJobInfo: job.CommonJobInfo{
+					Name:     "CreateJobInfo for single job",
+					UserName: "root",
+				},
+				Framework: schema.FrameworkStandalone,
+				Type:      schema.TypeSingle,
+				Members: []job.MemberSpec{
+					{
+						CommonJobInfo: job.CommonJobInfo{
+							Name:     "CreateJobInfo for single job",
+							UserName: "root",
+						},
+						Replicas: 1,
+						Role:     string(schema.RoleWorker),
+						JobSpec:  job.JobSpec{Image: "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", Flavour: schema.Flavour{}, FileSystem: schema.FileSystem{Name: "xd"}, ExtraFileSystems: []schema.FileSystem{}},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
