@@ -2,14 +2,12 @@ name: distributed_pipeline
 
 entry_points:
   train:
-    docker_env: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
     command: ""
     parameters:
       epoch: 5
-      model_path: ./output/{{PF_RUN_ID}}
     distributed_jobs:
       framework: "paddle"
       members:
-        - { "role": "pserver", "command": "","image": registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1,"replicas":2, "flavour": { "name": "flavour1" }}
-        - { "role": "pworker", "command": "","image": registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1,"replicas":2, "flavour": { "name": "flavour1" }}
+        - { "role": "pserver", "command": "sleep 30","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
+        - { "role": "pworker", "command": "sleep 20","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
 parallelism: 1

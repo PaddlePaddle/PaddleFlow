@@ -279,78 +279,79 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 
 			distJobs := DistributedJob{}
 			// parse framework
-			framework, ok := value["framework"].(string)
-			if !ok {
-				return fmt.Errorf("extract framework from [distributed_jobs] failed")
-			}
-			distJobs.Framework = Framework(framework)
-
-			// parse members
-			members, ok, err := unstructured.NestedSlice(value, "members")
-			if !ok {
-				return fmt.Errorf("extract members from [distributed_jobs] failed because [%v]", err)
-			}
-			distJobs.Members = make([]Member, 0)
-
-			for index, member := range members {
-				mem := Member{}
-				memberMap, ok := member.(map[string]interface{})
+			if value["framework"] != nil {
+				framework, ok := value["framework"].(string)
 				if !ok {
-					return fmt.Errorf("the member %v defined in [distributed_jobs] should be map type", index)
+					return fmt.Errorf("extract framework from [distributed_jobs] failed")
 				}
-
-				for memberKey, memberValue := range memberMap {
-					switch memberKey {
-					case "role":
-						refValue, ok := memberValue.(string)
-						if !ok {
-							return fmt.Errorf("[role] defined in member %v should be string type", index)
-						}
-						mem.Role = MemberRole(refValue)
-					case "command":
-						refValue, ok := memberValue.(string)
-						if !ok {
-							return fmt.Errorf("[command] defined in member %v should be string type", index)
-						}
-						mem.Command = refValue
-					case "replicas":
-						refValue, ok := memberValue.(int64)
-						if !ok {
-							return fmt.Errorf("[replicas] defined in member %v should be int type", index)
-						}
-						mem.Replicas = *(*int)(unsafe.Pointer(&refValue))
-					case "image":
-						refValue, ok := memberValue.(string)
-						if !ok {
-							return fmt.Errorf("[image] defined in member %v should be string type", index)
-						}
-						mem.Image = refValue
-					case "port":
-						refValue, ok := memberValue.(int64)
-						if !ok {
-							return fmt.Errorf("[port] defined in member %v should be int type", index)
-						}
-						mem.Port = *(*int)(unsafe.Pointer(&refValue))
-					case "queue":
-						refValue, ok := memberValue.(string)
-						if !ok {
-							return fmt.Errorf("[queue] defined in member %v should be string type", index)
-						}
-						mem.QueueName = refValue
-					case "flavour":
-						refValue, ok := memberValue.(map[string]interface{})
-						flavour := Flavour{}
-						if !ok {
-							return fmt.Errorf("[flavour] defined in member %v should be map type", index)
-						}
-
-						if flavour, err = MapToFlavour(refValue); err != nil {
-							return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
-						}
-						mem.Flavour = flavour
+				distJobs.Framework = Framework(framework)
+			}
+			// parse members
+			if value["members"] != nil {
+				members, ok, err := unstructured.NestedSlice(value, "members")
+				if !ok {
+					return fmt.Errorf("extract members from [distributed_jobs] failed because [%v]", err)
+				}
+				distJobs.Members = make([]Member, 0)
+				for index, member := range members {
+					mem := Member{}
+					memberMap, ok := member.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("the member %v defined in [distributed_jobs] should be map type", index)
 					}
+					for memberKey, memberValue := range memberMap {
+						switch memberKey {
+						case "role":
+							refValue, ok := memberValue.(string)
+							if !ok {
+								return fmt.Errorf("[role] defined in member %v should be string type", index)
+							}
+							mem.Role = MemberRole(refValue)
+						case "command":
+							refValue, ok := memberValue.(string)
+							if !ok {
+								return fmt.Errorf("[command] defined in member %v should be string type", index)
+							}
+							mem.Command = refValue
+						case "replicas":
+							refValue, ok := memberValue.(int64)
+							if !ok {
+								return fmt.Errorf("[replicas] defined in member %v should be int type", index)
+							}
+							mem.Replicas = *(*int)(unsafe.Pointer(&refValue))
+						case "image":
+							refValue, ok := memberValue.(string)
+							if !ok {
+								return fmt.Errorf("[image] defined in member %v should be string type", index)
+							}
+							mem.Image = refValue
+						case "port":
+							refValue, ok := memberValue.(int64)
+							if !ok {
+								return fmt.Errorf("[port] defined in member %v should be int type", index)
+							}
+							mem.Port = *(*int)(unsafe.Pointer(&refValue))
+						case "queue":
+							refValue, ok := memberValue.(string)
+							if !ok {
+								return fmt.Errorf("[queue] defined in member %v should be string type", index)
+							}
+							mem.QueueName = refValue
+						case "flavour":
+							refValue, ok := memberValue.(map[string]interface{})
+							flavour := Flavour{}
+							if !ok {
+								return fmt.Errorf("[flavour] defined in member %v should be map type", index)
+							}
+
+							if flavour, err = MapToFlavour(refValue); err != nil {
+								return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
+							}
+							mem.Flavour = flavour
+						}
+					}
+					distJobs.Members = append(distJobs.Members, mem)
 				}
-				distJobs.Members = append(distJobs.Members, mem)
 			}
 			step.DistributedJobs = distJobs
 		case "env":
@@ -833,7 +834,6 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 	if !ok {
 		return fmt.Errorf("[fsOptions] should be map type")
 	}
-	fmt.Println("fs opt", fsOptMap)
 	for key, value := range fsOptMap {
 		switch key {
 		case "extraFS":
@@ -854,6 +854,9 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 }
 
 func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
+	if value == nil {
+		return nil
+	}
 	distJobMap, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("[distributedJobs] should be map type")
@@ -878,17 +881,18 @@ func (p *Parser) transJsonMembers2Yaml(value interface{}) error {
 	if value == nil {
 		return nil
 	}
-
 	memberMap, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("[members] should be map type")
 	}
-
-	memberList, ok, _ := unstructured.NestedSlice(memberMap, "")
-
+	if memberMap["members"] == nil {
+		return nil
+	}
+	memberList, ok, _ := unstructured.NestedSlice(memberMap, "members")
 	if !ok {
 		return fmt.Errorf("[members] should be list type")
 	}
+
 	for i, member := range memberList {
 		if err := p.transJsonMember2Yaml(member); err != nil {
 			return err
