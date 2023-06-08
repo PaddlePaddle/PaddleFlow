@@ -435,6 +435,8 @@ func mockToListenEvent(ec chan WorkflowEvent, ep *WorkflowEvent) {
 }
 
 func TestNewStepRuntimeWithStatus(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
