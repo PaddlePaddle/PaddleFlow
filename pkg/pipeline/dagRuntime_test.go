@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"reflect"
 	"strings"
 	"testing"
@@ -261,10 +262,11 @@ func TestDagRuntimeStart(t *testing.T) {
 }
 
 func TestScheduleSubComponent(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	eventChan := make(chan WorkflowEvent)
 	drt, err := mockerDagRuntime(eventChan)
 	assert.Nil(t, err)
-
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2, 3})
 
 	stepStarted := false

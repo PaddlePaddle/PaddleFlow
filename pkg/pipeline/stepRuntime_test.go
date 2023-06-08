@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -474,7 +475,8 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
