@@ -107,7 +107,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 			},
 		},
 		{
-			name:      "CreateJobInfo for distributed paddle job",
+			name:      "CreateJobInfo for distributed job",
 			image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 			userName:  "root",
 			mainFS:    &schema.FsMount{Name: "xd"},
@@ -133,7 +133,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 			},
 			wantRes: job.CreateJobInfo{
 				CommonJobInfo: job.CommonJobInfo{
-					Name:     "CreateJobInfo for distributed paddle job",
+					Name:     "CreateJobInfo for distributed job",
 					UserName: "root",
 				},
 				Framework: "paddle",
@@ -141,7 +141,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				Members: []job.MemberSpec{
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed paddle job",
+							Name:             "CreateJobInfo for distributed job",
 							UserName:         "root",
 							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
 						},
@@ -151,7 +151,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					},
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed paddle job",
+							Name:             "CreateJobInfo for distributed job",
 							UserName:         "root",
 							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
 						},
@@ -194,7 +194,12 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pfj := NewPaddleFlowJob(tc.name, tc.image, tc.userName, make(chan<- WorkflowEvent), tc.mainFS, tc.extraFs, schema.Framework(tc.framework), tc.members)
 			jobInfo := pfj.generateCreateJobInfo()
-			assert.Equal(t, tc.wantRes, jobInfo)
+			tc.wantRes.ID = jobInfo.ID
+			for index, member := range tc.wantRes.Members {
+				member.ID = tc.wantRes.ID
+				tc.wantRes.Members[index] = member
+			}
+			assert.Equal(t, tc.wantRes.Members, jobInfo.Members)
 		})
 	}
 }

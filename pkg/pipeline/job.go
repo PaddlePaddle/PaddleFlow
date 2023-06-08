@@ -19,6 +19,7 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -150,16 +151,11 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	}
 }
 
-func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
-	commonInfo := job.CommonJobInfo{
-		ID:       pfj.ID,
-		Name:     pfj.Name,
-		UserName: pfj.userName,
-	}
-	createJobInfo := job.CreateJobInfo{
-		CommonJobInfo: commonInfo,
-	}
+func generateJobID(param string) string {
+	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
+}
 
+func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 	fs := schema.FileSystem{}
 	if pfj.mainFS != nil {
 		fs = schema.FileSystem{
@@ -190,8 +186,22 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
 		priority = pfj.Env["PF_JOB_PRIORITY"]
 	}
-	createJobInfo.SchedulingPolicy.Queue = queueName
-	createJobInfo.SchedulingPolicy.Priority = priority
+
+	commonInfo := job.CommonJobInfo{
+		ID:   generateJobID(pfj.Name),
+		Name: pfj.Name,
+		SchedulingPolicy: job.SchedulingPolicy{
+			Queue:    queueName,
+			Priority: priority,
+		},
+		UserName: pfj.userName,
+	}
+
+	createJobInfo := job.CreateJobInfo{
+		Type:          schema.JobType(pfj.Env[schema.EnvJobType]),
+		Framework:     schema.Framework(pfj.Env[schema.EnvJobFramework]),
+		CommonJobInfo: commonInfo,
+	}
 
 	// 生成single或distributed job的createJobInfo信息
 	if len(pfj.Members) == 0 {
@@ -230,7 +240,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 			}
 
 			if member.QueueName != "" {
-				mem.CommonJobInfo.SchedulingPolicy.Queue = member.QueueName
+				mem.SchedulingPolicy.Queue = member.QueueName
 			}
 
 			image := ""
