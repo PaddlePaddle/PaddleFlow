@@ -65,6 +65,8 @@ const (
 
 	InvalidComputeResource = "InvalidComputeResource"
 
+	ResourceNotFound = "ResourceNotFound"
+
 	QueueNameDuplicated          = "QueueNameDuplicated"
 	QueueActionIsNotSupported    = "QueueActionIsNotSupported"
 	QueueNameNotFound            = "QueueNameNotFound"
@@ -169,6 +171,8 @@ var errorHTTPStatus = map[string]int{
 	AuthFailed:       http.StatusBadRequest,
 	AuthIllegalUser:  http.StatusBadRequest,
 
+	ResourceNotFound: http.StatusNotFound,
+
 	QueueNameDuplicated:          http.StatusForbidden,
 	QueueActionIsNotSupported:    http.StatusBadRequest,
 	QueueQuotaTypeIsNotSupported: http.StatusBadRequest,
@@ -269,6 +273,8 @@ var errorMessage = map[string]string{
 	AuthInvalidToken: "Invalid token. Please re-login",
 	AuthFailed:       "Username or password not correct",
 	AuthIllegalUser:  "The user does not have permission to operate other users",
+
+	ResourceNotFound: "The resource not found",
 
 	QueueNameDuplicated:          "The queue name already exists",
 	QueueActionIsNotSupported:    "Queue action not supported",
