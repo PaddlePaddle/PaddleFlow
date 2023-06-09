@@ -51,6 +51,10 @@ type CreateRequest struct {
 	Status            string         `json:"-"`
 }
 
+type CreateResponse struct {
+	Name string `json:"name"`
+}
+
 type UpdateRequest struct {
 	Name           string              `json:"-"`
 	Namespace      string              `json:"-"`
@@ -152,17 +156,17 @@ func (c *CreateRequest) Validate(ctx *logger.RequestContext) error {
 	return c.validateResources(ctx)
 }
 
-func Create(ctx *logger.RequestContext, request *CreateRequest) (string, error) {
+func Create(ctx *logger.RequestContext, request *CreateRequest) (CreateResponse, error) {
 	ctx.Logging().Debugf("begin create resource pool. request:%s", config.PrettyFormat(request))
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
 		ctx.Logging().Errorln("create resource pool failed. error: admin is needed.")
-		return "", errors.New("admin is needed")
+		return CreateResponse{}, errors.New("admin is needed")
 	}
 
 	if err := request.Validate(ctx); err != nil {
 		ctx.Logging().Errorln("create resource pool failed. error:", err.Error())
-		return "", err
+		return CreateResponse{}, err
 	}
 	rpInfo := model.ResourcePool{
 		Name:           request.Name,
@@ -187,10 +191,10 @@ func Create(ctx *logger.RequestContext, request *CreateRequest) (string, error) 
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("create resource pool failed. error:%s", err.Error())
-		return "", err
+		return CreateResponse{}, err
 	}
 	ctx.Logging().Debugf("create resource pool successfully. name:%s", request.Name)
-	return request.Name, nil
+	return CreateResponse{Name: request.Name}, nil
 }
 
 func updatingResources(ctx *logger.RequestContext, newRes schema.ResourceInfo, oldRes *model.Resource) (bool, error) {
@@ -273,6 +277,7 @@ func (u *UpdateRequest) validateStatus(ctx *logger.RequestContext, rpInfo *model
 	if u.Status != schema.StatusQueueOpen && u.Status != schema.StatusQueueClosed {
 		return false, fmt.Errorf("the status of resource pool[%s] is invalid", u.Status)
 	}
+	rpInfo.Status = u.Status
 	return u.Status != rpInfo.Status, nil
 }
 
