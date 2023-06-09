@@ -110,8 +110,9 @@ entry_points:
     distributed_jobs:
       framework: "paddle"
       members:
-        - { "role": "pserver", "queue": "queue1", "port": 8080, "command": "sleep 30","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}}}
-        - { "role": "pworker", "queue": "queue1", "port": 8080, "command": "sleep 20","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}}}
+        - { "role": "pserver", "queue": "default-queue", "port": 8080, "command": "sleep 30","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}}}
+        - { "role": "pworker", "queue": "default-queue", "port": 8080, "command": "sleep 20","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}}}
+
 components:
   process-negetive:
     artifacts:

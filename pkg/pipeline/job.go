@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"reflect"
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -155,7 +156,7 @@ func generateJobID(param string) string {
 	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
 }
 
-func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
+func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 	fs := schema.FileSystem{}
 	if pfj.mainFS != nil {
 		fs = schema.FileSystem{
@@ -197,9 +198,19 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 		UserName: pfj.userName,
 	}
 
-	createJobInfo := job.CreateJobInfo{
-		Type:          schema.JobType(pfj.Env[schema.EnvJobType]),
-		Framework:     schema.Framework(pfj.Env[schema.EnvJobFramework]),
+	typeName := ""
+	if _, ok := pfj.Env[schema.EnvJobType]; ok {
+		queueName = pfj.Env[schema.EnvJobType]
+	}
+
+	frameworkName := ""
+	if _, ok := pfj.Env[schema.EnvJobFramework]; ok {
+		queueName = pfj.Env[schema.EnvJobFramework]
+	}
+
+	createJobInfo := &job.CreateJobInfo{
+		Type:          schema.JobType(typeName),
+		Framework:     schema.Framework(frameworkName),
 		CommonJobInfo: commonInfo,
 	}
 
@@ -239,56 +250,59 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() job.CreateJobInfo {
 				Replicas:      member.Replicas,
 			}
 
-			if member.QueueName != "" {
-				mem.SchedulingPolicy.Queue = member.QueueName
+			if member.GetQueueName() != "" {
+				mem.SchedulingPolicy.Queue = member.GetQueueName()
 			}
 
 			image := ""
-			if member.Image != "" {
-				image = member.Image
+			if member.GetImage() != "" {
+				image = member.GetImage()
 			} else {
 				image = pfj.Image
 			}
 
 			env := make(map[string]string)
-			if member.Env != nil {
-				env = member.Env
+			if member.GetEnv() != nil {
+				env = member.GetEnv()
 			} else {
 				env = pfj.Env
 			}
 
 			command := ""
-			if member.Command != "" {
-				command = member.Command
+			if member.GetCommand() != "" {
+				command = member.GetCommand()
 			} else {
 				command = pfj.Command
 			}
 
 			flavour := schema.Flavour{}
-			if member.Flavour.Name != "" {
+			if !reflect.DeepEqual(flavour, member.Flavour) {
 				flavour = member.Flavour
 			} else {
 				flavour.Name = pfj.Env[schema.EnvJobFlavour]
 			}
 
-			if member.FileSystem.Name != "" {
-				fs = member.FileSystem
+			memberFs := schema.FileSystem{}
+			if !reflect.DeepEqual(memberFs, member.GetFileSystem()) {
+				memberFs = member.GetFileSystem()
+			} else {
+				memberFs = fs
 			}
 
-			if member.ExtraFileSystem != nil {
-				efs = member.ExtraFileSystem
+			if member.GetExtraFS() != nil {
+				efs = member.GetExtraFS()
 			}
 
 			jobInfo := job.JobSpec{
 				Flavour:          flavour,
 				LimitFlavour:     member.LimitFlavour,
-				FileSystem:       fs,
+				FileSystem:       memberFs,
 				ExtraFileSystems: efs,
 				Env:              env,
 				Command:          command,
 				Image:            image,
 				Port:             member.Port,
-				Args:             member.Args,
+				Args:             member.GetArgs(),
 			}
 			mem.JobSpec = jobInfo
 			members = append(members, mem)
@@ -355,7 +369,7 @@ func (pfj *PaddleFlowJob) Validate() error {
 	// 调用job子系统接口进行校验
 	jobInfo := pfj.generateCreateJobInfo()
 
-	err = job.ValidatePPLJob(&jobInfo)
+	err = job.ValidatePPLJob(jobInfo)
 	if err != nil {
 		return err
 	}
@@ -374,7 +388,7 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 		UserName: createJobInfo.UserName,
 	}
 	// 调用job子系统接口发起运行
-	jobResponse, err := job.CreatePFJob(ctx, &createJobInfo)
+	jobResponse, err := job.CreatePFJob(ctx, createJobInfo)
 	if err != nil {
 		log.Errorf("create pipeline job failed. err: %s", err)
 		return "", err
