@@ -200,12 +200,12 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 
 	typeName := ""
 	if _, ok := pfj.Env[schema.EnvJobType]; ok {
-		queueName = pfj.Env[schema.EnvJobType]
+		typeName = pfj.Env[schema.EnvJobType]
 	}
 
 	frameworkName := ""
 	if _, ok := pfj.Env[schema.EnvJobFramework]; ok {
-		queueName = pfj.Env[schema.EnvJobFramework]
+		frameworkName = pfj.Env[schema.EnvJobFramework]
 	}
 
 	createJobInfo := &job.CreateJobInfo{
