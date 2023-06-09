@@ -157,9 +157,9 @@ func generateJobID(param string) string {
 }
 
 func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
-	fs := schema.FileSystem{}
+	mainfs := schema.FileSystem{}
 	if pfj.mainFS != nil {
-		fs = schema.FileSystem{
+		mainfs = schema.FileSystem{
 			ID:        pfj.mainFS.ID,
 			Name:      pfj.mainFS.Name,
 			SubPath:   pfj.mainFS.SubPath,
@@ -167,7 +167,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 			ReadOnly:  pfj.mainFS.ReadOnly,
 		}
 	}
-	efs := []schema.FileSystem{}
+	efs := make([]schema.FileSystem, 0)
 	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
 			ID:        fsMount.ID,
@@ -180,12 +180,12 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 	}
 
 	queueName := ""
-	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
-		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
+	if _, ok := pfj.Env[schema.EnvJobQueueName]; ok {
+		queueName = pfj.Env[schema.EnvJobQueueName]
 	}
 	priority := ""
-	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
-		priority = pfj.Env["PF_JOB_PRIORITY"]
+	if _, ok := pfj.Env[schema.EnvJobPriority]; ok {
+		priority = pfj.Env[schema.EnvJobPriority]
 	}
 
 	commonInfo := job.CommonJobInfo{
@@ -228,7 +228,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 					LimitFlavour: schema.Flavour{
 						Name: pfj.Env[schema.EnvJobLimitFlavour],
 					},
-					FileSystem:       fs,
+					FileSystem:       mainfs,
 					ExtraFileSystems: efs,
 					Image:            pfj.Image,
 					Env:              pfj.Env,
@@ -286,7 +286,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 			if !reflect.DeepEqual(memberFs, member.GetFileSystem()) {
 				memberFs = member.GetFileSystem()
 			} else {
-				memberFs = fs
+				memberFs = mainfs
 			}
 
 			if member.GetExtraFS() != nil {

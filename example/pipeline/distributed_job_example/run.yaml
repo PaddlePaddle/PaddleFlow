@@ -8,6 +8,8 @@ entry_points:
     distributed_jobs:
       framework: "paddle"
       members:
-        - { "role": "pserver", "command": "sleep 30","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
-        - { "role": "pworker", "command": "sleep 30","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
+        - { "role": "pserver", "command": "sleep 30; echo ps","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
+        - { "role": "pworker", "command": "sleep 30; echo worker","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}
 parallelism: 1
+
+

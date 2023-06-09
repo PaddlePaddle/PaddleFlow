@@ -30,6 +30,7 @@ type MemberRole string
 const (
 	EnvJobType      = "PF_JOB_TYPE"
 	EnvJobQueueName = "PF_JOB_QUEUE_NAME"
+	EnvJobPriority  = "PF_JOB_PRIORITY"
 	EnvJobNamespace = "PF_JOB_NAMESPACE"
 	EnvJobUserName  = "PF_USER_NAME"
 	EnvJobMode      = "PF_JOB_MODE"

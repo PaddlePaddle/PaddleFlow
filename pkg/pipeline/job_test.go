@@ -54,7 +54,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pworker",
 					Conf: schema.Conf{
-						QueueName: "default-queue",
+						QueueName: "train-queue",
 						Command:   "echo worker",
 						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:       map[string]string{"Worker": "1"},
@@ -65,7 +65,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pserver",
 					Conf: schema.Conf{
-						QueueName: "default-queue",
+						QueueName: "train-queue",
 						Command:   "echo server",
 						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:       map[string]string{"PS": "1"},
@@ -77,6 +77,9 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				CommonJobInfo: job.CommonJobInfo{
 					Name:     "CreateJobInfo for distributed paddle job",
 					UserName: "root",
+					SchedulingPolicy: job.SchedulingPolicy{
+						Queue: "default-queue",
+					},
 				},
 				Framework: "paddle",
 				Type:      schema.TypeDistributed,
@@ -85,7 +88,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:             "CreateJobInfo for distributed paddle job",
 							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue"},
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -96,7 +99,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:             "CreateJobInfo for distributed paddle job",
 							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue"},
 						},
 						Replicas: 2,
 						Role:     "pserver",
@@ -163,7 +166,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 			},
 		},
 		{
-			name:      "CreateJobInfo for single job",
+			name:      "single",
 			image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 			userName:  "root",
 			mainFS:    &schema.FsMount{Name: "xd"},
@@ -171,15 +174,19 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 			framework: "paddle",
 			wantRes: job.CreateJobInfo{
 				CommonJobInfo: job.CommonJobInfo{
-					Name:     "CreateJobInfo for single job",
+					Name:     "single",
 					UserName: "root",
+					SchedulingPolicy: job.SchedulingPolicy{
+						Queue: "default-queue",
+					},
 				},
 				Framework: schema.FrameworkStandalone,
 				Type:      schema.TypeSingle,
+
 				Members: []job.MemberSpec{
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:     "CreateJobInfo for single job",
+							Name:     "single",
 							UserName: "root",
 						},
 						Replicas: 1,

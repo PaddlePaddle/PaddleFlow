@@ -18,7 +18,6 @@ package schema
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
@@ -170,7 +169,6 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 			if err := p.ParseStep(compMap, &stepComp); err != nil {
 				return nil, fmt.Errorf("parse step[%s] failed, %v", name, err)
 			}
-			logger.Logger().Infof("Parse Step Result: %v", stepComp)
 			stepComp.Name = name
 			components[name] = &stepComp
 		}
