@@ -306,12 +306,12 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 			log.Error("afs password empty")
 			return common.InvalidField("properties", fmt.Sprintf("%s is empty", fsCommon.AFSPassword))
 		}
-		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.AFSPassword], common.GetAESEncryptKey())
+		encodedP, err := common.AesEncrypt(req.Properties[fsCommon.AFSPassword], common.GetAESEncryptKey())
 		if err != nil {
-			log.Errorf("encrypt AFSPassword sk failed: %v", err)
+			log.Errorf("encrypt AFSPassword failed: %v", err)
 			return err
 		}
-		req.Properties[fsCommon.AFSPassword] = encodedSk
+		req.Properties[fsCommon.AFSPassword] = encodedP
 		return nil
 	case fsCommon.BosType:
 		if req.Properties[fsCommon.AccessKey] == "" || req.Properties[fsCommon.SecretKey] == "" {
