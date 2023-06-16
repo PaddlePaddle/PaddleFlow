@@ -1,4 +1,4 @@
-# paddleflow/ubuntu:latest
+# paddleflow/ubuntu:1.4.6
 FROM ubuntu:18.04
 # unsupport latest in our pr-test cluster, it will be update to latest once cluster updated
 
