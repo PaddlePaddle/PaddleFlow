@@ -190,12 +190,9 @@ func (pj *KubeAITrainingJob) getJobStatus(jobStatus *v1.TrainingJobStatus) (pfsc
 	case v1.TrainingJobPhaseNone, v1.TrainingJobPhasePending, v1.TrainingJobPhaseCreating:
 		status = pfschema.StatusJobPending
 		msg = "ai training job is pending"
-	case v1.TrainingJobPhaseRestarting, v1.TrainingJobPhaseRunning, v1.TrainingJobPhaseScaling:
+	case v1.TrainingJobPhaseRestarting, v1.TrainingJobPhaseRunning, v1.TrainingJobPhaseScaling, v1.TrainingJobPhaseTerminating:
 		status = pfschema.StatusJobRunning
 		msg = "ai training job is running"
-	case v1.TrainingJobPhaseTerminating:
-		status = pfschema.StatusJobTerminating
-		msg = "ai training job is terminating"
 	case v1.TrainingJobPhaseSucceeded:
 		status = pfschema.StatusJobSucceeded
 		msg = "ai training job is succeeded"
