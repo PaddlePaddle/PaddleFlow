@@ -240,10 +240,10 @@ func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		//		Mem: "1Gi",
 		//	}
 		//}
-		if err := schema.ValidateResource(reqFlavour.ResourceInfo, []string{}); err != nil {
-			log.Errorf("validate resource info failed, err:%v", err)
-			return schema.Flavour{}, err
-		}
+		//if err := schema.ValidateResource(reqFlavour.ResourceInfo, []string{}); err != nil {
+		//	log.Errorf("validate resource info failed, err:%v", err)
+		//	return schema.Flavour{}, err
+		//}
 		return reqFlavour, nil
 	}
 	flavour, err := storage.Flavour.GetFlavour(reqFlavour.Name)
