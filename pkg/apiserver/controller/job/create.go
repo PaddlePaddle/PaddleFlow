@@ -42,9 +42,15 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-const EnvSkipResourceValidate = "PF_SKIP_RESOURCE_VALIDATE"
+const (
+	EnvSkipResourceValidate = "PF_SKIP_RESOURCE_VALIDATE"
+	EnvSkipFlavourValidate  = "PF_SKIP_FLAVOUR_VALIDATE"
+)
 
-var IsSkipResourceValidate bool
+var (
+	IsSkipResourceValidate bool
+	SkipFlavourValidate    bool
+)
 
 // CreateJobInfo defines
 type CreateJobInfo struct {
@@ -58,6 +64,7 @@ type CreateJobInfo struct {
 
 func init() {
 	IsSkipResourceValidate = os.Getenv(EnvSkipResourceValidate) != ""
+	SkipFlavourValidate = os.Getenv(EnvSkipFlavourValidate) != ""
 	fmt.Printf("IsSkipResourceValidate: %v\n", IsSkipResourceValidate)
 }
 
@@ -171,7 +178,7 @@ func parseFlavourResource(flavour schema.Flavour) (*resources.Resource, error) {
 		return nil, err
 	}
 
-	if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
+	if !SkipFlavourValidate && (memberRes.CPU() == 0 || memberRes.Memory() == 0) {
 		err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
 		log.Errorf("Failed to check flavour: %v", err)
 		return nil, err
