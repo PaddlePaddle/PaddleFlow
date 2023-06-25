@@ -16,6 +16,7 @@ limitations under the License.
 from .component_compiler import ComponentCompiler
 
 from paddleflow.pipeline.dsl.options import ExtraFS
+from paddleflow.pipeline.dsl.options import DistributedJob
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
@@ -28,7 +29,7 @@ class StepCompiler(ComponentCompiler):
         super().__init__(component)
 
     def compile(self):
-        """ trans step to dicts'
+        """ trans step to dicts
         """
         super().compile()
 
@@ -39,9 +40,12 @@ class StepCompiler(ComponentCompiler):
 
         # compile extra_fs
         self._compile_extra_fs()
+
+        # compile distributed_job
+        self._compile_distributed_job()
         
         return self._dict
-   
+
     def _compile_base_info(self):
         """ compiler base info such as command, docker_env, env
         """
@@ -70,7 +74,7 @@ class StepCompiler(ComponentCompiler):
         """
         if self._component.cache_options:
             self._dict["cache"] = self._component.cache_options.compile()
-        
+
     def _compile_extra_fs(self):
         """ compile extra_fs 
         """
@@ -86,3 +90,9 @@ class StepCompiler(ComponentCompiler):
                     self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
 
             self._dict["extra_fs"].append(extra.compile())
+
+    def _compile_distributed_job(self):
+        """ compile distributed_job
+        """
+        if self._component.distributed_job:
+            self._dict["distributed_job"] = self._component.distributed_job.compile()

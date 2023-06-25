@@ -254,6 +254,12 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 				mem.SchedulingPolicy.Queue = member.GetQueueName()
 			}
 
+			if member.GetPriority() != "" {
+				mem.SchedulingPolicy.Priority = member.GetPriority()
+			} else {
+				mem.SchedulingPolicy.Priority = priority
+			}
+
 			image := ""
 			if member.GetImage() != "" {
 				image = member.GetImage()

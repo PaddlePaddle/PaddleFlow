@@ -135,19 +135,19 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name            string                 `yaml:"-"                 json:"name"`
-	LoopArgument    interface{}            `yaml:"loop_argument"     json:"loopArgument"`
-	Condition       string                 `yaml:"condition"         json:"condition"`
-	Parameters      map[string]interface{} `yaml:"parameters"        json:"parameters"`
-	Command         string                 `yaml:"command"           json:"command"`
-	Deps            string                 `yaml:"deps"              json:"deps"`
-	Artifacts       Artifacts              `yaml:"artifacts"         json:"artifacts"`
-	Env             map[string]string      `yaml:"env"               json:"env"`
-	DockerEnv       string                 `yaml:"docker_env"        json:"dockerEnv"`
-	Cache           Cache                  `yaml:"cache"             json:"cache"`
-	Reference       Reference              `yaml:"reference"         json:"reference"`
-	ExtraFS         []FsMount              `yaml:"extra_fs"          json:"extraFS"`
-	DistributedJobs DistributedJob         `yaml:"distributed_jobs"  json:"distributedJobs"`
+	Name           string                 `yaml:"-"                 json:"name"`
+	LoopArgument   interface{}            `yaml:"loop_argument"     json:"loopArgument"`
+	Condition      string                 `yaml:"condition"         json:"condition"`
+	Parameters     map[string]interface{} `yaml:"parameters"        json:"parameters"`
+	Command        string                 `yaml:"command"           json:"command"`
+	Deps           string                 `yaml:"deps"              json:"deps"`
+	Artifacts      Artifacts              `yaml:"artifacts"         json:"artifacts"`
+	Env            map[string]string      `yaml:"env"               json:"env"`
+	DockerEnv      string                 `yaml:"docker_env"        json:"dockerEnv"`
+	Cache          Cache                  `yaml:"cache"             json:"cache"`
+	Reference      Reference              `yaml:"reference"         json:"reference"`
+	ExtraFS        []FsMount              `yaml:"extra_fs"          json:"extraFS"`
+	DistributedJob DistributedJob         `yaml:"distributed_job"  json:"distributedJob"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -282,19 +282,19 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 	fsMount := append(s.ExtraFS, []FsMount{}...)
 
 	ns := &WorkflowSourceStep{
-		Name:            s.Name,
-		LoopArgument:    s.LoopArgument,
-		Condition:       s.Condition,
-		Parameters:      params,
-		Command:         s.Command,
-		Deps:            s.Deps,
-		Env:             env,
-		Artifacts:       *s.Artifacts.DeepCopy(),
-		DockerEnv:       s.DockerEnv,
-		Cache:           s.Cache,
-		Reference:       s.Reference,
-		ExtraFS:         fsMount,
-		DistributedJobs: s.DistributedJobs,
+		Name:           s.Name,
+		LoopArgument:   s.LoopArgument,
+		Condition:      s.Condition,
+		Parameters:     params,
+		Command:        s.Command,
+		Deps:           s.Deps,
+		Env:            env,
+		Artifacts:      *s.Artifacts.DeepCopy(),
+		DockerEnv:      s.DockerEnv,
+		Cache:          s.Cache,
+		Reference:      s.Reference,
+		ExtraFS:        fsMount,
+		DistributedJob: s.DistributedJob,
 	}
 
 	return ns

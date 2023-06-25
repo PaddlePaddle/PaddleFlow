@@ -59,7 +59,7 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
 	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.userName, srt.receiveEventChildren,
-		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, step.DistributedJobs.Framework, step.DistributedJobs.Members)
+		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, step.DistributedJob.Framework, step.DistributedJob.Members)
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], "+
@@ -227,7 +227,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	defer srt.catchPanic()
 
-	distributedJobs := srt.getWorkFlowStep().DistributedJobs
+	distributedJobs := srt.getWorkFlowStep().DistributedJob
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
 		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName, distributedJobs.Framework, distributedJobs.Members)
 
@@ -320,7 +320,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
-	distributedJobs := srt.getWorkFlowStep().DistributedJobs
+	distributedJobs := srt.getWorkFlowStep().DistributedJob
 
 	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
 	for atfName, atfValue := range srt.GetArtifacts().Input {

@@ -260,10 +260,10 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Artifacts = artifacts
-		case "distributed_jobs":
+		case "distributed_job":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[distributed_jobs] in step should be map type")
+				return fmt.Errorf("[distributed_job] in step should be map type")
 			}
 
 			distJobs := DistributedJob{}
@@ -326,6 +326,12 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 								return fmt.Errorf("[queue] defined in member %v should be string type", index)
 							}
 							mem.QueueName = refValue
+						case "priority":
+							refValue, ok := memberValue.(string)
+							if !ok {
+								return fmt.Errorf("[priority] defined in member %v should be string type", index)
+							}
+							mem.Priority = refValue
 						case "flavour":
 							refValue, ok := memberValue.(map[string]interface{})
 							flavour := Flavour{}
@@ -342,7 +348,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 					distJobs.Members = append(distJobs.Members, mem)
 				}
 			}
-			step.DistributedJobs = distJobs
+			step.DistributedJob = distJobs
 		case "env":
 			value, ok := value.(map[string]interface{})
 			if !ok {
