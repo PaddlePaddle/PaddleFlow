@@ -537,6 +537,14 @@ class Client(object):
         self.pre_check()
         return ClusterServiceApi.list_cluster_resource(self.paddleflow_server, clustername, self.header)
 
+    def list_cluster_resource_v2(self, page_no, page_size, clusternames=None, queuenaame=None, labels=None):
+        """
+        list cluster resource v2
+        """
+        self.pre_check()
+        return ClusterServiceApi.list_cluster_resource_v2(self.paddleflow_server, page_no, page_size,
+                                                        clusternames, queuenaame, labels, self.header)
+
     def create_pipeline(self, fs_name=None, yaml_path=None, desc=None, username=None, yaml_raw=None):
         """
         create pipeline

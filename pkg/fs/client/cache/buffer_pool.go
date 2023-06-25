@@ -18,6 +18,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"math/rand"
@@ -92,6 +93,11 @@ type Page struct {
 	r               *rCache
 	closed          *bool
 	writeCacheReady *bool
+}
+
+type TimeoutReader struct {
+	source  io.Reader
+	timeout time.Duration
 }
 
 type BufferPool struct {
@@ -204,17 +210,40 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	return
 }
 
+// 实现Read方法
+func (tr *TimeoutReader) Read(p []byte) (n int, err error) {
+	type readResult struct {
+		n   int
+		err error
+	}
+	readChan := make(chan readResult)
+
+	go func() {
+		n, err = tr.source.Read(p)
+		readChan <- readResult{n: n, err: err}
+	}()
+
+	// 设置超时
+	select {
+	case result := <-readChan:
+		return result.n, result.err
+	case <-time.After(tr.timeout):
+		log.Errorf("read operation timed out after %v", tr.timeout)
+		return 0, fmt.Errorf("read operation timed out after %v", tr.timeout)
+	}
+}
+
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	if p.writeLength >= cap(p.buffer) {
 		return 0, err
 	}
-	for i := 0; i < 3; i++ {
-		n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
-		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-			log.Errorf("WriteFrom reader read[%d] err %v", i, err)
-		} else {
-			break
-		}
+	timeOutReader := &TimeoutReader{
+		source:  reader,
+		timeout: 30 * time.Second,
+	}
+	n, err = timeOutReader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		log.Errorf("WriteFrom reader read err %v", err)
 	}
 	p.lock.Lock()
 	p.writeLength += n

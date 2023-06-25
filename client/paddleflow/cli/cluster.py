@@ -197,6 +197,30 @@ def resource(ctx, clustername=None):
         sys.exit(1)
 
 
+@cluster.command()
+@click.option('--pageno', default=0, help="the page number. default is 0")
+@click.option('--pagesize', default=1000, help="the page size. default is 1000")
+@click.option('-cn', '--clusternames', help="cluster name. example:clusterName1,clusterName2")
+@click.option('-q', '--queuename', help="statistic the remaining resource of the queue")
+@click.option('-l', '--labels', help="the labels that filters cluster nodes")
+@click.pass_context
+def statistic(ctx, pageno, pagesize, clusternames, queuename=None, labels=None):
+    """ statistic the remaining resource information of the cluster.\n
+    """
+    client = ctx.obj['client']
+    output_format = ctx.obj['output']
+    cluster_list = None
+    if clusternames:
+        cluster_list = clusternames.split(',')
+    valid, response = client.list_cluster_resource_v2(pageno, pagesize, cluster_list, queuename, labels)
+    if valid:
+        _print_cluster_resource(response, output_format)
+    else:
+        click.echo("get cluster resource failed with message[%s]" % response)
+        sys.exit(1)
+
+
+
 def _print_cluster(clusters, out_format):
     """print queues """
     headers = [

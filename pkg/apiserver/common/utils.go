@@ -246,6 +246,23 @@ func IsDNS1123Label(value string) []string {
 	return errs
 }
 
+func CheckName(field, value string) error {
+	if value == "" {
+		return fmt.Errorf("%s is emtpy", field)
+	}
+	if errStr := IsDNS1123Label(value); len(errStr) != 0 {
+		return fmt.Errorf("%s[%s] is invalid, err: %s", field, value, strings.Join(errStr, ","))
+	}
+	return nil
+}
+
+func CheckLength(field, value string, length int) error {
+	if len(value) > length {
+		return fmt.Errorf("the value of field [%s] is invalid, length should be less than %d", field, length)
+	}
+	return nil
+}
+
 func CheckPermission(requestUserName, ownerUserName, resourceType, resourceID string) error {
 	if !IsRootUser(requestUserName) && ownerUserName != requestUserName {
 		err := NoAccessError(requestUserName, resourceType, resourceID)

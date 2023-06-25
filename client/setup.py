@@ -22,7 +22,7 @@ from setuptools import setup, find_packages
 # from paddleflow.client import NAME, VERSION
 
 NAME = 'PaddleFlow'
-VERSION = '1.4.6'
+VERSION = '1.4.7rc1'
 
 
 with open('requirements.txt') as f:

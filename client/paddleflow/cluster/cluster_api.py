@@ -212,3 +212,30 @@ class ClusterServiceApi(object):
         if 'message' in data:
             return False, data['message']
         return True, data
+
+    @classmethod
+    def list_cluster_resource_v2(self, host, pageno, pagesize=1000, clusternames=None, queuename=None, labels=None,
+        header=None):
+        """list cluster resource
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        body = {
+            "pageNo": pageno,
+            "pageSize": pagesize,
+        }
+        if clusternames:
+            body['clusterNames'] = clusternames
+        if queuename:
+            body['queueName'] = queuename
+        if labels:
+            body['labels'] = labels
+        response = api_client.call_api(method="POST",
+                                        url=parse.urljoin(host, api.PADDLE_FLOW_CLUSTER + '/resource'),
+                                        headers=header, json=body)
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "list cluster resource failed due to HTTPError")
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, data
