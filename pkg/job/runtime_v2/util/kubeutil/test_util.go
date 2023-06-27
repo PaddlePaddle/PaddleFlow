@@ -141,6 +141,7 @@ func CreateNodes(fakeClient kubernetes.Interface, nodeCount int, allocList []v1.
 				"paddleflow": "fake",
 			},
 		}
+		annoLen = 1
 	}
 
 	var name string

@@ -70,8 +70,7 @@ func initNodeData(client kubernetes.Interface, nodeCount int) error {
 			"xxx/resource-pool": "xpu-3",
 		},
 	}
-	var annoList = []map[string]string{}
-	return kubeutil.CreateNodes(client, nodeCount, reqList, kubeutil.NodeCondList, labelList, annoList)
+	return kubeutil.CreateNodes(client, nodeCount, reqList, kubeutil.NodeCondList, labelList, nil)
 }
 
 func initPodData(client kubernetes.Interface, podCount int) error {
