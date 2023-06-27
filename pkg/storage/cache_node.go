@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -52,10 +53,25 @@ func (nc *ClusterNodeCache) GetNode(nodeID string) (model.NodeInfo, error) {
 	return clusterNodeInfo, nil
 }
 
-func (nc *ClusterNodeCache) ListNode(clusterNames []string, labels string, limit, offset int) ([]model.NodeInfo, error) {
+func (nc *ClusterNodeCache) ListNode(clusterNames []string, labels string, limit int, offset int, filter map[string]string) ([]model.NodeInfo, error) {
 	log.Debugf("begin to list node, clusterNames: %v, labels: %s", clusterNames, labels)
 	var nodes []model.NodeInfo
-	tx := nc.dbCache.Model(&model.NodeInfo{}).Where("`status` = ?", "Ready")
+	tx := nc.dbCache.Model(&model.NodeInfo{})
+	// 0. filter with node status if set
+	nodeStatusFilter := filter[model.NodeStatusFilter]
+	switch nodeStatusFilter {
+	case "", schema.StatusNodeReady:
+		tx = tx.Where("`status` = ?", schema.StatusNodeReady)
+	case schema.StatusNodeNotReady, schema.StatusNodeUnsched:
+		tx = tx.Where("`status` = ?", nodeStatusFilter)
+	case "^" + schema.StatusNodeReady:
+		tx = tx.Where("`status` != ?", schema.StatusNodeReady)
+	case "^" + schema.StatusNodeNotReady:
+		tx = tx.Where("`status` != ?", schema.StatusNodeNotReady)
+	case "^" + schema.StatusNodeUnsched:
+		tx = tx.Where("`status` != ?", schema.StatusNodeUnsched)
+	}
+
 	// 1. query with clusterNames if set
 	if len(clusterNames) != 0 {
 		tx = tx.Where("`cluster_name` IN ?", clusterNames)

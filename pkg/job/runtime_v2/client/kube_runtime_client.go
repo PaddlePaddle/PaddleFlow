@@ -407,6 +407,7 @@ func (n *NodeHandler) DeleteNode(obj interface{}) {
 }
 
 func (n *NodeHandler) getNodeCardType(node *corev1.Node) string {
+	cardType := ""
 	// 1. get card type from node gpu-topo annotations
 	gpuTopoAnno := node.Annotations[n.cardTypeAnno]
 	if gpuTopoAnno != "" {
@@ -424,24 +425,27 @@ func (n *NodeHandler) getNodeCardType(node *corev1.Node) string {
 		}{{}}
 		err := json.Unmarshal([]byte(gpuTopoAnno), &gpuTopo)
 		if err == nil && len(gpuTopo) > 0 {
-			return strings.TrimPrefix(gpuTopo[0].Model, "NVIDIA ")
+			cardType = gpuTopo[0].Model
 		} else {
 			log.Warnf("Failed to unmarshal gpu-topo annotation, err: %v", err)
 		}
 	}
 	// 2. get card type from node PaddleFlow annotations
-	return strings.TrimPrefix(node.Annotations[pfschema.PFNodeCardTypeAnno], "NVIDIA ")
+	if cardType == "" {
+		cardType = node.Annotations[pfschema.PFNodeCardTypeAnno]
+	}
+	return cardType
 }
 
 func getNodeStatus(node *corev1.Node) string {
 	if node.Spec.Unschedulable {
-		return "Unschedulable"
+		return pfschema.StatusNodeUnsched
 	}
-	nodeStatus := "NotReady"
+	nodeStatus := pfschema.StatusNodeNotReady
 	condLen := len(node.Status.Conditions)
 	if condLen > 0 {
 		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
-			nodeStatus = "Ready"
+			nodeStatus = pfschema.StatusNodeReady
 		}
 	}
 	return nodeStatus

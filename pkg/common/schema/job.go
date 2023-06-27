@@ -80,6 +80,10 @@ const (
 	StatusTaskSucceeded TaskStatus = "succeeded"
 	StatusTaskFailed    TaskStatus = "failed"
 
+	StatusNodeReady    = "Ready"
+	StatusNodeNotReady = "NotReady"
+	StatusNodeUnsched  = "Unschedulable"
+
 	RoleMaster   MemberRole = "master"
 	RoleWorker   MemberRole = "worker"
 	RoleDriver   MemberRole = "driver"

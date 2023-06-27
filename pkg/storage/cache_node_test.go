@@ -92,36 +92,36 @@ func TestNodeCache(t *testing.T) {
 
 		// 1. list all
 		var nodes []model.NodeInfo
-		nodes, err = NodeCache.ListNode([]string{}, "", 0, 0)
+		nodes, err = NodeCache.ListNode([]string{}, "", 0, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(nodes))
 		t.Logf("nodes: %+v", nodes)
 		// 2. list one cluster
-		nodes, err = NodeCache.ListNode([]string{mockClusterName}, "", 0, 0)
+		nodes, err = NodeCache.ListNode([]string{mockClusterName}, "", 0, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(nodes))
 		// 3. list with label filter equal
-		nodes, err = NodeCache.ListNode([]string{}, "xxx/queue-name=default-queue", 0, 0)
+		nodes, err = NodeCache.ListNode([]string{}, "xxx/queue-name=default-queue", 0, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(nodes))
 		assert.Equal(t, nodeInfos[0].ID, nodes[0].ID)
 		// 4. list with label filter not equal
-		nodes, err = NodeCache.ListNode([]string{}, "xxx/queue-name!=default-queue", 0, 0)
+		nodes, err = NodeCache.ListNode([]string{}, "xxx/queue-name!=default-queue", 0, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(nodes))
 		assert.Equal(t, nodeInfos[1].ID, nodes[0].ID)
 		// 5. list with limit
-		nodes, err = NodeCache.ListNode([]string{}, "", 2, 0)
+		nodes, err = NodeCache.ListNode([]string{}, "", 2, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 2, len(nodes))
-		nodes, err = NodeCache.ListNode([]string{}, "", 1, 0)
+		nodes, err = NodeCache.ListNode([]string{}, "", 1, 0, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(nodes))
 		// 6. list with offset
-		nodes, err = NodeCache.ListNode([]string{}, "", 0, 1)
+		nodes, err = NodeCache.ListNode([]string{}, "", 0, 1, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 1, len(nodes))
-		nodes, err = NodeCache.ListNode([]string{}, "", 1, 2)
+		nodes, err = NodeCache.ListNode([]string{}, "", 1, 2, nil)
 		assert.Equal(t, nil, err)
 		assert.Equal(t, 0, len(nodes))
 	})
