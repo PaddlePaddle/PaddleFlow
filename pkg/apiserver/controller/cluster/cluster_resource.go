@@ -29,11 +29,12 @@ type ListClusterResourcesRequest struct {
 }
 
 type NodeResourcesResponse struct {
-	Allocatable map[string]map[string]interface{} `json:"allocatable"`
-	Capacity    map[string]map[string]string      `json:"capacity"`
-	Labels      map[string]map[string]string      `json:"labels"`
-	ClusterName string                            `json:"clusterName,omitempty"`
-	QueueName   string                            `json:"queueName,omitempty"`
+	Allocatable   map[string]map[string]interface{} `json:"allocatable"`
+	Capacity      map[string]map[string]string      `json:"capacity"`
+	Labels        map[string]map[string]string      `json:"labels"`
+	ClusterName   string                            `json:"clusterName,omitempty"`
+	ClusterSource string                            `json:"clusterSource,omitempty"`
+	QueueName     string                            `json:"queueName,omitempty"`
 }
 
 // ListClusterResources return the node resources in clusters, lists can be filtered by labels in pods or nodes
@@ -114,6 +115,10 @@ func ConstructClusterResources(nodes []model.NodeInfo,
 				Capacity:    make(map[string]map[string]string),
 				Labels:      make(map[string]map[string]string),
 				ClusterName: node.ClusterName,
+			}
+			clusterInfo, err := storage.Cluster.GetClusterByName(node.ClusterName)
+			if err == nil {
+				cQuotaResponse.ClusterSource = clusterInfo.Source
 			}
 			if len(queueName) != 0 {
 				cQuotaResponse.QueueName = queueName

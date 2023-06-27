@@ -81,12 +81,12 @@ func BuildFakePod(name, namespace, nodeName string, podPhase v1.PodPhase, req v1
 	}
 }
 
-func BuildFakeNode(name string, unsched bool, alloc v1.ResourceList, nodeCond v1.NodeCondition, labels map[string]string) *v1.Node {
+func BuildFakeNode(name string, unsched bool, alloc v1.ResourceList, nodeCond v1.NodeCondition, labels, anno map[string]string) *v1.Node {
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Labels:      labels,
-			Annotations: map[string]string{},
+			Annotations: anno,
 		},
 		Spec: v1.NodeSpec{
 			Unschedulable: unsched,
@@ -129,11 +129,19 @@ func CreatePods(fakeClient kubernetes.Interface, podCount int, nsList []string, 
 }
 
 func CreateNodes(fakeClient kubernetes.Interface, nodeCount int, allocList []v1.ResourceList,
-	condList []v1.NodeCondition, labelList []map[string]string) error {
+	condList []v1.NodeCondition, labelList, annoList []map[string]string) error {
 	reqLen := len(allocList)
 	labelLen := len(labelList)
+	annoLen := len(annoList)
 	condLen := len(condList)
 	schedList := []bool{true, false}
+	if annoLen == 0 {
+		annoList = []map[string]string{
+			{
+				"paddleflow": "fake",
+			},
+		}
+	}
 
 	var name string
 	var err error
@@ -145,7 +153,8 @@ func CreateNodes(fakeClient kubernetes.Interface, nodeCount int, allocList []v1.
 			schedList[rand.Intn(2)],
 			allocList[rand.Intn(reqLen)],
 			condList[rand.Intn(condLen)],
-			labelList[rand.Intn(labelLen)])
+			labelList[rand.Intn(labelLen)],
+			annoList[rand.Intn(annoLen)])
 		_, err = fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 		if err != nil {
 			break
