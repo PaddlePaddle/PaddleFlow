@@ -28,6 +28,7 @@ type JobTask struct {
 	ExtRuntimeStatusJSON string            `json:"extRuntimeStatus" gorm:"column:ext_runtime_status;default:'{}'"`
 	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` // k8s:v1.PodStatus
 	NodeName             string            `json:"nodeName"`
+	Annotations          Map               `json:"annotations"` // k8s:metav1.Annotations
 	CreatedAt            time.Time         `json:"-"`
 	StartedAt            sql.NullTime      `json:"-"`
 	UpdatedAt            time.Time         `json:"-"`
