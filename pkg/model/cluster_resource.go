@@ -29,6 +29,8 @@ const (
 	ObjectTypePod  = "pod"
 )
 
+const NodeStatusFilter = "nodeStatus"
+
 type TaskAllocateStatus int
 
 const (
