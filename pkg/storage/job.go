@@ -371,7 +371,7 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	// TODO: change update task logic
 	tx := js.db.Table(model.JobTaskTableName).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "node_name", "deleted_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "annotations", "node_name", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
 }
