@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS `job_task` (
     `member_role` varchar(64) DEFAULT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text DEFAULT NULL,
+    `annotations` text DEFAULT NULL,
     `log_url` varchar(4096) DEFAULT NULL,
     `ext_runtime_status` mediumtext DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,

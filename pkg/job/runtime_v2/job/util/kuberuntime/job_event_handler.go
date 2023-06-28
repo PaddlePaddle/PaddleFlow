@@ -324,15 +324,16 @@ func TaskUpdateFunc(obj interface{}, action schema.ActionType, taskQueue workque
 	message := GetTaskMessage(&pod.Status)
 
 	taskInfo := &api.TaskSyncInfo{
-		ID:        string(uid),
-		Name:      name,
-		Namespace: namespace,
-		JobID:     jobName,
-		NodeName:  pod.Spec.NodeName,
-		Status:    taskStatus,
-		Message:   message,
-		PodStatus: pod.Status,
-		Action:    action,
+		ID:          string(uid),
+		Name:        name,
+		Namespace:   namespace,
+		Annotations: pod.Annotations,
+		JobID:       jobName,
+		NodeName:    pod.Spec.NodeName,
+		Status:      taskStatus,
+		Message:     message,
+		PodStatus:   pod.Status,
+		Action:      action,
 	}
 	taskQueue.Add(taskInfo)
 	log.Infof("%s event for task %s/%s enqueue, job: %s", action, namespace, name, jobName)

@@ -282,6 +282,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		Namespace:        taskSyncInfo.Namespace,
 		NodeName:         taskSyncInfo.NodeName,
 		MemberRole:       taskSyncInfo.MemberRole,
+		Annotations:      taskSyncInfo.Annotations,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,
