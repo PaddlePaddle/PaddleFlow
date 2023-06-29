@@ -253,6 +253,26 @@ func (isv *innerSolver) resolveCommand(forCache bool) error {
 	return nil
 }
 
+func (isv *innerSolver) resolveDistributedJobCommand(forCache bool) error {
+	// 调用方需要保证此时的 component 是一个Step
+
+	if isv.Component.(*schema.WorkflowSourceStep).DistributedJob.Members != nil {
+
+		for index, member := range isv.Component.(*schema.WorkflowSourceStep).DistributedJob.Members {
+			command := member.Command
+			newCommand, err := isv.resolveTemplate(command, FieldCommand, forCache)
+			if err != nil {
+				return err
+			}
+			isv.Component.(*schema.WorkflowSourceStep).DistributedJob.Members[index].Command = newCommand.(string)
+			isv.logger.Infof("after resolve template, the command of member %s [role %s] is: %v",
+				index, member.Role, newCommand)
+		}
+
+	}
+	return nil
+}
+
 func (isv *innerSolver) resolveCondition() error {
 	condition := isv.Component.GetCondition()
 	newCondition, err := isv.resolveTemplate(condition, FieldCondition, false)

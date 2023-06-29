@@ -320,6 +320,10 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
+	// 替换DistributedJob Member的command
+	if err := srt.innerSolver.resolveDistributedJobCommand(forCacheFingerprint); err != nil {
+		return err
+	}
 	distributedJobs := srt.getWorkFlowStep().DistributedJob
 
 	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
