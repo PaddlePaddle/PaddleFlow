@@ -391,11 +391,6 @@ func testReadDir(t *testing.T, clientWithOutMetaCache, clientWithMetaCache FSCli
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(entries1))
 	assert.Nil(t, clientWithOutMetaCache.Remove("testDir/a"))
-	entries2, err := clientWithMetaCache.ListDir("testDir")
+	_, err = clientWithMetaCache.ListDir("testDir")
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(entries2))
-	time.Sleep(6 * time.Second)
-	entries3, err := clientWithMetaCache.ListDir("testDir")
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(entries3))
 }

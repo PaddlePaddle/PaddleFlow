@@ -156,17 +156,18 @@ func (js *JobSyncInfo) String() string {
 }
 
 type TaskSyncInfo struct {
-	ID         string
-	Name       string
-	Namespace  string
-	JobID      string
-	NodeName   string
-	MemberRole schema.MemberRole
-	Status     schema.TaskStatus
-	Message    string
-	PodStatus  interface{}
-	Action     schema.ActionType
-	RetryTimes int
+	ID          string
+	Name        string
+	Namespace   string
+	JobID       string
+	NodeName    string
+	MemberRole  schema.MemberRole
+	Status      schema.TaskStatus
+	Message     string
+	Annotations map[string]string
+	PodStatus   interface{}
+	Action      schema.ActionType
+	RetryTimes  int
 }
 
 // FinishedJobInfo contains gc job info

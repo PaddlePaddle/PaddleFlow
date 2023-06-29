@@ -242,7 +242,7 @@ type NodeCacheInterface interface {
 	UpdateNode(nodeID string, nodeInfo *model.NodeInfo) error
 	DeleteNode(nodeID string) error
 	GetNode(nodeID string) (model.NodeInfo, error)
-	ListNode([]string, string, int, int) ([]model.NodeInfo, error)
+	ListNode([]string, string, int, int, map[string]string) ([]model.NodeInfo, error)
 }
 
 type PodCacheInterface interface {
