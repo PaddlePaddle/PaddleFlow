@@ -269,7 +269,10 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 
 			env := make(map[string]string)
 			if member.GetEnv() != nil {
-				env = member.GetEnv()
+				env = pfj.Env
+				for k, v := range member.GetEnv() {
+					env[k] = v
+				}
 			} else {
 				env = pfj.Env
 			}
