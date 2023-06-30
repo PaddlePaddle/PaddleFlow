@@ -47,10 +47,9 @@ const (
 
 	FsPrefix = "fs-"
 
-	CompTypeDistributedJobs = "distributed_jobs"
-	CompTypeComponents      = "components"
-	CompTypeEntryPoints     = "entryPoints"
-	CompTypePostProcess     = "postProcess"
+	CompTypeComponents  = "components"
+	CompTypeEntryPoints = "entryPoints"
+	CompTypePostProcess = "postProcess"
 )
 
 func ID(userName, fsName string) string {

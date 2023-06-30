@@ -5,7 +5,7 @@ entry_points:
     command: ""
     parameters:
       epoch: 5
-    distributed_jobs:
+    distributed_job:
       framework: "paddle"
       members:
         - { "role": "pserver", "command": "sleep 30; echo ps","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas":2, "flavour": { "name": "flavour1" }}

@@ -270,6 +270,10 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 			env := make(map[string]string)
 			if member.GetEnv() != nil {
 				env = pfj.Env
+				if env == nil {
+					env = make(map[string]string)
+				}
+				// 设置在member里的环境变量优先级最高
 				for k, v := range member.GetEnv() {
 					env[k] = v
 				}

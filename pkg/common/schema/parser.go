@@ -271,7 +271,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if value["framework"] != nil {
 				framework, ok := value["framework"].(string)
 				if !ok {
-					return fmt.Errorf("extract framework from [distributed_jobs] failed")
+					return fmt.Errorf("extract framework from [distributed_job] failed")
 				}
 				distJobs.Framework = Framework(framework)
 			}
@@ -279,14 +279,14 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if value["members"] != nil {
 				members, ok, err := unstructured.NestedSlice(value, "members")
 				if !ok {
-					return fmt.Errorf("extract members from [distributed_jobs] failed because [%v]", err)
+					return fmt.Errorf("extract members from [distributed_job] failed because [%v]", err)
 				}
 				distJobs.Members = make([]Member, 0)
 				for index, member := range members {
 					mem := Member{}
 					memberMap, ok := member.(map[string]interface{})
 					if !ok {
-						return fmt.Errorf("the member %v defined in [distributed_jobs] should be map type", index)
+						return fmt.Errorf("the member %v defined in [distributed_job] should be map type", index)
 					}
 					for memberKey, memberValue := range memberMap {
 						switch memberKey {
@@ -344,11 +344,28 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 							}
 							mem.Flavour = flavour
 						case "env":
-							refValue, ok := memberValue.(map[string]string)
+							refValue, ok := memberValue.(map[string]interface{})
 							if !ok {
 								return fmt.Errorf("[env] defined in member %v should be map type", index)
 							}
-							mem.Env = refValue
+							if mem.Env == nil {
+								mem.Env = map[string]string{}
+							}
+							// 设置在env里的变量优先级最高，通过其他字段设置的env变量，在这里会被覆盖值
+							for envKey, envValue := range refValue {
+								resEnv := ""
+								switch envValue := envValue.(type) {
+								case string:
+									resEnv = envValue
+								case int64:
+									resEnv = strconv.FormatInt(envValue, 10)
+								case float64:
+									resEnv = strings.TrimRight(strconv.FormatFloat(envValue, 'f', 8, 64), "0")
+								default:
+									return fmt.Errorf("values in [env] should be string type")
+								}
+								mem.Env[envKey] = resEnv
+							}
 						}
 					}
 					distJobs.Members = append(distJobs.Members, mem)
@@ -740,12 +757,12 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
-		case "distributedJobs":
+		case "distributedJob":
 			if err := p.transJsonDistributedJobs2Yaml(value); err != nil {
 				return err
 			}
-			jsonMap["distributed_jobs"] = value
-			delete(jsonMap, "distributedJobs")
+			jsonMap["distributed_job"] = value
+			delete(jsonMap, "distributedJob")
 		}
 	}
 	return nil
@@ -860,7 +877,7 @@ func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
 	}
 	distJobMap, ok := value.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("[distributedJobs] should be map type")
+		return fmt.Errorf("[distributedJob] should be map type")
 	}
 	for distKey, distValue := range distJobMap {
 		switch distKey {
