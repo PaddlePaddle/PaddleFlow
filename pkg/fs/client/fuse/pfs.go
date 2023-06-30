@@ -17,6 +17,7 @@ limitations under the License.
 package fuse
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -236,6 +237,11 @@ func (fs *PFS) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOu
 
 func (fs *PFS) Read(cancel <-chan struct{}, input *fuse.ReadIn, buf []byte) (fuse.ReadResult, fuse.Status) {
 	log.Debugf("pfs POSIX Read: input[%+v]", *input)
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("read panic err: %v %s", err, utils.GetCurrentGoroutineStack())
+		}
+	}()
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	n, code := vfs.GetVFS().Read(ctx, vfs.Ino(input.NodeId), buf, input.Offset, input.Fh)
 	if code != 0 {
@@ -259,6 +265,11 @@ func (fs *PFS) SetLkw(cancel <-chan struct{}, input *fuse.LkIn) (code fuse.Statu
 
 func (fs *PFS) Write(cancel <-chan struct{}, input *fuse.WriteIn, data []byte) (uint32, fuse.Status) {
 	log.Debugf("pfs POSIX Write: input[%+v]", *input)
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("write panic err: %v %s", err, utils.GetCurrentGoroutineStack())
+		}
+	}()
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Write(ctx, vfs.Ino(input.NodeId), data, input.Offset, input.Fh)
 	if code != 0 {
