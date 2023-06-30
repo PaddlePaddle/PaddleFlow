@@ -343,6 +343,12 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 								return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
 							}
 							mem.Flavour = flavour
+						case "env":
+							refValue, ok := memberValue.(map[string]string)
+							if !ok {
+								return fmt.Errorf("[env] defined in member %v should be map type", index)
+							}
+							mem.Env = refValue
 						}
 					}
 					distJobs.Members = append(distJobs.Members, mem)
