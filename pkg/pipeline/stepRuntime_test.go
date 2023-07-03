@@ -284,6 +284,24 @@ func TestUpdateJob(t *testing.T) {
 			expectedCommand := "python train.py -r 0.1 -d ./data/pre --output ./data/model"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
+		if stepName == "distributed-step" {
+			assert.Equal(t, 2, len(srt.job.Job().Parameters))
+			assert.Contains(t, srt.job.Job().Parameters, "epoch")
+
+			assert.Equal(t, "5", srt.job.Job().Parameters["epoch"])
+			assert.Equal(t, 5+sysNum, len(srt.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
+
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_PRIORITY")
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_FLAVOUR")
+			assert.Contains(t, srt.job.Job().Env, "PF_PS_NUM")
+			assert.Contains(t, srt.job.Job().Env, "PF_WORKER_NUM")
+
+			expectedCommand := "sleep 30; echo ps 5 100"
+			assert.Equal(t, expectedCommand, srt.getWorkFlowStep().DistributedJob.Members[0].Command)
+			expectedCommand = "sleep 30; echo worker 5 100"
+			assert.Equal(t, expectedCommand, srt.getWorkFlowStep().DistributedJob.Members[1].Command)
+		}
 		if stepName == "validate" {
 			assert.Equal(t, 4, len(srt.job.Job().Parameters))
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")

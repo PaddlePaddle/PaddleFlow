@@ -59,6 +59,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:       map[string]string{"Worker": "1"},
 						Flavour:   schema.Flavour{Name: "flavour1"},
+						Priority:  "high",
 					},
 				},
 				{
@@ -70,6 +71,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:       map[string]string{"PS": "1"},
 						Flavour:   schema.Flavour{Name: "flavour1"},
+						Priority:  "high",
 					},
 				},
 			},
@@ -88,7 +90,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:             "CreateJobInfo for distributed paddle job",
 							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue"},
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue", Priority: "high"},
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -99,7 +101,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:             "CreateJobInfo for distributed paddle job",
 							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue"},
+							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue", Priority: "high"},
 						},
 						Replicas: 2,
 						Role:     "pserver",
