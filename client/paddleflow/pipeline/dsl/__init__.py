@@ -22,7 +22,7 @@ from .options import FAIL_FAST
 from .options import FSOptions
 from .options import ExtraFS
 from .options import MainFS
-
+from .options import DistributedJob
 
 # import from io_types
 from .io_types import Artifact

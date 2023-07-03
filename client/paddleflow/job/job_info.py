@@ -15,7 +15,7 @@ limitations under the License.
 
 #!/usr/bin/env python3
 # -*- coding:utf8 -*-
-
+from paddleflow.common.exception import PaddleFlowSDKException
 
 class JobInfo(object):
     """
@@ -174,6 +174,39 @@ class Member(object):
         self.args_list = args_list
         self.port = port
         self.extension_template = extension_template
+    def compile(self):
+
+        result = {}
+
+        if not self.role:
+            raise PaddleFlowSDKException(f"the role of distributed member cannot be empty")
+
+        result["role"] = self.role
+
+        if not self.replicas:
+            raise PaddleFlowSDKException(f"the replicas of distributed member cannot be empty")
+
+        result["replicas"] = self.replicas
+
+        if self.queue:
+            result["queue"] = self.queue
+
+        if self.image:
+            result["image"] = self.image
+
+        if self.command:
+            result["command"] = self.command
+
+        if self.flavour:
+            result["flavour"] = self.flavour
+
+        if self.port:
+            result["port"] = self.port
+
+        if self.priority:
+            result["priority"] = self.priority
+
+        return result
 
 
 class Flavour(object):
@@ -203,7 +236,3 @@ class FileSystem(object):
         self.mount_path = mount_path
         self.sub_path = sub_path
         self.read_only = read_only
-
-
-
-

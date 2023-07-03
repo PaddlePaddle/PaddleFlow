@@ -14,8 +14,6 @@ limitations under the License.
 """
 from paddleflow.pipeline import ContainerStep
 from paddleflow.pipeline import Pipeline
-from paddleflow.pipeline import Parameter
-from paddleflow.pipeline import Artifact
 from paddleflow.pipeline import PF_RUN_ID
 from paddleflow.pipeline import MainFS
 from paddleflow.pipeline import FSOptions
@@ -35,6 +33,7 @@ def preprocess():
     )
     return step
 
+
 def train(epoch, train_data):
     """ distributed job
     """
@@ -50,9 +49,9 @@ def train(epoch, train_data):
     step = ContainerStep(
         name="train",
         parameters={
-             "epoch": epoch,
-             "model_path": f"./output/{PF_RUN_ID}",
-             "train_data": train_data
+            "epoch": epoch,
+            "model_path": f"./output/{PF_RUN_ID}",
+            "train_data": train_data
         },
         env={"PS_NUM": "2", "WORKER_NUM": "2"},
         command="",

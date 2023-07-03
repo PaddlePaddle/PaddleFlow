@@ -66,6 +66,7 @@ class Step(Component):
         self._type = "step"
 
         self.cache_options = cache_options
+        self.distributed_job = distributed_job
 
         if extra_fs and not isinstance(extra_fs, list):
             extra_fs = [extra_fs]
@@ -82,17 +83,4 @@ class Step(Component):
         else:
             self.extra_fs = []
 
-        if distributed_job.members and not isinstance(distributed_job.members, list):
-            distributed_job.members = [distributed_job.members]
 
-        if isinstance(distributed_job.members, list):
-            self.distributed_job = DistributedJob
-            for member in distributed_job.members:
-                if not isinstance(member, Member):
-                    raise PaddleFlowSDKException(PipelineDSLError,
-                                                 self._generate_error_msg(
-                                                     "DistributedJob's members attribute should be a list of Member instance"))
-
-            self.distributed_job = distributed_job
-        else:
-            self.distributed_job = DistributedJob
