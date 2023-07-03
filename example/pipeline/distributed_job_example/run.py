@@ -36,8 +36,8 @@ def preprocess():
     return step
 
 def train(epoch, train_data):
-     """ distributed job
-     """
+    """ distributed job
+    """
     dist_jobs = DistributedJob(
         framework="paddle",
         members=[Member(role="pworker", replicas=2, image="paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
