@@ -40,7 +40,7 @@ entry_points:
       output:
         - train_model
   distributed-step:
-    deps: data-preprocess
+    deps: main
     parameters:
       epoch: 5
       iteration: 100
