@@ -26,7 +26,7 @@ class Options(object):
         """
         self._validate()
         
-        result =  {}
+        result = {}
         for attr, key in self.COMPILE_ATTR_MAP.items():
             value = getattr(self, attr, None)
             if value is not None:

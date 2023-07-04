@@ -44,6 +44,7 @@ def train(epoch, train_data):
                  Member(role="pserver", replicas=2, image="paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
                         command="sleep 30; echo ps {{epoch}} {{train_data}} {{model_path}}")]
     )
+
     """ train step
     """
     step = ContainerStep(

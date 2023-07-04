@@ -30,7 +30,8 @@ class DistributedJob(object):
 
             for member in members:
                 if not isinstance(member, Member):
-                    raise PaddleFlowSDKException(PipelineDSLError, "DistributedJob's members attribute should be a list of Member instance")
+                    raise PaddleFlowSDKException(PipelineDSLError,
+                                                 "DistributedJob's members attribute should be a list of Member instance")
 
             self.members = members
         else:
@@ -45,7 +46,7 @@ class DistributedJob(object):
             raise PaddleFlowSDKException(PipelineDSLError, "DistributedJob's framework attribute cannot empty")
 
         result["framework"] = self.framework
-
+        result["members"] = []
         if self.members:
 
             if not isinstance(self.members, list):
@@ -53,7 +54,8 @@ class DistributedJob(object):
 
             for member in self.members:
                 if not isinstance(member, Member):
-                    raise PaddleFlowSDKException(PipelineDSLError, "DistributedJob's members attribute should be a list of Member instance")
-                result["members"].append(self.members)
+                    raise PaddleFlowSDKException(PipelineDSLError,
+                                                 "DistributedJob's members attribute should be a list of Member instance")
+                result["members"].append(member.compile())
 
         return result

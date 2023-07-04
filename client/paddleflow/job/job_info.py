@@ -13,9 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 from paddleflow.common.exception import PaddleFlowSDKException
+
 
 class JobInfo(object):
     """
@@ -134,8 +135,10 @@ class Member(object):
     Members
     """
 
-    def __init__(self, role, replicas, job_id=None, job_name=None, queue=None, labels=None, annotations=None, priority=None,
-                 flavour=None, fs=None, extra_fs_list=None, image=None, env=None, command=None, args_list=None, port=None,
+    def __init__(self, role, replicas, job_id=None, job_name=None, queue=None, labels=None, annotations=None,
+                 priority=None,
+                 flavour=None, fs=None, extra_fs_list=None, image=None, env=None, command=None, args_list=None,
+                 port=None,
                  extension_template=None):
         """
 
@@ -174,6 +177,7 @@ class Member(object):
         self.args_list = args_list
         self.port = port
         self.extension_template = extension_template
+
     def compile(self):
 
         result = {}
@@ -206,6 +210,9 @@ class Member(object):
         if self.priority:
             result["priority"] = self.priority
 
+        if self.env:
+            result["env"] = self.env
+
         return result
 
 
@@ -213,6 +220,7 @@ class Flavour(object):
     """
     Flavour
     """
+
     def __init__(self, name, cpu, memory, scalar_resources):
         """
 
@@ -231,6 +239,7 @@ class FileSystem(object):
     """
     FileSystem
     """
+
     def __init__(self, name, mount_path, sub_path, read_only):
         self.name = name
         self.mount_path = mount_path
