@@ -34,13 +34,13 @@ import (
 type conservativeFirstCacheKey struct {
 	DockerEnv       string
 	Command         string
-	Env             map[string]string     `json:",omitempty"`
-	Parameters      map[string]string     `json:",omitempty"`
-	InputArtifacts  map[string]string     `json:",omitempty"`
-	OutputArtifacts map[string]string     `json:",omitempty"`
-	MainFS          schema.FsMount        `json:",omitempty"`
-	ExtraFS         []schema.FsMount      `json:",omitempty"`
-	DistributedJob  schema.DistributedJob `json:",omitempty"`
+	Env             map[string]string `json:",omitempty"`
+	Parameters      map[string]string `json:",omitempty"`
+	InputArtifacts  map[string]string `json:",omitempty"`
+	OutputArtifacts map[string]string `json:",omitempty"`
+	MainFS          schema.FsMount    `json:",omitempty"`
+	ExtraFS         []schema.FsMount  `json:",omitempty"`
+	Members         []schema.Member   `json:",omitempty"`
 }
 
 type PathToModTime struct {
@@ -112,10 +112,10 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
 	envWithoutSystmeEnv := common.DeleteSystemParamEnv(cc.job.Env)
 
-	distributedJob := schema.DistributedJob{
+	/*	distributedJob := schema.DistributedJob{
 		Framework: cc.job.Framework,
 		Members:   cc.job.Members,
-	}
+	}*/
 	// 去除系统环境变量
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.job.Image,
@@ -126,13 +126,13 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		Env:             envWithoutSystmeEnv,
 		ExtraFS:         cc.extraFS,
 		MainFS:          *cc.mainFS,
-		DistributedJob:  distributedJob,
+		Members:         cc.job.Members,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+
-		"OutputArtifacts: %s, Env: %s, mainFS: %v, extraFS: %v, DistributedJob: %v,  JobName: %s", cc.job.Image, cc.job.Parameters,
+		"OutputArtifacts: %s, Env: %s, mainFS: %v, extraFS: %v,  JobName: %s", cc.job.Image, cc.job.Parameters,
 		cc.job.Command, cc.job.Artifacts.Input, cc.job.Artifacts.Output, cacheKey.Env,
-		cacheKey.MainFS, cacheKey.ExtraFS, cacheKey.DistributedJob, cc.job.Name)
+		cacheKey.MainFS, cacheKey.ExtraFS, cc.job.Name)
 
 	cc.logger.Debugf(logMsg)
 
