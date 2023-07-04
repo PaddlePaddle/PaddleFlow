@@ -40,6 +40,7 @@ type conservativeFirstCacheKey struct {
 	OutputArtifacts map[string]string `json:",omitempty"`
 	MainFS          schema.FsMount    `json:",omitempty"`
 	ExtraFS         []schema.FsMount  `json:",omitempty"`
+	Framework       string            `json:",omitempty"`
 	Members         []schema.Member   `json:",omitempty"`
 }
 
@@ -112,10 +113,10 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
 	envWithoutSystmeEnv := common.DeleteSystemParamEnv(cc.job.Env)
 
-	/*	distributedJob := schema.DistributedJob{
-		Framework: cc.job.Framework,
-		Members:   cc.job.Members,
-	}*/
+	/*	memberJson, err := json.Marshal(cc.job.Members)
+		if err != nil {
+			return err
+		}*/
 	// 去除系统环境变量
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.job.Image,
@@ -126,6 +127,7 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		Env:             envWithoutSystmeEnv,
 		ExtraFS:         cc.extraFS,
 		MainFS:          *cc.mainFS,
+		Framework:       string(cc.job.Framework),
 		Members:         cc.job.Members,
 	}
 
