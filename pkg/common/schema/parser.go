@@ -875,6 +875,7 @@ func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
 	if value == nil {
 		return nil
 	}
+	fmt.Println("members map: %", value)
 	distJobMap, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("[distributedJob] should be map type")
