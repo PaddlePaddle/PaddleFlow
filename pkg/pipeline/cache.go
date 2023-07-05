@@ -113,10 +113,6 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
 	envWithoutSystmeEnv := common.DeleteSystemParamEnv(cc.job.Env)
 
-	/*	memberJson, err := json.Marshal(cc.job.Members)
-		if err != nil {
-			return err
-		}*/
 	// 去除系统环境变量
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.job.Image,

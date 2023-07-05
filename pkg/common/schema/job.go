@@ -503,13 +503,13 @@ func (s Conf) Value() (driver.Value, error) {
 }*/
 
 type Member struct {
-	ID       string     `json:"id"`
-	Replicas int        `json:"replicas"`
-	Role     MemberRole `json:"role"`
+	ID       string     `yaml:"-"  json:"id"`
+	Replicas int        `yaml:"replicas" json:"replicas"`
+	Role     MemberRole `yaml:"role" json:"role"`
 	Conf     `json:",inline"`
 }
 
 type DistributedJob struct {
-	Members   []Member  `json:"members"`
-	Framework Framework `json:"framework"`
+	Members   []Member  `yaml:"members"   json:"members"`
+	Framework Framework `yaml:"framework" json:"framework"`
 }

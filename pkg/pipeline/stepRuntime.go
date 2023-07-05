@@ -63,8 +63,8 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], "+
-		"extraFS[%v]", srt.getName(), srt.runID, step.Parameters, step.Env, step.Command,
-		step.Artifacts, step.Deps, step.ExtraFS)
+		"extraFS[%v], distributedJob[%v]", srt.getName(), srt.runID, step.Parameters, step.Env, step.Command,
+		step.Artifacts, step.Deps, step.ExtraFS, step.DistributedJob)
 
 	return srt
 }

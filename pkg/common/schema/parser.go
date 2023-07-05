@@ -883,13 +883,11 @@ func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
 		switch distKey {
 		case "framework":
 			distJobMap["framework"] = distValue
-			delete(distJobMap, "framework")
 		case "members":
 			if err := p.transJsonMembers2Yaml(value); err != nil {
 				return err
 			}
 			distJobMap["members"] = distValue
-			delete(distJobMap, "members")
 		}
 	}
 	return nil
@@ -899,14 +897,7 @@ func (p *Parser) transJsonMembers2Yaml(value interface{}) error {
 	if value == nil {
 		return nil
 	}
-	memberMap, ok := value.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("[members] should be map type")
-	}
-	if memberMap["members"] == nil {
-		return nil
-	}
-	memberList, ok, _ := unstructured.NestedSlice(memberMap, "members")
+	memberList, ok := value.([]interface{})
 	if !ok {
 		return fmt.Errorf("[members] should be list type")
 	}
@@ -923,19 +914,16 @@ func (p *Parser) transJsonMembers2Yaml(value interface{}) error {
 func (p *Parser) transJsonMember2Yaml(value interface{}) error {
 	memberMap, ok := value.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("[members] should map type")
+		return fmt.Errorf("[member] should map type")
 	}
 	for memberKey, memberValue := range memberMap {
 		switch memberKey {
 		case "id":
-			memberMap["id"] = memberValue
-			delete(memberMap, "id")
+			continue
 		case "replicas":
 			memberMap["replicas"] = memberValue
-			delete(memberMap, "replicas")
 		case "role":
 			memberMap["role"] = memberValue
-			delete(memberMap, "role")
 		}
 	}
 	return nil
