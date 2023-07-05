@@ -883,11 +883,13 @@ func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
 		switch distKey {
 		case "framework":
 			distJobMap["framework"] = distValue
+			delete(distJobMap, "framework")
 		case "members":
 			if err := p.transJsonMembers2Yaml(distValue); err != nil {
 				return err
 			}
 			distJobMap["members"] = distValue
+			delete(distJobMap, "members")
 		}
 	}
 	return nil
@@ -919,6 +921,7 @@ func (p *Parser) transJsonMember2Yaml(value interface{}) error {
 	for memberKey, memberValue := range memberMap {
 		switch memberKey {
 		case "id":
+			// 该字段不暴露给用户
 			continue
 		case "replicas":
 			memberMap["replicas"] = memberValue
