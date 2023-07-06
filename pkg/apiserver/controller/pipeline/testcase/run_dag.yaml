@@ -113,9 +113,9 @@ entry_points:
       framework: "paddle"
       members:
         - { "role": "pserver", "queue": "default-queue", "priority": "high", "port": 8080, "command": "sleep 30; echo  {{epoch}}","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas": 2,
-            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}},"env": {"role": "ps"}}
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"role": "ps"}}
         - { "role": "pworker", "queue": "default-queue", "priority": "high", "port": 8080, "command": "sleep 30; echo  {{epoch}}","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas": 2,
-            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": {"nvidia.com/gpu": "1"}},"env": {"role": "worker"}}
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"role": "worker"}}
 
 components:
   process-negetive:

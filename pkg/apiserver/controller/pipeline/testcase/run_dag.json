@@ -50,6 +50,33 @@
                     "read_only": false
                 }
             ]
+        },
+        "train": {
+            "deps": "main",
+            "env": {
+                "PS_NUM": "2",
+                "WORKER_NUM": "2"
+            },
+            "parameters": {
+                "epoch": 15
+            },
+            "distributedJob": {
+                "framework": "paddle",
+                "members": [
+                    {
+                        "role": "pserver",
+                        "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+                        "command": "sleep 30; echo ps {{epoch}}",
+                        "replicas": 2
+                    },
+                    {
+                        "role": "pworker",
+                        "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+                        "command": "sleep 30; echo worker {{epoch}}",
+                        "replicas": 2
+                    }
+                ]
+            }
         }
     },
     "failureOptions": {
