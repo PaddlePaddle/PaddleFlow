@@ -45,16 +45,16 @@ import (
 var wfMap = sync.Map{}
 
 const (
-	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
-	JsonUserName    = "username"
-	JsonDescription = "description"
-	JsonFlavour     = "flavour"
-	JsonQueue       = "queue"
-	JsonJobType     = "jobType"
-	JsonEnv         = "env"
-
-	FinalRunStatus = "FINAL_RUN_STATUS"
-	FinalRunMsg    = "FINAL_RUN_MSG"
+	JsonFsOptions      = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
+	JsonUserName       = "username"
+	JsonDescription    = "description"
+	JsonFlavour        = "flavour"
+	JsonQueue          = "queue"
+	JsonJobType        = "jobType"
+	JsonEnv            = "env"
+	JsonDistributedJob = "distributed_job"
+	FinalRunStatus     = "FINAL_RUN_STATUS"
+	FinalRunMsg        = "FINAL_RUN_MSG"
 )
 
 type CreateRunRequest struct {
@@ -650,6 +650,17 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		}
 		reqFsName = fsOptions.MainFS.Name
 	}
+
+	disMap, ok := bodyMap[JsonDistributedJob].(map[string]interface{})
+	if ok {
+		distributedJob := schema.DistributedJob{}
+		if err := parser.ParseDistributedJob(disMap, &distributedJob); err != nil {
+			ctx.ErrorCode = common.InvalidPipeline
+			logger.Logger().Errorf("check distributedjob failed, error: %s", err.Error())
+			return CreateRunResponse{}, err
+		}
+	}
+
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
 	}

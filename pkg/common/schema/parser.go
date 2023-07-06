@@ -288,85 +288,8 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 					if !ok {
 						return fmt.Errorf("the member %v defined in [distributed_job] should be map type", index)
 					}
-					for memberKey, memberValue := range memberMap {
-						switch memberKey {
-						case "role":
-							refValue, ok := memberValue.(string)
-							if !ok {
-								return fmt.Errorf("[role] defined in member %v should be string type", index)
-							}
-							mem.Role = MemberRole(refValue)
-						case "command":
-							refValue, ok := memberValue.(string)
-							if !ok {
-								return fmt.Errorf("[command] defined in member %v should be string type", index)
-							}
-							mem.Command = refValue
-						case "replicas":
-							refValue, ok := memberValue.(int64)
-							if !ok {
-								return fmt.Errorf("[replicas] defined in member %v should be int type", index)
-							}
-							mem.Replicas = *(*int)(unsafe.Pointer(&refValue))
-						case "image":
-							refValue, ok := memberValue.(string)
-							if !ok {
-								return fmt.Errorf("[image] defined in member %v should be string type", index)
-							}
-							mem.Image = refValue
-						case "port":
-							refValue, ok := memberValue.(int64)
-							if !ok {
-								return fmt.Errorf("[port] defined in member %v should be int type", index)
-							}
-							mem.Port = *(*int)(unsafe.Pointer(&refValue))
-						case "queue":
-							refValue, ok := memberValue.(string)
-							if !ok {
-								return fmt.Errorf("[queue] defined in member %v should be string type", index)
-							}
-							mem.QueueName = refValue
-						case "priority":
-							refValue, ok := memberValue.(string)
-							if !ok {
-								return fmt.Errorf("[priority] defined in member %v should be string type", index)
-							}
-							mem.Priority = refValue
-						case "flavour":
-							refValue, ok := memberValue.(map[string]interface{})
-							flavour := Flavour{}
-							if !ok {
-								return fmt.Errorf("[flavour] defined in member %v should be map type", index)
-							}
-
-							if flavour, err = MapToFlavour(refValue); err != nil {
-								return fmt.Errorf("[scalarResources] resolve failed in member %v", index)
-							}
-							mem.Flavour = flavour
-						case "env":
-							refValue, ok := memberValue.(map[string]interface{})
-							if !ok {
-								return fmt.Errorf("[env] defined in member %v should be map type", index)
-							}
-							if mem.Env == nil {
-								mem.Env = map[string]string{}
-							}
-							// 设置在env里的变量优先级最高，通过其他字段设置的env变量，在这里会被覆盖值
-							for envKey, envValue := range refValue {
-								resEnv := ""
-								switch envValue := envValue.(type) {
-								case string:
-									resEnv = envValue
-								case int64:
-									resEnv = strconv.FormatInt(envValue, 10)
-								case float64:
-									resEnv = strings.TrimRight(strconv.FormatFloat(envValue, 'f', 8, 64), "0")
-								default:
-									return fmt.Errorf("values in [env] should be string type")
-								}
-								mem.Env[envKey] = resEnv
-							}
-						}
+					if err := p.ParseMember(memberMap, &mem, index); err != nil {
+						return fmt.Errorf("parse [member %v] in [distributed_job] failed, error: %s", index, err.Error())
 					}
 					distJobs.Members = append(distJobs.Members, mem)
 				}
@@ -705,6 +628,127 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 	return nil
 }
 
+func (p *Parser) ParseDistributedJob(disMap map[string]interface{}, disJob *DistributedJob) error {
+	for key, value := range disMap {
+		switch key {
+		case "framework":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[distributed_job.framework] should be string type")
+			}
+			disJob.Framework = Framework(value)
+		case "members":
+			value, ok := value.([]interface{})
+			if !ok {
+				return fmt.Errorf("[distributed_job.members] should be list type")
+			}
+			for i, m := range value {
+				mapValue, ok := m.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("member %v in [distributed_job.members] should be map type", i)
+				}
+				member := Member{}
+				if err := p.ParseMember(mapValue, &member, i); err != nil {
+					return fmt.Errorf("parse member %v in [distributed_job.members] failed, error: %s", i, err.Error())
+				}
+				disJob.Members = append(disJob.Members, member)
+			}
+		default:
+			return fmt.Errorf("[distributed_job] has no attribute [%s]", key)
+		}
+	}
+	return nil
+}
+
+func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, index int) error {
+	for memberKey, memberValue := range memberMap {
+		switch memberKey {
+		case "role":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[role] defined in member %v should be string type", index)
+			}
+			member.Role = MemberRole(refValue)
+		case "command":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[command] defined in member %v should be string type", index)
+			}
+			member.Command = refValue
+		case "replicas":
+			refValue, ok := memberValue.(int64)
+			if !ok {
+				return fmt.Errorf("[replicas] defined in member %v should be int type", index)
+			}
+			member.Replicas = *(*int)(unsafe.Pointer(&refValue))
+		case "image":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[image] defined in member %v should be string type", index)
+			}
+			member.Image = refValue
+		case "port":
+			refValue, ok := memberValue.(int64)
+			if !ok {
+				return fmt.Errorf("[port] defined in member %v should be int type", index)
+			}
+			member.Port = *(*int)(unsafe.Pointer(&refValue))
+		case "queue":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[queue] defined in member %v should be string type", index)
+			}
+			member.QueueName = refValue
+		case "priority":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[priority] defined in member %v should be string type", index)
+			}
+			member.Priority = refValue
+		case "flavour":
+			refValue, ok := memberValue.(map[string]interface{})
+			flavour := Flavour{}
+			if !ok {
+				return fmt.Errorf("[flavour] defined in member %v should be map type", index)
+			}
+
+			if err := ParseFlavour(refValue, &flavour); err != nil {
+				return fmt.Errorf("parse [flavour] in member %v failed, error: %s", index, err.Error())
+			}
+			member.Flavour = flavour
+		case "env":
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[env] defined in member %v should be map type", index)
+			}
+			if member.Env == nil {
+				member.Env = map[string]string{}
+			}
+			// 设置在env里的变量优先级最高，通过其他字段设置的env变量，在这里会被覆盖值
+			for envKey, envValue := range refValue {
+				resEnv := ""
+				switch envValue := envValue.(type) {
+				case string:
+					resEnv = envValue
+				case int64:
+					resEnv = strconv.FormatInt(envValue, 10)
+				case float64:
+					resEnv = strings.TrimRight(strconv.FormatFloat(envValue, 'f', 8, 64), "0")
+				default:
+					return fmt.Errorf("values in [env] should be string type")
+				}
+				member.Env[envKey] = resEnv
+			}
+		case "id":
+			// 该字段不暴露给用户
+			continue
+		default:
+			return fmt.Errorf("each member in [distributed_job.members] has no attribute [%s]", memberKey)
+		}
+	}
+	return nil
+}
+
 func (p *Parser) IsDag(comp map[string]interface{}) bool {
 	if _, ok := comp["entry_points"]; ok {
 		return true
@@ -883,13 +927,11 @@ func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
 		switch distKey {
 		case "framework":
 			distJobMap["framework"] = distValue
-			delete(distJobMap, "framework")
 		case "members":
 			if err := p.transJsonMembers2Yaml(distValue); err != nil {
 				return err
 			}
 			distJobMap["members"] = distValue
-			delete(distJobMap, "members")
 		}
 	}
 	return nil

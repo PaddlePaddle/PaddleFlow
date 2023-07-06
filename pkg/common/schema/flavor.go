@@ -58,41 +58,40 @@ func (r ResourceInfo) ToMap() map[string]string {
 	return res
 }
 
-func MapToFlavour(flavourMap map[string]interface{}) (Flavour, error) {
-	flavour := Flavour{}
+func ParseFlavour(flavourMap map[string]interface{}, flavour *Flavour) error {
 	for flavourKey, flavourValue := range flavourMap {
 		switch flavourKey {
 		case "name":
 			refValue, ok := flavourValue.(string)
 			if !ok {
-				return Flavour{}, fmt.Errorf("[name] defined in flavour should be string type")
+				return fmt.Errorf("[name] defined in flavour should be string type")
 			}
 			flavour.Name = refValue
 		case "cpu":
 			refValue, ok := flavourValue.(string)
 			if !ok {
-				return Flavour{}, fmt.Errorf("[cpu] defined in flavour should be string type")
+				return fmt.Errorf("[cpu] defined in flavour should be string type")
 			}
 			flavour.CPU = refValue
 		case "mem":
 			refValue, ok := flavourValue.(string)
 			if !ok {
-				return Flavour{}, fmt.Errorf("[memory] defined in flavour should be string type")
+				return fmt.Errorf("[memory] defined in flavour should be string type")
 			}
 			flavour.Mem = refValue
 		case "scalarResources":
 			refValue, ok := flavourValue.(map[ResourceName]string)
 			if !ok {
-				return Flavour{}, fmt.Errorf("[scalarResources] defined in flavour should be map[string]string type")
+				return fmt.Errorf("[scalarResources] defined in flavour should be map[string]string type")
 			}
 			if err := ValidateScalarResourceInfo(refValue, []string{}); err != nil {
-				return Flavour{}, fmt.Errorf("validate scalar resource failed, error: %s", err.Error())
+				return fmt.Errorf("validate scalar resource failed, error: %s", err.Error())
 			}
 			flavour.ScalarResources = refValue
 		}
 
 	}
-	return flavour, nil
+	return nil
 }
 
 func isValidScalarResource(r string, scalarResourcesType []string) bool {
