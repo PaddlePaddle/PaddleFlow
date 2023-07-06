@@ -46,7 +46,7 @@ func TestCheckResource(t *testing.T) {
 	}
 }
 
-func TestMapToFlavour(t *testing.T) {
+func TestParseFlavour(t *testing.T) {
 	testCases := []struct {
 		name       string
 		flavourMap map[string]interface{}
@@ -76,7 +76,7 @@ func TestMapToFlavour(t *testing.T) {
 					},
 				},
 			},
-			flavourMap: map[string]interface{}{"name": "flavour2", "cpu": "4", "mem": "8Gi", "scalarResources": map[ResourceName]string{"nvidia.com/gpu": "1"}},
+			flavourMap: map[string]interface{}{"name": "flavour2", "cpu": "4", "mem": "8Gi", "scalarResources": map[string]interface{}{"nvidia.com/gpu": "1"}},
 		},
 		{
 			name:       "flavour with unexcepted name",
@@ -99,22 +99,27 @@ func TestMapToFlavour(t *testing.T) {
 		{
 			name:       "flavour with unexcepted scalaResources",
 			wantRes:    Flavour{},
-			wantErr:    fmt.Errorf("[scalarResources] defined in flavour should be map[string]string type"),
-			flavourMap: map[string]interface{}{"name": "flavour5", "cpu": "4", "mem": "8Gi", "scalarResources": map[ResourceName]int{"nvidia.com/gpu": 2}},
+			wantErr:    fmt.Errorf("scalarResources [nvidia.com/gpu] defined in flavour should be string type"),
+			flavourMap: map[string]interface{}{"name": "flavour5", "cpu": "4", "mem": "8Gi", "scalarResources": map[string]interface{}{"nvidia.com/gpu": 2}},
 		},
 		{
 			name:       "flavour with invalid scalaResources",
 			wantRes:    Flavour{},
 			wantErr:    fmt.Errorf("validate scalar resource failed, error: memory resource cannot be negative"),
-			flavourMap: map[string]interface{}{"name": "flavour6", "cpu": "4", "mem": "8Gi", "scalarResources": map[ResourceName]string{"memory": "-1"}},
+			flavourMap: map[string]interface{}{"name": "flavour6", "cpu": "4", "mem": "8Gi", "scalarResources": map[string]interface{}{"memory": "-1"}},
 		},
 	}
 
 	for _, tc := range testCases {
+		flavour := Flavour{}
 		t.Run(tc.name, func(t *testing.T) {
-			flavour, err := MapToFlavour(tc.flavourMap)
-			assert.Equal(t, tc.wantErr, err)
-			assert.Equal(t, tc.wantRes, flavour)
+			err := ParseFlavour(tc.flavourMap, &flavour)
+			if err != nil {
+				assert.Equal(t, tc.wantErr, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantRes, flavour)
+			}
 		})
 	}
 

@@ -80,14 +80,23 @@ func ParseFlavour(flavourMap map[string]interface{}, flavour *Flavour) error {
 			}
 			flavour.Mem = refValue
 		case "scalarResources":
-			refValue, ok := flavourValue.(map[ResourceName]string)
+			refValue, ok := flavourValue.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[scalarResources] defined in flavour should be map[string]string type")
+				return fmt.Errorf("[scalarResources] defined in flavour should be map type")
 			}
-			if err := ValidateScalarResourceInfo(refValue, []string{}); err != nil {
+
+			scalarValues := make(map[ResourceName]string)
+			for scalarKey, scalaValue := range refValue {
+				v, ok := scalaValue.(string)
+				if !ok {
+					return fmt.Errorf("scalarResources [%v] defined in flavour should be string type", scalarKey)
+				}
+				scalarValues[ResourceName(scalarKey)] = v
+			}
+			if err := ValidateScalarResourceInfo(scalarValues, []string{}); err != nil {
 				return fmt.Errorf("validate scalar resource failed, error: %s", err.Error())
 			}
-			flavour.ScalarResources = refValue
+			flavour.ScalarResources = scalarValues
 		}
 
 	}
