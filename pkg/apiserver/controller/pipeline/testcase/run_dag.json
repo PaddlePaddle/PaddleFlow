@@ -66,13 +66,13 @@
                     {
                         "role": "pserver",
                         "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
-                        "command": "sleep 30; echo ps",
+                        "command": "sleep 30; echo {{epoch}}",
                         "replicas": 2
                     },
                     {
                         "role": "pworker",
                         "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
-                        "command": "sleep 30; echo worker",
+                        "command": "sleep 30; echo {{epoch}}",
                         "replicas": 2
                     }
                 ]
