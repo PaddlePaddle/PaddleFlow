@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
-	"unsafe"
 )
 
 type Parser struct {
@@ -644,11 +643,15 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			}
 			member.Command = refValue
 		case "replicas":
-			refValue, ok := memberValue.(int64)
-			if !ok {
+			value1, ok1 := memberValue.(int64)
+			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的replicas值
+			if ok1 {
+				member.Replicas = int(value1)
+			} else if ok2 {
+				member.Replicas = int(value2)
+			} else {
 				return fmt.Errorf("[replicas] defined in member %v should be int type", index)
 			}
-			member.Replicas = *(*int)(unsafe.Pointer(&refValue))
 		case "image":
 			refValue, ok := memberValue.(string)
 			if !ok {
@@ -656,11 +659,15 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			}
 			member.Image = refValue
 		case "port":
-			refValue, ok := memberValue.(int64)
-			if !ok {
+			value1, ok1 := memberValue.(int64)
+			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的replicas值
+			if ok1 {
+				member.Port = int(value1)
+			} else if ok2 {
+				member.Port = int(value2)
+			} else {
 				return fmt.Errorf("[port] defined in member %v should be int type", index)
 			}
-			member.Port = *(*int)(unsafe.Pointer(&refValue))
 		case "queue":
 			refValue, ok := memberValue.(string)
 			if !ok {
@@ -710,8 +717,6 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 		case "id":
 			// 该字段不暴露给用户
 			continue
-		default:
-			return fmt.Errorf("each member in [distributed_job.members] has no attribute [%s]", memberKey)
 		}
 	}
 	return nil
