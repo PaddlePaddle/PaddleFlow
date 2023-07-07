@@ -85,18 +85,18 @@ func ParseFlavour(flavourMap map[string]interface{}, flavour *Flavour) error {
 				return fmt.Errorf("[scalarResources] defined in flavour should be map type")
 			}
 
-			scalarValues := make(map[ResourceName]string)
+			res := make(map[ResourceName]string)
 			for scalarKey, scalaValue := range refValue {
-				v, ok := scalaValue.(string)
+				value, ok := scalaValue.(string)
 				if !ok {
 					return fmt.Errorf("scalarResources [%v] defined in flavour should be string type", scalarKey)
 				}
-				scalarValues[ResourceName(scalarKey)] = v
+				res[ResourceName(scalarKey)] = value
 			}
-			if err := ValidateScalarResourceInfo(scalarValues, []string{}); err != nil {
+			if err := ValidateScalarResourceInfo(res, []string{}); err != nil {
 				return fmt.Errorf("validate scalar resource failed, error: %s", err.Error())
 			}
-			flavour.ScalarResources = scalarValues
+			flavour.ScalarResources = res
 		}
 
 	}

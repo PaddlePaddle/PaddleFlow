@@ -319,7 +319,6 @@ func TestCreateRunByJson(t *testing.T) {
 	wfs, err := getWorkFlowSourceByJson(bodyMap)
 	assert.Nil(t, err)
 	fmt.Println(wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
-
 	run := models.Run{
 		Name:           "full_run",
 		Source:         "run.yaml",
@@ -343,6 +342,7 @@ func TestCreateRunByJson(t *testing.T) {
 	defer patch.Reset()
 
 	ctx := &logger.RequestContext{UserName: MockRootUser}
+
 	CreateRunByJson(ctx, bodyMap)
 	assert.Equal(t, common.InvalidPipeline, ctx.ErrorCode)
 

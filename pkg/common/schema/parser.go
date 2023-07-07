@@ -628,38 +628,6 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 	return nil
 }
 
-func (p *Parser) ParseDistributedJob(disMap map[string]interface{}, disJob *DistributedJob) error {
-	for key, value := range disMap {
-		switch key {
-		case "framework":
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[distributed_job.framework] should be string type")
-			}
-			disJob.Framework = Framework(value)
-		case "members":
-			value, ok := value.([]interface{})
-			if !ok {
-				return fmt.Errorf("[distributed_job.members] should be list type")
-			}
-			for i, m := range value {
-				mapValue, ok := m.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("member %v in [distributed_job.members] should be map type", i)
-				}
-				member := Member{}
-				if err := p.ParseMember(mapValue, &member, i); err != nil {
-					return fmt.Errorf("parse member %v in [distributed_job.members] failed, error: %s", i, err.Error())
-				}
-				disJob.Members = append(disJob.Members, member)
-			}
-		default:
-			return fmt.Errorf("[distributed_job] has no attribute [%s]", key)
-		}
-	}
-	return nil
-}
-
 func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, index int) error {
 	for memberKey, memberValue := range memberMap {
 		switch memberKey {

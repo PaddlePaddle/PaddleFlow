@@ -651,16 +651,6 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		reqFsName = fsOptions.MainFS.Name
 	}
 
-	disMap, ok := bodyMap[JsonDistributedJob].(map[string]interface{})
-	if ok {
-		distributedJob := schema.DistributedJob{}
-		if err := parser.ParseDistributedJob(disMap, &distributedJob); err != nil {
-			ctx.ErrorCode = common.InvalidPipeline
-			logger.Logger().Errorf("check distributedjob failed, error: %s", err.Error())
-			return CreateRunResponse{}, err
-		}
-	}
-
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
 	}
@@ -799,7 +789,6 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run *models.Run, userName s
 
 	// 在ValidateAndCreateRun已经校验过requestId非空
 	requestId := ctx.RequestID
-
 	// update trace logger key
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
