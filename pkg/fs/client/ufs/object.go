@@ -711,7 +711,6 @@ func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 		log.Errorf("fs.storage.Head： srcName[%s] err[%v]", srcName, err)
 		return err
 	}
-	log.Infof("renameObject resp %v", resp)
 	copySource, copyDst := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
 
 	if resp.Size > COPY_LIMIT {
