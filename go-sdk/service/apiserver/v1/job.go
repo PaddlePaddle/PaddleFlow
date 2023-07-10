@@ -87,6 +87,7 @@ type SchedulingPolicy struct {
 // JobSpec the spec fields for jobs
 type JobSpec struct {
 	Flavour           schema.Flavour         `json:"flavour"`
+	LimitFlavour      schema.Flavour         `json:"limitFlavour"`
 	FS                schema.FileSystem      `json:"fs"`
 	ExtraFS           []schema.FileSystem    `json:"extraFS"`
 	Image             string                 `json:"image"`
