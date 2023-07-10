@@ -102,6 +102,7 @@ func main() {
 							},
 						},
 					},
+					Image: "xxx",
 				},
 				Role:     "worker",
 				Replicas: 2,
