@@ -162,6 +162,7 @@ type RuntimeInfo struct {
 	Namespace string `json:"namespace,omitempty"`
 	ID        string `json:"id,omitempty"`
 	Status    string `json:"status,omitempty"`
+	NodeName  string `json:"nodeName,omitempty"`
 }
 
 type DistributedRuntimeInfo struct {
