@@ -46,6 +46,7 @@ func init() {
 
 const MiB int64 = 1024 * 1024
 const GiB int64 = 1024 * 1024 * 1024
+const COPY_LIMIT = uint64(5 * 1024 * 1024 * 1024)
 
 var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChunkSize) }}
 var duration int
@@ -705,11 +706,26 @@ func (fs *objectFileSystem) isEmptyDir(name string) (isDir bool, err error) {
 
 func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 	log.Tracef("s3 renameObject: [%s]->[%s]", srcName, dstName)
-	copySource, newKey := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
-	err := fs.storage.Copy(newKey, copySource)
+	resp, err := fs.storage.Head(fs.objectKeyName(srcName))
 	if err != nil {
-		log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+		log.Errorf("fs.storage.Head： srcName[%s] err[%v]", srcName, err)
 		return err
+	}
+	log.Infof("renameObject resp %v", resp)
+	copySource, copyDst := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
+
+	if resp.Size > COPY_LIMIT {
+		err = fs.copyObjectMultipart(copySource, copyDst, int64(resp.Size))
+		if err != nil {
+			log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", copySource, copyDst, err)
+			return err
+		}
+	} else {
+		err = fs.storage.Copy(copyDst, copySource)
+		if err != nil {
+			log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", copyDst, copySource, err)
+			return err
+		}
 	}
 	dk := []string{copySource}
 	err = fs.storage.Deletes(dk)
@@ -750,12 +766,22 @@ func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) 
 			_ = fs.copyPool.Submit(func() {
 				defer wg.Done()
 				key := (tmpContent.Key)[len(prefix):]
-				err := fs.storage.Copy(newPrefix+key, tmpContent.Key)
-				if err != nil {
-					log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
-					errBuf.WriteString(err.Error() + "; ")
-					return
+
+				if tmpContent.Size > COPY_LIMIT {
+					err = fs.copyObjectMultipart(tmpContent.Key, newPrefix+key, int64(tmpContent.Size))
+					if err != nil {
+						log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						return
+					}
+				} else {
+					err := fs.storage.Copy(newPrefix+key, tmpContent.Key)
+					if err != nil {
+						log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						errBuf.WriteString(err.Error() + "; ")
+						return
+					}
 				}
+
 				copiedMutex.Lock()
 				copied = append(copied, tmpContent.Key)
 				copiedMutex.Unlock()
@@ -1004,7 +1030,7 @@ func (fh *objectFileHandle) multipartUpload(partNum int64, data []byte) error {
 	for retryNum := 0; retryNum < MPURetryTimes; retryNum++ {
 		resp, err = fh.storage.UploadPart(fh.key, *fh.mpuInfo.uploadID, partNum, data)
 		if err != nil {
-			log.Errorf("fh.storage.UploadPart: key[%s] mpuInfo[%+v] err[%v] retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
+			log.Errorf("fh.storage.UploadPart: key[%s] err[%v] retryNum[%d]", fh.key, err, retryNum)
 		} else {
 			log.Debugf("mpu upload: key[%s], mpuInfo[%+v] failed. err: %v. retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
 			fh.mpuInfo.partsETag[partNum-1] = &resp.ETag
@@ -1039,7 +1065,7 @@ func (fh *objectFileHandle) multipartCommit() error {
 	return nil
 }
 
-func (fh *objectFileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
+func partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
 	chunkSize = MPUChunkSize // chunk size = 1 GiB
 	if fileSize <= 8*GiB {   // fileSize <= 8 GiB
 		// 8 MiB, 128 parts/chunk, total: 0 ~ 1,000 parts & chunks <= 8
@@ -1069,7 +1095,7 @@ func (fh *objectFileHandle) serialMPUTillEnd() error {
 	}
 	fileSize := fInfo.Size()
 	log.Tracef("s3 mpu: fh.name[%s], fileSize[%d]", fh.name, fileSize)
-	partSize, chunkSize, _ := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, _ := partAndChunkSize(fileSize)
 	chunkCnt := fileSize / chunkSize
 	chunkLeftover := fileSize % chunkSize
 	if chunkLeftover != 0 {
@@ -1119,7 +1145,7 @@ func (fh *objectFileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []by
 	defer func() {
 		chunkPool.Put(chunk)
 	}()
-	partSize, chunkSize, partsPerChunk := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, partsPerChunk := partAndChunkSize(fileSize)
 
 	// read from file to chunk buffer
 	_, err := fh.writeTmpfile.ReadAt(chunk, chunkNum*chunkSize)

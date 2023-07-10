@@ -257,6 +257,34 @@ func (storage S3Storage) CreateMultipartUpload(key string) (*MultipartCommitOutP
 	}, nil
 }
 
+// UploadPartCopy
+func (storage S3Storage) UploadPartCopy(key string, uploadID, bytes_ string, num int64, copySource string) (*Part, error) {
+	log.Tracef("s3.UploadPartCopy f key[%s] uploadID[%s] num[%d] copySource[%s] bucket[%s] bytes[%s]", key, uploadID, num, storage.bucket+"/"+copySource, storage.bucket, bytes_)
+	mpu := s3.UploadPartCopyInput{
+		Bucket:          &storage.bucket,
+		Key:             &key,
+		PartNumber:      &num,
+		UploadId:        &uploadID,
+		CopySource:      aws.String(storage.bucket + "/" + copySource),
+		CopySourceRange: aws.String(bytes_),
+	}
+	var err error
+	var resp *s3.UploadPartCopyOutput
+	resp, err = storage.s3.UploadPartCopy(&mpu)
+	if err != nil {
+		log.Errorf("s3 mpu upload: fh.name[%s], upload part[%v] failed. err: %v", key, mpu, err)
+		return nil, err
+	}
+	var etag string
+	if resp.CopyPartResult != nil {
+		etag = *resp.CopyPartResult.ETag
+	}
+	return &Part{
+		Num:  num,
+		ETag: etag,
+	}, nil
+}
+
 func (storage S3Storage) UploadPart(key string, uploadID string, num int64, body []byte) (*Part, error) {
 	log.Tracef("s3.UploadPart key[%s] uploadID[[%v] num[%d]", key, uploadID, num)
 	mpu := s3.UploadPartInput{

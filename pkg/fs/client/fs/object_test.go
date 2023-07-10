@@ -173,6 +173,58 @@ func testBigFile(t *testing.T, client FSClient) {
 	testRead(t, client, testBigFileName, md5Str)
 }
 
+func test6GBigFile(t *testing.T, client FSClient) {
+	fileSize := 5*1024*1024*1024 + rand.Intn(100000) // 5g + rand
+	log.Infof("test6GBigFile file size %d", fileSize)
+
+	name := "5g.file"
+	renameName := "5g.file.rename"
+	f, err := os.Create(name)
+	assert.Equal(t, nil, err)
+	defer func() {
+		f.Close()
+	}()
+
+	buf := make([]byte, 4096) // 4KB buffer
+	for i := 0; i < fileSize/len(buf); i++ {
+		rand.Read(buf)
+		_, err := f.Write(buf)
+		if err != nil {
+			assert.Equal(t, nil, err)
+		}
+	}
+
+	remaining := fileSize % len(buf)
+	if remaining > 0 {
+		buf = make([]byte, remaining)
+		rand.Read(buf)
+		_, err := f.Write(buf)
+		if err != nil {
+			assert.Equal(t, nil, err)
+		}
+	}
+	assert.Equal(t, nil, err)
+
+	in, err := os.Open(name)
+	assert.Equal(t, nil, err)
+	defer in.Close()
+
+	out, err := client.Create(name)
+	assert.Equal(t, nil, err)
+	defer out.Close()
+
+	n, err := io.Copy(out, in)
+	assert.Equal(t, nil, err)
+
+	assert.Equal(t, n, int64(fileSize))
+
+	err = client.Rename(name, renameName)
+	assert.Equal(t, nil, err)
+	stat_, err := client.Stat(renameName)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, int64(fileSize), stat_.Size())
+}
+
 func localMd5(t *testing.T, name string) string {
 	fh, err := os.Open(name)
 	assert.Equal(t, nil, err)
@@ -354,6 +406,31 @@ func testRename(t *testing.T, client FSClient, fsType string) {
 		err = client.Rename(fromDir, "toErrDir")
 		assert.NotNil(t, err)
 	}
+}
+
+func TestS3Rename(t *testing.T) {
+	if os.Getenv(Ori_ak) == "" || os.Getenv(Ori_subpath) == "" || os.Getenv(Ori_subpath) == "/" {
+		log.Info("not ready")
+		t.SkipNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	d := cache.Config{
+		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
+		MaxReadAhead: 1 + rand.Intn(300*1024*1024),
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getS3Client(t)
+	defer func() {
+		client.RemoveAll("/")
+	}()
+
+	test6GBigFile(t, client)
+	return
 
 }
 
@@ -363,11 +440,11 @@ func testSetAttr(t *testing.T, client FSClient) {
 	assert.Nil(t, err)
 	assert.Nil(t, fh.Close())
 	defer client.Remove(file)
-	//set Mtime only
+	// set Mtime only
 	attr, err := client.SetAttr(file, uint32(32), 0, 0, 0, 10, 12, 12, 13, 0)
 	assert.Nil(t, err)
 	assert.Equal(t, time.Unix(0, int64(12)*1e9+int64(13)), attr.ModTime())
-	//set Atime only
+	// set Atime only
 	attr, err = client.SetAttr(file, uint32(16), 0, 0, 0, 10, 12, 120, 133, 0)
 	assert.Nil(t, err)
 	assert.Equal(t, time.Unix(0, int64(12)*1e9+int64(13)), attr.ModTime())

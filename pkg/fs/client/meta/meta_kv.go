@@ -1699,7 +1699,7 @@ func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.
 	return syscall.ENOSYS
 }
 
-func (m *kvMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
+func (m *kvMeta) Write(ctx *Context, inode Ino, off uint64, length int) syscall.Errno {
 	updateInodeItem := &inodeItem{}
 
 	err := m.txn(func(tx kv.KvTxn) error {

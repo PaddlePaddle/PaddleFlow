@@ -149,7 +149,7 @@ type Meta interface {
 	// Read returns the list of blocks
 	Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.Errno
 	// Write put a slice of data on top of the given chunk.
-	Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno
+	Write(ctx *Context, inode Ino, off uint64, length int) syscall.Errno
 
 	// CopyFileRange copies part of a file to another one.
 	CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64, size uint64, flags uint32, copied *uint64) syscall.Errno
