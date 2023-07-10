@@ -133,7 +133,7 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 		log.Debugf("s3.Head key[%s] error: %v", key, err)
 		return nil, err
 	}
-	var etag, storageClass string
+	var etag, storageClass, contentType string
 	var lastModified time.Time
 	var size uint64
 
@@ -149,6 +149,9 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 	if response.StorageClass != nil {
 		storageClass = *response.StorageClass
 	}
+	if response.ContentType != nil {
+		contentType = *response.ContentType
+	}
 
 	return &HeadObjectOutput{
 		ItemOutput: ItemOutput{
@@ -158,7 +161,7 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 			Size:         size,
 			StorageClass: storageClass,
 		},
-		ContentType: *response.ContentType,
+		ContentType: contentType,
 		Metadata:    metadataToLower(response.Metadata),
 		IsDir:       strings.HasSuffix(key, "/"),
 	}, nil
