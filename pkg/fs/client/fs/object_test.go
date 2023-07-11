@@ -174,7 +174,7 @@ func testBigFile(t *testing.T, client FSClient) {
 }
 
 func test6GBigFile(t *testing.T, client FSClient) {
-	fileSize := 5*1024*1024*1024 + rand.Intn(100000) // 5g + rand
+	fileSize := 5*1024*1024*1024 + rand.Intn(200000) // 5g + rand
 	log.Infof("test6GBigFile file size %d", fileSize)
 
 	name := "5g.file"
