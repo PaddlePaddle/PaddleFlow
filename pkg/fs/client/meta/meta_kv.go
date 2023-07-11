@@ -385,7 +385,7 @@ func (m *kvMeta) marshalEntry(entry *entryItem) []byte {
 
 func (m *kvMeta) txn(f func(tx kv.KvTxn) error) error {
 	var err error
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		if err = m.client.Txn(f); m.shouldRetry(err) {
 			time.Sleep(time.Millisecond * time.Duration(i*i))
 			continue

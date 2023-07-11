@@ -216,6 +216,9 @@ func test6GBigFile(t *testing.T, client FSClient) {
 	n, err := io.Copy(out, in)
 	assert.Equal(t, nil, err)
 
+	out.Close()
+	in.Close()
+	time.Sleep(2 * time.Second)
 	assert.Equal(t, n, int64(fileSize))
 
 	err = client.Rename(name, renameName)
@@ -417,7 +420,7 @@ func TestS3Rename(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
 		MaxReadAhead: 1 + rand.Intn(300*1024*1024),
-		Expire:       600 * time.Second,
+		Expire:       1 * time.Second,
 		Config: kv.Config{
 			Driver:    kv.MemType,
 			CachePath: "./mock-cache",
