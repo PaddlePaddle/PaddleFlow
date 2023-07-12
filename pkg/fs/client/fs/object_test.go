@@ -177,8 +177,8 @@ func test6GBigFile(t *testing.T, client FSClient) {
 	fileSize := 5*1024*1024*1024 + rand.Intn(200000) // 5g + rand
 	log.Infof("test6GBigFile file size %d", fileSize)
 
-	name := "5g.file"
-	renameName := "5g.file.rename"
+	name := "5g.file2"
+	renameName := "5g.file.rename2"
 	f, err := os.Create(name)
 	assert.Equal(t, nil, err)
 	defer func() {
@@ -428,6 +428,32 @@ func TestS3Rename(t *testing.T) {
 	}
 	SetDataCache(d)
 	client := getS3Client(t)
+	defer func() {
+		client.RemoveAll("/")
+	}()
+
+	test6GBigFile(t, client)
+	return
+
+}
+
+func TestBOSRename(t *testing.T) {
+	if os.Getenv(Ori_ak) == "" || os.Getenv(Ori_subpath) == "" || os.Getenv(Ori_subpath) == "/" {
+		log.Info("not ready")
+		t.SkipNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	d := cache.Config{
+		BlockSize:    (1 + rand.Intn(100)) * 1024 * 1024,
+		MaxReadAhead: 1 + rand.Intn(300*1024*1024),
+		Expire:       1 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.MemType,
+			CachePath: "./mock-cache",
+		},
+	}
+	SetDataCache(d)
+	client := getBosClient(t)
 	defer func() {
 		client.RemoveAll("/")
 	}()
