@@ -560,7 +560,7 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 		log.Errorf("Vfs.Write err: %v.", err.Error())
 		return err
 	}
-	if err = v.Meta.Write(ctx, ino, uint32(off), len(buf)); err != syscall.F_OK {
+	if err = v.Meta.Write(ctx, ino, off, len(buf)); err != syscall.F_OK {
 		log.Errorf("vfs.Write, call metaWrite err :%v", err.Error())
 	}
 	return err
