@@ -20,6 +20,7 @@ import (
 	"io"
 	"sync"
 	"syscall"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -101,6 +102,8 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
 			if err != nil && err != syscall.ENOMEM && err != io.EOF && err != io.ErrUnexpectedEOF {
 				log.Errorf("reader failed: %v", err)
+				// 重试的时候稍微等待一下
+				time.Sleep(1 * time.Second)
 				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
 				if err != nil {
 					log.Errorf("read from stream with unexpected error: %v", err)
@@ -177,7 +180,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 		fh.streamReader = nil
 		err = nil
 	}
-	log.Debugf("stream result nread[%d] and buf[%s]", bytesRead, string(buf[:bytesRead]))
+	log.Debugf("stream result nread[%d]", bytesRead)
 	return
 }
 

@@ -239,7 +239,8 @@ func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	}
 	timeOutReader := &TimeoutReader{
 		source:  reader,
-		timeout: 30 * time.Second,
+		// 2 minutes超时，这里buffer最大是20m，5分钟超时防止一直读不完，程序卡死
+		timeout: 5 * time.Minute,
 	}
 	n, err = timeOutReader.Read(p.buffer[p.writeLength:cap(p.buffer)])
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
