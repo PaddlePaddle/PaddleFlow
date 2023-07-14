@@ -85,3 +85,13 @@ member运行的自定义环境变量，map类型。
 - 如果Member中定义了环境变量，所在Step的env中不包含Member中定义的env名称，member的env将会在此基础上追加所在Step的env。
 - 如果Member中定义了环境变量，且所在Step的env中包含Member中定义的env名称，则Member实际使用的该环境变量值为Member指定的env环境变量值，即Member指定的ENV环境变量优先级高于其所在Step的env环境变量。
 
+# 3 Pipeline运行过程
+当Paddleflow开始调度执行分布式任务的节点时，会检查distributed_job字段是否有值，如果有值则会开始执行如下流程：
+
+1. 解析Members中的配置字段，包括role、replicas、image、port、flavour、command等。
+
+2. 替换Member的command字段中的模板。
+-  如果是artifact模板，则会使用artifact的文件内容来替换相应的模板
+
+3. 根据Framework和各Member的配置信息创建分布式PaddleFlow Job。
+

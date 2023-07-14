@@ -64,5 +64,5 @@ if __name__ == "__main__":
 将多个member成员组装成一个DistributedJob可以分成如下三步：
 1. 创建DistributedJob实例
 2. 定义分布式任务的framework
-3. 根据role创建Member列表，依次配置副本数、镜像等字段。
+3. 根据role创建Member列表，依次配置副本数、镜像、flavour等字段。
 
