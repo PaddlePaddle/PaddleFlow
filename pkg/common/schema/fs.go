@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"fmt"
 	"path"
 	"strings"
 )
@@ -77,4 +78,42 @@ func ConcatenatePVName(namespace, fsID string) string {
 
 func ConcatenatePVCName(fsID string) string {
 	return strings.Replace(PVCNameTemplate, FSIDFormat, fsID, -1)
+}
+
+func ParseFs(fsMap map[string]interface{}, fs *FileSystem) error {
+	for fsKey, fsValue := range fsMap {
+		switch fsKey {
+		case "name":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[name] defined in fs should be string type")
+			}
+			fs.Name = refValue
+		case "hostPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[hostPath] defined in fs should be string type")
+			}
+			fs.HostPath = refValue
+		case "mountPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[mountPath] defined in fs should be string type")
+			}
+			fs.MountPath = refValue
+		case "subPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[subPath] defined in fs should be string type")
+			}
+			fs.SubPath = refValue
+		case "readOnly":
+			refValue, ok := fsValue.(bool)
+			if !ok {
+				return fmt.Errorf("[readOnly] defined in fs should be bool type")
+			}
+			fs.ReadOnly = refValue
+		}
+	}
+	return nil
 }

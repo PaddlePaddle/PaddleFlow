@@ -691,6 +691,26 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				return fmt.Errorf("parse [flavour] in member %v failed, error: %s", index, err.Error())
 			}
 			member.Flavour = flavour
+		case "fs":
+			refValue, ok := memberValue.(map[string]interface{})
+			fs := FileSystem{}
+			if !ok {
+				return fmt.Errorf("[fs] defined in member %v should be map type", index)
+			}
+			if err := ParseFs(refValue, &fs); err != nil {
+				return fmt.Errorf("parse [fs] in member %v failed, error: %s", index, err.Error())
+			}
+			member.FileSystem = fs
+		case "args":
+			refValue, ok := memberValue.([]interface{})
+			if !ok {
+				return fmt.Errorf("[args] defined in member %v should be list type", index)
+			}
+			args, err := ParseArgs(refValue)
+			if err != nil {
+				return fmt.Errorf("parse [args] in member %v failed, error: %s", index, err.Error())
+			}
+			member.Args = args
 		case "env":
 			refValue, ok := memberValue.(map[string]interface{})
 			if !ok {
@@ -945,4 +965,17 @@ func (p *Parser) transJsonMember2Yaml(value interface{}) error {
 		}
 	}
 	return nil
+}
+
+func ParseArgs(values []interface{}) ([]string, error) {
+	args := make([]string, 0)
+	for index, value := range values {
+		arg, ok := value.(string)
+		if !ok {
+			return []string{}, fmt.Errorf("[%v] defined in args %v should be string type", value, index)
+		}
+		args = append(args, arg)
+	}
+
+	return args, nil
 }

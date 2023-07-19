@@ -167,6 +167,7 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 			ReadOnly:  pfj.mainFS.ReadOnly,
 		}
 	}
+
 	efs := make([]schema.FileSystem, 0)
 	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
