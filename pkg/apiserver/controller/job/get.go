@@ -31,6 +31,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -90,12 +91,13 @@ type GetJobResponse struct {
 }
 
 type RuntimeInfo struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	ID        string `json:"id,omitempty"`
-	Status    string `json:"status,omitempty"`
-	NodeName  string `json:"nodeName"`
-	LogURL    string `json:"logURL,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Namespace        string `json:"namespace,omitempty"`
+	ID               string `json:"id,omitempty"`
+	Status           string `json:"status,omitempty"`
+	NodeName         string `json:"nodeName"`
+	AcceleratorCards string `json:"acceleratorCards,omitempty"`
+	LogURL           string `json:"logURL,omitempty"`
 }
 
 type DistributedRuntimeInfo struct {
@@ -352,12 +354,13 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 	runtimes := make([]RuntimeInfo, 0)
 	for _, task := range tasks {
 		runtime := RuntimeInfo{
-			ID:        task.ID,
-			Name:      task.Name,
-			Namespace: task.Namespace,
-			Status:    task.ExtRuntimeStatusJSON,
-			NodeName:  task.NodeName,
-			LogURL:    GenerateLogURL(task),
+			ID:               task.ID,
+			Name:             task.Name,
+			Namespace:        task.Namespace,
+			Status:           task.ExtRuntimeStatusJSON,
+			NodeName:         task.NodeName,
+			AcceleratorCards: task.Annotations[k8s.GPUIdxKey],
+			LogURL:           GenerateLogURL(task),
 		}
 		runtimes = append(runtimes, runtime)
 	}
