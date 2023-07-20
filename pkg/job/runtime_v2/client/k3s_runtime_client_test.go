@@ -357,7 +357,7 @@ func TestK3SNodeListener(t *testing.T) {
 
 	// init 2k nodes
 	var nodeCount = 2000
-	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList)
+	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList, []map[string]string{})
 	assert.Equal(t, nil, err)
 
 	nodeQueue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
