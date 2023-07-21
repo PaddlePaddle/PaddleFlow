@@ -71,16 +71,19 @@ func getMessage(annotations map[string]string, defaultMsg string) string {
 
 func getJobStatus(statusInfo api.StatusInfo, annotations map[string]string) api.StatusInfo {
 	// 1. get preempted status from annotations
-	annoJobStatus := strings.ToLower(annotations[schema.JobAnnotationsStatusKey])
-	if schema.JobStatus(annoJobStatus) == schema.StatusJobPreempted &&
-		schema.IsImmutableJobStatus(statusInfo.Status) {
+	annoJobStatus := schema.JobStatus(strings.ToLower(annotations[schema.JobAnnotationsStatusKey]))
+	switch annoJobStatus {
+	case schema.StatusJobPreempting:
+		statusInfo.Status = schema.StatusJobPreempting
+		statusInfo.Message = getMessage(annotations, "job is preempting")
+	case schema.StatusJobPreempted:
 		statusInfo.Status = schema.StatusJobPreempted
 		statusInfo.Message = getMessage(annotations, "job is preempted")
-		return statusInfo
-	}
-	// 2. check job status
-	if statusInfo.Status == "" {
-		statusInfo.Status = schema.StatusJobPending
+	default:
+		// 2. check job status
+		if statusInfo.Status == "" {
+			statusInfo.Status = schema.StatusJobPending
+		}
 	}
 	return statusInfo
 }

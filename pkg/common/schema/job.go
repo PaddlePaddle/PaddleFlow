@@ -74,6 +74,7 @@ const (
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
+	StatusJobPreempting  JobStatus = "preempting"
 	StatusJobPreempted   JobStatus = "preempted"
 
 	StatusTaskPending   TaskStatus = "pending"
