@@ -110,9 +110,72 @@ func TestJobSyncAndGC(t *testing.T) {
 			oldStatus: &v1.PodStatus{
 				Phase: v1.PodPending,
 			},
-			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job1"),
-			newStatus: &v1.PodStatus{
-				Phase: v1.PodRunning,
+			wantErr: nil,
+		},
+		{
+			name: "client is nil",
+			args: args{
+				jobSync: ctrl,
+				opt:     nil,
+			},
+			wantErr: fmt.Errorf("init JobSync failed"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
+			err := tt.args.jobSync.Initialize(tt.args.opt)
+			if err != nil {
+				assert.Equal(t, tt.wantErr, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
+}
+
+func initJobData(mockQueueID, mockClusterID, mockJobID string) error {
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{Model: model.Model{ID: mockClusterID}, Status: model.ClusterStatusOnLine})
+	if err != nil {
+		return err
+	}
+
+	err = storage.Queue.CreateQueue(&model.Queue{Model: model.Model{ID: mockQueueID}, ClusterId: mockClusterID})
+	if err != nil {
+		return err
+	}
+
+	return storage.Job.CreateJob(&model.Job{
+		ID: mockJobID,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobTerminating,
+		QueueID:   mockQueueID})
+}
+
+func TestJobSync(t *testing.T) {
+	mockJobID := "test-job-id"
+	mockJobID2 := "test-job-id2"
+	mockSubJobID := "test-sub-job-id"
+	mockNamespace := "default"
+
+	testCases := []struct {
+		name        string
+		jobSyncInfo *api.JobSyncInfo
+	}{
+		{
+			name: "sync add job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPending,
+				Action:    schema.Create,
 			},
 		},
 		{
@@ -141,6 +204,24 @@ func TestJobSyncAndGC(t *testing.T) {
 				Phase: v1.PodSucceeded,
 			},
 		},
+		{
+			name: "sync preempting job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID2,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPreempting,
+				Action:    schema.Create,
+			},
+		},
+		{
+			name: "sync preempted job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID2,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPreempted,
+				Action:    schema.Update,
+			},
+		},
 	}
 
 	config.GlobalServerConfig = &config.ServerConfig{
@@ -150,6 +231,35 @@ func TestJobSyncAndGC(t *testing.T) {
 			},
 		},
 	}
+
+	c := newFakeJobSyncController()
+	// init mock db
+	mockQueueID := "mock-queue-id"
+	err := initJobData(mockQueueID, c.runtimeClient.ClusterID(), "mock-job-id")
+	assert.Equal(t, nil, err)
+	// init new job
+	err = storage.Job.CreateJob(&model.Job{
+		ID: mockJobID,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobPending,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Job.CreateJob(&model.Job{
+		ID: mockJobID2,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobPending,
+	})
+	assert.Equal(t, nil, err)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

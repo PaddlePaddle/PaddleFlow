@@ -18,6 +18,7 @@ package kuberuntime
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -59,6 +60,34 @@ func GetParentJobID(obj *unstructured.Unstructured) string {
 	return owner.Name
 }
 
+func getMessage(annotations map[string]string, defaultMsg string) string {
+	msg := annotations[schema.JobAnnotationsMessageKey]
+	if len(msg) > 0 {
+		return msg
+	} else {
+		return defaultMsg
+	}
+}
+
+func getJobStatus(statusInfo api.StatusInfo, annotations map[string]string) api.StatusInfo {
+	// 1. get preempted status from annotations
+	annoJobStatus := schema.JobStatus(strings.ToLower(annotations[schema.JobAnnotationsStatusKey]))
+	switch annoJobStatus {
+	case schema.StatusJobPreempting:
+		statusInfo.Status = schema.StatusJobPreempting
+		statusInfo.Message = getMessage(annotations, "job is preempting")
+	case schema.StatusJobPreempted:
+		statusInfo.Status = schema.StatusJobPreempted
+		statusInfo.Message = getMessage(annotations, "job is preempted")
+	default:
+		// 2. check job status
+		if statusInfo.Status == "" {
+			statusInfo.Status = schema.StatusJobPending
+		}
+	}
+	return statusInfo
+}
+
 func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncInfo, error) {
 	jobObj := obj.(*unstructured.Unstructured)
 	gvk := jobObj.GroupVersionKind()
@@ -69,11 +98,8 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 	if err != nil {
 		return nil, err
 	}
-	jobStatus := statusInfo.Status
+	statusInfo = getJobStatus(statusInfo, jobObj.GetAnnotations())
 
-	if jobStatus == "" {
-		jobStatus = schema.StatusJobPending
-	}
 	parentJobID := GetParentJobID(jobObj)
 	// get runtime status and info
 	runtimeStatus := jobObj.Object[RuntimeStatusKey]
@@ -87,7 +113,7 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 		Annotations:      jobObj.GetAnnotations(),
 		ParentJobID:      parentJobID,
 		FrameworkVersion: frameworkVersion,
-		Status:           jobStatus,
+		Status:           statusInfo.Status,
 		RuntimeInfo:      runtimeInfo,
 		RuntimeStatus:    runtimeStatus,
 		Message:          statusInfo.Message,
@@ -125,19 +151,17 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		return nil, err
 	}
 	// construct job sync info
-	jobStatus := newStatusInfo.Status
-	if jobStatus == "" {
-		jobStatus = schema.StatusJobPending
-	}
 	// get framework version
 	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	newStatusInfo = getJobStatus(newStatusInfo, newObj.GetAnnotations())
+	
 	jobInfo := &api.JobSyncInfo{
 		ID:               newObj.GetName(),
 		Namespace:        newObj.GetNamespace(),
 		Annotations:      newObj.GetAnnotations(),
 		ParentJobID:      GetParentJobID(newObj),
 		FrameworkVersion: frameworkVersion,
-		Status:           jobStatus,
+		Status:           newStatusInfo.Status,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
 		Message:          newStatusInfo.Message,
 		Action:           schema.Update,

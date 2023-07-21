@@ -137,13 +137,20 @@ func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, ms
 	if schema.IsImmutableJobStatus(preStatus) {
 		return preStatus, ""
 	}
-	if preStatus == schema.StatusJobTerminating {
+	switch preStatus {
+	case schema.StatusJobTerminating:
 		if newStatus == schema.StatusJobRunning {
 			newStatus = schema.StatusJobTerminating
 			msg = "job is terminating"
 		} else {
 			newStatus = schema.StatusJobTerminated
 			msg = "job is terminated"
+		}
+	case schema.StatusJobPreempting:
+		if schema.IsImmutableJobStatus(newStatus) {
+			newStatus = schema.StatusJobPreempted
+		} else {
+			newStatus = schema.StatusJobPreempting
 		}
 	}
 	log.Infof("job %s status update from %s to %s", jobID, preStatus, newStatus)
