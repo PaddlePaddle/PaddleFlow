@@ -185,6 +185,7 @@ func initJobData(mockQueueID, mockClusterID, mockJobID string) error {
 
 func TestJobSync(t *testing.T) {
 	mockJobID := "test-job-id"
+	mockJobID2 := "test-job-id2"
 	mockSubJobID := "test-sub-job-id"
 	mockNamespace := "default"
 
@@ -250,7 +251,7 @@ func TestJobSync(t *testing.T) {
 		{
 			name: "sync preempting job",
 			jobSyncInfo: &api.JobSyncInfo{
-				ID:        mockJobID,
+				ID:        mockJobID2,
 				Namespace: mockNamespace,
 				Status:    schema.StatusJobPreempting,
 				Action:    schema.Create,
@@ -259,7 +260,7 @@ func TestJobSync(t *testing.T) {
 		{
 			name: "sync preempted job",
 			jobSyncInfo: &api.JobSyncInfo{
-				ID:        mockJobID,
+				ID:        mockJobID2,
 				Namespace: mockNamespace,
 				Status:    schema.StatusJobPreempted,
 				Action:    schema.Update,
@@ -282,6 +283,17 @@ func TestJobSync(t *testing.T) {
 	// init new job
 	err = storage.Job.CreateJob(&model.Job{
 		ID: mockJobID,
+		Config: &schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+		Framework: schema.FrameworkStandalone,
+		Status:    schema.StatusJobPending,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Job.CreateJob(&model.Job{
+		ID: mockJobID2,
 		Config: &schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobNamespace: "default",
