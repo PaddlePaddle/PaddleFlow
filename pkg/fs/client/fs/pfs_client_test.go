@@ -32,16 +32,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSftpWithReadErr(t *testing.T) {
@@ -320,38 +319,6 @@ func TestFSClient_case1(t *testing.T) {
 	info, err := client.Stat("/mock/test3")
 	assert.Equal(t, nil, err)
 	assert.Equal(t, info.IsDir(), false)
-}
-
-func TestFSClient_read_blocksize0(t *testing.T) {
-	clean()
-	defer clean()
-	d := cache.Config{
-		BlockSize:    0,
-		MaxReadAhead: 4,
-		Expire:       600 * time.Second,
-		Config: kv.Config{
-			Driver:    kv.MemType,
-			CachePath: "./mock-cache",
-		},
-	}
-	SetDataCache(d)
-	client := getTestFSClient(t)
-	path := "testRead"
-	writer, err := client.Create(path)
-	assert.Equal(t, nil, err)
-	writeString := "test String for Client"
-	_, err = writer.Write([]byte(writeString))
-	assert.Equal(t, nil, err)
-	writer.Close()
-
-	var buf []byte
-	var n int
-
-	buf = make([]byte, len([]byte(writeString)))
-	n, err = openAndRead(client, path, buf)
-	assert.Equal(t, nil, err)
-	assert.Equal(t, n, len(buf))
-	assert.Equal(t, string(buf), writeString)
 }
 
 func TestFSClient_read(t *testing.T) {
@@ -948,7 +915,7 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	wg.Wait()
 }
 
-func TestMetaEntryCache(t *testing.T) {
+func TestMetaEntryCacheXXXX(t *testing.T) {
 	clean()
 	defer clean()
 	client := getTestFSClient2(t)

@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -20,9 +21,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/baidubce/bce-sdk-go/auth"
+	"github.com/baidubce/bce-sdk-go/bce"
 	"github.com/baidubce/bce-sdk-go/services/bos"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/panjf2000/ants/v2"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
@@ -43,10 +46,10 @@ func init() {
 
 const MiB int64 = 1024 * 1024
 const GiB int64 = 1024 * 1024 * 1024
-
-var duration int
+const COPY_LIMIT = uint64(5 * 1024 * 1024 * 1024)
 
 var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChunkSize) }}
+var duration int
 
 type objectFileSystem struct {
 	subPath     string // bucket:subPath/name
@@ -54,6 +57,7 @@ type objectFileSystem struct {
 	defaultTime time.Time
 	sync.Mutex
 	chunkPool *sync.Pool
+	copyPool  *ants.Pool
 }
 
 type objectFileHandle struct {
@@ -72,10 +76,10 @@ type objectFileHandle struct {
 
 func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 	l := uint64(len(dest))
-	if off >= fh.size {
+	if off >= l {
 		return 0, nil
 	}
-	if fh.size == 0 {
+	if off >= fh.size {
 		return 0, nil
 	}
 
@@ -702,11 +706,25 @@ func (fs *objectFileSystem) isEmptyDir(name string) (isDir bool, err error) {
 
 func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 	log.Tracef("s3 renameObject: [%s]->[%s]", srcName, dstName)
-	copySource, newKey := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
-	err := fs.storage.Copy(newKey, copySource)
+	resp, err := fs.storage.Head(fs.objectKeyName(srcName))
 	if err != nil {
-		log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+		log.Errorf("fs.storage.Head： srcName[%s] err[%v]", srcName, err)
 		return err
+	}
+	copySource, copyDst := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
+
+	if resp.Size > COPY_LIMIT {
+		err = fs.copyObjectMultipart(copySource, copyDst, int64(resp.Size))
+		if err != nil {
+			log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", copySource, copyDst, err)
+			return err
+		}
+	} else {
+		err = fs.storage.Copy(copyDst, copySource)
+		if err != nil {
+			log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", copyDst, copySource, err)
+			return err
+		}
 	}
 	dk := []string{copySource}
 	err = fs.storage.Deletes(dk)
@@ -717,6 +735,7 @@ func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 }
 
 func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) {
+
 	log.Debugf("s3 renameChildren: [%s]->[%s]", srcName, dstName)
 	prefix, newPrefix := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
 	var copied []string
@@ -737,37 +756,40 @@ func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) 
 		if copied == nil {
 			copied = make([]string, 0, len(res.Items))
 		}
-		// after the server side copy, we want to delete all the files
-		// using multi-delete, which is capped to 1000 on aws. If we
-		// are going to make an arbitrary limit that sounds like a
-		// good one (and we want to have an arbitrary limit because we
-		// don't want to rename a million objects here)
-		total := len(copied) + len(res.Items)
-		if total > 1000 || total == 1000 && res.IsTruncated {
-			return syscall.E2BIG
-		}
-		// say dir is "/a/dir" and it has "1", "2", "3", and we are
-		// moving it to "/b/" items will be a/dir/1, a/dir/2, a/dir/3,
-		// and we will copy them to b/1, b/2, b/3 respectively
-		group := new(errgroup.Group)
-		var lock sync.Mutex
+		var errBuf bytes.Buffer
+		var copiedMutex sync.Mutex
+		var wg sync.WaitGroup
 		for _, content := range res.Items {
 			tmpContent := content
-			group.Go(func() error {
+			wg.Add(1)
+			_ = fs.copyPool.Submit(func() {
+				defer wg.Done()
 				key := (tmpContent.Key)[len(prefix):]
-				err = fs.storage.Copy(newPrefix+key, tmpContent.Key)
-				if err != nil {
-					log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
-					return err
+
+				if tmpContent.Size > COPY_LIMIT {
+					err = fs.copyObjectMultipart(tmpContent.Key, newPrefix+key, int64(tmpContent.Size))
+					if err != nil {
+						log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						return
+					}
+				} else {
+					err := fs.storage.Copy(newPrefix+key, tmpContent.Key)
+					if err != nil {
+						log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						errBuf.WriteString(err.Error() + "; ")
+						return
+					}
 				}
-				lock.Lock()
+
+				copiedMutex.Lock()
 				copied = append(copied, tmpContent.Key)
-				lock.Unlock()
-				return nil
+				copiedMutex.Unlock()
 			})
 		}
-		if err = group.Wait(); err != nil {
-			return err
+		wg.Wait()
+		if errBuf.Len() > 0 {
+			log.Errorf("fs.Storage.RenameChildren: srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+			return fmt.Errorf(errBuf.String())
 		}
 		if !res.IsTruncated {
 			break
@@ -1007,7 +1029,7 @@ func (fh *objectFileHandle) multipartUpload(partNum int64, data []byte) error {
 	for retryNum := 0; retryNum < MPURetryTimes; retryNum++ {
 		resp, err = fh.storage.UploadPart(fh.key, *fh.mpuInfo.uploadID, partNum, data)
 		if err != nil {
-			log.Errorf("fh.storage.UploadPart: key[%s] mpuInfo[%+v] err[%v] retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
+			log.Errorf("fh.storage.UploadPart: key[%s] err[%v] retryNum[%d]", fh.key, err, retryNum)
 		} else {
 			log.Debugf("mpu upload: key[%s], mpuInfo[%+v] failed. err: %v. retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
 			fh.mpuInfo.partsETag[partNum-1] = &resp.ETag
@@ -1042,7 +1064,7 @@ func (fh *objectFileHandle) multipartCommit() error {
 	return nil
 }
 
-func (fh *objectFileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
+func partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
 	chunkSize = MPUChunkSize // chunk size = 1 GiB
 	if fileSize <= 8*GiB {   // fileSize <= 8 GiB
 		// 8 MiB, 128 parts/chunk, total: 0 ~ 1,000 parts & chunks <= 8
@@ -1072,7 +1094,7 @@ func (fh *objectFileHandle) serialMPUTillEnd() error {
 	}
 	fileSize := fInfo.Size()
 	log.Tracef("s3 mpu: fh.name[%s], fileSize[%d]", fh.name, fileSize)
-	partSize, chunkSize, _ := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, _ := partAndChunkSize(fileSize)
 	chunkCnt := fileSize / chunkSize
 	chunkLeftover := fileSize % chunkSize
 	if chunkLeftover != 0 {
@@ -1122,7 +1144,7 @@ func (fh *objectFileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []by
 	defer func() {
 		chunkPool.Put(chunk)
 	}()
-	partSize, chunkSize, partsPerChunk := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, partsPerChunk := partAndChunkSize(fileSize)
 
 	// read from file to chunk buffer
 	_, err := fh.writeTmpfile.ReadAt(chunk, chunkNum*chunkSize)
@@ -1230,6 +1252,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			Endpoint:         aws.String(endpoint),
 			DisableSSL:       aws.Bool(!ssl),
 			S3ForcePathStyle: aws.Bool(false),
+			MaxRetries:       aws.Int(5),
 		}
 
 		if properties[fsCommon.S3ForcePathStyle] == "true" {
@@ -1256,6 +1279,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
 		_, ok = properties[fsCommon.StsServer].(string)
+		bce.NewBackOffRetryPolicy(5, 20000, 300)
 		// use stsCredential
 		if ok {
 			log.Infof("init sts")
@@ -1339,8 +1363,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					bosClient.Config.Credentials = stsCredential
 				}
 			}()
-			storage = object.NewBosClient(bucket, bosClient)
+			storage = object.NewBosClient(bucket, bosClient, true)
 		} else {
+			startBySts := false
 			log.Infof("init bos")
 			clientConfig := bos.BosClientConfiguration{
 				Ak:               accessKey,
@@ -1365,8 +1390,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 					return nil, err
 				}
 				bosClient.Config.Credentials = stsCredential
+				startBySts = true
 			}
-			storage = object.NewBosClient(bucket, bosClient)
+			storage = object.NewBosClient(bucket, bosClient, startBySts)
 		}
 	default:
 		panic("object storage not found")
@@ -1380,7 +1406,8 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			return make([]byte, MPUChunkSize)
 		}},
 	}
-
+	p, _ := ants.NewPool(1000)
+	fs.copyPool = p
 	// create subPath if not exists
 	if subPath != "" {
 		exist, err := fs.exists("")
