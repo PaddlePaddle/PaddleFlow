@@ -247,6 +247,24 @@ func TestJobSync(t *testing.T) {
 				Action:    schema.Delete,
 			},
 		},
+		{
+			name: "sync preempting job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPreempting,
+				Action:    schema.Update,
+			},
+		},
+		{
+			name: "sync preempted job",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:        mockJobID,
+				Namespace: mockNamespace,
+				Status:    schema.StatusJobPreempted,
+				Action:    schema.Update,
+			},
+		},
 	}
 
 	config.GlobalServerConfig = &config.ServerConfig{
