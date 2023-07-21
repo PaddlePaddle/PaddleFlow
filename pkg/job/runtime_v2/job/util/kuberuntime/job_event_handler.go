@@ -60,15 +60,28 @@ func GetParentJobID(obj *unstructured.Unstructured) string {
 	return owner.Name
 }
 
-func getJobStatus(status, extraStatus schema.JobStatus) schema.JobStatus {
-	if extraStatus == schema.StatusJobPreempted {
-		// get preempted status from annotations
-		return schema.StatusJobPreempted
+func getMessage(annotations map[string]string, defaultMsg string) string {
+	msg := annotations[schema.JobAnnotationsMessageKey]
+	if len(msg) > 0 {
+		return msg
+	} else {
+		return defaultMsg
 	}
-	if status == "" {
-		return schema.StatusJobPending
+}
+
+func getJobStatus(statusInfo api.StatusInfo, annotations map[string]string) api.StatusInfo {
+	// 1. get preempted status from annotations
+	annoJobStatus := strings.ToLower(annotations[schema.JobAnnotationsStatusKey])
+	if schema.JobStatus(annoJobStatus) == schema.StatusJobPreempted {
+		statusInfo.Status = schema.StatusJobPreempted
+		statusInfo.Message = getMessage(annotations, "job is preempted")
+		return statusInfo
 	}
-	return status
+	// 2. check job status
+	if statusInfo.Status == "" {
+		statusInfo.Status = schema.StatusJobPending
+	}
+	return statusInfo
 }
 
 func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncInfo, error) {
@@ -81,8 +94,7 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 	if err != nil {
 		return nil, err
 	}
-	annoJobStatus := strings.ToLower(jobObj.GetAnnotations()[schema.JobAnnotationsStatusKey])
-	jobStatus := getJobStatus(statusInfo.Status, schema.JobStatus(annoJobStatus))
+	statusInfo = getJobStatus(statusInfo, jobObj.GetAnnotations())
 
 	parentJobID := GetParentJobID(jobObj)
 	// get runtime status and info
@@ -99,7 +111,7 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 		Type:             schema.GetJobType(kindGroupVersion),
 		Framework:        schema.GetJobFramework(kindGroupVersion),
 		KindGroupVersion: kindGroupVersion,
-		Status:           jobStatus,
+		Status:           statusInfo.Status,
 		RuntimeInfo:      runtimeInfo,
 		RuntimeStatus:    runtimeStatus,
 		Message:          statusInfo.Message,
@@ -137,8 +149,7 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		return nil, err
 	}
 	// construct job sync info
-	annoJobStatus := strings.ToLower(newObj.GetAnnotations()[schema.JobAnnotationsStatusKey])
-	jobStatus := getJobStatus(newStatusInfo.Status, schema.JobStatus(annoJobStatus))
+	newStatusInfo = getJobStatus(newStatusInfo, newObj.GetAnnotations())
 
 	// get job kind group version
 	kindGroupVersion := schema.NewKindGroupVersion(gvk.Kind, gvk.Group, gvk.Version)
@@ -150,7 +161,7 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		Type:             schema.GetJobType(kindGroupVersion),
 		Framework:        schema.GetJobFramework(kindGroupVersion),
 		KindGroupVersion: kindGroupVersion,
-		Status:           jobStatus,
+		Status:           newStatusInfo.Status,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
 		Message:          newStatusInfo.Message,
 		Action:           schema.Update,

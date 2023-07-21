@@ -142,6 +142,7 @@ const (
 	// JobKindGroupVersionAnnotation KindGroupVersion for job, format: {kind}.{group}/{version}
 	JobKindGroupVersionAnnotation = "paddleflow/job-kind-group-version"
 	JobAnnotationsStatusKey       = "jobStatus"
+	JobAnnotationsMessageKey      = "paddleflow/job-status-message"
 
 	VolcanoJobNameLabel     = "volcano.sh/job-name"
 	QueueLabelKey           = "volcano.sh/queue-name"
