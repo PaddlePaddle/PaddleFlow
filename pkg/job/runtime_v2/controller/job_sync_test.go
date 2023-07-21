@@ -253,7 +253,7 @@ func TestJobSync(t *testing.T) {
 				ID:        mockJobID,
 				Namespace: mockNamespace,
 				Status:    schema.StatusJobPreempting,
-				Action:    schema.Update,
+				Action:    schema.Create,
 			},
 		},
 		{
