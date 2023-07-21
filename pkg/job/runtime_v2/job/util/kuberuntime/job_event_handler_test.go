@@ -113,6 +113,61 @@ func TestJobAddFunc(t *testing.T) {
 				return api.StatusInfo{Status: schema.StatusJobPending}, nil
 			},
 		},
+		{
+			name: "job is preempted",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": k8s.PodGVK.GroupVersion().String(),
+					"kind":       k8s.PodGVK.Kind,
+					"metadata": map[string]interface{}{
+						"namespace":       "default",
+						"name":            "test-job",
+						"resourceVersion": "1",
+						"annotations": map[string]interface{}{
+							schema.JobAnnotationsStatusKey:  string(schema.StatusJobPreempted),
+							schema.JobAnnotationsMessageKey: "job is preempted by admin user",
+						},
+						"labels": map[string]interface{}{
+							schema.JobOwnerLabel: schema.JobOwnerValue,
+							schema.JobIDLabel:    "test-job",
+						},
+					},
+					"status": map[string]interface{}{
+						"phase": string(v1.PodPending),
+					},
+				},
+			},
+			statusFunc: func(i interface{}) (api.StatusInfo, error) {
+				return api.StatusInfo{Status: schema.StatusJobPending}, nil
+			},
+		},
+		{
+			name: "job is preempting",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": k8s.PodGVK.GroupVersion().String(),
+					"kind":       k8s.PodGVK.Kind,
+					"metadata": map[string]interface{}{
+						"namespace":       "default",
+						"name":            "test-job",
+						"resourceVersion": "1",
+						"annotations": map[string]interface{}{
+							schema.JobAnnotationsStatusKey: string(schema.StatusJobPreempting),
+						},
+						"labels": map[string]interface{}{
+							schema.JobOwnerLabel: schema.JobOwnerValue,
+							schema.JobIDLabel:    "test-job",
+						},
+					},
+					"status": map[string]interface{}{
+						"phase": string(v1.PodPending),
+					},
+				},
+			},
+			statusFunc: func(i interface{}) (api.StatusInfo, error) {
+				return api.StatusInfo{Status: schema.StatusJobPending}, nil
+			},
+		},
 	}
 
 	for _, tc := range testCases {
