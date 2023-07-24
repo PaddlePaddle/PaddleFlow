@@ -53,7 +53,7 @@ type RunJob struct {
 	CacheJobID     string                `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
 	ExtraFS        []schema.FsMount      `gorm:"-"                                  json:"extraFs"`
 	ExtraFSJson    string                `gorm:"type:text;size:65535;not null"      json:"-"`
-	DistributedJob schema.DistributedJob `gorm:"-"                              json:"distributedJob"`
+	DistributedJob schema.DistributedJob `gorm:"-"                                  json:"distributedJob"`
 	CreateTime     string                `gorm:"-"                                  json:"createTime"`
 	ActivateTime   string                `gorm:"-"                                  json:"activateTime"`
 	UpdateTime     string                `gorm:"-"                                  json:"updateTime,omitempty"`
@@ -293,21 +293,22 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
 
 	return RunJob{
-		ID:           jobView.JobID,
-		Name:         jobView.Name,
-		ParentDagID:  jobView.ParentDagID,
-		Command:      jobView.Command,
-		Parameters:   newParameters,
-		Artifacts:    *jobView.Artifacts.DeepCopy(),
-		Env:          newEnv,
-		DockerEnv:    jobView.DockerEnv,
-		LoopSeq:      jobView.LoopSeq,
-		Status:       jobView.Status,
-		Message:      jobView.JobMessage,
-		Cache:        jobView.Cache,
-		CacheRunID:   jobView.CacheRunID,
-		CacheJobID:   jobView.CacheJobID,
-		ActivateTime: jobView.StartTime,
-		ExtraFS:      newFsMount,
+		ID:             jobView.JobID,
+		Name:           jobView.Name,
+		ParentDagID:    jobView.ParentDagID,
+		Command:        jobView.Command,
+		Parameters:     newParameters,
+		Artifacts:      *jobView.Artifacts.DeepCopy(),
+		Env:            newEnv,
+		DockerEnv:      jobView.DockerEnv,
+		LoopSeq:        jobView.LoopSeq,
+		Status:         jobView.Status,
+		Message:        jobView.JobMessage,
+		Cache:          jobView.Cache,
+		CacheRunID:     jobView.CacheRunID,
+		CacheJobID:     jobView.CacheJobID,
+		DistributedJob: jobView.DistributedJob,
+		ActivateTime:   jobView.StartTime,
+		ExtraFS:        newFsMount,
 	}
 }
