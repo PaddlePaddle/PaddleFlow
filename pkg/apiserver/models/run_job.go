@@ -266,6 +266,10 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
 
+	distJob := schema.DistributedJob{}
+	distJob.Framework = rj.DistributedJob.Framework
+	members := append(rj.DistributedJob.Members, []schema.Member{}...)
+	distJob.Members = members
 	return schema.JobView{
 		PK:             rj.Pk,
 		JobID:          rj.ID,
@@ -277,7 +281,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Command:        rj.Command,
 		Parameters:     newParameters,
 		Env:            newEnv,
-		DistributedJob: rj.DistributedJob,
+		DistributedJob: distJob,
 		StartTime:      rj.ActivateTime,
 		EndTime:        newEndTime,
 		Status:         rj.Status,
@@ -309,7 +313,10 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	}
 
 	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
-
+	distJob := schema.DistributedJob{}
+	distJob.Framework = jobView.DistributedJob.Framework
+	members := append(jobView.DistributedJob.Members, []schema.Member{}...)
+	distJob.Members = members
 	return RunJob{
 		ID:             jobView.JobID,
 		Name:           jobView.Name,
@@ -325,7 +332,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Cache:          jobView.Cache,
 		CacheRunID:     jobView.CacheRunID,
 		CacheJobID:     jobView.CacheJobID,
-		DistributedJob: jobView.DistributedJob,
+		DistributedJob: distJob,
 		ActivateTime:   jobView.StartTime,
 		ExtraFS:        newFsMount,
 	}
