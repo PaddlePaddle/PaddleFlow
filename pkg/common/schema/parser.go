@@ -660,7 +660,7 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			member.Image = refValue
 		case "port":
 			value1, ok1 := memberValue.(int64)
-			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的replicas值
+			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的port值
 			if ok1 {
 				member.Port = int(value1)
 			} else if ok2 {
@@ -701,6 +701,16 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				return fmt.Errorf("parse [fs] in member %v failed, error: %s", index, err.Error())
 			}
 			member.FileSystem = fs
+		case "extra_fs":
+			refValue, ok := memberValue.([]interface{})
+			if !ok {
+				return fmt.Errorf("[extra_fs] defined in member %v should be list type", index)
+			}
+			extra, err := ParseExtraFs(refValue, index)
+			if err != nil {
+				return fmt.Errorf("parse [extra_fs] in member %v failed, error: %s", index, err.Error())
+			}
+			member.ExtraFileSystem = extra
 		case "args":
 			refValue, ok := memberValue.([]interface{})
 			if !ok {

@@ -204,6 +204,15 @@ class Member(object):
         if self.flavour:
             result["flavour"] = self.flavour
 
+        if self.fs:
+            result["fs"] = self.fs
+
+        if self.extra_fs_list:
+            result["extra_fs"] = self.extra_fs_list
+
+        if self.args_list:
+            result["args"] = self.args_list
+
         if self.port:
             result["port"] = self.port
 

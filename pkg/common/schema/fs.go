@@ -117,3 +117,19 @@ func ParseFs(fsMap map[string]interface{}, fs *FileSystem) error {
 	}
 	return nil
 }
+
+func ParseExtraFs(values []interface{}, index int) ([]FileSystem, error) {
+	extraFsList := make([]FileSystem, 0)
+	for i, value := range values {
+		extraMap, ok := value.(map[string]interface{})
+		extra := FileSystem{}
+		if !ok {
+			return []FileSystem{}, fmt.Errorf("[extra_fs %v] defined in member %v should be map type", i, index)
+		}
+		if err := ParseFs(extraMap, &extra); err != nil {
+			return []FileSystem{}, fmt.Errorf("parse [extra_fs %v] in member %v failed, error: %s", i, index, err.Error())
+		}
+		extraFsList = append(extraFsList, extra)
+	}
+	return extraFsList, nil
+}
