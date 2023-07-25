@@ -851,7 +851,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Deps:       step.Deps,
 		DockerEnv:  step.DockerEnv,
 		Framework:  string(step.GetDistributedJob().Framework),
-		Members:    step.GetDistributedJob().Members,
+		//Members:    step.GetDistributedJob().Members,
 		//DistributedJob: step.GetDistributedJob(),
 		JobMessage:  msg,
 		ParentDagID: srt.parentDagID,

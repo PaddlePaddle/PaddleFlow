@@ -49,7 +49,7 @@ type JobView struct {
 	Env         map[string]string `json:"env"`
 	ExtraFS     []FsMount         `json:"extraFS"`
 	Framework   string            `json:"framework"`
-	Members     []Member          `json:"members"`
+	//Members     []Member          `json:"members"`
 	//DistributedJob DistributedJob    `json:"distributedJob"`
 	StartTime  string    `json:"startTime"`
 	EndTime    string    `json:"endTime"`

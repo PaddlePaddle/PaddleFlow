@@ -54,7 +54,7 @@ type RunJob struct {
 	ExtraFS        []schema.FsMount  `gorm:"-"                                  json:"extraFs"`
 	ExtraFSJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	Framework      string            `gorm:"type:varchar(60);not null"          json:"framework"`
-	Members        []schema.Member   `gorm:"-"                                  json:"members"`
+	//Members        []schema.Member   `gorm:"-"                                  json:"members"`
 	//MembersJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	//	DistributedJob     schema.DistributedJob `gorm:"-"                                  json:"distributedJob"`
 	//	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
@@ -275,7 +275,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
-	newMembers := append(rj.Members, []schema.Member{}...)
+	//newMembers := append(rj.Members, []schema.Member{}...)
 
 	return schema.JobView{
 		PK:          rj.Pk,
@@ -287,19 +287,20 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		LoopSeq:     rj.LoopSeq,
 		Command:     rj.Command,
 		Parameters:  newParameters,
-		Members:     newMembers,
-		Framework:   rj.Framework,
-		Env:         newEnv,
-		StartTime:   rj.ActivateTime,
-		EndTime:     newEndTime,
-		Status:      rj.Status,
-		DockerEnv:   rj.DockerEnv,
-		Artifacts:   *rj.Artifacts.DeepCopy(),
-		Cache:       rj.Cache,
-		JobMessage:  rj.Message,
-		CacheRunID:  rj.CacheRunID,
-		CacheJobID:  rj.CacheJobID,
-		ExtraFS:     newFsMount,
+		//Members:     newMembers,
+		Framework: rj.Framework,
+		Env:       newEnv,
+		StartTime: rj.ActivateTime,
+		EndTime:   newEndTime,
+
+		Status:     rj.Status,
+		DockerEnv:  rj.DockerEnv,
+		Artifacts:  *rj.Artifacts.DeepCopy(),
+		Cache:      rj.Cache,
+		JobMessage: rj.Message,
+		CacheRunID: rj.CacheRunID,
+		CacheJobID: rj.CacheJobID,
+		ExtraFS:    newFsMount,
 	}
 }
 
@@ -321,7 +322,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	}
 
 	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
-	newMembers := append(jobView.Members, []schema.Member{}...)
+	//newMembers := append(jobView.Members, []schema.Member{}...)
 	/*	members := append(jobView.DistributedJob.Members, []schema.Member{}...)
 		distJob := schema.DistributedJob{
 			Framework: jobView.DistributedJob.Framework,
@@ -344,7 +345,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		CacheRunID:  jobView.CacheRunID,
 		CacheJobID:  jobView.CacheJobID,
 		Framework:   jobView.Framework,
-		Members:     newMembers,
+		//Members:     newMembers,
 		//DistributedJob: jobView.DistributedJob,
 		ActivateTime: jobView.StartTime,
 		ExtraFS:      newFsMount,
