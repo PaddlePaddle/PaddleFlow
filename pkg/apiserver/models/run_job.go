@@ -55,7 +55,7 @@ type RunJob struct {
 	ExtraFSJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	Framework      string            `gorm:"type:varchar(60);not null"          json:"framework"`
 	Members        []schema.Member   `gorm:"-"                                  json:"members"`
-	MembersJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	//MembersJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	//	DistributedJob     schema.DistributedJob `gorm:"-"                                  json:"distributedJob"`
 	//	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime   string         `gorm:"-"                                  json:"createTime"`
@@ -139,12 +139,12 @@ func (rj *RunJob) Encode() error {
 	}
 	rj.CacheJson = string(cacheJson)
 
-	memJson, err := json.Marshal(rj.Members)
-	if err != nil {
-		logger.Logger().Errorf("encode run job distributed job failed. error:%v", err)
-		return err
-	}
-	rj.MembersJson = string(memJson)
+	//memJson, err := json.Marshal(rj.Members)
+	//if err != nil {
+	//	logger.Logger().Errorf("encode run job distributed job failed. error:%v", err)
+	//	return err
+	//}
+	//rj.MembersJson = string(memJson)
 
 	parametersJson, err := json.Marshal(rj.Parameters)
 	if err != nil {
@@ -222,13 +222,13 @@ func (rj *RunJob) decode() error {
 		rj.ExtraFS = fsMount
 	}
 
-	if len(rj.MembersJson) > 0 {
-		mem := []schema.Member{}
-		if err := json.Unmarshal([]byte(rj.MembersJson), &mem); err != nil {
-			logger.Logger().Errorf("decode run job members failed. error: %v", err)
-		}
-		rj.Members = mem
-	}
+	//if len(rj.MembersJson) > 0 {
+	//	mem := []schema.Member{}
+	//	if err := json.Unmarshal([]byte(rj.MembersJson), &mem); err != nil {
+	//		logger.Logger().Errorf("decode run job members failed. error: %v", err)
+	//	}
+	//	rj.Members = mem
+	//}
 
 	/*	if len(rj.DistributedJobJson) > 0 {
 		distJob := schema.DistributedJob{}
@@ -275,6 +275,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
+	newMembers := append(rj.Members, []schema.Member{}...)
 
 	return schema.JobView{
 		PK:          rj.Pk,
@@ -286,6 +287,8 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		LoopSeq:     rj.LoopSeq,
 		Command:     rj.Command,
 		Parameters:  newParameters,
+		Members:     newMembers,
+		Framework:   rj.Framework,
 		Env:         newEnv,
 		StartTime:   rj.ActivateTime,
 		EndTime:     newEndTime,
