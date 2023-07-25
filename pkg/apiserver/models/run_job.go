@@ -275,11 +275,6 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
-	/*	members := append(rj.DistributedJob.Members, []schema.Member{}...)
-		distJob := schema.DistributedJob{
-			Framework: rj.DistributedJob.Framework,
-			Members:   members,
-		}*/
 
 	return schema.JobView{
 		PK:          rj.Pk,
@@ -292,19 +287,16 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Command:     rj.Command,
 		Parameters:  newParameters,
 		Env:         newEnv,
-		Framework:   rj.Framework,
-		Members:     rj.Members,
-		//DistributedJob: rj.DistributedJob,
-		StartTime:  rj.ActivateTime,
-		EndTime:    newEndTime,
-		Status:     rj.Status,
-		DockerEnv:  rj.DockerEnv,
-		Artifacts:  *rj.Artifacts.DeepCopy(),
-		Cache:      rj.Cache,
-		JobMessage: rj.Message,
-		CacheRunID: rj.CacheRunID,
-		CacheJobID: rj.CacheJobID,
-		ExtraFS:    newFsMount,
+		StartTime:   rj.ActivateTime,
+		EndTime:     newEndTime,
+		Status:      rj.Status,
+		DockerEnv:   rj.DockerEnv,
+		Artifacts:   *rj.Artifacts.DeepCopy(),
+		Cache:       rj.Cache,
+		JobMessage:  rj.Message,
+		CacheRunID:  rj.CacheRunID,
+		CacheJobID:  rj.CacheJobID,
+		ExtraFS:     newFsMount,
 	}
 }
 
