@@ -225,8 +225,6 @@ func (rj *RunJob) decode() error {
 			logger.Logger().Errorf("decode run job distributedJob failed. error: %v", err)
 		}
 		rj.DistributedJob = distJob
-		//rj.DistributedJob.Framework = distJob.Framework
-		//rj.DistributedJob.Members = distJob.Members
 	}
 
 	// format time
@@ -267,11 +265,11 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
 
-	/*	members := append(rj.DistributedJob.Members, []schema.Member{}...)
-		distJob := schema.DistributedJob{
-			Framework: rj.DistributedJob.Framework,
-			Members:   members,
-		}*/
+	members := append(rj.DistributedJob.Members, []schema.Member{}...)
+	distJob := schema.DistributedJob{
+		Framework: rj.DistributedJob.Framework,
+		Members:   members,
+	}
 
 	return schema.JobView{
 		PK:             rj.Pk,
@@ -284,7 +282,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Command:        rj.Command,
 		Parameters:     newParameters,
 		Env:            newEnv,
-		DistributedJob: rj.DistributedJob,
+		DistributedJob: distJob,
 		StartTime:      rj.ActivateTime,
 		EndTime:        newEndTime,
 		Status:         rj.Status,
@@ -316,11 +314,11 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	}
 
 	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
-	/*	members := append(jobView.DistributedJob.Members, []schema.Member{}...)
-		distJob := schema.DistributedJob{
-			Framework: jobView.DistributedJob.Framework,
-			Members:   members,
-		}*/
+	members := append(jobView.DistributedJob.Members, []schema.Member{}...)
+	distJob := schema.DistributedJob{
+		Framework: jobView.DistributedJob.Framework,
+		Members:   members,
+	}
 
 	return RunJob{
 		ID:             jobView.JobID,
@@ -337,7 +335,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Cache:          jobView.Cache,
 		CacheRunID:     jobView.CacheRunID,
 		CacheJobID:     jobView.CacheJobID,
-		DistributedJob: jobView.DistributedJob,
+		DistributedJob: distJob,
 		ActivateTime:   jobView.StartTime,
 		ExtraFS:        newFsMount,
 	}
