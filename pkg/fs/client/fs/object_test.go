@@ -377,8 +377,6 @@ func testMkdirAndList(t *testing.T, client FSClient) {
 	}
 	err = client.Rename(dirName, renameName)
 	assert.Equal(t, nil, err)
-	err = client.RemoveAll(dirNamePrefix)
-	assert.Equal(t, nil, err)
 }
 
 func testRename(t *testing.T, client FSClient, fsType string) {
