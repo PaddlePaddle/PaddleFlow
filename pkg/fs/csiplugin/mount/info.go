@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
+	common2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
@@ -136,7 +137,15 @@ func (mountInfo *Info) afsArgs() (args []string) {
 		args = append(args, "-r")
 	}
 	args = append(args, fmt.Sprintf("--%s=%s", common.AFSUser, mountInfo.FS.PropertiesMap[common.AFSUser]))
-	args = append(args, fmt.Sprintf("--%s=%s", common.AFSPassword, mountInfo.FS.PropertiesMap[common.AFSPassword]))
+	password := mountInfo.FS.PropertiesMap[common.AFSPassword]
+	password_, err := common2.AesDecrypt(password, common2.GetAESEncryptKey())
+	if err != nil {
+		// secretKey could not be AesEncrypted, so can use raw secretKey connect s3 server
+		log.Debug("secretKey may be not descrypy")
+		password_ = password
+	}
+
+	args = append(args, fmt.Sprintf("--%s=%s", common.AFSPassword, password_))
 	args = append(args, "--conf="+afsConfig)
 	args = append(args, mountInfo.SourcePath, mountInfo.FS.ServerAddress+mountInfo.FS.SubPath)
 	return args
@@ -212,12 +221,16 @@ func (mountInfo *Info) commonOptions() []string {
 	if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
 		options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
 	} else {
-		options = append(options, fmt.Sprintf("--%s=%v", "file-mode", "0777"))
+		if mountInfo.CacheConfig.ExtraConfigMap["file-mode"] == "" {
+			options = append(options, fmt.Sprintf("--%s=%v", "file-mode", "0777"))
+		}
 	}
 	if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
 		options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
 	} else {
-		options = append(options, fmt.Sprintf("--%s=%v", "dir-mode", "0777"))
+		if mountInfo.CacheConfig.ExtraConfigMap["dir-mode"] == "" {
+			options = append(options, fmt.Sprintf("--%s=%v", "dir-mode", "0777"))
+		}
 	}
 	return options
 }

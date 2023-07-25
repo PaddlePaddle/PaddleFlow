@@ -73,8 +73,12 @@ func TestSTS(t *testing.T) {
 	properties[fsCommon.Group] = "root-group"
 	properties[fsCommon.Owner] = "root"
 	properties[fsCommon.StsServer] = "127.0.0.1:8999"
+	properties[fsCommon.BosSessionToken] = "token"
 
 	_, err := NewObjectFileSystem(properties)
+	assert.NotNil(t, err, nil)
+	delete(properties, fsCommon.StsServer)
+	_, err = NewObjectFileSystem(properties)
 	assert.NotNil(t, err, nil)
 }
 
@@ -862,20 +866,7 @@ func Test_objectFileHandle_partAndChunkSize(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fh := &objectFileHandle{
-				mpuInfo:        tt.fields.mpuInfo,
-				storage:        tt.fields.storage,
-				name:           tt.fields.name,
-				key:            tt.fields.key,
-				size:           tt.fields.size,
-				flags:          tt.fields.flags,
-				writeTmpfile:   tt.fields.writeTmpfile,
-				canWrite:       tt.fields.canWrite,
-				writeSrcReader: tt.fields.writeSrcReader,
-				mu:             tt.fields.mu,
-				writeDirty:     tt.fields.writeDirty,
-			}
-			gotPartSize, gotChunkSize, gotPartsPerChunk := fh.partAndChunkSize(tt.args.fileSize)
+			gotPartSize, gotChunkSize, gotPartsPerChunk := partAndChunkSize(tt.args.fileSize)
 			assert.Equalf(t, tt.wantPartSize, gotPartSize, "partAndChunkSize(%v)", tt.args.fileSize)
 			assert.Equalf(t, tt.wantChunkSize, gotChunkSize, "partAndChunkSize(%v)", tt.args.fileSize)
 			assert.Equalf(t, tt.wantPartsPerChunk, gotPartsPerChunk, "partAndChunkSize(%v)", tt.args.fileSize)

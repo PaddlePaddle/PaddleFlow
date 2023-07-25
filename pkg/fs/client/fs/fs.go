@@ -136,7 +136,7 @@ func (fs *FileSystem) Chmod(name string, mode os.FileMode) error {
 	}
 
 	entry, err := fs.vfs.SetAttr(ctx, ino, meta.FATTR_MODE, uint32(mode),
-		0, 0, 0, 0, 0, 0, 0)
+		1, 1, 1, 1, 1, 1, 1)
 	if utils.IsError(err) {
 		return err
 	}
@@ -336,4 +336,34 @@ func (fs *FileSystem) lookup(ctx *meta.Context, path_ string, canCache bool) (*m
 		fs.cache.SetAttrItem(entry.Ino, entry.Attr)
 	}
 	return entry.Attr, entry.Ino, syscall.F_OK
+}
+
+func (fs *FileSystem) SetAttr(name string, set, mode, uid, gid uint32, atime, mtime int64, atimeSec, mtimeSec uint32, size uint64) (os.FileInfo, error) {
+	name_ := path.Clean(name)
+	ctx := meta.NewEmptyContext()
+	_, ino, err := fs.lookup(ctx, path.Dir(name_), true)
+	if utils.IsError(err) {
+		log.Errorf("fs.SetAttr lookup [%v] err: %v", name, err.Error())
+		return nil, err
+	}
+	_, err = fs.vfs.SetAttr(ctx, ino, set, mode, uid, gid, atime, mtime, atimeSec, mtimeSec, size)
+	if utils.IsError(err) {
+		log.Errorf("fs.SetAttr [%v] err: %v", name, err.Error())
+		return nil, err
+	}
+	// 需要更新fs.cache并且获取新的attr返回，所以直接调用fs.lookup
+	attr, _, err := fs.lookup(ctx, path.Dir(name), true)
+	if utils.IsError(err) {
+		log.Errorf("fs.SetAttr relookup [%v] err: %v", name, err.Error())
+		return nil, err
+	}
+	info := FileInfo{
+		path:      name_,
+		size:      int64(attr.Size),
+		mtime:     uint64(attr.Mtime),
+		mtimensec: uint64(attr.Mtimensec),
+		isDir:     attr.IsDir(),
+		mode:      utils.StatModeToFileMode(int(attr.Mode)),
+	}
+	return &info, nil
 }

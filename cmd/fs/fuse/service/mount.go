@@ -228,11 +228,6 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("panic err: %v %s", err, getCurrentGoroutineStack())
-		}
-	}()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
@@ -450,10 +445,4 @@ func signalHandle(mp string) {
 			}()
 		}
 	}()
-}
-
-func getCurrentGoroutineStack() string {
-	var buf [4096]byte
-	n := runtime.Stack(buf[:], false)
-	return string(buf[:n])
 }
