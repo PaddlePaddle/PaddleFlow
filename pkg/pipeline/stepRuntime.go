@@ -850,7 +850,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Status:     srt.status,
 		Deps:       step.Deps,
 		DockerEnv:  step.DockerEnv,
-		Framework:  string(step.GetDistributedJob().Framework),
+		//Framework:  string(step.GetDistributedJob().Framework),
 		//Members:    step.GetDistributedJob().Members,
 		//DistributedJob: step.GetDistributedJob(),
 		JobMessage:  msg,
