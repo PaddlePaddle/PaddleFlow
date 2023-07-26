@@ -30,41 +30,38 @@ import (
 )
 
 type RunJob struct {
-	Pk             int64             `gorm:"primaryKey;autoIncrement;not null"  json:"-"`
-	ID             string            `gorm:"type:varchar(60);not null"          json:"jobID"`
-	RunID          string            `gorm:"type:varchar(60);not null"          json:"runID"`
-	ParentDagID    string            `gorm:"type:varchar(60);not null"          json:"parentDagID"`
-	Name           string            `gorm:"type:varchar(60);not null"          json:"name"`
-	StepName       string            `gorm:"type:varchar(60);not null"          json:"step_name"`
-	Command        string            `gorm:"type:text;size:65535;not null"      json:"command"`
-	Parameters     map[string]string `gorm:"-"                                  json:"parameters"`
-	ParametersJson string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	Artifacts      schema.Artifacts  `gorm:"-"                                  json:"artifacts"`
-	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	Env            map[string]string `gorm:"-"                                  json:"env"`
-	EnvJson        string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	DockerEnv      string            `gorm:"type:varchar(128);not null"         json:"docker_env"`
-	LoopSeq        int               `gorm:"type:int;not null"                  json:"-"`
-	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"          json:"status"`
-	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
-	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
-	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cacheRunID"`
-	CacheJobID     string            `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
-	ExtraFS        []schema.FsMount  `gorm:"-"                                  json:"extraFs"`
-	ExtraFSJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	//Framework      string            `gorm:"type:varchar(60);not null"          json:"framework"`
-	//Members        []schema.Member   `gorm:"-"                                  json:"members"`
-	//MembersJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	DistributedJob schema.DistributedJob `gorm:"-"                          json:"distributedJob"`
-	//	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
-	CreateTime   string         `gorm:"-"                                  json:"createTime"`
-	ActivateTime string         `gorm:"-"                                  json:"activateTime"`
-	UpdateTime   string         `gorm:"-"                                  json:"updateTime,omitempty"`
-	CreatedAt    time.Time      `                                          json:"-"`
-	ActivatedAt  sql.NullTime   `                                          json:"-"`
-	UpdatedAt    time.Time      `                                          json:"-"`
-	DeletedAt    gorm.DeletedAt `gorm:"index"                              json:"-"`
+	Pk                 int64                 `gorm:"primaryKey;autoIncrement;not null"  json:"-"`
+	ID                 string                `gorm:"type:varchar(60);not null"          json:"jobID"`
+	RunID              string                `gorm:"type:varchar(60);not null"          json:"runID"`
+	ParentDagID        string                `gorm:"type:varchar(60);not null"          json:"parentDagID"`
+	Name               string                `gorm:"type:varchar(60);not null"          json:"name"`
+	StepName           string                `gorm:"type:varchar(60);not null"          json:"step_name"`
+	Command            string                `gorm:"type:text;size:65535;not null"      json:"command"`
+	Parameters         map[string]string     `gorm:"-"                                  json:"parameters"`
+	ParametersJson     string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	Artifacts          schema.Artifacts      `gorm:"-"                                  json:"artifacts"`
+	ArtifactsJson      string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	Env                map[string]string     `gorm:"-"                                  json:"env"`
+	EnvJson            string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	DockerEnv          string                `gorm:"type:varchar(128);not null"         json:"docker_env"`
+	LoopSeq            int                   `gorm:"type:int;not null"                  json:"-"`
+	Status             schema.JobStatus      `gorm:"type:varchar(32);not null"          json:"status"`
+	Message            string                `gorm:"type:text;size:65535;not null"      json:"message"`
+	Cache              schema.Cache          `gorm:"-"                                  json:"cache"`
+	CacheJson          string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	CacheRunID         string                `gorm:"type:varchar(60);not null"          json:"cacheRunID"`
+	CacheJobID         string                `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
+	ExtraFS            []schema.FsMount      `gorm:"-"                                  json:"extraFs"`
+	ExtraFSJson        string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	DistributedJob     schema.DistributedJob `gorm:"-"                          json:"distributedJob"`
+	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
+	CreateTime         string                `gorm:"-"                                  json:"createTime"`
+	ActivateTime       string                `gorm:"-"                                  json:"activateTime"`
+	UpdateTime         string                `gorm:"-"                                  json:"updateTime,omitempty"`
+	CreatedAt          time.Time             `                                          json:"-"`
+	ActivatedAt        sql.NullTime          `                                          json:"-"`
+	UpdatedAt          time.Time             `                                          json:"-"`
+	DeletedAt          gorm.DeletedAt        `gorm:"index"                              json:"-"`
 }
 
 func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
@@ -139,12 +136,12 @@ func (rj *RunJob) Encode() error {
 	}
 	rj.CacheJson = string(cacheJson)
 
-	//memJson, err := json.Marshal(rj.Members)
-	//if err != nil {
-	//	logger.Logger().Errorf("encode run job distributed job failed. error:%v", err)
-	//	return err
-	//}
-	//rj.MembersJson = string(memJson)
+	distJson, err := json.Marshal(rj.DistributedJob)
+	if err != nil {
+		logger.Logger().Errorf("encode run job distributed_job failed. error:%v", err)
+		return err
+	}
+	rj.DistributedJobJson = string(distJson)
 
 	parametersJson, err := json.Marshal(rj.Parameters)
 	if err != nil {
@@ -222,21 +219,13 @@ func (rj *RunJob) decode() error {
 		rj.ExtraFS = fsMount
 	}
 
-	//if len(rj.MembersJson) > 0 {
-	//	mem := []schema.Member{}
-	//	if err := json.Unmarshal([]byte(rj.MembersJson), &mem); err != nil {
-	//		logger.Logger().Errorf("decode run job members failed. error: %v", err)
-	//	}
-	//	rj.Members = mem
-	//}
-
-	/*	if len(rj.DistributedJobJson) > 0 {
+	if len(rj.DistributedJobJson) > 0 {
 		distJob := schema.DistributedJob{}
 		if err := json.Unmarshal([]byte(rj.DistributedJobJson), &distJob); err != nil {
 			logger.Logger().Errorf("decode run job distributedJob failed. error: %v", err)
 		}
 		rj.DistributedJob = distJob
-	}*/
+	}
 
 	// format time
 	rj.CreateTime = rj.CreatedAt.Format("2006-01-02 15:04:05")
@@ -275,7 +264,6 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEndTime = rj.UpdateTime
 	}
 	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
-	//newMembers := append(rj.Members, []schema.Member{}...)
 
 	return schema.JobView{
 		PK:             rj.Pk,
@@ -288,19 +276,17 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Command:        rj.Command,
 		Parameters:     newParameters,
 		DistributedJob: rj.DistributedJob,
-		//Members:     newMembers,
-		//Framework: rj.Framework,
-		Env:        newEnv,
-		StartTime:  rj.ActivateTime,
-		EndTime:    newEndTime,
-		Status:     rj.Status,
-		DockerEnv:  rj.DockerEnv,
-		Artifacts:  *rj.Artifacts.DeepCopy(),
-		Cache:      rj.Cache,
-		JobMessage: rj.Message,
-		CacheRunID: rj.CacheRunID,
-		CacheJobID: rj.CacheJobID,
-		ExtraFS:    newFsMount,
+		Env:            newEnv,
+		StartTime:      rj.ActivateTime,
+		EndTime:        newEndTime,
+		Status:         rj.Status,
+		DockerEnv:      rj.DockerEnv,
+		Artifacts:      *rj.Artifacts.DeepCopy(),
+		Cache:          rj.Cache,
+		JobMessage:     rj.Message,
+		CacheRunID:     rj.CacheRunID,
+		CacheJobID:     rj.CacheJobID,
+		ExtraFS:        newFsMount,
 	}
 }
 
@@ -322,32 +308,23 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	}
 
 	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
-	//newMembers := append(jobView.Members, []schema.Member{}...)
-	/*	members := append(jobView.DistributedJob.Members, []schema.Member{}...)
-		distJob := schema.DistributedJob{
-			Framework: jobView.DistributedJob.Framework,
-			Members:   members,
-		}*/
-
 	return RunJob{
-		ID:          jobView.JobID,
-		Name:        jobView.Name,
-		ParentDagID: jobView.ParentDagID,
-		Command:     jobView.Command,
-		Parameters:  newParameters,
-		Artifacts:   *jobView.Artifacts.DeepCopy(),
-		Env:         newEnv,
-		DockerEnv:   jobView.DockerEnv,
-		LoopSeq:     jobView.LoopSeq,
-		Status:      jobView.Status,
-		Message:     jobView.JobMessage,
-		Cache:       jobView.Cache,
-		CacheRunID:  jobView.CacheRunID,
-		CacheJobID:  jobView.CacheJobID,
-		//Framework:   jobView.Framework,
-		//Members:     newMembers,
-		//DistributedJob: jobView.DistributedJob,
-		ActivateTime: jobView.StartTime,
-		ExtraFS:      newFsMount,
+		ID:             jobView.JobID,
+		Name:           jobView.Name,
+		ParentDagID:    jobView.ParentDagID,
+		Command:        jobView.Command,
+		Parameters:     newParameters,
+		Artifacts:      *jobView.Artifacts.DeepCopy(),
+		Env:            newEnv,
+		DockerEnv:      jobView.DockerEnv,
+		LoopSeq:        jobView.LoopSeq,
+		Status:         jobView.Status,
+		Message:        jobView.JobMessage,
+		Cache:          jobView.Cache,
+		CacheRunID:     jobView.CacheRunID,
+		CacheJobID:     jobView.CacheJobID,
+		DistributedJob: jobView.DistributedJob,
+		ActivateTime:   jobView.StartTime,
+		ExtraFS:        newFsMount,
 	}
 }
