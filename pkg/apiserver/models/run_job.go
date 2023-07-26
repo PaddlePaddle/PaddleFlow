@@ -53,7 +53,7 @@ type RunJob struct {
 	CacheJobID         string                `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
 	ExtraFS            []schema.FsMount      `gorm:"-"                                  json:"extraFs"`
 	ExtraFSJson        string                `gorm:"type:text;size:65535;not null"      json:"-"`
-	DistributedJob     schema.DistributedJob `gorm:"-"                          json:"distributedJob"`
+	DistributedJob     schema.DistributedJob `gorm:"-"                                  json:"distributedJob"`
 	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime         string                `gorm:"-"                                  json:"createTime"`
 	ActivateTime       string                `gorm:"-"                                  json:"activateTime"`
