@@ -53,10 +53,10 @@ type RunJob struct {
 	CacheJobID     string            `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
 	ExtraFS        []schema.FsMount  `gorm:"-"                                  json:"extraFs"`
 	ExtraFSJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	Framework      string            `gorm:"type:varchar(60);not null"          json:"framework"`
+	//Framework      string            `gorm:"type:varchar(60);not null"          json:"framework"`
 	//Members        []schema.Member   `gorm:"-"                                  json:"members"`
 	//MembersJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	//	DistributedJob     schema.DistributedJob `gorm:"-"                                  json:"distributedJob"`
+	DistributedJob schema.DistributedJob `gorm:"-"                          json:"distributedJob"`
 	//	DistributedJobJson string                `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime   string         `gorm:"-"                                  json:"createTime"`
 	ActivateTime string         `gorm:"-"                                  json:"activateTime"`
@@ -288,7 +288,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Command:     rj.Command,
 		Parameters:  newParameters,
 		//Members:     newMembers,
-		Framework: rj.Framework,
+		//Framework: rj.Framework,
 		Env:       newEnv,
 		StartTime: rj.ActivateTime,
 		EndTime:   newEndTime,
@@ -344,7 +344,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Cache:       jobView.Cache,
 		CacheRunID:  jobView.CacheRunID,
 		CacheJobID:  jobView.CacheJobID,
-		Framework:   jobView.Framework,
+		//Framework:   jobView.Framework,
 		//Members:     newMembers,
 		//DistributedJob: jobView.DistributedJob,
 		ActivateTime: jobView.StartTime,
