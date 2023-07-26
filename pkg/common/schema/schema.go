@@ -50,17 +50,17 @@ type JobView struct {
 	ExtraFS     []FsMount         `json:"extraFS"`
 	Framework   string            `json:"framework"`
 	//Members     []Member          `json:"members"`
-	//DistributedJob DistributedJob    `json:"distributedJob"`
-	StartTime  string    `json:"startTime"`
-	EndTime    string    `json:"endTime"`
-	Status     JobStatus `json:"status"`
-	Deps       string    `json:"deps"`
-	DockerEnv  string    `json:"dockerEnv"`
-	Artifacts  Artifacts `json:"artifacts"`
-	Cache      Cache     `json:"cache"`
-	JobMessage string    `json:"jobMessage"`
-	CacheRunID string    `json:"cacheRunID"`
-	CacheJobID string    `json:"cacheJobID"`
+	DistributedJob DistributedJob `json:"distributedJob"`
+	StartTime      string         `json:"startTime"`
+	EndTime        string         `json:"endTime"`
+	Status         JobStatus      `json:"status"`
+	Deps           string         `json:"deps"`
+	DockerEnv      string         `json:"dockerEnv"`
+	Artifacts      Artifacts      `json:"artifacts"`
+	Cache          Cache          `json:"cache"`
+	JobMessage     string         `json:"jobMessage"`
+	CacheRunID     string         `json:"cacheRunID"`
+	CacheJobID     string         `json:"cacheJobID"`
 }
 
 func (j JobView) GetComponentName() string {
