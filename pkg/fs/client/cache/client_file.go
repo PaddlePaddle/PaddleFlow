@@ -47,17 +47,19 @@ type cacheItem struct {
 
 type fileDataCache struct {
 	sync.RWMutex
-	dir      string
-	capacity int64
-	used     int64
-	expire   time.Duration
-	keys     sync.Map
+	dir            string
+	capacity       int64
+	avail          int64
+	expire         time.Duration
+	keys           sync.Map
+	freeSpaceRatio float64
 }
 
 func newFileClient(config Config) DataCacheClient {
 	d := &fileDataCache{
-		dir:    config.CachePath,
-		expire: config.Expire,
+		dir:            config.CachePath,
+		expire:         config.Expire,
+		freeSpaceRatio: config.FreeSpaceRatio,
 	}
 
 	if err := os.MkdirAll(filepath.Join(d.dir, CacheDir), 0755); err != nil {
@@ -68,11 +70,21 @@ func newFileClient(config Config) DataCacheClient {
 		log.Errorf("newFileClient d.updateCapacity err: %v", err)
 		return nil
 	}
+
+	// 实时更新缓存使用空间
+	go func() {
+		for {
+			if err := d.updateCapacity(); err != nil {
+				log.Errorf("newFileClient d.updateCapacity err: %v", err)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
 	// 后续加stop channel
 	go func() {
 		for {
 			d.clean()
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}()
 
@@ -112,7 +124,7 @@ func (c *fileDataCache) save(key string, buf []byte) {
 		return
 	}
 	cacheSize := int64(len(buf))
-	if c.used+cacheSize >= c.capacity {
+	if float64(c.avail)/float64(c.capacity) < c.freeSpaceRatio {
 		return
 	}
 
@@ -179,7 +191,8 @@ func (c *fileDataCache) clean() {
 	if c.dir == "/" || c.dir == "" {
 		return
 	}
-	// 2. 清理目录下存在，但是c.keys中不存在的的文件,
+
+	// 2. 清理目录下存在，但是c.keys中不存在的的文件, 或者已经满了的目录
 	if errCheck := filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Debugf("prevent panic by handling failure accessing a path %q: %v", path, err)
@@ -192,15 +205,23 @@ func (c *fileDataCache) clean() {
 			return nil
 		}
 
-		key := c.getKeyFromCachePath(path)
-		_, ok := c.keys.Load(key)
-		if ok {
-			return nil
-		}
 		if strings.HasSuffix(path, "tmp") {
 			return nil
 		}
-		return os.Remove(path)
+
+		// 缓存过期了清理
+		key := c.getKeyFromCachePath(path)
+		_, ok := c.keys.Load(key)
+		if !ok {
+			return os.Remove(path)
+		}
+
+		// 容量满了清理
+		if float64(c.avail)/float64(c.capacity) < c.freeSpaceRatio {
+			return os.Remove(path)
+		}
+
+		return nil
 	}); errCheck != nil {
 		log.Debugf("data cache clean: filepath.Walk failed: %v", errCheck)
 	}
@@ -259,14 +280,14 @@ func (c *fileDataCache) updateCapacity() error {
 				log.Errorf("parse str[%s] failed: %v", strSlice[1], err)
 				return err
 			}
-			used, err := strconv.ParseInt(strSlice[2], 10, 64)
+			avail, err := strconv.ParseInt(strSlice[3], 10, 64)
 			if err != nil {
 				log.Errorf("parse str[%s] failed: %v", strSlice[2], err)
 				return err
 			}
 			c.Lock()
-			c.capacity = int64(float64(total*1024) * 0.9)
-			c.used = used * 1024
+			c.capacity = total
+			c.avail = avail
 			c.Unlock()
 			return nil
 		}

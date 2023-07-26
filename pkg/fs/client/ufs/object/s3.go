@@ -80,30 +80,30 @@ func (storage S3Storage) Put(key string, in io.Reader) error {
 }
 
 func (storage S3Storage) Deletes(keys []string) error {
-	log.Tracef("s3.Deletes keys[%v]", keys)
+	log.Infof("s3.Deletes keys[%v]", keys)
 	numObjs := len(keys)
 	if numObjs == 0 {
 		log.Errorf("delete keys empty")
 		return fmt.Errorf("delete keys empty")
 	}
 
-	var items s3.Delete
-	var objs = make([]*s3.ObjectIdentifier, numObjs)
-
-	for i, _ := range keys {
-		objs[i] = &s3.ObjectIdentifier{Key: &keys[i]}
+	for begin := 0; begin < len(keys); begin += 1000 {
+		var items s3.Delete
+		var objs = make([]*s3.ObjectIdentifier, 0)
+		for i := begin; i < begin+1000 && i < len(keys); i++ {
+			objs = append(objs, &s3.ObjectIdentifier{Key: &keys[i]})
+		}
+		items.SetObjects(objs)
+		_, err := storage.s3.DeleteObjects(&s3.DeleteObjectsInput{
+			Bucket: &storage.bucket,
+			Delete: &items,
+		})
+		if err != nil {
+			log.Errorf("s3.Deletes keys[%v] err: %v", keys, err)
+			return err
+		}
 	}
-
-	// Add list of objects to delete object
-	items.SetObjects(objs)
-	_, err := storage.s3.DeleteObjects(&s3.DeleteObjectsInput{
-		Bucket: &storage.bucket,
-		Delete: &items,
-	})
-	if err != nil {
-		log.Errorf("s3.Deletes keys[%v] err: %v", keys, err)
-	}
-	return err
+	return nil
 }
 
 func (storage S3Storage) Copy(newKey, copySource string) error {
@@ -133,7 +133,7 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 		log.Debugf("s3.Head key[%s] error: %v", key, err)
 		return nil, err
 	}
-	var etag, storageClass string
+	var etag, storageClass, contentType string
 	var lastModified time.Time
 	var size uint64
 
@@ -149,6 +149,9 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 	if response.StorageClass != nil {
 		storageClass = *response.StorageClass
 	}
+	if response.ContentType != nil {
+		contentType = *response.ContentType
+	}
 
 	return &HeadObjectOutput{
 		ItemOutput: ItemOutput{
@@ -158,7 +161,7 @@ func (storage S3Storage) Head(key string) (*HeadObjectOutput, error) {
 			Size:         size,
 			StorageClass: storageClass,
 		},
-		ContentType: *response.ContentType,
+		ContentType: contentType,
 		Metadata:    metadataToLower(response.Metadata),
 		IsDir:       strings.HasSuffix(key, "/"),
 	}, nil
@@ -254,6 +257,34 @@ func (storage S3Storage) CreateMultipartUpload(key string) (*MultipartCommitOutP
 		Key:      key,
 		UploadId: uploadId,
 		Parts:    make([]*string, 10000), // at most 10K parts
+	}, nil
+}
+
+// UploadPartCopy
+func (storage S3Storage) UploadPartCopy(key string, uploadID, bytes_ string, num int64, copySource string) (*Part, error) {
+	log.Tracef("s3.UploadPartCopy f key[%s] uploadID[%s] num[%d] copySource[%s] bucket[%s] bytes[%s]", key, uploadID, num, storage.bucket+"/"+copySource, storage.bucket, bytes_)
+	mpu := s3.UploadPartCopyInput{
+		Bucket:          &storage.bucket,
+		Key:             &key,
+		PartNumber:      &num,
+		UploadId:        &uploadID,
+		CopySource:      aws.String(storage.bucket + "/" + copySource),
+		CopySourceRange: aws.String(bytes_),
+	}
+	var err error
+	var resp *s3.UploadPartCopyOutput
+	resp, err = storage.s3.UploadPartCopy(&mpu)
+	if err != nil {
+		log.Errorf("s3 mpu upload: fh.name[%s], upload part[%v] failed. err: %v", key, mpu, err)
+		return nil, err
+	}
+	var etag string
+	if resp.CopyPartResult != nil {
+		etag = *resp.CopyPartResult.ETag
+	}
+	return &Part{
+		Num:  num,
+		ETag: etag,
 	}, nil
 }
 
