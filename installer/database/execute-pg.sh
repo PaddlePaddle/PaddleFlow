@@ -1,12 +1,12 @@
 #!/bin/bash
 set -x
-export DB_HOST=127.0.0.1
-export DB_DRIVER=postgresql
-export DB_PORT=5432
-export DB_USER=postgres
-export DB_PW=Bmlc_2021
-export DB_DATABASE=paddleflow
-export PATH=/usr/pgsql-10/bin:/usr/bin;
+export DB_HOST="主机名"
+export DB_DRIVER=postgresql #数据库类型
+export DB_PORT= #端口
+export DB_USER=postgres #用户
+export DB_PW= #密码
+export DB_DATABASE=paddleflow #数据库名称
+export PATH=/usr/pgsql-10/bin:/usr/bin; #二进制文件地址
 if [[ $DB_DRIVER = "postgresql" ]];then
   psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "\c $DB_DATABASE"  #&>/dev/null
   if [ $? -ne 0 ]
