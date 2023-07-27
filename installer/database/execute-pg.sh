@@ -25,7 +25,7 @@ elif [[ $DB_DRIVER = "postgres" ]];then
   psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "\c $DB_DATABASE"  #&>/dev/null
   if [ $? -ne 0 ]
   then
-   echo "MySQL database $DB_DATABASE is not exist"
+   echo "PostgreSQL database $DB_DATABASE is not exist"
      psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "CREATE DATABASE $DB_DATABASE"
     echo 'Create Database...'
   else
