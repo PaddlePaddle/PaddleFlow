@@ -510,6 +510,6 @@ type Member struct {
 }
 
 type DistributedJob struct {
-	Members   []Member  `yaml:"members"   json:"members"`
-	Framework Framework `yaml:"framework" json:"framework"`
+	Members   []Member  `yaml:"members"   json:"members,omitempty"`
+	Framework Framework `yaml:"framework" json:"framework,omitempty"`
 }
