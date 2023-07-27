@@ -485,6 +485,7 @@ func (pfj *PaddleFlowJob) Watch() {
 			pfj.eventChannel <- *wfe
 			pfj.Status = jobInstance.Status
 			pfj.Message = jobInstance.Message
+			pfj.Members = jobInstance.Members
 		}
 
 		if pfj.Succeeded() || pfj.Terminated() || pfj.Failed() {
