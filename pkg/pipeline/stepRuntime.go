@@ -839,6 +839,11 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	art := srt.getWorkFlowStep().GetArtifacts()
 	newArt := (&art).DeepCopy()
 
+	distJob := schema.DistributedJob{
+		Framework: srt.job.FrameworkInfo(),
+		Members:   srt.job.MemberInfo(),
+	}
+
 	view := schema.JobView{
 		JobID:          job.ID,
 		Name:           job.Name,
@@ -850,7 +855,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Status:         srt.status,
 		Deps:           step.Deps,
 		DockerEnv:      step.DockerEnv,
-		DistributedJob: srt.getWorkFlowStep().GetDistributedJob(),
+		DistributedJob: distJob,
 		JobMessage:     msg,
 		ParentDagID:    srt.parentDagID,
 		CacheRunID:     srt.CacheRunID,

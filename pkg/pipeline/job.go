@@ -46,6 +46,8 @@ type Job interface {
 	Skipped() bool
 	NotEnded() bool
 	JobID() string
+	MemberInfo() []schema.Member
+	FrameworkInfo() schema.Framework
 }
 
 func NewBaseJob(name string) *BaseJob {
@@ -527,6 +529,14 @@ func (pfj *PaddleFlowJob) Job() BaseJob {
 
 func (pfj *PaddleFlowJob) JobID() string {
 	return pfj.ID
+}
+
+func (pfj *PaddleFlowJob) MemberInfo() []schema.Member {
+	return pfj.Members
+}
+
+func (pfj *PaddleFlowJob) FrameworkInfo() schema.Framework {
+	return pfj.Framework
 }
 
 // ----------------------------------------------------------------------------
