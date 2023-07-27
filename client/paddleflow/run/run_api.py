@@ -147,9 +147,12 @@ class RunServiceApi(object):
                                            comp['artifacts'], comp['startTime'], comp['endTime'],
                                            comp['status'], comp['message'], trans_dict_to_comp_info(comp['entryPoints']))
                     else:
+                        distributed_job = None
+                        if 'distributedJob' in comp:
+                            distributed_job = comp['distributedJob']
                         new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
                                            comp['command'], comp['env'], comp['status'],
-                                           comp['distributedJob'], comp['startTime'], comp['endTime'],
+                                           distributed_job, comp['startTime'], comp['endTime'],
                                            comp['dockerEnv'], comp['jobID'], comp['type'],
                                            comp['stepName'], comp['parentDagID'], comp['extraFS'],
                                            comp['artifacts'], comp['cache'], comp['jobMessage'],

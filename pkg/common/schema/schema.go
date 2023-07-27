@@ -48,7 +48,7 @@ type JobView struct {
 	Parameters     map[string]string `json:"parameters"`
 	Env            map[string]string `json:"env"`
 	ExtraFS        []FsMount         `json:"extraFS"`
-	DistributedJob DistributedJob    `json:"distributedJob"`
+	DistributedJob DistributedJob    `json:"distributedJob,omitempty"`
 	StartTime      string            `json:"startTime"`
 	EndTime        string            `json:"endTime"`
 	Status         JobStatus         `json:"status"`
