@@ -221,7 +221,7 @@ CREATE INDEX run_dag_status ON run_dag(status);
 
 CREATE TABLE image (
     pk bigserial NOT NULL,
-    id varchar(128) NOT NULL UNIQUE,
+    id varchar(128) NOT NULL,
     image_id varchar(64),
     fs_id varchar(200) NOT NULL,
     source varchar(256) NOT NULL,
