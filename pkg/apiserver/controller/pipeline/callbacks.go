@@ -247,7 +247,7 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 
 	stepName := runtimeJob.StepName
 	pk := runtimeJob.PK
-	// TODO: Update Distributed Job info
+
 	runJob := models.ParseRunJob(runtimeJob)
 	if err := runJob.Encode(); err != nil {
 		logging.Errorf("encode runJob failed, error: %s", err.Error())
