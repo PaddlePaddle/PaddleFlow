@@ -237,6 +237,13 @@ func TestCallback(t *testing.T) {
 			common.WfEventKeyRunID:     run1.ID,
 			common.WfEventKeyStatus:    common.StatusRunRunning,
 			common.WfEventKeyStartTime: "2022-07-07 13:15:04",
+			common.WfEventKeyView: schema.JobView{
+				Name: "test-runjob",
+				DistributedJob: schema.DistributedJob{
+					Framework: "paddle",
+					Members:   nil,
+				},
+			},
 		},
 	}
 	f := UpdateRuntimeFunc
@@ -245,7 +252,6 @@ func TestCallback(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEmpty(t, updatedRun.UpdateTime)
 	assert.Equal(t, common.StatusRunRunning, updatedRun.Status)
-
 	// test not update activated_at
 	run3 := getMockRun1_3()
 	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
