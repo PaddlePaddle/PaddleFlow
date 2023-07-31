@@ -112,9 +112,9 @@ entry_points:
     distributed_job:
       framework: "paddle"
       members:
-        - { "role": "pserver", "queue": "default-queue", "priority": "high", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "args": ["--ps 2"], "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
+        - { "role": "pserver", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
             "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "PS_NUM": 2}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/ps", "readOnly": true}]}
-        - { "role": "pworker", "queue": "default-queue", "priority": "high", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "args": ["--worker 2"], "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
+        - { "role": "pworker", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
             "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "WORKER_NUM": 2}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/worker", "readOnly": true}]}
 
 components:

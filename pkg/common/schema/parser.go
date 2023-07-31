@@ -668,18 +668,6 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			} else {
 				return fmt.Errorf("[port] defined in member %v should be int type", index)
 			}
-		case "queue":
-			refValue, ok := memberValue.(string)
-			if !ok {
-				return fmt.Errorf("[queue] defined in member %v should be string type", index)
-			}
-			member.QueueName = refValue
-		case "priority":
-			refValue, ok := memberValue.(string)
-			if !ok {
-				return fmt.Errorf("[priority] defined in member %v should be string type", index)
-			}
-			member.Priority = refValue
 		case "flavour":
 			refValue, ok := memberValue.(map[string]interface{})
 			flavour := Flavour{}
@@ -711,16 +699,6 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				return fmt.Errorf("parse [extra_fs] in member %v failed, error: %s", index, err.Error())
 			}
 			member.ExtraFileSystem = extra
-		case "args":
-			refValue, ok := memberValue.([]interface{})
-			if !ok {
-				return fmt.Errorf("[args] defined in member %v should be list type", index)
-			}
-			args, err := ParseArgs(refValue)
-			if err != nil {
-				return fmt.Errorf("parse [args] in member %v failed, error: %s", index, err.Error())
-			}
-			member.Args = args
 		case "env":
 			refValue, ok := memberValue.(map[string]interface{})
 			if !ok {
@@ -975,17 +953,4 @@ func (p *Parser) transJsonMember2Yaml(value interface{}) error {
 		}
 	}
 	return nil
-}
-
-func ParseArgs(values []interface{}) ([]string, error) {
-	args := make([]string, 0)
-	for index, value := range values {
-		arg, ok := value.(string)
-		if !ok {
-			return []string{}, fmt.Errorf("[%v] defined in args %v should be string type", value, index)
-		}
-		args = append(args, arg)
-	}
-
-	return args, nil
 }

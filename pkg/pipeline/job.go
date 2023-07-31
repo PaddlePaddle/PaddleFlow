@@ -253,16 +253,6 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 				Replicas:      member.Replicas,
 			}
 
-			if member.GetQueueName() != "" {
-				mem.SchedulingPolicy.Queue = member.GetQueueName()
-			}
-
-			if member.GetPriority() != "" {
-				mem.SchedulingPolicy.Priority = member.GetPriority()
-			} else {
-				mem.SchedulingPolicy.Priority = priority
-			}
-
 			image := ""
 			if member.GetImage() != "" {
 				image = member.GetImage()
@@ -487,6 +477,11 @@ func (pfj *PaddleFlowJob) Watch() {
 			pfj.Message = jobInstance.Message
 			pfj.Members = jobInstance.Members
 		}
+
+		//if !reflect.DeepEqual(jobInstance.Members, pfj.Members) || jobInstance.Framework != pfj.Framework {
+		//	pfj.Members = jobInstance.Members
+		//	pfj.Framework = jobInstance.Framework
+		//}
 
 		if pfj.Succeeded() || pfj.Terminated() || pfj.Failed() {
 			pfj.EndTime = jobInstance.UpdatedAt.Format("2006-01-02 15:04:05")
