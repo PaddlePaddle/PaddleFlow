@@ -40,7 +40,7 @@ const (
 	Mysql  = "mysql"
 	Sqlite = "sqlite"
 	// PostgreSQL support pg
-	PostgreSQL    = "postgresql"
+	PostgreSQL    = "postgres"
 	postgreSQLDSN = "host=%s port=%s user=%s dbname=%s sslmode=disable password=%s connect_timeout=%d idle_in_transaction_session_timeout=%d lock_timeout=%d"
 	// data init for sql lite
 	dsn              = "file:paddleflow.db?cache=shared&mode=rwc"
