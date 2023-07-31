@@ -385,7 +385,7 @@ func (m *kvMeta) marshalEntry(entry *entryItem) []byte {
 
 func (m *kvMeta) txn(f func(tx kv.KvTxn) error) error {
 	var err error
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		if err = m.client.Txn(f); m.shouldRetry(err) {
 			time.Sleep(time.Millisecond * time.Duration(i*i))
 			continue
@@ -1699,7 +1699,7 @@ func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.
 	return syscall.ENOSYS
 }
 
-func (m *kvMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
+func (m *kvMeta) Write(ctx *Context, inode Ino, off uint64, length int) syscall.Errno {
 	updateInodeItem := &inodeItem{}
 
 	err := m.txn(func(tx kv.KvTxn) error {

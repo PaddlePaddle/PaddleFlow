@@ -115,7 +115,7 @@ func (storage Bos) Deletes(keys []string) error {
 			log.Errorf("bos.Delete err: %v", err.Error())
 			return err
 		} else {
-			if res != nil { //部分删除成功
+			if res != nil { // 部分删除成功
 				log.Errorf("bos.Delete err: %v delete failed", res.Errors)
 				return errors.New("bos.Delete failed. Failed to delete some objects")
 			}
@@ -250,6 +250,19 @@ func (storage Bos) CompleteUpload(key string, uploadID string, parts []*Part) er
 	ps := api.CompleteMultipartUploadArgs{Parts: oparts}
 	_, err := storage.bosClient.CompleteMultipartUploadFromStruct(storage.bucket, key, uploadID, &ps)
 	return err
+}
+
+// UploadPartCopy
+func (storage Bos) UploadPartCopy(key, uploadID, bytes string, num int64, copySource string) (*Part, error) {
+	log.Tracef("bos.UploadPartCopy key[%s] uploadID[[%v] num[%d]", key, uploadID, num)
+	result, err := storage.bosClient.UploadPartCopy(storage.bucket, key, storage.bucket, copySource, uploadID, int(num), &api.UploadPartCopyArgs{
+		SourceRange: bytes,
+	})
+	if err != nil {
+		log.Errorf("bos mpu upload: fh.name[%s] uploadID[%s] num[%d] failed. err: %v", key, uploadID, num, err)
+		return nil, err
+	}
+	return &Part{Num: num, ETag: result.ETag}, nil
 }
 
 var _ ObjectStorage = (*Bos)(nil)
