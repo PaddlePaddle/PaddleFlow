@@ -109,6 +109,8 @@ entry_points:
     command: "echo dis"
     parameters:
       epoch: 5
+      PF_JOB_QUEUE_NAME: train-queue
+      PF_JOB_PRIORITY: high
     distributed_job:
       framework: "paddle"
       members:

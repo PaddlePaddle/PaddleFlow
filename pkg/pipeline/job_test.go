@@ -54,24 +54,20 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pworker",
 					Conf: schema.Conf{
-						QueueName: "train-queue",
-						Command:   "echo worker",
-						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
-						Env:       map[string]string{"Worker": "1"},
-						Flavour:   schema.Flavour{Name: "flavour1"},
-						Priority:  "high",
+						Command: "echo worker",
+						Image:   "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+						Env:     map[string]string{"Worker": "1"},
+						Flavour: schema.Flavour{Name: "flavour1"},
 					},
 				},
 				{
 					Replicas: 2,
 					Role:     "pserver",
 					Conf: schema.Conf{
-						QueueName: "train-queue",
-						Command:   "echo server",
-						Image:     "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
-						Env:       map[string]string{"PS": "1"},
-						Flavour:   schema.Flavour{Name: "flavour1"},
-						Priority:  "high",
+						Command: "echo server",
+						Image:   "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+						Env:     map[string]string{"PS": "1"},
+						Flavour: schema.Flavour{Name: "flavour1"},
 					},
 				},
 			},
@@ -88,9 +84,8 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				Members: []job.MemberSpec{
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed paddle job",
-							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue", Priority: "high"},
+							Name:     "CreateJobInfo for distributed paddle job",
+							UserName: "root",
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -99,9 +94,8 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					},
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed paddle job",
-							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "train-queue", Priority: "high"},
+							Name:     "CreateJobInfo for distributed paddle job",
+							UserName: "root",
 						},
 						Replicas: 2,
 						Role:     "pserver",
@@ -123,7 +117,6 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pworker",
 					Conf: schema.Conf{
-						QueueName:  "default-queue",
 						FileSystem: schema.FileSystem{Name: "xd"},
 					},
 				},
@@ -131,7 +124,6 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pserver",
 					Conf: schema.Conf{
-						QueueName:  "default-queue",
 						FileSystem: schema.FileSystem{Name: "xd"},
 					},
 				},
@@ -146,9 +138,8 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				Members: []job.MemberSpec{
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed job",
-							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+							Name:     "CreateJobInfo for distributed job",
+							UserName: "root",
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -156,9 +147,8 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					},
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:             "CreateJobInfo for distributed job",
-							UserName:         "root",
-							SchedulingPolicy: job.SchedulingPolicy{Queue: "default-queue"},
+							Name:     "CreateJobInfo for distributed job",
+							UserName: "root",
 						},
 						Replicas: 2,
 						Role:     "pserver",
