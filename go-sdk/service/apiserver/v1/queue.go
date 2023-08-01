@@ -51,6 +51,8 @@ type Queue struct {
 	MaxResources    schema.ResourceInfo `json:"maxResources"`
 	RawLocation     string              `json:"-"`
 	Location        map[string]string   `json:"location"`
+	UsedResources   schema.ResourceInfo `json:"usedResources"`
+	IdleResources   schema.ResourceInfo `json:"idleResources"`
 	// 任务调度策略
 	RawSchedulingPolicy string   `json:"-"`
 	SchedulingPolicy    []string `json:"schedulingPolicy,omitempty"`

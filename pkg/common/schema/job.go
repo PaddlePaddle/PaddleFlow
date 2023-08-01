@@ -75,6 +75,8 @@ const (
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
+	StatusJobPreempting  JobStatus = "preempting"
+	StatusJobPreempted   JobStatus = "preempted"
 
 	StatusTaskPending   TaskStatus = "pending"
 	StatusTaskRunning   TaskStatus = "running"
@@ -141,6 +143,8 @@ const (
 	JobLabelFramework = "paddleflow-job-framework"
 	// JobKindGroupVersionAnnotation KindGroupVersion for job, format: {kind}.{group}/{version}
 	JobKindGroupVersionAnnotation = "paddleflow/job-kind-group-version"
+	JobAnnotationsStatusKey       = "jobStatus"
+	JobAnnotationsMessageKey      = "paddleflow/job-status-message"
 
 	VolcanoJobNameLabel     = "volcano.sh/job-name"
 	QueueLabelKey           = "volcano.sh/queue-name"
@@ -198,7 +202,7 @@ const (
 
 func IsImmutableJobStatus(status JobStatus) bool {
 	switch status {
-	case StatusJobSucceeded, StatusJobFailed, StatusJobTerminated, StatusJobSkipped, StatusJobCancelled:
+	case StatusJobSucceeded, StatusJobFailed, StatusJobTerminated, StatusJobSkipped, StatusJobCancelled, StatusJobPreempted:
 		return true
 	default:
 		return false
