@@ -700,6 +700,9 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			}
 			member.ExtraFileSystem = extra
 		case "annotations":
+			if memberValue == nil {
+				continue
+			}
 			refValue, ok := memberValue.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("[annotations] defined in member %v should be map type", index)
@@ -715,6 +718,9 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				member.Annotations[annoKey] = value
 			}
 		case "labels":
+			if memberValue == nil {
+				continue
+			}
 			refValue, ok := memberValue.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("[labels] defined in member %v should be map type", index)
