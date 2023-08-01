@@ -58,6 +58,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						Image:   "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:     map[string]string{"Worker": "1"},
 						Flavour: schema.Flavour{Name: "flavour1"},
+						Labels:  map[string]string{"Worker": "1"},
 					},
 				},
 				{
@@ -68,6 +69,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						Image:   "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 						Env:     map[string]string{"PS": "1"},
 						Flavour: schema.Flavour{Name: "flavour1"},
+						Labels:  map[string]string{"Worker": "1"},
 					},
 				},
 			},
@@ -86,6 +88,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:     "CreateJobInfo for distributed paddle job",
 							UserName: "root",
+							Labels:   map[string]string{"Worker": "1"},
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -96,6 +99,7 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 						CommonJobInfo: job.CommonJobInfo{
 							Name:     "CreateJobInfo for distributed paddle job",
 							UserName: "root",
+							Labels:   map[string]string{"Worker": "1"},
 						},
 						Replicas: 2,
 						Role:     "pserver",
@@ -117,14 +121,16 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					Replicas: 2,
 					Role:     "pworker",
 					Conf: schema.Conf{
-						FileSystem: schema.FileSystem{Name: "xd"},
+						FileSystem:  schema.FileSystem{Name: "xd"},
+						Annotations: map[string]string{"Worker": "1"},
 					},
 				},
 				{
 					Replicas: 2,
 					Role:     "pserver",
 					Conf: schema.Conf{
-						FileSystem: schema.FileSystem{Name: "xd"},
+						FileSystem:  schema.FileSystem{Name: "xd"},
+						Annotations: map[string]string{"Worker": "1"},
 					},
 				},
 			},
@@ -138,8 +144,9 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 				Members: []job.MemberSpec{
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:     "CreateJobInfo for distributed job",
-							UserName: "root",
+							Name:        "CreateJobInfo for distributed job",
+							UserName:    "root",
+							Annotations: map[string]string{"Worker": "1"},
 						},
 						Replicas: 2,
 						Role:     "pworker",
@@ -147,8 +154,9 @@ func TestGenerateCreateJobInfo(t *testing.T) {
 					},
 					{
 						CommonJobInfo: job.CommonJobInfo{
-							Name:     "CreateJobInfo for distributed job",
-							UserName: "root",
+							Name:        "CreateJobInfo for distributed job",
+							UserName:    "root",
+							Annotations: map[string]string{"Worker": "1"},
 						},
 						Replicas: 2,
 						Role:     "pserver",

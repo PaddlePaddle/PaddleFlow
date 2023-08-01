@@ -169,7 +169,6 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 			ReadOnly:  pfj.mainFS.ReadOnly,
 		}
 	}
-
 	efs := make([]schema.FileSystem, 0)
 	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
@@ -245,6 +244,22 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 				image = member.GetImage()
 			} else {
 				image = pfj.Image
+			}
+
+			annotation := make(map[string]string)
+			if member.GetAnnotations() != nil {
+				for k, v := range member.GetAnnotations() {
+					annotation[k] = v
+				}
+				mem.Annotations = annotation
+			}
+
+			labels := make(map[string]string)
+			if member.GetLabels() != nil {
+				for k, v := range member.GetLabels() {
+					labels[k] = v
+				}
+				mem.Labels = labels
 			}
 
 			env := make(map[string]string)
@@ -462,13 +477,11 @@ func (pfj *PaddleFlowJob) Watch() {
 			pfj.eventChannel <- *wfe
 			pfj.Status = jobInstance.Status
 			pfj.Message = jobInstance.Message
-			pfj.Members = jobInstance.Members
+			// 更新Members状态
+			if len(pfj.Members) > 0 {
+				pfj.Members = jobInstance.Members
+			}
 		}
-
-		//if !reflect.DeepEqual(jobInstance.Members, pfj.Members) || jobInstance.Framework != pfj.Framework {
-		//	pfj.Members = jobInstance.Members
-		//	pfj.Framework = jobInstance.Framework
-		//}
 
 		if pfj.Succeeded() || pfj.Terminated() || pfj.Failed() {
 			pfj.EndTime = jobInstance.UpdatedAt.Format("2006-01-02 15:04:05")

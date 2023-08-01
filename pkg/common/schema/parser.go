@@ -699,6 +699,36 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				return fmt.Errorf("parse [extra_fs] in member %v failed, error: %s", index, err.Error())
 			}
 			member.ExtraFileSystem = extra
+		case "annotations":
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[annotations] defined in member %v should be map type", index)
+			}
+			if member.Annotations == nil {
+				member.Annotations = map[string]string{}
+			}
+			for annoKey, annoValue := range refValue {
+				value, ok := annoValue.(string)
+				if !ok {
+					fmt.Errorf("values in [annotations] should be string type")
+				}
+				member.Annotations[annoKey] = value
+			}
+		case "labels":
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[labels] defined in member %v should be map type", index)
+			}
+			if member.Labels == nil {
+				member.Labels = map[string]string{}
+			}
+			for labelKey, labelValue := range refValue {
+				value, ok := labelValue.(string)
+				if !ok {
+					fmt.Errorf("values in [labels] should be string type")
+				}
+				member.Labels[labelKey] = value
+			}
 		case "env":
 			refValue, ok := memberValue.(map[string]interface{})
 			if !ok {

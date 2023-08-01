@@ -115,9 +115,9 @@ entry_points:
       framework: "paddle"
       members:
         - { "role": "pserver", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
-            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "PS_NUM": 2}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/ps", "readOnly": true}]}
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "PS_NUM": 2}, "labels": {"paddle-dist-type": "ps"}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/ps", "readOnly": true}]}
         - { "role": "pworker", "port": 8080, "command": "sleep 30; echo  {{epoch}}", "image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7, "replicas": 2,
-            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "WORKER_NUM": 2}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/worker", "readOnly": true}]}
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalarResources": {"nvidia.com/gpu": "1"}},"env": {"ROLE": "ps", "WORKER_NUM": 2}, "labels": {"paddle-dist-type": "ps"}, "extra_fs": [{"name": "ppl", "hostPath": "/path/to/run", "mountPath": "/path/to/mount", "subPath": "/worker", "readOnly": true}]}
 
 components:
   process-negetive:
