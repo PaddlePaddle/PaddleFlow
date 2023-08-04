@@ -23,6 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,13 +37,22 @@ import (
 )
 
 const (
-	Mysql  = "mysql"
-	Sqlite = "sqlite"
+	Mysql = "mysql"
+	// PostgreSQL driver type
+	PostgreSQL    = "postgres"
+	postgreSQLDSN = "host=%s port=%s user=%s dbname=%s sslmode=disable password=%s connect_timeout=%d idle_in_transaction_session_timeout=%d lock_timeout=%d"
+	Sqlite        = "sqlite"
 	// data init for sqllite
 	// default busy timeout 2 min
 	dsn              = "file:paddleflow.db?cache=shared&mode=rwc&_busy_timeout=120000"
 	rootUserName     = "root"
 	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
+)
+
+var (
+	connectTimeoutInSec              = 30
+	idleTransactionTimeoutInMilliSec = 30000
+	lockTimeoutInMilliSec            = 30000
 )
 
 func InitStorage(conf *config.StorageConfig, logLevel string) error {
@@ -51,6 +61,8 @@ func InitStorage(conf *config.StorageConfig, logLevel string) error {
 	switch driver {
 	case Mysql:
 		storage.DB = initMysqlDB(conf, gormConf)
+	case PostgreSQL:
+		storage.DB = initPostgreSQLDB(conf, gormConf)
 	default:
 		// 若配置文件没有设置，则默认使用SQLLite
 		// fix table lock
@@ -61,7 +73,7 @@ func InitStorage(conf *config.StorageConfig, logLevel string) error {
 	}
 
 	if storage.DB == nil {
-		panic(fmt.Errorf("Init database DB error\n"))
+		return fmt.Errorf("init %s database DB failed", driver)
 	}
 	if err := setSqlDBConns(conf); err != nil {
 		return err
@@ -225,12 +237,37 @@ func initSQLiteDB(gormConf *gorm.Config) *gorm.DB {
 	return db
 }
 
+func checkDBConf(dbConf *config.StorageConfig) {
+	if dbConf.ConnectTimeoutInSeconds > 0 {
+		connectTimeoutInSec = dbConf.ConnectTimeoutInSeconds
+	}
+	if dbConf.IdleTransactionTimeoutInMilliseconds > 0 {
+		idleTransactionTimeoutInMilliSec = dbConf.IdleTransactionTimeoutInMilliseconds
+	}
+	if dbConf.LockTimeoutInMilliseconds > 0 {
+		lockTimeoutInMilliSec = dbConf.LockTimeoutInMilliseconds
+	}
+}
+
+func initPostgreSQLDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
+	checkDBConf(dbConf)
+	pgdsn := fmt.Sprintf(postgreSQLDSN, dbConf.Host, dbConf.Port, dbConf.User, dbConf.Database, dbConf.Password,
+		connectTimeoutInSec, idleTransactionTimeoutInMilliSec, lockTimeoutInMilliSec)
+	db, err := gorm.Open(postgres.Open(pgdsn), gormConf)
+	if err != nil {
+		log.Errorf("initPostgreSQLDB error[%s]", err.Error())
+		return nil
+	}
+	log.Debugf("init PostgreSQL DB success")
+	return db
+}
+
 func initMysqlDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local",
 		dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.Database)
 	db, err := gorm.Open(mysql.Open(dsn), gormConf)
 	if err != nil {
-		log.Fatalf("initMysqlDB error[%s]", err.Error())
+		log.Errorf("initMysqlDB error[%s]", err.Error())
 		return nil
 	}
 	log.Debugf("init mysql DB success")
