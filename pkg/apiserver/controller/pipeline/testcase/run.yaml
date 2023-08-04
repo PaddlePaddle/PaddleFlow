@@ -25,7 +25,6 @@ entry_points:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_PRIORITY: HIGH
   distStep:
-    deps: "nomain"
     parameters:
       epoch: 15
     distributed_job:
