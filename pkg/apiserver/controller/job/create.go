@@ -703,10 +703,31 @@ func buildMembers(request *CreateJobInfo) []schema.Member {
 	for _, reqMember := range request.Members {
 		log.Debugf("reqMember %#v, role is %s", reqMember, reqMember.Role)
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
-		buildCommonInfo(&member.Conf, &request.CommonJobInfo)
+		buildMemberCommonInfo(&member.Conf, &request.CommonJobInfo, reqMember)
 		members = append(members, member)
 	}
 	return members
+}
+
+func buildMemberCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo, memberRequest MemberSpec) {
+	log.Debugf("patch envs for job %s", commonJobInfo.Name)
+	// basic fields required
+	conf.Labels = commonJobInfo.Labels
+	conf.Annotations = commonJobInfo.Annotations
+	// insert user specific labels and annotations
+	for k, v := range memberRequest.Labels {
+		conf.SetLabels(k, v)
+	}
+	for k, v := range memberRequest.Annotations {
+		conf.SetAnnotations(k, v)
+	}
+	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
+	schedulingPolicy := commonJobInfo.SchedulingPolicy
+	conf.SetQueueID(schedulingPolicy.QueueID)
+	conf.SetQueueName(schedulingPolicy.Queue)
+	conf.SetPriority(schedulingPolicy.Priority)
+	conf.SetClusterID(schedulingPolicy.ClusterId)
+	conf.SetNamespace(schedulingPolicy.Namespace)
 }
 
 func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
