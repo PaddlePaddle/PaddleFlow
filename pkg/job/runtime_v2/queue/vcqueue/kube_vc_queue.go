@@ -74,6 +74,7 @@ func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {
 		},
 		Spec: v1beta1.QueueSpec{
 			Capability: k8s.NewResourceList(q.MaxResources),
+			Weight:     1,
 		},
 		Status: v1beta1.QueueStatus{
 			State: v1beta1.QueueStateOpen,
@@ -107,6 +108,9 @@ func (vcq *KubeVCQueue) Update(ctx context.Context, q *api.QueueInfo) error {
 	}
 	vcQueue.Spec.Capability = k8s.NewResourceList(q.MaxResources)
 	vcQueue.Status.State = v1beta1.QueueState(q.Status)
+	if vcQueue.Spec.Weight < 1 {
+		vcQueue.Spec.Weight = 1
+	}
 
 	log.Infof("begin to update %s, info: %#v", vcq.String(q.Name), vcQueue)
 	if err = vcq.runtimeClient.Update(vcQueue, vcq.resourceVersion); err != nil {
