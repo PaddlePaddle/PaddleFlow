@@ -707,15 +707,12 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			if !ok {
 				return fmt.Errorf("[annotations] defined in member %v should be map type", index)
 			}
-			if member.Annotations == nil {
-				member.Annotations = map[string]string{}
-			}
 			for annoKey, annoValue := range refValue {
 				value, ok := annoValue.(string)
 				if !ok {
 					fmt.Errorf("values in [annotations] should be string type")
 				}
-				member.Annotations[annoKey] = value
+				member.SetAnnotations(annoKey, value)
 			}
 		case "labels":
 			if memberValue == nil {
@@ -725,15 +722,12 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			if !ok {
 				return fmt.Errorf("[labels] defined in member %v should be map type", index)
 			}
-			if member.Labels == nil {
-				member.Labels = map[string]string{}
-			}
 			for labelKey, labelValue := range refValue {
 				value, ok := labelValue.(string)
 				if !ok {
 					fmt.Errorf("values in [labels] should be string type")
 				}
-				member.Labels[labelKey] = value
+				member.SetLabels(labelKey, value)
 			}
 		case "env":
 			refValue, ok := memberValue.(map[string]interface{})
@@ -756,7 +750,7 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 				default:
 					return fmt.Errorf("values in [env] should be string type")
 				}
-				member.Env[envKey] = resEnv
+				member.SetEnv(envKey, resEnv)
 			}
 		case "id":
 			// 该字段不暴露给用户

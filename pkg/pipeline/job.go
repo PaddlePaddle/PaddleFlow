@@ -246,12 +246,12 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 				image = pfj.Image
 			}
 
-			annotation := make(map[string]string)
+			annotations := make(map[string]string)
 			if member.GetAnnotations() != nil {
 				for k, v := range member.GetAnnotations() {
-					annotation[k] = v
+					annotations[k] = v
 				}
-				mem.Annotations = annotation
+				mem.Annotations = annotations
 			}
 
 			labels := make(map[string]string)
