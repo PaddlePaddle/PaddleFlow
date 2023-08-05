@@ -192,9 +192,6 @@ class Member(object):
 
         result["replicas"] = self.replicas
 
-        if self.queue:
-            result["queue"] = self.queue
-
         if self.image:
             result["image"] = self.image
 
@@ -210,17 +207,17 @@ class Member(object):
         if self.extra_fs_list:
             result["extra_fs"] = self.extra_fs_list
 
-        if self.args_list:
-            result["args"] = self.args_list
-
         if self.port:
             result["port"] = self.port
 
-        if self.priority:
-            result["priority"] = self.priority
-
         if self.env:
             result["env"] = self.env
+
+        if self.annotations:
+            result["annotations"] = self.annotations
+
+        if self.labels:
+            result["labels"] = self.labels
 
         return result
 

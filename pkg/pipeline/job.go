@@ -248,7 +248,6 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 
 			annotations := make(map[string]string)
 			if member.GetAnnotations() != nil {
-				fmt.Println("member annotations:", member.GetAnnotations())
 				for k, v := range member.GetAnnotations() {
 					annotations[k] = v
 				}
@@ -257,7 +256,6 @@ func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
 
 			labels := make(map[string]string)
 			if member.GetLabels() != nil {
-				fmt.Println("member labels:", member.GetLabels())
 				for k, v := range member.GetLabels() {
 
 					labels[k] = v
