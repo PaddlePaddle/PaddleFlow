@@ -980,6 +980,10 @@ func (p *Parser) transJsonMember2Yaml(value interface{}) error {
 			memberMap["replicas"] = memberValue
 		case "role":
 			memberMap["role"] = memberValue
+		case "image":
+			memberMap["image"] = memberValue
+		case "command":
+			memberMap["command"] = memberValue
 		}
 	}
 	return nil
