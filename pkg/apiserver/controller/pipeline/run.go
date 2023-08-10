@@ -502,12 +502,6 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 		extra = map[string]string{}
 	}
 
-	sDec, err := base64.StdEncoding.DecodeString(request.RunYamlRaw)
-	fmt.Println(string(sDec))
-	//runYaml = string(sDec)
-	yamlMap, err := schema.RunYaml2Map(sDec)
-	fmt.Println(yamlMap)
-
 	fsID := ""
 	fsName := request.FsName
 	requestId := ctx.RequestID
@@ -528,6 +522,8 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
 	parseStartTime := time.Now()
 	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
+	fmt.Println("wfs:", wfs.EntryPoints.EntryPoints)
+	fmt.Println("source: ", source)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err

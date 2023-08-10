@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/pipeline"
@@ -44,8 +45,8 @@ func GetPipelineFromFile(filepath string) (p *pipeline.Pipeline) {
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "",
-		Password: "",
+		UserName: "root",
+		Password: "paddleflow",
 	})
 	if err != nil {
 		panic(err)
@@ -61,6 +62,12 @@ func createRun(pfClient *service.PaddleFlowClient, token string, request *v1.Cre
 	if err != nil {
 		panic(err)
 	}
+
+	sDec, err := base64.StdEncoding.DecodeString(request.RunYamlRaw)
+	fmt.Println(string(sDec))
+	//runYaml = string(sDec)
+	yamlMap, err := schema.RunYaml2Map(sDec)
+	fmt.Println(yamlMap)
 	fmt.Printf("create Run result %v\n", createResult)
 	return
 }
@@ -77,7 +84,7 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 	}
 
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "",
+		Host:                       "10.27.197.11",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -156,7 +163,7 @@ func CreatePipelineByRaw(filepath string) (pplID string) {
 	}
 
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "",
+		Host:                       "10.27.197.11",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -221,9 +228,9 @@ func UpdatePipelineByRaw(filepath string, pplID string) (string, string) {
 }
 
 func main() {
-	GetPipelineFromFile("")
-	CreateRunByRunYamlRaw("")
-	CreatePipelineByRaw("")
-	UpdatePipelineByRaw("", "ppl-000096")
-	CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
+	//GetPipelineFromFile("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
+	CreateRunByRunYamlRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
+	//CreatePipelineByRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
+	//UpdatePipelineByRaw("", "ppl-000096")
+	//CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
 }
