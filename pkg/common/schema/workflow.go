@@ -20,14 +20,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strings"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"reflect"
+	"strings"
 )
 
 const (
@@ -639,6 +638,7 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
 	}
+	fmt.Println("yaml map:", yamlMap)
 
 	return GetWorkflowSourceByMap(yamlMap)
 }
