@@ -58,16 +58,10 @@ func getToken(pfClient *service.PaddleFlowClient) string {
 
 func createRun(pfClient *service.PaddleFlowClient, token string, request *v1.CreateRunRequest) (createResult *v1.CreateRunResponse) {
 	createResult, err := pfClient.APIV1().Run().Create(context.TODO(), request, token)
-
 	if err != nil {
 		panic(err)
 	}
 
-	sDec, err := base64.StdEncoding.DecodeString(request.RunYamlRaw)
-	fmt.Println(string(sDec))
-	//runYaml = string(sDec)
-	yamlMap, err := schema.RunYaml2Map(sDec)
-	fmt.Println(yamlMap)
 	fmt.Printf("create Run result %v\n", createResult)
 	return
 }
@@ -228,9 +222,9 @@ func UpdatePipelineByRaw(filepath string, pplID string) (string, string) {
 }
 
 func main() {
-	//GetPipelineFromFile("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
-	CreateRunByRunYamlRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
-	//CreatePipelineByRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
-	//UpdatePipelineByRaw("", "ppl-000096")
-	//CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
+	GetPipelineFromFile("")
+	CreateRunByRunYamlRaw("")
+	CreatePipelineByRaw("")
+	UpdatePipelineByRaw("", "ppl-000096")
+	CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
 }

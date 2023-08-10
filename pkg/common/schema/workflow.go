@@ -638,7 +638,6 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
 	}
-	fmt.Println("yaml map:", yamlMap)
 
 	return GetWorkflowSourceByMap(yamlMap)
 }
