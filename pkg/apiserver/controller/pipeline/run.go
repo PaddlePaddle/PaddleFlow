@@ -522,8 +522,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest, extra map[
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
 	parseStartTime := time.Now()
 	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
-	fmt.Println("wfs:", wfs.EntryPoints.EntryPoints)
-	fmt.Println("source: ", source)
+	fmt.Println("wfs step:", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
