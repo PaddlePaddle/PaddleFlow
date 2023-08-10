@@ -172,9 +172,9 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		}
 
 		runYaml = string(sDec)
-		fmt.Println("run yaml:", runYaml)
+		fmt.Println("source run yaml:", runYaml)
 		wfs, err := schema.GetWorkflowSource([]byte(runYaml))
-		fmt.Println("wfs step:", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
+		fmt.Println("source wfs step:", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
 		if err != nil {
 			ctx.ErrorCode = common.InvalidPipeline
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
@@ -234,7 +234,9 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 
 	// to wfs
 	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
+	fmt.Println("run yaml:", runYaml)
 	wfs, err := runYamlAndReqToWfs(ctx, runYaml, req)
+	fmt.Println("wfs step:", wfs.EntryPoints.EntryPoints["train"].(*schema.WorkflowSourceStep))
 	if err != nil {
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err

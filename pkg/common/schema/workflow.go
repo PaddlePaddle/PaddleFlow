@@ -656,6 +656,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 
 	// 全局参数替换
 	entryPointsMap, ok := yamlMap["entry_points"].(map[string]interface{})
+	fmt.Println("get entry point map:", entryPointsMap)
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}

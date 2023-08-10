@@ -261,6 +261,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			step.Artifacts = artifacts
 		case "distributed_job":
 			value, ok := value.(map[string]interface{})
+			fmt.Println("distributed job value:", value)
 			if !ok {
 				return fmt.Errorf("[distributed_job] in step should be map type")
 			}
@@ -454,6 +455,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			dagComp.Artifacts = artifacts
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
+			fmt.Println("value:", value)
 			if !ok {
 				return fmt.Errorf("[entry_points] of dag should be map type")
 			}
@@ -461,6 +463,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			if err != nil {
 				return err
 			}
+
 			dagComp.EntryPoints = entryPoints
 		case "type":
 			value, ok := value.(string)
