@@ -59,6 +59,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				EntryPoints: entryPointsMap,
 			}
 			wfs.EntryPoints = entryPoints
+			fmt.Println("entry points result:", entryPoints.EntryPoints["train"].(*WorkflowSourceStep))
 		case "components":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -294,6 +295,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 					distJobs.Members = append(distJobs.Members, mem)
 				}
 			}
+			fmt.Println("distributed job result:", distJobs)
 			step.DistributedJob = distJobs
 		case "env":
 			value, ok := value.(map[string]interface{})
@@ -657,6 +659,7 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			}
 		case "image":
 			refValue, ok := memberValue.(string)
+			fmt.Println("member images:", refValue)
 			if !ok {
 				return fmt.Errorf("[image] defined in member %v should be string type", index)
 			}
