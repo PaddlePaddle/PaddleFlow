@@ -510,7 +510,7 @@ type Member struct {
 	ID       string     `yaml:"-"  json:"id"`
 	Replicas int        `yaml:"replicas" json:"replicas"`
 	Role     MemberRole `yaml:"role" json:"role"`
-	Conf     `json:",inline"`
+	Conf     `yaml:",inline" json:",inline"`
 }
 
 type DistributedJob struct {
