@@ -279,6 +279,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			// parse members
 			if value["members"] != nil {
 				members, ok, err := unstructured.NestedSlice(value, "members")
+				fmt.Println("members parser source: ", members)
 				if !ok {
 					return fmt.Errorf("extract members from [distributed_job] failed because [%v]", err)
 				}
@@ -289,6 +290,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 					if !ok {
 						return fmt.Errorf("the member %v defined in [distributed_job] should be map type", index)
 					}
+					fmt.Println("members parser: ", member)
 					if err := p.ParseMember(memberMap, &mem, index); err != nil {
 						return fmt.Errorf("parse [member %v] in [distributed_job] failed, error: %s", index, err.Error())
 					}
