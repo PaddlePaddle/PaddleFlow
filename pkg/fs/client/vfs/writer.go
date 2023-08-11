@@ -88,7 +88,6 @@ func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 	}
 	_, err = f.fd.Write(data, offset)
 	if err != nil {
-		log.Errorf("ufs write err: %v", err)
 		return syscall.EBADF
 	}
 	return syscall.F_OK

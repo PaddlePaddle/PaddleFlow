@@ -102,6 +102,10 @@ const (
 	StatusTaskSucceeded TaskStatus = "succeeded"
 	StatusTaskFailed    TaskStatus = "failed"
 
+	StatusNodeReady    = "Ready"
+	StatusNodeNotReady = "NotReady"
+	StatusNodeUnsched  = "Unschedulable"
+
 	RoleMaster   MemberRole = "master"
 	RoleWorker   MemberRole = "worker"
 	RoleDriver   MemberRole = "driver"
@@ -129,9 +133,11 @@ const (
 	ListenerTypeNodeTask = "nodeTask"
 
 	EnvPFNodeLabels     = "PF_NODE_LABELS"
+	EnvPFNodeCardType   = "PF_NODE_CARD_TYPE"
 	EnvPFTaskLabels     = "PF_TASK_LABELS"
 	EnvPFResourceFilter = "PF_NODE_RESOURCES_FILTER"
 	PFNodeLabels        = "resource-isolation-type"
+	PFNodeCardTypeAnno  = "paddleflow/card-type"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
