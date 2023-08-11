@@ -19,7 +19,6 @@ package ufs
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1411,20 +1410,9 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		}},
 	}
 
-	exist, err := fs.isBucketExists(bucket)
-	if err != nil {
-		log.Errorf("S3 New buckert Exists: %v", err)
-		return nil, err
-	}
-
-	if !exist {
-		log.Errorf("bucker not exists")
-		return nil, errors.New("BucketNotExist")
-	}
-
 	// create subpath if not exists
 	if subpath != "" {
-		exist, err = fs.exists("")
+		exist, err := fs.exists("")
 		if err != nil {
 			log.Debugf("s3 exists err: %v", err)
 			return nil, err
