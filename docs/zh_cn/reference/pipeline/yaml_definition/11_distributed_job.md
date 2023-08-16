@@ -69,15 +69,11 @@ member运行的command，string类型。
 - 如果Member中定义了command字段，Member使用自己的command。
 - 如果Member中没有定义command字段，Member使用所在Step的command。
 
-### 2.2.7 queue
-member运行使用的任务队列，string类型。
-- Members中的queue配置应该保持一致。
-- 如果使用非默认的queue，需要在此Step的ENV中定义PF_JOB_QUEUE_NAME参数，且与Members中定义的queue保持一致。
+### 2.2.7 annotations
+member自定义的annotations，map类型。
 
-### 2.2.8 priority
-member的优先级，包括high、normal、low，默认值为normal。
-- 如果Member中定义了priority字段，Member使用自己的priority。
-- 如果Member中没有定义priority字段，Member使用所在Step的priority。
+### 2.2.8 labels
+member自定义的labels，map类型。
 
 ### 2.2.9 env
 member运行的自定义环境变量，map类型。
@@ -85,13 +81,23 @@ member运行的自定义环境变量，map类型。
 - 如果Member中定义了环境变量，所在Step的env中不包含Member中定义的env名称，member的env将会在此基础上追加所在Step的env。
 - 如果Member中定义了环境变量，且所在Step的env中包含Member中定义的env名称，则Member实际使用的该环境变量值为Member指定的env环境变量值，即Member指定的ENV环境变量优先级高于其所在Step的env环境变量。
 
+### 2.2.10 fs
+member运行的自定义fs，map类型。
+- 如果Member中定义了fs，Member使用自己的fs
+- 如果Member中没有定义fs，Member使用所在Step的fs
+
+### 2.2.11 extra_fs
+member运行的自定义extra_fs，列表类型。
+- 如果Member中定义了extra_fs，Member使用自己的extra_fs
+- 如果Member中没有定义extra_fs，Member使用所在Step的extra_fs
+
 # 3 Pipeline运行过程
 当Paddleflow开始调度执行分布式任务的节点时，会检查distributed_job字段是否有值，如果有值则会开始执行如下流程：
 
 1. 解析Members中的配置字段，包括role、replicas、image、port、flavour、command等。
 
-2. 替换Member的command字段中的模板。
--  如果是artifact模板，则会使用artifact的文件内容来替换相应的模板
+2. 替换Member的command字段中的模板。 如果是artifact模板，则会使用artifact的文件目录来替换相应的模板。
 
 3. 根据Framework和各Member的配置信息创建分布式PaddleFlow Job。
 
+4. 运行多个分布式Pod。
