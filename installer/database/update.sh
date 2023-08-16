@@ -7,10 +7,13 @@ export DB_USER=postgres #用户
 export DB_PW= #密码
 export DB_DATABASE=paddleflow #数据库名称
 export PATH=/usr/pgsql-10/bin:/usr/bin; #二进制文件地址
-export OLD_PF_VERSION=143
-export NEW_PF_VERSION=146
+OLD_PF_VERSION=143 # 原来的PaddleFlow版本
+NEW_PF_VERSION=145 # 升级后的PaddleFlow版本
 
-update_from_143="ALTER TABLE job MODIFY extension_template mediumtext DEFAULT NULL;"
+# 数据库升级sql，支持的版本 1.4.3-1.4.6
+cat <<EOF > update_143_to_144.sql
+ALTER TABLE job MODIFY extension_template mediumtext DEFAULT NULL;
+EOF
 cat <<EOF > update_144_to_145.sql
 ALTER TABLE run MODIFY name varchar(128) NOT NULL;
 ALTER TABLE run ADD COLUMN failure_options_json text NOT NULL after disabled;
@@ -30,7 +33,7 @@ if [[ $DB_DRIVER == "mysql" ]];then
    mysqldump -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT --databases $DB_DATABASE >  $DB_DATABASE.bak_`date +%Y%m%d`.sql
    echo "" > update.sql
    if [[ $OLD_PF_VERSION -eq 143 &&  $NEW_PF_VERSION -gt 143 ]];then
-      [[ $NEW_PF_VERSION -ge 144 ]] && echo $update_from_143 > update.sql
+      [[ $NEW_PF_VERSION -ge 144 ]] && cat update_143_to_144.sql > update.sql
       [[ $NEW_PF_VERSION -ge 145 ]] && cat update_144_to_145.sql >> update.sql
       [[ $NEW_PF_VERSION -ge 146 ]] && cat update_145_to_146.sql  >> update.sql
    fi
