@@ -1,11 +1,6 @@
 #!/bin/bash
 set -x
-export DB_HOST="主机名"
-export DB_DRIVER=mysql #数据库类型
-export DB_PORT= #端口
-export DB_USER=postgres #用户
-export DB_PW= #密码
-export DB_DATABASE=paddleflow #数据库名称
+
 export PATH=/usr/pgsql-10/bin:/usr/bin; #二进制文件地址
 if [ $DB_DRIVER == "mysql" ];then
   mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT -e "use $DB_DATABASE" &>/dev/null
