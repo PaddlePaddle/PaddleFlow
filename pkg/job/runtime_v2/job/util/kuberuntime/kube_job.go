@@ -598,10 +598,10 @@ func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.
 		resources.Limits = nil
 	} else if limitFlavourResource.CPU() == 0 || limitFlavourResource.Memory() == 0 {
 		// limit set zero, patch the same value as request
-		resources.Limits = k8s.NewResourceList(flavourResource)
+		resources.Limits = k8s.NewLimitResourceList(flavourResource)
 	} else {
 		// limit set specified value
-		resources.Limits = k8s.NewResourceList(limitFlavourResource)
+		resources.Limits = k8s.NewLimitResourceList(limitFlavourResource)
 	}
 	return resources, nil
 }

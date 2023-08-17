@@ -256,6 +256,32 @@ func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	return resourceList
 }
 
+func NewLimitResourceList(r *pfResources.Resource) v1.ResourceList {
+	resourceList := v1.ResourceList{}
+	if r == nil {
+		return resourceList
+	}
+	for resourceName, RQuant := range r.Resources {
+		rName := v1.ResourceName("")
+		var quantity *resource.Quantity
+		switch resourceName {
+		case pfResources.ResCPU:
+			quantity = resource.NewMilliQuantity(int64(RQuant), resource.DecimalSI)
+			rName = v1.ResourceCPU
+		case pfResources.ResMemory:
+			quantity = resource.NewQuantity(int64(RQuant), resource.BinarySI)
+			rName = v1.ResourceMemory
+		default:
+			quantity = resource.NewQuantity(int64(RQuant), resource.BinarySI)
+			rName = v1.ResourceName(resourceName)
+		}
+		if quantity.Value() > 0 {
+			resourceList[rName] = *quantity
+		}
+	}
+	return resourceList
+}
+
 func NewMinResourceList() v1.ResourceList {
 	resourceList := v1.ResourceList{}
 	resourceList[v1.ResourceCPU] = *resource.NewQuantity(DefaultCpuRequest, resource.DecimalSI)
