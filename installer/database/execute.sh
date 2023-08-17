@@ -14,11 +14,11 @@ if [ $DB_DRIVER == "mysql" ];then
    mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT -e "drop database if exists $DB_DATABASE;"
    mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT -e "CREATE DATABASE IF NOT EXISTS $DB_DATABASE;"
   fi
-  cp /job/paddleflow.sql /job/paddleflow.sql.bak
-  sed -i "s/paddleflow_db/$DB_DATABASE/g" /job/paddleflow.sql.bak
+  cp paddleflow.sql paddleflow.sql.bak
+  sed -i "s/paddleflow_db/$DB_DATABASE/g" paddleflow.sql.bak
   echo "creating database $DB_DATABASE."
-  mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT $DB_DATABASE -e "source /job/paddleflow.sql.bak"
-  rm -rf /job/paddleflow.sql.bak
+  mysql -u$DB_USER -h$DB_HOST -p$DB_PW -P$DB_PORT $DB_DATABASE -e "source paddleflow.sql.bak"
+  rm -rf paddleflow.sql.bak
   echo "test database $DB_DATABASE."
 elif [[ $DB_DRIVER == "postgresql" ]];then
   psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "\c $DB_DATABASE"  #&>/dev/null
@@ -33,10 +33,10 @@ elif [[ $DB_DRIVER == "postgresql" ]];then
    psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "DROP DATABASE $DB_DATABASE"
    psql -U $DB_USER -h$DB_HOST -p$DB_PORT --c "CREATE DATABASE $DB_DATABASE"
   fi
-  cp /job/paddleflow-pg.sql /job/paddleflow-pg.sql.bak
-  sed -i "s/paddleflow_db/$DB_DATABASE/g" /job/paddleflow-pg.sql.bak
+  cp paddleflow-pg.sql  paddleflow-pg.sql.bak
+  sed -i "s/paddleflow_db/$DB_DATABASE/g" paddleflow-pg.sql.bak
   echo "creating database $DB_DATABASE."
-  psql -d $DB_DATABASE -U $DB_USER -h$DB_HOST -p$DB_PORT -f /job/paddleflow-pg.sql.bak
-  rm -rf /job/paddleflow.sql.bak
+  psql -d $DB_DATABASE -U $DB_USER -h$DB_HOST -p$DB_PORT -f paddleflow-pg.sql.bak
+  rm -rf paddleflow.sql.bak
   echo "test database $DB_DATABASE."
 fi
