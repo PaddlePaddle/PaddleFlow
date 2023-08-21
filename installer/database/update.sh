@@ -1,6 +1,6 @@
 #!/bin/bash
 set -x
-export DB_HOST="主机名"
+export DB_HOST="主机名" #数据库地址
 export DB_DRIVER=mysql #数据库类型
 export DB_PORT= #端口
 export DB_USER=postgres #用户
