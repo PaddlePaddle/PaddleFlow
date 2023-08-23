@@ -1,4 +1,4 @@
-FROM paddleflow/ubuntu:18.04-base
+FROM paddleflow/ubuntu:20.04-base
 
 ENV WORKDIR /home/paddleflow
 ADD output/bin/paddleflow $WORKDIR/server/
