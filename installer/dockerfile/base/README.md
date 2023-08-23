@@ -2,5 +2,5 @@
 ## base
 `paddleflow server`与`csi-plugin`都基于此镜像进行构建
 ```shell
-docker build -t paddleflow/ubuntu:20.04 .
+docker build -t paddleflow/ubuntu:20.04-base .
 ```
