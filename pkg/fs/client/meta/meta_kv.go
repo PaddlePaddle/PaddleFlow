@@ -588,7 +588,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
-		log.Errorf("m get error %v", err)
+		log.Debugf("m get error %v", err)
 		return 0, nil, syscall.EIO
 	}
 	var inode Ino
@@ -613,7 +613,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		info, err := ufs_.GetAttr(path)
 		now := time.Now()
 		if err != nil {
-			log.Errorf("[vfs-lookup] Lookup GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
+			log.Debugf("[vfs-lookup] Lookup GetAttr failed: %v with path[%s] name[%s] and absolutePath[%s]", err, path, name, absolutePath)
 			return err
 		}
 		if isLink {
@@ -638,7 +638,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		if entry == nil {
 			number, err := m.nextInode()
 			if err != nil {
-				log.Errorf("nextInode error %v", err)
+				log.Debugf("nextInode error %v", err)
 				return err
 			}
 			inode = number
@@ -648,7 +648,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 			}
 			err = tx.Set(m.entryKey(parent, name), m.marshalEntry(entryItem_))
 			if err != nil {
-				log.Errorf("tx set error %v", err)
+				log.Debugf("tx set error %v", err)
 				return err
 			}
 		}
@@ -659,7 +659,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		inodeItem_.attr = *attr
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		if err != nil {
-			log.Errorf("set error %v", err)
+			log.Debugf("set error %v", err)
 		}
 		return err
 	})
@@ -762,7 +762,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 }
 
 func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (string, syscall.Errno) {
-	log.Infof("kv meta setattr inode[%v] and set [%v] %+v", inode, set, attr)
+	log.Debugf("kv meta setattr inode[%v] and set [%v] %+v", inode, set, attr)
 	var absolutePath string
 	var cur inodeItem
 	var ufs_ ufslib.UnderFileStorage
@@ -1148,7 +1148,7 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 }
 
 func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) (string, string, syscall.Errno) {
-	log.Infof("kv meta rename parentSrc[%v]'s[%s] to parentDst[%v]'s[%s]", parentSrc, nameSrc, parentDst, nameDst)
+	log.Debugf("kv meta rename parentSrc[%v]'s[%s] to parentDst[%v]'s[%s]", parentSrc, nameSrc, parentDst, nameDst)
 	var pathDst string
 	var pathSrc string
 	srcAttr := &inodeItem{}
@@ -1284,7 +1284,7 @@ func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeS
 }
 
 func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
-	log.Infof("kv meta readdir inode[%v]", inode)
+	log.Debugf("kv meta readdir inode[%v]", inode)
 	dirInodeItem := &inodeItem{}
 	entrySlice := make([]entrySliceItem, 0)
 	inodeSlice := make([]inodeSliceItem, 0)
@@ -1519,7 +1519,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 }
 
 func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, flags uint32, inode *Ino, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
-	log.Infof("kv meta create parent[%v] name[%s]", parent, name)
+	log.Debugf("kv meta create parent[%v] name[%s]", parent, name)
 	ino, err := m.nextInode()
 	*inode = ino
 	if err != nil {
@@ -1608,7 +1608,7 @@ func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cuma
 }
 
 func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
-	log.Infof("kv meta Open inode[%v]", inode)
+	log.Debugf("kv meta Open inode[%v]", inode)
 	inodeItem_ := &inodeItem{}
 	if inode == rootInodeID {
 		now := time.Now()
@@ -1682,7 +1682,7 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v", inode, updateInodeItem.fileHandles, updateInodeItem)
 					return nil
 				}
-				log.Errorf("close fileHandles %v", updateInodeItem.fileHandles)
+				log.Tracef("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
 
 			}
@@ -1698,7 +1698,7 @@ func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.
 }
 
 func (m *kvMeta) Write(ctx *Context, inode Ino, off uint64, length int) syscall.Errno {
-	log.Infof("kv meta Write inode[%v]", inode)
+	log.Debugf("kv meta Write inode[%v]", inode)
 	updateInodeItem := &inodeItem{}
 
 	err := m.txn(func(tx kv.KvTxn) error {
