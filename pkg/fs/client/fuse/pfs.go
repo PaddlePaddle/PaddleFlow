@@ -17,6 +17,7 @@ limitations under the License.
 package fuse
 
 import (
+	"syscall"
 	"time"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -408,6 +409,14 @@ func Server(mountpoint string, opt fuse.MountOptions) (*fuse.Server, error) {
 
 func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
 	log.Debugf("pfs POSIX replyEntry: name[%s] ino[%x] attr: %+v", entry.Name, entry.Ino, *entry.Attr)
+	if entry.Attr.Mode == 0 {
+		if entry.Attr.Type == meta.TypeDirectory {
+			entry.Attr.Mode = syscall.S_IFDIR | uint32(0777)
+		} else {
+			entry.Attr.Mode = syscall.S_IFREG | uint32(0777)
+		}
+		log.Errorf("pfs POSIX replyEntry: entry.Attr.Mode is 0, set to default: %+v", entry.Attr)
+	}
 	out.NodeId = uint64(entry.Ino)
 	// todo:: Generation这个配置是干啥的，得在看看
 	out.Generation = 1
