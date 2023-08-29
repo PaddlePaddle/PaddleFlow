@@ -186,10 +186,11 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 	var attr *Attr
 	inode, attr, err = v.Meta.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
+		log.Errorf("vfs lookup: parent[%x], path[%s], err[%v]", parent, name, err)
 		return nil, err
 	}
 	log.Debugf("vfs lookup inode[%v] from meta: attr[%+v] ", inode, *attr)
-	entry = &meta.Entry{Ino: inode, Attr: attr}
+	entry = &meta.Entry{Ino: inode, Attr: attr, Name: name}
 	return entry, err
 }
 
@@ -204,6 +205,7 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 	var attr = &Attr{}
 	err = v.Meta.GetAttr(ctx, ino, attr)
 	if utils.IsError(err) {
+		log.Errorf("vfs getattr: ino[%d], err[%v]", ino, err)
 		return nil, err
 	}
 	log.Debugf("vfs getattr: %+v", *attr)
