@@ -179,7 +179,7 @@ class JobServiceApi(object):
         if 'workflowRuntime' in data:
             workflow_runtime = data['workflowRuntime']
         job_info = JobInfo(job_id=data['id'], job_name=data['name'], labels=data['labels'],
-                           annotations=data['annotations'], username=data['UserName'],
+                           annotations=data['annotations'],
                            queue=data['schedulingPolicy']['queue'], priority=priority, flavour=data['flavour'],
                            fs=data['fs'], extra_fs_list=data['extraFS'], image=data['image'],
                            env=data['env'], command=data['command'], args_list=data['args'], port=data['port'],
@@ -240,7 +240,7 @@ class JobServiceApi(object):
                 if 'members' in job:
                     members = job['members']
                 job_info = JobInfo(job_id=job['id'], job_name=job['name'], labels=job['labels'],
-                                   annotations=job['annotations'], username=job['UserName'],
+                                   annotations=job['annotations'],
                                    queue=job['schedulingPolicy']['queue'], priority=priority, flavour=job['flavour'],
                                    fs=job['fs'], extra_fs_list=job['extraFS'], image=job['image'],
                                    env=job['env'], command=job['command'], args_list=job['args'], port=job['port'],
