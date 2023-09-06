@@ -30,7 +30,7 @@ func Test_a(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := pkg/fs/client/ufs/object/test_file_test.go a(); got != tt.want {
+			if got := a(); got != tt.want {
 				t.Errorf("a() = %v, want %v", got, tt.want)
 			}
 		})

@@ -54,5 +54,13 @@ func a() int {
 	b = 1
 	b = 1
 	b = 1
+	b = 1
+	b = 1
+	b = 1
+	b = 1
+	b = 1
+	b = 1
+	b = 1
+	b = 1
 	return b
 }
