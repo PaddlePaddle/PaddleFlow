@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 )
 
 func TestPFS_Write(t *testing.T) {
@@ -103,6 +105,47 @@ func TestPFS_Read(t *testing.T) {
 			if got1 != tt.want1 {
 				t.Errorf("Read() got1 = %v, want %v", got1, tt.want1)
 			}
+		})
+	}
+}
+
+func TestPFS_replyEntry(t *testing.T) {
+	type fields struct {
+		debug         bool
+		RawFileSystem fuse.RawFileSystem
+	}
+	type args struct {
+		entry *meta.Entry
+		out   *fuse.EntryOut
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{
+			name: "test entry Attr mode == 0",
+			fields: fields{
+				debug:         false,
+				RawFileSystem: nil,
+			},
+			args: args{
+				entry: &meta.Entry{
+					Attr: &meta.Attr{
+						Mode: 0,
+					},
+				},
+				out: &fuse.EntryOut{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &PFS{
+				debug:         tt.fields.debug,
+				RawFileSystem: tt.fields.RawFileSystem,
+			}
+			fs.replyEntry(tt.args.entry, tt.args.out)
 		})
 	}
 }

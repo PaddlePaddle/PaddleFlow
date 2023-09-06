@@ -296,18 +296,6 @@ func (m *kvMeta) scanValues(prefix []byte) (map[string][]byte, error) {
 func (m *kvMeta) nextInode() (Ino, error) {
 	m.freeMu.Lock()
 	defer m.freeMu.Unlock()
-	if m.freeInodes.next >= m.freeInodes.maxid {
-		var v int64
-		err := m.txn(func(tx kv.KvTxn) error {
-			v = tx.IncrBy(m.counterKey(nextInodeKey), 100)
-			return nil
-		})
-		if err != nil {
-			return 0, err
-		}
-		m.freeInodes.next = uint64(v) - 100
-		m.freeInodes.maxid = uint64(v)
-	}
 	n := m.freeInodes.next
 	m.freeInodes.next++
 	return Ino(n + 2), nil
@@ -600,6 +588,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
+		log.Debugf("m get error %v", err)
 		return 0, nil, syscall.EIO
 	}
 	var inode Ino
@@ -658,6 +647,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 			}
 			err = tx.Set(m.entryKey(parent, name), m.marshalEntry(entryItem_))
 			if err != nil {
+				log.Debugf("tx set error %v", err)
 				return err
 			}
 		}
@@ -667,6 +657,9 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+		if err != nil {
+			log.Debugf("set error %v", err)
+		}
 		return err
 	})
 	if err == nil {
@@ -716,6 +709,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		inodeItem_.expire = now.Add(m.attrTimeOut + time.Hour*100).Unix()
 		err := m.set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		if err != nil {
+			log.Errorf("set error %v", err)
 			return syscall.EBADF
 		}
 
@@ -727,8 +721,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		ufs_, isLink, prefix, path := m.GetUFS(absolutePath)
 		info, err := ufs_.GetAttr(path)
 		if err != nil {
-			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, path, absolutePath)
-
+			log.Errorf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, path, absolutePath)
 			return err
 		}
 		if isLink {
@@ -1330,6 +1323,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 		ufs_, isLink, _, path := m.GetUFS(absolutePath)
 		dirs, err := ufs_.ReadDir(path)
 		if err != nil {
+			log.Errorf("meta-kv read dir from ufs succeed, but update dir err: %s", err.Error())
 			return err
 		}
 
@@ -1647,7 +1641,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		}
 		info, err := ufs_.GetAttr(newPath)
 		if err != nil {
-			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, newPath, absolutePath)
+			log.Errorf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, newPath, absolutePath)
 			if utils.IfNotExist(err) {
 				_ = tx.Dels(m.inodeKey(inode), m.entryKey(inodeItem_.parentIno, string(inodeItem_.name)))
 			}
@@ -1684,7 +1678,7 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 					log.Errorf("inode[%v] close file handles not correct %v and inodeItem %+v", inode, updateInodeItem.fileHandles, updateInodeItem)
 					return nil
 				}
-				log.Debugf("close fileHandles %v", updateInodeItem.fileHandles)
+				log.Tracef("close fileHandles %v", updateInodeItem.fileHandles)
 				return tx.Set(m.inodeKey(inode), m.marshalInode(updateInodeItem))
 
 			}

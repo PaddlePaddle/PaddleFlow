@@ -76,9 +76,6 @@ type objectFileHandle struct {
 
 func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 	l := uint64(len(dest))
-	if off >= l {
-		return 0, nil
-	}
 	if off >= fh.size {
 		return 0, nil
 	}
