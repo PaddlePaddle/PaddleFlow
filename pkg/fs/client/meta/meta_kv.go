@@ -665,6 +665,9 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 	if err == nil {
 		m.setPathCache(inode, inodeItem_)
 	}
+	if err != nil {
+		log.Errorf("look up err %v", err)
+	}
 	return inode, attr, utils.ToSyscallErrno(err)
 }
 
@@ -1411,13 +1414,12 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				} else {
 					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFREG | uint32(FuseConf.FileMode))))
 				}
-
+				insertChildEntry.ino = newInode
+				entrySlice = append(entrySlice, entrySliceItem{
+					dir.Name,
+					insertChildEntry,
+				})
 			}
-			insertChildEntry.ino = newInode
-			entrySlice = append(entrySlice, entrySliceItem{
-				dir.Name,
-				insertChildEntry,
-			})
 			expire = now.Add(m.attrTimeOut).Unix()
 			insertChildInode = &inodeItem{
 				attr:      *childEntryItem.Attr,
