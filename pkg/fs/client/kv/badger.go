@@ -143,6 +143,10 @@ func (c *kvClient) Name() string {
 	return "tikv"
 }
 
+func (c *kvClient) Close() error {
+	return c.db.Close()
+}
+
 func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 	tx := c.db.NewTransaction(true)
 	defer tx.Discard()
