@@ -626,6 +626,12 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 			attr.Gid = inodeItem_.attr.Gid
 			if inodeItem_.attr.Mode != 0 {
 				attr.Mode = inodeItem_.attr.Mode
+			} else {
+				if attr.Type == TypeDirectory {
+					attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+				} else {
+					attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+				}
 			}
 		} else {
 			attr.Uid = uint32(FuseConf.Uid)
