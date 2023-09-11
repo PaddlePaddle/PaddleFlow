@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	// init pprof server
+	_ "net/http/pprof"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -119,6 +121,11 @@ func start() error {
 			log.Errorf("create job perf metrics service failed, err %v", err)
 			gracefullyExit(err)
 		}
+	}
+	if ServerConf.ApiServer.PprofEnable {
+		go func() {
+			http.ListenAndServe(fmt.Sprintf(":%d", ServerConf.ApiServer.PprofPort), nil)
+		}()
 	}
 
 	go func() {
