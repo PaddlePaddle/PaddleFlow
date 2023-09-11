@@ -1403,6 +1403,10 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				childEntryItemFromCache = &entryItem{}
 				m.parseEntry(childEntryBuf, childEntryItemFromCache)
 				newInode = childEntryItemFromCache.ino
+				insertChildEntry.done = childEntryItemFromCache.done
+				insertChildEntry.expire = childEntryItemFromCache.expire
+				insertChildEntry.ino = childEntryItemFromCache.ino
+				insertChildEntry.mode = childEntryItemFromCache.mode
 			} else {
 				newInodeNumber, err := m.nextInode()
 				if err != nil {
@@ -1415,11 +1419,11 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 					insertChildEntry.mode = uint32(utils.StatModeToFileMode(int(syscall.S_IFREG | uint32(FuseConf.FileMode))))
 				}
 				insertChildEntry.ino = newInode
-				entrySlice = append(entrySlice, entrySliceItem{
-					dir.Name,
-					insertChildEntry,
-				})
 			}
+			entrySlice = append(entrySlice, entrySliceItem{
+				dir.Name,
+				insertChildEntry,
+			})
 			expire = now.Add(m.attrTimeOut).Unix()
 			insertChildInode = &inodeItem{
 				attr:      *childEntryItem.Attr,
