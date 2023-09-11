@@ -753,7 +753,15 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		if inodeItem_.attr.Type != 0 {
 			attr.Uid = inodeItem_.attr.Uid
 			attr.Gid = inodeItem_.attr.Gid
-			attr.Mode = inodeItem_.attr.Mode
+			if inodeItem_.attr.Mode != 0 {
+				attr.Mode = inodeItem_.attr.Mode
+			} else {
+				if attr.Type == TypeDirectory {
+					attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+				} else {
+					attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+				}
+			}
 		} else {
 			attr.Uid = uint32(FuseConf.Uid)
 			attr.Gid = uint32(FuseConf.Gid)
