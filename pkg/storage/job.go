@@ -198,7 +198,7 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 	return updatedJob.Status, nil
 }
 
-func findMapWithDefault(mp map[string], key, defaultValue string) string {
+func findMapWithDefault(mp map[string]string, key, defaultValue string) string {
 	value, find := mp[key]
 	if !find {
 		value = defaultValue
