@@ -200,6 +200,7 @@ type JobFilter struct {
 
 var (
 	RunningJobFilter = JobFilter{Status: []schema.JobStatus{schema.StatusJobRunning}}
+	InitJobFilter    = JobFilter{Status: []schema.JobStatus{schema.StatusJobInit}}
 )
 
 type JobStoreInterface interface {
