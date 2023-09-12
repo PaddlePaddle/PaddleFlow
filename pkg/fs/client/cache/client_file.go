@@ -67,7 +67,7 @@ func newFileClient(config Config) DataCacheClient {
 		return nil
 	}
 	if err := d.updateCapacity(); err != nil {
-		log.Errorf("newFileClient d.updateCapacity err: %v", err)
+		log.Debugf("newFileClient d.updateCapacity err: %v", err)
 		return nil
 	}
 
@@ -75,7 +75,7 @@ func newFileClient(config Config) DataCacheClient {
 	go func() {
 		for {
 			if err := d.updateCapacity(); err != nil {
-				log.Errorf("newFileClient d.updateCapacity err: %v", err)
+				log.Debugf("newFileClient d.updateCapacity err: %v", err)
 			}
 			time.Sleep(1 * time.Second)
 		}
