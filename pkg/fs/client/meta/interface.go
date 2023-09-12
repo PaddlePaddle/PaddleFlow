@@ -170,6 +170,8 @@ type Meta interface {
 	Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno
 
 	LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error
+
+	ClientClose(stopChan chan struct{})
 }
 
 func (a *Attr) IsDir() bool {

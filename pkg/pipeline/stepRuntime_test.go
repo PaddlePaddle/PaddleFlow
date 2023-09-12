@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -825,6 +826,7 @@ func TestStop(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, srt.status, StatusRuntimeTerminated)
+	log.Infof("ep.Message %v", ep.Message)
 	assert.True(t, strings.Contains(ep.Message, "jobid"))
 	assert.Equal(t, 0, srt.CurrentParallelism())
 

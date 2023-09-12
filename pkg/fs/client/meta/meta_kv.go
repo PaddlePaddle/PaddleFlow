@@ -1791,6 +1791,19 @@ func (m *kvMeta) Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype 
 	return syscall.ENOSYS
 }
 
+func (m *kvMeta) ClientClose(stopChan chan struct{}) {
+	for {
+		select {
+		case <-stopChan:
+			m.client.Close()
+			m.pathCache.Close()
+			break
+		default:
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
 func (m *kvMeta) LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error {
 	for {
 		err := m.linksMetaUpdate(linkMetaDirPrefix)

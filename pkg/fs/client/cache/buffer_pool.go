@@ -59,7 +59,7 @@ func init() {
 	go func() {
 		for {
 			freeMemory()
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 }
