@@ -826,7 +826,7 @@ func TestStop(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, srt.status, StatusRuntimeTerminated)
-	log.Info("ep.Message %b", ep.Message)
+	log.Infof("ep.Message %v", ep.Message)
 	assert.True(t, strings.Contains(ep.Message, "jobid"))
 	assert.Equal(t, 0, srt.CurrentParallelism())
 
