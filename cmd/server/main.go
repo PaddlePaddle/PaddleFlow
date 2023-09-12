@@ -257,7 +257,7 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(storage.Cluster.ActiveClusters, storage.Job.ListQueueJob)
+	go runtimeMgr.Start(storage.Cluster.ActiveClusters)
 	return nil
 }
 
