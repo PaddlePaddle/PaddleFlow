@@ -23,6 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	comErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -65,7 +66,9 @@ type BaseJob struct {
 }
 
 // ----------------------------------------------------------------------------
-//  K8S Job
+//
+//	K8S Job
+//
 // ----------------------------------------------------------------------------
 type PaddleFlowJob struct {
 	BaseJob
@@ -242,11 +245,11 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := storage.Job.GetJobStatusByID(pfj.ID)
+	job, err := storage.Job.GetJobByID(pfj.ID)
 	if err != nil {
-		return "", err
+		return "", comErrors.JobIDNotFoundError(job.ID)
 	}
-	return status, nil
+	return job.Status, nil
 }
 
 // 同步watch作业接口

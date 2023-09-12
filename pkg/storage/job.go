@@ -83,6 +83,7 @@ func (js *JobStore) GetUnscopedJobByID(jobID string) (model.Job, error) {
 	return job, nil
 }
 
+// Deprecated
 func (js *JobStore) GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 	job, err := js.GetJobByID(jobID)
 	if err != nil {
@@ -255,18 +256,6 @@ func (js *JobStore) ListJob(filter JobFilter) ([]model.Job, error) {
 		return []model.Job{}, tx.Error
 	}
 	return jobList, nil
-}
-
-// Deprecated
-func (js *JobStore) ListQueueJob(queueID string, status []schema.JobStatus) []model.Job {
-	db := js.db.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID).Where("deleted_at = ''")
-
-	var jobs []model.Job
-	err := db.Find(&jobs).Error
-	if err != nil {
-		return []model.Job{}
-	}
-	return jobs
 }
 
 // Deprecated
