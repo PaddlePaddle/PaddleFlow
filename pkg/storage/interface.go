@@ -216,13 +216,6 @@ type JobStoreInterface interface {
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
-	// ListQueueJob TODO(dongzezhao): merge list interface
-	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job                                                                      // Deprecated
-	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job                                                      // Deprecated
-	ListJobByStatus(status schema.JobStatus) []model.Job                                                                                     // Deprecated
-	ListJobByUpdateTime(updateTime string) ([]model.Job, error)                                                                              // Deprecated
-	ListJobByParentID(parentID string) ([]model.Job, error)                                                                                  // Deprecated
-	ListJobOld(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) // Deprecated
 	// ListJob list job with filter
 	ListJob(filter JobFilter) ([]model.Job, error)
 	// GetTaskByID get job task
