@@ -280,9 +280,8 @@ func startMetricsService(port int) (err error) {
 		}
 		return queues
 	}
-
 	listJobByStatus := func() []model.Job {
-		jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
+		jobs, _ := storage.Job.ListJob(storage.RunningJobFilter)
 		return jobs
 	}
 

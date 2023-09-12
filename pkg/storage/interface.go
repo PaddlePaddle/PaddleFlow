@@ -198,15 +198,21 @@ type JobFilter struct {
 	MaxKeys    int
 }
 
+var (
+	RunningJobFilter = JobFilter{Status: []schema.JobStatus{schema.StatusJobRunning}}
+)
+
 type JobStoreInterface interface {
 	// CreateJob save job in database
 	CreateJob(job *model.Job) error
+	// GetJobByID get job
 	GetJobByID(jobID string) (model.Job, error)
 	GetJobStatusByID(jobID string) (schema.JobStatus, error)
 	GetLastJob() (model.Job, error)
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
+	// UpdateJobStatus update job status
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
