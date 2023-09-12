@@ -19,6 +19,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -243,7 +244,7 @@ func (js *JobStore) ListJob(filter JobFilter) ([]model.Job, error) {
 		tx = tx.Where("user_name = ?", filter.User)
 	}
 	// set orderBy and order
-	order := findMapWithDefault(model.OrderMap, filter.Order, "asc")
+	order := findMapWithDefault(model.OrderMap, strings.ToLower(filter.Order), "asc")
 	orderBy := findMapWithDefault(model.OrderByMap, filter.OrderBy, "created_at")
 	tx.Order(fmt.Sprintf("%s %s", orderBy, order))
 	// set limit
