@@ -49,9 +49,7 @@ type JobManagerImpl struct {
 	activeClusters  ActiveClustersFunc
 	queueExpireTime time.Duration
 	queueCache      gcache.Cache
-
-	listQueueInitJobs func(string) []model.Job
-	jobLoopPeriod     time.Duration
+	jobLoopPeriod   time.Duration
 
 	// jobQueues contains JobQueue for jobs in queue
 	jobQueues api.JobQueues
@@ -95,7 +93,6 @@ func (m *JobManagerImpl) init() {
 
 func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc) {
 	m.activeClusters = activeClusters
-	m.listQueueInitJobs = storage.Job.ListQueueInitJob
 	/// init config for job manager
 	m.init()
 	// start job manager
