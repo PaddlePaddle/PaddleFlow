@@ -152,7 +152,18 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		queueID = queue.ID
 	}
 	// model list
-	jobList, err := storage.Job.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, ctx.UserName, request.Labels)
+	filter := storage.JobFilter{
+		PK:         pk,
+		MaxKeys:    request.MaxKeys,
+		QueueIDs:   []string{queueID},
+		Status:     []schema.JobStatus{schema.JobStatus(request.Status)},
+		StartTime:  request.StartTime,
+		UpdateTime: timestampStr,
+		User:       ctx.UserName,
+		Labels:     request.Labels,
+		Order:      "desc",
+	}
+	jobList, err := storage.Job.ListJob(filter)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -369,7 +380,10 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 
 func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 	nodeRuntimes := make([]DistributedRuntimeInfo, 0)
-	nodeList, err := storage.Job.ListJobByParentID(jobID)
+	jobFilter := storage.JobFilter{
+		ParentID: jobID,
+	}
+	nodeList, err := storage.Job.ListJob(jobFilter)
 	if err != nil {
 		log.Errorf("list job[%s] nodes failed, error:[%s]", jobID, err.Error())
 		return nil, err

@@ -113,8 +113,11 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 
 func (m *JobManagerImpl) pJobProcessLoop() {
 	log.Infof("start job process loop ...")
+	filter := storage.JobFilter{
+		Status: []schema.JobStatus{schema.StatusJobInit},
+	}
 	for {
-		jobs := storage.Job.ListJobByStatus(schema.StatusJobInit)
+		jobs, _ := storage.Job.ListJob(filter)
 		startTime := time.Now()
 		for idx, job := range jobs {
 			// TODO: batch insert group by queue

@@ -184,8 +184,22 @@ type AuthStoreInterface interface {
 	GetLastGrant(ctx *logger.RequestContext) (model.Grant, error)
 }
 
+type JobFilter struct {
+	QueueIDs   []string
+	Status     []schema.JobStatus
+	StartTime  string
+	UpdateTime string
+	ParentID   string
+	User       string
+	Labels     map[string]string
+	OrderBy    string
+	Order      string
+	PK         int64
+	MaxKeys    int
+}
+
 type JobStoreInterface interface {
-	// job
+	// CreateJob save job in database
 	CreateJob(job *model.Job) error
 	GetJobByID(jobID string) (model.Job, error)
 	GetJobStatusByID(jobID string) (schema.JobStatus, error)
@@ -197,14 +211,15 @@ type JobStoreInterface interface {
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	// ListQueueJob TODO(dongzezhao): merge list interface
-	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job
-	ListQueueInitJob(queueID string) []model.Job
-	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job
-	ListJobByStatus(status schema.JobStatus) []model.Job
-	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
-	ListJobByParentID(parentID string) ([]model.Job, error)
-	ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error)
-	// job task
+	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job                                                                      // Deprecated
+	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job                                                      // Deprecated
+	ListJobByStatus(status schema.JobStatus) []model.Job                                                                                     // Deprecated
+	ListJobByUpdateTime(updateTime string) ([]model.Job, error)                                                                              // Deprecated
+	ListJobByParentID(parentID string) ([]model.Job, error)                                                                                  // Deprecated
+	ListJobOld(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) // Deprecated
+	// ListJob list job with filter
+	ListJob(filter JobFilter) ([]model.Job, error)
+	// GetTaskByID get job task
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
 	ListByJobID(jobID string) ([]model.JobTask, error)

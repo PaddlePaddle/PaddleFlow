@@ -198,6 +198,66 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 	return updatedJob.Status, nil
 }
 
+func findMapWithDefault(mp map[string], key, defaultValue string) string {
+	value, find := mp[key]
+	if !find {
+		value = defaultValue
+	}
+	return value
+}
+
+func (js *JobStore) ListJob(filter JobFilter) ([]model.Job, error) {
+	tx := js.db.Table("job")
+	if len(filter.Labels) > 0 {
+		jobIDs, err := js.ListJobIDByLabels(filter.Labels)
+		if err != nil {
+			return []model.Job{}, err
+		}
+		tx = tx.Where("id IN (?)", jobIDs)
+	}
+	if len(filter.QueueIDs) > 0 {
+		tx = tx.Where("queue_id IN ?", filter.QueueIDs)
+	}
+	if len(filter.Status) > 0 {
+		tx = tx.Where("status IN ?", filter.Status)
+	}
+	tx = tx.Where("deleted_at = ''")
+	// filter by updateTime
+	if filter.UpdateTime != "" {
+		tx = tx.Where("updated_at >= ?", filter.UpdateTime)
+	}
+	// filter by startTime
+	if filter.StartTime != "" {
+		tx = tx.Where("activated_at >= ?", filter.StartTime)
+	}
+	// filter by parent job
+	if filter.ParentID != "" {
+		tx = tx.Where("parent_job = ?", filter.ParentID)
+	}
+	if filter.PK > 0 {
+		tx = tx.Where("pk > ? and parent_job = '' ", filter.PK)
+	}
+	// filter by user
+	if filter.User != "" && filter.User != "root" {
+		tx = tx.Where("user_name = ?", filter.User)
+	}
+	// set orderBy and order
+	order := findMapWithDefault(model.OrderMap, filter.Order, "asc")
+	orderBy := findMapWithDefault(model.OrderByMap, filter.OrderBy, "created_at")
+	tx.Order(fmt.Sprintf("%s %s", orderBy, order))
+	// set limit
+	if filter.MaxKeys > 0 {
+		tx = tx.Limit(filter.MaxKeys)
+	}
+	var jobList []model.Job
+	tx = tx.Find(&jobList)
+	if tx.Error != nil {
+		return []model.Job{}, tx.Error
+	}
+	return jobList, nil
+}
+
+// Deprecated
 func (js *JobStore) ListQueueJob(queueID string, status []schema.JobStatus) []model.Job {
 	db := js.db.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID).Where("deleted_at = ''")
 
@@ -209,18 +269,7 @@ func (js *JobStore) ListQueueJob(queueID string, status []schema.JobStatus) []mo
 	return jobs
 }
 
-func (js *JobStore) ListQueueInitJob(queueID string) []model.Job {
-	db := js.db.Table("job").Where("queue_id = ?", queueID).Where("status = ?", schema.StatusJobInit).Where("deleted_at = ''")
-
-	var jobs []model.Job
-	err := db.Find(&jobs).Error
-	if err != nil {
-		log.Errorf("list init jobs in queue %s failed, err: %s", queueID, err.Error())
-		return []model.Job{}
-	}
-	return jobs
-}
-
+// Deprecated
 func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job {
 	var jobs []model.Job
 	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
@@ -232,6 +281,7 @@ func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status schema
 	return jobs
 }
 
+// Deprecated
 func (js *JobStore) ListJobByStatus(status schema.JobStatus) []model.Job {
 	db := js.db.Table("job").Where("status = ?", status).Where("deleted_at = ''")
 
@@ -257,6 +307,7 @@ func (js *JobStore) GetJobsByRunID(runID string, jobID string) ([]model.Job, err
 	return jobList, nil
 }
 
+// Deprecated
 func (js *JobStore) ListJobByUpdateTime(updateTime string) ([]model.Job, error) {
 	var jobList []model.Job
 	err := js.db.Table("job").Where("updated_at >= ?", updateTime).Where("deleted_at = ''").Find(&jobList).Error
@@ -267,6 +318,7 @@ func (js *JobStore) ListJobByUpdateTime(updateTime string) ([]model.Job, error) 
 	return jobList, nil
 }
 
+// Deprecated
 func (js *JobStore) ListJobByParentID(parentID string) ([]model.Job, error) {
 	var jobList []model.Job
 	err := js.db.Table("job").Where("parent_job = ?", parentID).Where("deleted_at = ''").Find(&jobList).Error
@@ -287,7 +339,8 @@ func (js *JobStore) GetLastJob() (model.Job, error) {
 	return job, nil
 }
 
-func (js *JobStore) ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) {
+// Deprecated
+func (js *JobStore) ListJobOld(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) {
 	tx := js.db.Table("job").Where("pk > ?", pk).Where("parent_job = ''").Where("deleted_at = ''")
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
