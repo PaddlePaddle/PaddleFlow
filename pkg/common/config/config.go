@@ -75,7 +75,7 @@ type ApiServerConfig struct {
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
 	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
-	PprofEnable         bool   `yaml:"PprofEnable"`
+	PprofEnable         bool   `yaml:"pprofEnable"`
 	PprofPort           int    `yaml:"pprofPort"`
 }
 
