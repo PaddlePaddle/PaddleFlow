@@ -58,7 +58,7 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
             response['runLog'] = [response['runLog'][0]]
         _print_run_log(response, output_format)
     else:
-        click.echo("show run log failed with message[%s]" % response)
+        click.echo(f"show run log failed with message[{response}]")
         sys.exit(1)
 
 
@@ -87,7 +87,7 @@ def run(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None
             response['runLog'] = [response['runLog'][0]]
         _print_run_log(response, output_format)
     else:
-        click.echo("show run log failed with message[%s]" % response)
+        click.echo(f"show run log failed with message[{response}]")
         sys.exit(1)
 
 
@@ -102,13 +102,13 @@ def run(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None
 @click.pass_context
 def kube(ctx, name=None, namespace=None, clustername=None,  type=None, readfromtail=None, line_limit=None, size_limit=None):
     """
-     show kubernetes deployment and pod log \n
+     show kubernetes log (deployment or pod)\n
 
     """
     # it would return deployment or pod logs by <namespace, name, type>
     client = ctx.obj['client']
     output_format = 'text'
-    click.echo("query log by [namespace/name]".format(namespace, name))
+    click.echo(f"query kubernetes {type} log by [{namespace}/{name}]")
 
     valid, response = client.show_log_by_limit(job_id=None, name=name, namespace=namespace, cluster_name=clustername, read_from_tail=readfromtail,
                                                line_limit=line_limit, size_limit=size_limit, type=type, framework=None)
@@ -117,8 +117,9 @@ def kube(ctx, name=None, namespace=None, clustername=None,  type=None, readfromt
         #     response['runLog'] = [response['runLog'][0]]
         _print_log_by_limit(response, output_format)
     else:
-        click.echo("show logs failed with message[%s]" % response)
+        click.echo(f"show logs failed with message[{response}]")
         sys.exit(1)
+
 
 @log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.option('-j', '--jobid', required=True, help="job id")
@@ -135,7 +136,7 @@ def job(ctx, jobid=None, framework=None, readfromtail=None, line_limit=None, siz
     # it would return PaddleFlow job logs by jobid
     client = ctx.obj['client']
     output_format = 'text'
-    click.echo("query job by [jobid]".format(jobid))
+    click.echo(f"query logs for job {jobid}")
 
     valid, response = client.show_log_by_limit(job_id=jobid, name=None, namespace=None, cluster_name=None, read_from_tail=readfromtail,
                                                line_limit=line_limit, size_limit=size_limit, type=None, framework=framework)
@@ -144,7 +145,7 @@ def job(ctx, jobid=None, framework=None, readfromtail=None, line_limit=None, siz
         #     response['runLog'] = [response['runLog'][0]]
         _print_log_by_limit(response, output_format)
     else:
-        click.echo("show job %s logs failed with message[%s]" %  jobid, response)
+        click.echo(f"show job {jobid} logs failed with message[{response}]")
         sys.exit(1)
 
 
