@@ -73,7 +73,7 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
 def run(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None):
     """
 
-    show run log \n
+    show PaddleFlow run log \n
 
     """
     client = ctx.obj['client']
@@ -92,10 +92,10 @@ def run(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None
 
 
 @log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
-@click.option('-n', '--name', help="name")
-@click.option('-ns', '--namespace', help="namespace")
-@click.option('-c', '--clustername', help="clustername")
-@click.option('-t', '--type', help="type in deploy or pod")
+@click.option('-n', '--name', required=True, help="the name of kubernetes resources")
+@click.option('-ns', '--namespace', required=True, help="the namespace of kubernetes resources")
+@click.option('-c', '--clustername', required=True, help="the clustername in PaddleFlow")
+@click.option('-t', '--type', required=True, help="type in deploy or pod")
 @click.option('-r', '--readfromtail', help="read logs from tail, set value means yes")
 @click.option('-l', '--line_limit', help="line_limit, default is 1000")
 @click.option('-s', '--size_limit', help="size_limit, default is 100MB")
@@ -121,8 +121,8 @@ def kube(ctx, name=None, namespace=None, clustername=None,  type=None, readfromt
         sys.exit(1)
 
 @log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
-@click.option('-j', '--jobid', help="jobid and name is one of required field")
-@click.option('-f', '--framework', help="job framework")
+@click.option('-j', '--jobid', required=True, help="job id")
+@click.option('-f', '--framework', required=True, help="job framework")
 @click.option('-r', '--readfromtail', help="read logs from tail, set value means yes")
 @click.option('-l', '--line_limit', help="line_limit, default is 1000")
 @click.option('-s', '--size_limit', help="size_limit, default is 100MB")
