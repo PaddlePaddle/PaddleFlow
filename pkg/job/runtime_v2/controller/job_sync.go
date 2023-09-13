@@ -310,7 +310,11 @@ func (j *JobSync) preHandleTerminatingJob() {
 		queueIDs = append(queueIDs, q.ID)
 	}
 
-	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, pfschema.StatusJobTerminating)
+	jobFilter := storage.JobFilter{
+		QueueIDs: queueIDs,
+		Status:   []pfschema.JobStatus{pfschema.StatusJobTerminating},
+	}
+	jobs, _ := storage.Job.ListJob(jobFilter)
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()

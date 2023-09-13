@@ -107,6 +107,7 @@ CREATE TABLE job (
     PRIMARY KEY (pk));
 CREATE UNIQUE INDEX job_id ON job (id, deleted_at);
 CREATE INDEX status_queue_deleted ON job (queue_id, status, deleted_at);
+CREATE INDEX status_deleted ON job (status, deleted_at);
 
 CREATE TABLE job_label (
     pk bigserial NOT NULL,

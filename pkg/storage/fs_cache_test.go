@@ -93,6 +93,16 @@ func initMockDB() {
 		&model.ClusterInfo{},
 		&model.ResourcePool{},
 		&model.Grant{},
+		&model.Pipeline{},
+		&model.PipelineVersion{},
+		&model.ArtifactEvent{},
+		&model.User{},
+		&model.Flavour{},
+		&model.Grant{},
+		&model.Job{},
+		&model.JobTask{},
+		&model.JobLabel{},
+		&model.Image{},
 	); err != nil {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
