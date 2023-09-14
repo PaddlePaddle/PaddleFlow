@@ -1797,9 +1797,7 @@ func (m *kvMeta) ClientClose(stopChan chan struct{}) {
 		case <-stopChan:
 			m.client.Close()
 			m.pathCache.Close()
-			break
-		default:
-			time.Sleep(1 * time.Second)
+			return
 		}
 	}
 }
