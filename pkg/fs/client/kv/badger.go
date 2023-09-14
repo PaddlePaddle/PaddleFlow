@@ -45,6 +45,7 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	if config.Driver == MemType {
 		Options := badger.DefaultOptions("")
 		Options.MemTableSize = 4 << 20
+		Options.ValueThreshold = 1 << 20 / 4
 		db, err = badger.Open(Options.WithInMemory(true))
 	} else if config.Driver == DiskType {
 		if config.CachePath == "" {
