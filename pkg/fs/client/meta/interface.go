@@ -183,7 +183,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Confi
 		config = &Config{
 			AttrCacheExpire:  2,
 			EntryCacheExpire: 2,
-			PathCacheExpire:  2,
+			PathCacheExpire:  0,
 			Config: kv.Config{
 				Driver: kv.MemType,
 				FsID:   fsMeta.ID,
