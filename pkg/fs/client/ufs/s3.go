@@ -1207,7 +1207,7 @@ func (fh *s3FileHandle) uploadWriteTmpFile() error {
 	// put empty file
 	if fileSize == 0 {
 		if err := fh.fs.putEmptyFile(fh.path); err != nil {
-			log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putEmptyFile err: %v", fh.name, err)
+			log.Errorf("s3 uploadWriteTmpFile: fh.name[%s], putEmptyFile err: %v", fh.name, err)
 			return err
 		}
 		fh.writeDirty = false
@@ -1216,7 +1216,7 @@ func (fh *s3FileHandle) uploadWriteTmpFile() error {
 	// put file
 	if fileSize <= MPUThreshold {
 		if err := fh.putFile(fileSize); err != nil {
-			log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putFile length[%d] err: %v", fh.name, fileSize, err)
+			log.Errorf("s3 uploadWriteTmpFile: fh.name[%s], putFile length[%d] err: %v", fh.name, fileSize, err)
 			return err
 		}
 		fh.writeDirty = false
@@ -1237,17 +1237,17 @@ func (fh *s3FileHandle) uploadWriteTmpFile() error {
 
 func (fh *s3FileHandle) MPU() error {
 	if err := fh.multipartCreate(); err != nil {
-		log.Debugf("s3 MPU: fh.name[%s], mpu create err: %v", fh.name, err)
+		log.Errorf("s3 MPU: fh.name[%s], mpu create err: %v", fh.name, err)
 		return err
 	}
 
 	if err := fh.serialMPUTillEnd(); err != nil {
-		log.Debugf("s3 MPU: fh.name[%s], serialMPUTillEnd err:%v", fh.name, err)
+		log.Errorf("s3 MPU: fh.name[%s], serialMPUTillEnd err:%v", fh.name, err)
 		return err
 	}
 
 	if err := fh.multipartCommit(); err != nil {
-		log.Debugf("s3 MPU: fh.name[%s], multipartCommit err:%v",
+		log.Errorf("s3 MPU: fh.name[%s], multipartCommit err:%v",
 			fh.name, err)
 		return err
 	}
