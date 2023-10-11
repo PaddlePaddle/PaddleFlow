@@ -151,7 +151,7 @@ func (c *fileDataCache) save(key string, buf []byte) {
 	}
 	err = os.Rename(tmp, path)
 	if err != nil {
-		log.Errorf("rename file %s -> %s failed: %v", tmp, path, err)
+		log.Debugf("rename file %s -> %s failed: %v", tmp, path, err)
 		_ = os.Remove(tmp)
 		return
 	}

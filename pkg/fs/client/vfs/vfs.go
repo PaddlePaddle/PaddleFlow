@@ -591,6 +591,9 @@ func (v *VFS) Flush(ctx *meta.Context, ino Ino, fh uint64, lockOwner uint64) (er
 	}
 	if h.writer != nil {
 		err = h.writer.Flush()
+		if err != 0 {
+			log.Errorf("flush err %v", err)
+		}
 	}
 	return err
 }
