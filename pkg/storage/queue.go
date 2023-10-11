@@ -240,8 +240,12 @@ func (qs *QueueStore) IsQueueInUse(queueID string) (bool, map[string]schema.JobS
 		schema.StatusJobTerminating,
 		schema.StatusJobRunning,
 	}
+	jobFilter := JobFilter{
+		QueueIDs: []string{queueID},
+		Status:   queueInUseJobStatus,
+	}
 	jobsInfo := make(map[string]schema.JobStatus)
-	jobs := Job.ListQueueJob(queueID, queueInUseJobStatus)
+	jobs, _ := Job.ListJob(jobFilter)
 	if len(jobs) == 0 {
 		return false, jobsInfo
 	}

@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	//"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -68,7 +67,7 @@ func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (j *JobCollector) CollectPodMetrics(metricName string) error {
-	jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
+	jobs, _ := storage.Job.ListJob(storage.RunningJobFilter)
 	for _, value := range jobs {
 		podNameList := make([]string, 0)
 		if err := getPodNameList(&podNameList, value); err != nil {
