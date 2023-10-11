@@ -43,7 +43,10 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	var db *badger.DB
 	var err error
 	if config.Driver == MemType {
-		db, err = badger.Open(badger.DefaultOptions("").WithInMemory(true))
+		Options := badger.DefaultOptions("")
+		Options.MemTableSize = 4 << 20
+		Options.ValueThreshold = 1 << 20 / 4
+		db, err = badger.Open(Options.WithInMemory(true))
 	} else if config.Driver == DiskType {
 		if config.CachePath == "" {
 			return nil, fmt.Errorf("meta cache config path is not allowed empty")
@@ -141,6 +144,10 @@ type kvClient struct {
 
 func (c *kvClient) Name() string {
 	return "tikv"
+}
+
+func (c *kvClient) Close() error {
+	return c.db.Close()
 }
 
 func (c *kvClient) Txn(f func(txn KvTxn) error) error {
