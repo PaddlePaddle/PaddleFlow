@@ -60,6 +60,7 @@ func (fs *PFS) Lookup(cancel <-chan struct{}, header *fuse.InHeader, name string
 	ctx := meta.NewContext(cancel, header.Uid, header.Pid, header.Gid)
 	entry, code := vfs.GetVFS().Lookup(ctx, vfs.Ino(header.NodeId), name)
 	if code != 0 {
+		log.Infof("Lookup err code %v", code)
 		return fuse.Status(code)
 	}
 	fs.replyEntry(entry, out)
@@ -73,6 +74,7 @@ func (fs *PFS) GetAttr(cancel <-chan struct{}, input *fuse.GetAttrIn, out *fuse.
 	inode := vfs.Ino(input.NodeId)
 	entry, code := vfs.GetVFS().GetAttr(ctx, inode)
 	if code != 0 {
+		log.Infof("GetAttr err code %v", code)
 		return fuse.Status(code)
 	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
@@ -89,6 +91,7 @@ func (fs *PFS) SetAttr(cancel <-chan struct{}, input *fuse.SetAttrIn, out *fuse.
 	entry, code := vfs.GetVFS().SetAttr(ctx, vfs.Ino(input.NodeId), input.Valid, input.Mode, input.Uid, input.Gid,
 		int64(input.Atime), int64(input.Mtime), input.Atimensec, input.Mtimensec, input.Size)
 	if code != 0 {
+		log.Errorf("SetAttr err code %v", code)
 		return fuse.Status(code)
 	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
@@ -102,6 +105,7 @@ func (fs *PFS) Mknod(cancel <-chan struct{}, input *fuse.MknodIn, name string, o
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	entry, code := vfs.GetVFS().Mknod(ctx, vfs.Ino(input.NodeId), name, input.Mode, input.Rdev)
 	if code != 0 {
+		log.Errorf("Mknod err code %v", code)
 		return fuse.Status(code)
 	}
 	fs.replyEntry(entry, out)
@@ -114,6 +118,7 @@ func (fs *PFS) Mkdir(cancel <-chan struct{}, input *fuse.MkdirIn, name string, o
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	entry, code := vfs.GetVFS().Mkdir(ctx, vfs.Ino(input.NodeId), name, input.Mode, uint16(input.Umask))
 	if code != 0 {
+		log.Errorf("Mkdir err code %v", code)
 		return fuse.Status(code)
 	}
 	fs.replyEntry(entry, out)
@@ -132,6 +137,9 @@ func (fs *PFS) Rmdir(cancel <-chan struct{}, header *fuse.InHeader, name string)
 	log.Infof("pfs POSIX Rmdir: header[%+v] name[%s]", *header, name)
 	ctx := meta.NewContext(cancel, header.Uid, header.Pid, header.Gid)
 	code := vfs.GetVFS().Rmdir(ctx, vfs.Ino(header.NodeId), name)
+	if code != 0 {
+		log.Errorf("Rmdir err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -139,6 +147,9 @@ func (fs *PFS) Rename(cancel <-chan struct{}, input *fuse.RenameIn, oldName stri
 	log.Infof("pfs POSIX Rename: input[%+v] oldNamename[%s] newName[%s]", *input, oldName, newName)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Rename(ctx, vfs.Ino(input.NodeId), oldName, vfs.Ino(input.Newdir), newName, input.Flags)
+	if code != 0 {
+		log.Errorf("Rename err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -158,6 +169,9 @@ func (fs *PFS) Access(cancel <-chan struct{}, input *fuse.AccessIn) fuse.Status 
 	log.Debugf("pfs POSIX Access: input[%+v]", *input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Access(ctx, vfs.Ino(input.NodeId), input.Mask)
+	if code != 0 {
+		log.Errorf("Access err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -213,6 +227,7 @@ func (fs *PFS) Create(cancel <-chan struct{}, input *fuse.CreateIn, name string,
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	entry, fh, code := vfs.GetVFS().Create(ctx, vfs.Ino(input.NodeId), name, input.Mode, 0, input.Flags)
 	if code != 0 {
+		log.Errorf("Create err code %v", code)
 		return fuse.Status(code)
 	}
 	out.Fh = fh
@@ -226,6 +241,7 @@ func (fs *PFS) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOu
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	_, fh, code := vfs.GetVFS().Open(ctx, vfs.Ino(input.NodeId), input.Flags)
 	if code != 0 {
+		log.Errorf("Open err code %v", code)
 		return fuse.Status(code)
 	}
 	out.Fh = fh
@@ -246,6 +262,7 @@ func (fs *PFS) Read(cancel <-chan struct{}, input *fuse.ReadIn, buf []byte) (fus
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	n, code := vfs.GetVFS().Read(ctx, vfs.Ino(input.NodeId), buf, input.Offset, input.Fh)
 	if code != 0 {
+		log.Errorf("Read err code %v", code)
 		return nil, fuse.Status(code)
 	}
 	return fuse.ReadResultData(buf[:n]), fuse.OK
@@ -274,6 +291,7 @@ func (fs *PFS) Write(cancel <-chan struct{}, input *fuse.WriteIn, data []byte) (
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Write(ctx, vfs.Ino(input.NodeId), data, input.Offset, input.Fh)
 	if code != 0 {
+		log.Errorf("Write err code %v", code)
 		return 0, fuse.Status(code)
 	}
 	written := uint32(len(data))
@@ -289,6 +307,9 @@ func (fs *PFS) Flush(cancel <-chan struct{}, input *fuse.FlushIn) fuse.Status {
 	log.Debugf("pfs POSIX Flush: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Flush(ctx, vfs.Ino(input.NodeId), input.Fh, input.LockOwner)
+	if code != 0 {
+		log.Errorf("Flush err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -296,6 +317,9 @@ func (fs *PFS) Fsync(cancel <-chan struct{}, input *fuse.FsyncIn) fuse.Status {
 	log.Debugf("pfs POSIX Fsync: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Fsync(ctx, vfs.Ino(input.NodeId), int(input.FsyncFlags), input.Fh)
+	if code != 0 {
+		log.Errorf("Fsync err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -303,6 +327,9 @@ func (fs *PFS) Fallocate(cancel <-chan struct{}, input *fuse.FallocateIn) fuse.S
 	log.Debugf("pfs POSIX Fallocate: input [%+v]", input)
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	code := vfs.GetVFS().Fallocate(ctx, vfs.Ino(input.NodeId), uint8(input.Mode), int64(input.Offset), int64(input.Length), input.Fh)
+	if code != 0 {
+		log.Errorf("Fallocate err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -312,6 +339,9 @@ func (fs *PFS) OpenDir(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.Ope
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	fh, code := vfs.GetVFS().OpenDir(ctx, vfs.Ino(input.NodeId))
 	out.Fh = fh
+	if code != 0 {
+		log.Errorf("OpenDir err code %v", code)
+	}
 	return fuse.Status(code)
 }
 
@@ -330,6 +360,9 @@ func (fs *PFS) ReadDir(cancel <-chan struct{}, input *fuse.ReadIn, out *fuse.Dir
 		if !out.AddDirEntry(de) {
 			break
 		}
+	}
+	if code != 0 {
+		log.Errorf("ReadDir err code %v", code)
 	}
 	return fuse.Status(code)
 }
@@ -352,6 +385,9 @@ func (fs *PFS) ReadDirPlus(cancel <-chan struct{}, input *fuse.ReadIn, out *fuse
 		if eo == nil {
 			break
 		}
+	}
+	if code != 0 {
+		log.Errorf("ReadDirPlus err code %v", code)
 	}
 	return fuse.Status(code)
 }

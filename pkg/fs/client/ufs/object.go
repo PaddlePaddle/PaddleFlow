@@ -1195,7 +1195,7 @@ func (fh *objectFileHandle) MPU() error {
 	}
 
 	if err = fh.multipartCommit(); err != nil {
-		log.Debugf("fh.multipartCommit: name[%s] err[%v]",
+		log.Errorf("fh.multipartCommit: name[%s] err[%v]",
 			fh.name, err)
 		return err
 	}
