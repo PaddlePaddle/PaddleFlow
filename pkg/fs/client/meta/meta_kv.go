@@ -583,16 +583,17 @@ func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscal
 	return syscall.F_OK
 }
 
-func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
-	log.Debugf("kv meta Lookup parent Ino[%v] name [%s]", parent, name)
+func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (inode Ino, attr *Attr, errNo syscall.Errno) {
+	defer func() {
+		log.Debugf("kv meta Lookup parent Ino[%v] name [%s] attr[%+v] errNo[%v] ", parent, name, attr, errNo)
+	}()
+	attr = &Attr{}
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
-		log.Debugf("m get error %v", err)
+		log.Errorf("m get error %v", err)
 		return 0, nil, syscall.EIO
 	}
-	var inode Ino
-	attr := &Attr{}
 	inodeItem_ := &inodeItem{}
 	if entry != nil {
 		entryItem_ := &entryItem{}
@@ -600,7 +601,6 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		inode = entryItem_.ino
 		ok := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 		if ok {
-			log.Debugf("kv meta look up cache inode[%v] item[%+v]", inode, inodeItem_)
 			*attr = inodeItem_.attr
 			m.setPathCache(inode, inodeItem_)
 			return inode, attr, syscall.F_OK
@@ -666,7 +666,7 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sysc
 		inodeItem_.attr = *attr
 		err = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		if err != nil {
-			log.Debugf("set error %v", err)
+			log.Errorf("set error %v", err)
 		}
 		return err
 	})
@@ -685,14 +685,18 @@ func (m *kvMeta) Resolve(ctx *Context, parent Ino, path string, inode *Ino, attr
 
 var rootTime = time.Now()
 
-func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
-	log.Debugf("kv GetAttr inode[%v]", inode)
+func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) (errNo syscall.Errno) {
+	defer func() {
+		log.Debugf("kv GetAttr inode[%v] attr[%+v] errNo[%v]", inode, attr, errNo)
+	}()
 	inodeItem_ := &inodeItem{}
 
 	has := m.getAttrFromCacheWithNoExpired(inode, inodeItem_)
 	if has {
 		*attr = inodeItem_.attr
-		log.Debugf("kv meta get attr cache inode[%v] item[%+v] attr[%+v]", inode, inodeItem_, attr)
+		if attr.Mode == 0 {
+			log.Errorf("get cache mode is 0 arr[%+v]", attr)
+		}
 		m.setPathCache(inode, inodeItem_)
 		return syscall.F_OK
 	}
@@ -729,7 +733,8 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		err := m.set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		if err != nil {
 			log.Errorf("set error %v", err)
-			return syscall.EBADF
+			errNo = syscall.EBADF
+			return errNo
 		}
 
 		return syscall.F_OK
@@ -828,6 +833,9 @@ func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) (strin
 		}
 		if set&FATTR_MODE != 0 {
 			log.Debugf("set mode %+v", set)
+			if mode == 0 {
+				log.Errorf("set mode is 0 set %v", set)
+			}
 			cur.attr.Mode = mode
 		}
 		if set&FATTR_ATIME != 0 {
@@ -1307,7 +1315,9 @@ func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeS
 }
 
 func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
-	log.Debugf("kv meta readdir inode[%v]", inode)
+	defer func() {
+		log.Debugf("Readdir inode[%v] lenEntries[%v]", inode, len(*entries))
+	}()
 	dirInodeItem := &inodeItem{}
 	entrySlice := make([]entrySliceItem, 0)
 	inodeSlice := make([]inodeSliceItem, 0)
@@ -1690,6 +1700,19 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		}
 		now := time.Now()
 		attr.FromFileInfo(info)
+		// 复用缓存里面的mode，这个值是固定值
+		if inodeItem_.attr.Mode != 0 {
+			attr.Mode = inodeItem_.attr.Mode
+		} else {
+			log.Errorf("open mode is zero inodeItem[%+v]", inodeItem_.attr)
+			if attr.Type == TypeDirectory {
+				attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+			} else {
+				attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			}
+		}
+		attr.Uid = inodeItem_.attr.Uid
+		attr.Gid = inodeItem_.attr.Gid
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
@@ -1859,6 +1882,11 @@ func (m *kvMeta) getAttr(name string, attr *Attr) syscall.Errno {
 		info.FixLinkPrefix(prefix)
 	}
 	attr.FromFileInfo(info)
+	if attr.Type == TypeDirectory {
+		attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+	} else {
+		attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+	}
 	return syscall.F_OK
 }
 

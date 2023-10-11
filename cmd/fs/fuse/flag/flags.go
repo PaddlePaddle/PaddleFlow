@@ -134,7 +134,7 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 		},
 		&cli.BoolFlag{
 			Name:  "clean-cache",
-			Value: false,
+			Value: true,
 			Usage: "clean cache dir after mount process ends",
 		},
 	}
