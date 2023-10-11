@@ -587,13 +587,13 @@ func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (inode Ino, attr 
 	defer func() {
 		log.Debugf("kv meta Lookup parent Ino[%v] name [%s] attr[%+v] errNo[%v] ", parent, name, attr, errNo)
 	}()
+	attr = &Attr{}
 	// todo:: add "." and ".."
 	entry, err := m.get(m.entryKey(parent, name))
 	if err != nil {
 		log.Errorf("m get error %v", err)
 		return 0, nil, syscall.EIO
 	}
-	attr = &Attr{}
 	inodeItem_ := &inodeItem{}
 	if entry != nil {
 		entryItem_ := &entryItem{}
@@ -734,7 +734,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) (errNo syscall.Err
 		if err != nil {
 			log.Errorf("set error %v", err)
 			errNo = syscall.EBADF
-			return syscall.EBADF
+			return errNo
 		}
 
 		return syscall.F_OK
@@ -1700,11 +1700,19 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		}
 		now := time.Now()
 		attr.FromFileInfo(info)
-		if attr.Type == TypeDirectory {
-			attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+		// 复用缓存里面的mode，这个值是固定值
+		if inodeItem_.attr.Mode != 0 {
+			attr.Mode = inodeItem_.attr.Mode
 		} else {
-			attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			log.Errorf("open mode is zero inodeItem[%+v]", inodeItem_.attr)
+			if attr.Type == TypeDirectory {
+				attr.Mode = syscall.S_IFDIR | uint32(FuseConf.DirMode)
+			} else {
+				attr.Mode = syscall.S_IFREG | uint32(FuseConf.FileMode)
+			}
 		}
+		attr.Uid = inodeItem_.attr.Uid
+		attr.Gid = inodeItem_.attr.Gid
 		m.modifyTime(&(inodeItem_.attr), attr)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
