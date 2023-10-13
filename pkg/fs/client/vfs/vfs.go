@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	rootID  = 1
-	maxName = 255
+	rootID     = 1
+	maxName    = 255
+	maxSymlink = 4096
 )
 
 var StatsSize = 1000
@@ -353,11 +354,33 @@ func (v *VFS) Link(ctx *meta.Context, ino Ino, newparent Ino, newname string) (e
 }
 
 func (v *VFS) Symlink(ctx *meta.Context, path string, parent Ino, name string) (entry *meta.Entry, err syscall.Errno) {
-	return nil, syscall.ENOSYS
+	defer func() {
+		log.Debugf("symlink (%d,%s,%s): %v%+v", parent, name, path, err, entry)
+	}()
+	if parent == rootID && IsSpecialName(name) {
+		err = syscall.EEXIST
+		return
+	}
+	if len(name) > maxName || len(path) >= maxSymlink {
+		err = syscall.ENAMETOOLONG
+		return
+	}
+
+	var inode Ino
+	var attr = &Attr{}
+	err = v.Meta.Symlink(ctx, parent, name, path, &inode, attr)
+	if err == 0 {
+		entry = &meta.Entry{Ino: inode, Attr: attr, Name: name}
+	} else {
+		log.Errorf("symLink err %v", err)
+	}
+	return
 }
 
 func (v *VFS) Readlink(ctx *meta.Context, ino Ino) (path []byte, err syscall.Errno) {
-	return nil, syscall.ENOSYS
+	defer func() { log.Debugf("readlink (%d): %s (%s)", ino, err, string(path)) }()
+	err = v.Meta.ReadLink(ctx, ino, &path)
+	return
 }
 
 func (v *VFS) Access(ctx *meta.Context, ino Ino, mask uint32) (err syscall.Errno) {
