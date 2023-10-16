@@ -37,6 +37,7 @@ const (
 func NewBadgerClient(config Config) (KvClient, error) {
 	var db *badger.DB
 	var err error
+
 	if config.Driver == MemType {
 		Options := badger.DefaultOptions("")
 		Options.MemTableSize = 4 << 20
