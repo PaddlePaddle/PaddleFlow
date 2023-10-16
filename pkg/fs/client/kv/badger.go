@@ -20,14 +20,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strconv"
-	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 type KVTxn struct {
@@ -51,13 +46,8 @@ func NewBadgerClient(config Config) (KvClient, error) {
 		if config.CachePath == "" {
 			return nil, fmt.Errorf("meta cache config path is not allowed empty")
 		}
-		cachePath := filepath.Join(config.CachePath, config.FsID+".db")
-		log.Infof("meta disk cache path %v", cachePath)
-		os.RemoveAll(cachePath)
-		if config.FsID == "" {
-			cachePath = filepath.Join(config.CachePath, strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
-		}
-		db, err = badger.Open(badger.DefaultOptions(cachePath))
+		os.RemoveAll(config.CachePath)
+		db, err = badger.Open(badger.DefaultOptions(config.CachePath))
 	} else {
 		return nil, fmt.Errorf("not found meta driver name %s", config.Driver)
 	}
