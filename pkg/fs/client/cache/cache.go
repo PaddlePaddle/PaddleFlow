@@ -39,6 +39,8 @@ const (
 	TimeFormat       = "2006-01-02-15:04:05"
 )
 
+var DataCachePath string
+
 type DataCacheClient interface {
 	load(key string) (ReadCloser, bool)
 	save(key string, buf []byte)
@@ -52,6 +54,7 @@ func NewDataCache(config Config) DataCacheClient {
 	}
 	config.CachePath = filepath.Join(config.CachePath, config.FsID,
 		strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
+	DataCachePath = config.CachePath
 	// currently, supports file client only
 	return newFileClient(config)
 }
