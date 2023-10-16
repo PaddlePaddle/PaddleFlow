@@ -157,12 +157,20 @@ func (fs *PFS) Link(cancel <-chan struct{}, input *fuse.LinkIn, filename string,
 	return fuse.ENOSYS
 }
 
-func (fs *PFS) Symlink(cancel <-chan struct{}, header *fuse.InHeader, pointedTo string, linkName string, out *fuse.EntryOut) fuse.Status {
-	return fuse.ENOSYS
+func (fs *PFS) Symlink(cancel <-chan struct{}, header *fuse.InHeader, target string, name string, out *fuse.EntryOut) fuse.Status {
+	ctx := meta.NewContext(cancel, header.Uid, header.Pid, header.Gid)
+	entry, code := vfs.GetVFS().Symlink(ctx, target, vfs.Ino(header.NodeId), name)
+	if code != 0 {
+		log.Errorf("Symlink err code %v", code)
+	}
+	fs.replyEntry(entry, out)
+	return 0
 }
 
 func (fs *PFS) Readlink(cancel <-chan struct{}, header *fuse.InHeader) (out []byte, code fuse.Status) {
-	return out, fuse.ENOSYS
+	ctx := meta.NewContext(cancel, header.Uid, header.Pid, header.Gid)
+	path, err := vfs.GetVFS().Readlink(ctx, vfs.Ino(header.NodeId))
+	return path, fuse.Status(err)
 }
 
 func (fs *PFS) Access(cancel <-chan struct{}, input *fuse.AccessIn) fuse.Status {
