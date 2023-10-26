@@ -250,7 +250,7 @@ func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
 			fh.bufferMapLock.Lock()
 			for index, buffer := range fh.buffersCache {
 				count += 1
-				if count > 1000 {
+				if count > 100 {
 					break
 				}
 				now := time.Now()
