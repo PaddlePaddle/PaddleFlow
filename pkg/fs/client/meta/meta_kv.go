@@ -23,6 +23,7 @@ import (
 	"os"
 	pathlib "path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -62,6 +63,8 @@ type freeID struct {
 	next  uint64
 	maxid uint64
 }
+
+var MetaCachePath string
 
 type FuseConfig struct {
 	Uid          int
@@ -198,6 +201,11 @@ func newClient(config kv.Config) (kv.KvClient, error) {
 	var err error
 	switch config.Driver {
 	case kv.DiskType, kv.MemType:
+		if config.CachePath != "" {
+			config.CachePath = filepath.Join(config.CachePath, config.FsID,
+				strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
+			MetaCachePath = config.CachePath
+		}
 		client, err = kv.NewBadgerClient(config)
 	default:
 		return nil, fmt.Errorf("unknown meta client")

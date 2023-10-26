@@ -156,11 +156,11 @@ func setup(c *cli.Context) error {
 	}
 
 	if c.Bool("clean-cache") {
-		if c.String("meta-cache-path") != "" {
-			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("meta-cache-path"))
+		if c.String("meta-cache-path") != "" && meta.MetaCachePath != "" && meta.MetaCachePath != "/" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, meta.MetaCachePath)
 		}
-		if c.String("data-cache-path") != "" {
-			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("data-cache-path"))
+		if c.String("data-cache-path") != "" && cache.DataCachePath != "" && meta.MetaCachePath != "/" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, cache.DataCachePath)
 		}
 		if len(cleanCacheInfo.CachePaths) > 0 {
 			cleanCacheInfo.Clean = true
