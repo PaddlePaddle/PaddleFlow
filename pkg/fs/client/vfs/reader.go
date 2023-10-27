@@ -30,6 +30,7 @@ import (
 )
 
 const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)
+const DeleteBufferLimit = uint64(100 * 1024 * 1024)
 
 const thresholdDuration = 2 * time.Minute
 
@@ -233,9 +234,11 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	}
 	d.Lock()
 	d.files[inode] = f
-	go func() {
-		f.cleanBufferCache(f.stop)
-	}()
+	if length > DeleteBufferLimit {
+		go func() {
+			f.cleanBufferCache(f.stop)
+		}()
+	}
 	d.Unlock()
 	return f, nil
 }
@@ -255,6 +258,7 @@ func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
 				}
 				now := time.Now()
 				if now.Sub(buffer.LastUsedTime) > thresholdDuration {
+					log.Infof("delete buffer auto index %v", index)
 					delete(fh.buffersCache, index)
 				}
 			}
