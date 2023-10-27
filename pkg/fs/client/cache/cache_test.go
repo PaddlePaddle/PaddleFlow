@@ -61,7 +61,7 @@ func Test_rCache_readFromReadAhead(t *testing.T) {
 				ufs:           tt.fields.ufs,
 				buffers:       tt.fields.buffers,
 				bufferPool:    tt.fields.bufferPool,
-				lock:          tt.fields.lock,
+				lock:          &tt.fields.lock,
 				seqReadAmount: tt.fields.seqReadAmount,
 			}
 			if tt.name == "test read err" {

@@ -30,6 +30,9 @@ import (
 )
 
 const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)
+const DeleteBufferLimit = uint64(100 * 1024 * 1024)
+
+const thresholdDuration = 2 * time.Minute
 
 type FileReader interface {
 	Read(buf []byte, off uint64) (int, syscall.Errno)
@@ -67,6 +70,8 @@ type fileReader struct {
 	streamReader  io.ReadCloser
 	seqReadAmount uint64
 	readBufOffset uint64
+	bufferMapLock *sync.RWMutex
+	stop          chan struct{}
 }
 
 type dataReader struct {
@@ -91,7 +96,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	bufSize := len(buf)
 	if fh.reader.store != nil {
 		reader := fh.reader.store.NewReader(fh.path, int(fh.length),
-			fh.flags, fh.ufs, fh.buffersCache, fh.reader.bufferPool, fh.seqReadAmount)
+			fh.flags, fh.ufs, fh.buffersCache, fh.reader.bufferPool, fh.seqReadAmount, fh.bufferMapLock)
 		for bytesRead < bufSize {
 			/*
 				n的值会有三种情况
@@ -193,6 +198,7 @@ func (fh *fileReader) Close() {
 func (fh *fileReader) release() {
 	// todo:: 硬链接的情况下，需要增加refer判断，不能直接删除
 	fh.reader.Lock()
+	close(fh.stop)
 	delete(fh.reader.files, fh.inode)
 	for _, buffer := range fh.buffersCache {
 		buffer.Buffer.Close()
@@ -209,12 +215,14 @@ func (fh *fileReader) release() {
 
 func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileReader, error) {
 	f := &fileReader{
-		reader:       d,
-		inode:        inode,
-		path:         path,
-		length:       length,
-		ufs:          ufs,
-		buffersCache: make(cache.ReadBufferMap),
+		reader:        d,
+		inode:         inode,
+		path:          path,
+		length:        length,
+		ufs:           ufs,
+		buffersCache:  make(cache.ReadBufferMap),
+		bufferMapLock: &sync.RWMutex{},
+		stop:          make(chan struct{}),
 	}
 	if d.store == nil {
 		fd, err := ufs.Open(path, syscall.O_RDONLY, length)
@@ -226,6 +234,36 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	}
 	d.Lock()
 	d.files[inode] = f
+	if length > DeleteBufferLimit {
+		go func() {
+			f.cleanBufferCache(f.stop)
+		}()
+	}
 	d.Unlock()
 	return f, nil
+}
+
+func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
+	for {
+		select {
+		case <-stopChan:
+			return
+		default:
+			count := 0
+			fh.bufferMapLock.Lock()
+			for index, buffer := range fh.buffersCache {
+				count += 1
+				if count > 100 {
+					break
+				}
+				now := time.Now()
+				if now.Sub(buffer.LastUsedTime) > thresholdDuration {
+					log.Infof("delete buffer auto index %v", index)
+					delete(fh.buffersCache, index)
+				}
+			}
+			fh.bufferMapLock.Unlock()
+			time.Sleep(5 * time.Second)
+		}
+	}
 }
