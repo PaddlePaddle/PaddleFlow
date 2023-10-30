@@ -1242,6 +1242,10 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	}
 
 	storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
+	if err != nil {
+		log.Errorf("newStorage err %v", err)
+		return nil, err
+	}
 
 	fs := &objectFileSystem{
 		subPath:     tidySubpath(subPath),
