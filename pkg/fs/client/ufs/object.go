@@ -1212,7 +1212,6 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
 	var err error
 	var ok bool
-	var storage object.ObjectStorage
 
 	endpoint, _ := properties[fsCommon.Endpoint].(string)
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
@@ -1242,6 +1241,95 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		}
 	}
 
+	storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
+	if err != nil {
+		log.Errorf("newStorage err %v", err)
+		return nil, err
+	}
+
+	fs := &objectFileSystem{
+		subPath:     tidySubpath(subPath),
+		storage:     storage,
+		defaultTime: time.Now(),
+		chunkPool: &sync.Pool{New: func() interface{} {
+			return make([]byte, MPUChunkSize)
+		}},
+	}
+	p, _ := ants.NewPool(1000)
+	fs.copyPool = p
+	// create subPath if not exists
+	if subPath != "" {
+		exist, err := fs.exists("")
+		if err != nil {
+			log.Errorf("fs exists err %v", err)
+			storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+			fs.storage = storage2
+			exist, err = fs.exists("")
+			if err != nil {
+				log.Errorf("s3 exists err: %v", err)
+				return nil, err
+			}
+		}
+		if !exist {
+			if err = fs.createEmptyDir(Delimiter); err != nil {
+				log.Errorf("fs createEmptyDir err %v", err)
+				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				if err = fs.createEmptyDir(Delimiter); err != nil {
+					log.Errorf("s3 create empty dir err: %v", err)
+					return nil, err
+				}
+			}
+		} else {
+			// 目录存在的时候，需要判断用户是否对这个目录有owner的权限
+			_, _, err = fs.list(Delimiter, "", 1, true)
+			if err != nil {
+				log.Errorf("fs list err %v", err)
+				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				_, _, err = fs.list(Delimiter, "", 1, true)
+				if err != nil {
+					log.Errorf("s3 list err: %v", err)
+					return nil, err
+				}
+
+			}
+		}
+	}
+
+	owner, ok := properties[fsCommon.Owner]
+	if ok {
+		Owner = owner.(string)
+	} else {
+		Owner = "root"
+	}
+	group, ok := properties[fsCommon.Group]
+
+	if ok {
+		Group = group.(string)
+	} else {
+		Group = "root"
+	}
+
+	return fs, nil
+}
+
+func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error) {
+	tmp := strings.Split(serverAddress, ":")
+	port, _ := strconv.Atoi(tmp[1])
+	config := &core.PaddleFlowClientConfiguration{
+		Host:                       tmp[0],
+		Port:                       port,
+		ConnectionTimeoutInSeconds: 1,
+	}
+	pfClient, err := service.NewForClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return pfClient, nil
+}
+
+func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket string, properties map[string]interface{}, ssl bool) (storage object.ObjectStorage, err error) {
 	switch objectType {
 	case fsCommon.S3Type:
 		awsConfig := &aws.Config{
@@ -1275,7 +1363,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
-		_, ok = properties[fsCommon.StsServer].(string)
+		_, ok := properties[fsCommon.StsServer].(string)
 		bce.NewBackOffRetryPolicy(5, 20000, 300)
 		// use stsCredential
 		if ok {
@@ -1299,7 +1387,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				return nil, err
 			}
 
-			subPath = sts.SubPath
 			bucket = sts.Bucket
 			region = sts.Region
 
@@ -1394,67 +1481,5 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	default:
 		panic("object storage not found")
 	}
-
-	fs := &objectFileSystem{
-		subPath:     tidySubpath(subPath),
-		storage:     storage,
-		defaultTime: time.Now(),
-		chunkPool: &sync.Pool{New: func() interface{} {
-			return make([]byte, MPUChunkSize)
-		}},
-	}
-	p, _ := ants.NewPool(1000)
-	fs.copyPool = p
-	// create subPath if not exists
-	if subPath != "" {
-		exist, err := fs.exists("")
-		if err != nil {
-			log.Debugf("s3 exists err: %v", err)
-			return nil, err
-		}
-		if !exist {
-			if err = fs.createEmptyDir(Delimiter); err != nil {
-				log.Errorf("s3 create empty dir err: %v", err)
-				return nil, err
-			}
-		} else {
-			// 目录存在的时候，需要判断用户是否对这个目录有owner的权限
-			_, _, err = fs.list(Delimiter, "", 1, true)
-			if err != nil {
-				log.Errorf("s3 list err: %v", err)
-				return nil, err
-			}
-		}
-	}
-
-	owner, ok := properties[fsCommon.Owner]
-	if ok {
-		Owner = owner.(string)
-	} else {
-		Owner = "root"
-	}
-	group, ok := properties[fsCommon.Group]
-
-	if ok {
-		Group = group.(string)
-	} else {
-		Group = "root"
-	}
-
-	return fs, nil
-}
-
-func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error) {
-	tmp := strings.Split(serverAddress, ":")
-	port, _ := strconv.Atoi(tmp[1])
-	config := &core.PaddleFlowClientConfiguration{
-		Host:                       tmp[0],
-		Port:                       port,
-		ConnectionTimeoutInSeconds: 1,
-	}
-	pfClient, err := service.NewForClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return pfClient, nil
+	return
 }

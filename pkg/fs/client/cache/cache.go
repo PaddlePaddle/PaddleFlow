@@ -110,8 +110,10 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if findBuffer && buffer.page != nil && buffer.page.ready && buffer.size <= 0 {
 			delete(r.buffers, indexOff)
 		} else {
-			buffer.LastUsedTime = time.Now()
-			r.buffers[indexOff] = buffer
+			if findBuffer {
+				buffer.LastUsedTime = time.Now()
+				r.buffers[indexOff] = buffer
+			}
 		}
 		r.lock.Unlock()
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
