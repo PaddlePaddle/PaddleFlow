@@ -48,9 +48,7 @@ func init() {
 			count += 1
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
-				if *page_.closed {
-					page_.bufferPool.pool.Put(page_.buffer)
-				}
+				page_.bufferPool.pool.Put(page_.buffer)
 				*page_.writeCacheReady = true
 				page_ = nil
 			})
