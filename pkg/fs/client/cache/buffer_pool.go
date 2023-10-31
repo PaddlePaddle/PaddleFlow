@@ -272,6 +272,7 @@ func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *P
 	p.bufferPool = pool
 	if size != 0 {
 		p.buffer = p.bufferPool.RequestMBuf(size, block, blockSize)
+		p.buffer = p.buffer[:0]
 		log.Debugf("init page %v blocksize %v and len %v", size, blockSize, len(p.buffer))
 		if p.buffer == nil {
 			return nil
