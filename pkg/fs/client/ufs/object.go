@@ -211,8 +211,17 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 	// 1. check if key exists
 	go func() {
-		response, err = fs.storage.Head(fileKey)
+		for i := 0; i < 5; i++ {
+			response, err = fs.storage.Head(fileKey)
+			if err != nil && !isNotExistErr(err) {
+				log.Errorf("Head[%v] object err: %v", i, err)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
 		if err != nil {
+			log.Errorf("Head object err: %v", err)
 			errObjectChan <- err
 			return
 		}
@@ -225,8 +234,18 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			MaxKeys:   1,
 			Delimiter: Delimiter,
 		}
-		dirs, err := fs.storage.List(listInput)
+		var dirs *object.ListBlobsOutput
+		for i := 0; i < 5; i++ {
+			dirs, err = fs.storage.List(listInput)
+			if err != nil && !isNotExistErr(err) {
+				log.Errorf("List[%v] object err: %v", i, err)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
 		if err != nil {
+			log.Errorf("List object err: %v", err)
 			errDirChan <- err
 			return
 		}
@@ -234,9 +253,19 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	}()
 	// 3. check if dir exists with dir key exists
 	go func() {
-		resp, err := fs.storage.Head(dirKey)
+		var resp *object.HeadObjectOutput
+		for i := 0; i < 5; i++ {
+			resp, err = fs.storage.Head(dirKey)
+			if err != nil && !isNotExistErr(err) {
+				log.Errorf("Head[%v] object err: %v", i, err)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
 		if err != nil {
-			errDirBlobChan <- err
+			log.Errorf("Head object err: %v", err)
+			errObjectChan <- err
 			return
 		}
 		objectChan <- resp
@@ -544,10 +573,21 @@ func (fs *objectFileSystem) StatFs(name string) *base.StatfsOut {
 func (fs *objectFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	log.Tracef("s3 get: name[%s] off[%d] limit[%d] ", name, off, limit)
 	key := fs.objectKeyName(name)
-	response, err := fs.storage.Get(key, off, limit)
-	if err != nil {
-		log.Errorf("fs.storage.Get: key[%s] off[%d] limit[%d] err[%v] ", name, off, limit, err)
-		return nil, err
+	var response io.ReadCloser
+	var err error
+	for i := 0; i < 10; i++ {
+		response, err = fs.storage.Get(key, off, limit)
+		if err != nil {
+			log.Errorf("fs.storage.Get: key[%s] off[%d] limit[%d] err[%v] [%v]", name, off, limit, err, i)
+			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "send request failed") {
+				time.Sleep(100 * time.Duration(i+1) * time.Millisecond)
+				continue
+			} else {
+				log.Errorf("fs.storage.Get not connect error: key[%s] off[%d] limit[%d] err[%v] [%v]", name, off, limit, err, i)
+				return nil, err
+			}
+		}
+		break
 	}
 	return response, err
 }
@@ -609,16 +649,38 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 			Prefix:  path,
 			MaxKeys: 1,
 		}
-		dirs, err := fs.storage.List(listInput)
+		var dirs *object.ListBlobsOutput
+		var err error
+		for i := 0; i < 5; i++ {
+			dirs, err = fs.storage.List(listInput)
+			if err != nil && !isNotExistErr(err) {
+				log.Errorf("List object err: %v", err)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
 		if err != nil {
+			log.Errorf("List object err: %v", err)
 			errDirChan <- err
 			return
 		}
 		dirChan <- dirs
 	}()
 	go func() {
-		resp, err := fs.storage.Head(path)
+		var resp *object.HeadObjectOutput
+		var err error
+		for i := 0; i < 5; i++ {
+			resp, err = fs.storage.Head(path)
+			if err != nil && !isNotExistErr(err) {
+				log.Errorf("Head object err: %v", err)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
 		if err != nil {
+			log.Errorf("Head object err: %v", err)
 			errObjectChan <- err
 			return
 		}
@@ -1212,26 +1274,20 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
 	var err error
 	var ok bool
-	var storage object.ObjectStorage
 
 	endpoint, _ := properties[fsCommon.Endpoint].(string)
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
-
 	accessKey, _ := properties[fsCommon.AccessKey].(string)
 	secretKey, _ := properties[fsCommon.SecretKey].(string)
-
 	bucket, _ := properties[fsCommon.Bucket].(string)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
-
 	region, _ := properties[fsCommon.Region].(string)
 	subPath, _ := properties[fsCommon.SubPath].(string)
 	objectType, _ := properties[fsCommon.Type].(string)
-
 	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
 		region = AwsDefaultRegion
 	}
-
 	var secretKey_ string
 	if accessKey != "" && secretKey != "" {
 		secretKey_, err = common.AesDecrypt(secretKey, common.GetAESEncryptKey())
@@ -1242,6 +1298,95 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		}
 	}
 
+	storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
+	if err != nil {
+		log.Errorf("newStorage err %v", err)
+		return nil, err
+	}
+
+	fs := &objectFileSystem{
+		subPath:     tidySubpath(subPath),
+		storage:     storage,
+		defaultTime: time.Now(),
+		chunkPool: &sync.Pool{New: func() interface{} {
+			return make([]byte, MPUChunkSize)
+		}},
+	}
+	p, _ := ants.NewPool(1000)
+	fs.copyPool = p
+	// create subPath if not exists
+	if subPath != "" {
+		exist, err := fs.exists("")
+		if err != nil {
+			log.Errorf("fs exists err %v", err)
+			storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+			fs.storage = storage2
+			exist, err = fs.exists("")
+			if err != nil {
+				log.Errorf("s3 exists err: %v", err)
+				return nil, err
+			}
+		}
+		if !exist {
+			if err = fs.createEmptyDir(Delimiter); err != nil {
+				log.Errorf("fs createEmptyDir err %v", err)
+				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				if err = fs.createEmptyDir(Delimiter); err != nil {
+					log.Errorf("s3 create empty dir err: %v", err)
+					return nil, err
+				}
+			}
+		} else {
+			// 目录存在的时候，需要判断用户是否对这个目录有owner的权限
+			_, _, err = fs.list(Delimiter, "", 1, true)
+			if err != nil {
+				log.Errorf("fs list err %v", err)
+				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				_, _, err = fs.list(Delimiter, "", 1, true)
+				if err != nil {
+					log.Errorf("s3 list err: %v", err)
+					return nil, err
+				}
+
+			}
+		}
+	}
+
+	owner, ok := properties[fsCommon.Owner]
+	if ok {
+		Owner = owner.(string)
+	} else {
+		Owner = "root"
+	}
+	group, ok := properties[fsCommon.Group]
+
+	if ok {
+		Group = group.(string)
+	} else {
+		Group = "root"
+	}
+
+	return fs, nil
+}
+
+func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error) {
+	tmp := strings.Split(serverAddress, ":")
+	port, _ := strconv.Atoi(tmp[1])
+	config := &core.PaddleFlowClientConfiguration{
+		Host:                       tmp[0],
+		Port:                       port,
+		ConnectionTimeoutInSeconds: 1,
+	}
+	pfClient, err := service.NewForClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return pfClient, nil
+}
+
+func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket string, properties map[string]interface{}, ssl bool) (storage object.ObjectStorage, err error) {
 	switch objectType {
 	case fsCommon.S3Type:
 		awsConfig := &aws.Config{
@@ -1251,7 +1396,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			S3ForcePathStyle: aws.Bool(false),
 			MaxRetries:       aws.Int(5),
 		}
-
 		if properties[fsCommon.S3ForcePathStyle] == "true" {
 			awsConfig.S3ForcePathStyle = aws.Bool(true)
 		}
@@ -1264,23 +1408,19 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				},
 			}
 		}
-
 		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
-
 		sess, err := session.NewSession(awsConfig)
 		if err != nil {
 			log.Errorf("new session fail: %v", err)
 			return nil, fmt.Errorf("fail to create s3 session: %v", err)
 		}
-
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
-		_, ok = properties[fsCommon.StsServer].(string)
+		_, ok := properties[fsCommon.StsServer].(string)
 		bce.NewBackOffRetryPolicy(5, 20000, 300)
 		// use stsCredential
 		if ok {
 			log.Infof("init sts")
-
 			token := properties[fsCommon.Token].(string)
 			pfClient, err := newStsServerClient(properties[fsCommon.StsServer].(string))
 			if err != nil {
@@ -1289,7 +1429,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}
 			fsName, _ := properties[fsCommon.FsName].(string)
 			username, _ := properties[fsCommon.UserName].(string)
-
 			sts, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
 				FsName:   fsName,
 				Username: username,
@@ -1299,7 +1438,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				return nil, err
 			}
 
-			subPath = sts.SubPath
 			bucket = sts.Bucket
 			region = sts.Region
 
@@ -1308,7 +1446,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				log.Errorf("AesDecrypt: err[%v]", err)
 				return nil, err
 			}
-
 			stsCredential, err := auth.NewSessionBceCredentials(
 				sts.AccessKeyId,
 				secretKey_,
@@ -1317,7 +1454,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				log.Errorf("NewSessionBceCredentials: err[%v]", err)
 				return nil, err
 			}
-
 			clientConfig := bos.BosClientConfiguration{
 				Ak:               sts.AccessKeyId,
 				Sk:               secretKey_,
@@ -1331,13 +1467,11 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 				return nil, fmt.Errorf("fail to create bos client: %v", err)
 			}
 			bosClient.Config.Credentials = stsCredential
-
 			duration = sts.Duration
 			// update sts Credentials
 			go func() {
 				for {
 					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
-
 					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
 						FsName:   fsName,
 						Username: username,
@@ -1394,67 +1528,5 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 	default:
 		panic("object storage not found")
 	}
-
-	fs := &objectFileSystem{
-		subPath:     tidySubpath(subPath),
-		storage:     storage,
-		defaultTime: time.Now(),
-		chunkPool: &sync.Pool{New: func() interface{} {
-			return make([]byte, MPUChunkSize)
-		}},
-	}
-	p, _ := ants.NewPool(1000)
-	fs.copyPool = p
-	// create subPath if not exists
-	if subPath != "" {
-		exist, err := fs.exists("")
-		if err != nil {
-			log.Debugf("s3 exists err: %v", err)
-			return nil, err
-		}
-		if !exist {
-			if err = fs.createEmptyDir(Delimiter); err != nil {
-				log.Errorf("s3 create empty dir err: %v", err)
-				return nil, err
-			}
-		} else {
-			// 目录存在的时候，需要判断用户是否对这个目录有owner的权限
-			_, _, err = fs.list(Delimiter, "", 1, true)
-			if err != nil {
-				log.Errorf("s3 list err: %v", err)
-				return nil, err
-			}
-		}
-	}
-
-	owner, ok := properties[fsCommon.Owner]
-	if ok {
-		Owner = owner.(string)
-	} else {
-		Owner = "root"
-	}
-	group, ok := properties[fsCommon.Group]
-
-	if ok {
-		Group = group.(string)
-	} else {
-		Group = "root"
-	}
-
-	return fs, nil
-}
-
-func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error) {
-	tmp := strings.Split(serverAddress, ":")
-	port, _ := strconv.Atoi(tmp[1])
-	config := &core.PaddleFlowClientConfiguration{
-		Host:                       tmp[0],
-		Port:                       port,
-		ConnectionTimeoutInSeconds: 1,
-	}
-	pfClient, err := service.NewForClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return pfClient, nil
+	return
 }
