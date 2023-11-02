@@ -428,7 +428,7 @@ func getContainerIDs(status interface{}) string {
 		return ""
 	}
 	var containerIDs []string
-	taskStatus := status.(*v1.PodStatus)
+	taskStatus := status.(v1.PodStatus)
 	for _, containerStatus := range taskStatus.ContainerStatuses {
 		items := strings.Split(containerStatus.ContainerID, "//")
 		if len(items) == 2 {
