@@ -62,6 +62,17 @@ func TestGenerateLogURL(t *testing.T) {
 		expectURL   string
 	}{
 		{
+			name: "get container id from JobTask.LogURL",
+			task: model.JobTask{
+				ID:                   "test-task-id",
+				JobID:                "test-job-id",
+				LogURL:               "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
+				ExtRuntimeStatusJSON: taskStatus,
+			},
+			containerID: "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d",
+		},
+		{
 			name: "generate log url success",
 			task: model.JobTask{
 				ID:                   "test-task-id",

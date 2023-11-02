@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -274,7 +276,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		return err
 	}
 
-	// TODO: get logURL from pod resources
+	// logURL for pod, including container ID
 	taskStatus := &model.JobTask{
 		ID:               taskSyncInfo.ID,
 		JobID:            taskSyncInfo.JobID,
@@ -285,6 +287,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		Annotations:      taskSyncInfo.Annotations,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,
+		LogURL:           getContainerIDs(taskSyncInfo.PodStatus),
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,
 	}
 	if taskSyncInfo.Action == pfschema.Delete {
@@ -418,4 +421,19 @@ func isCleanJob(jobStatus pfschema.JobStatus) bool {
 		return pfschema.StatusJobSucceeded == jobStatus
 	}
 	return pfschema.StatusJobSucceeded == jobStatus || pfschema.StatusJobTerminated == jobStatus || pfschema.StatusJobFailed == jobStatus
+}
+
+func getContainerIDs(status interface{}) string {
+	var containerIDs []string
+	taskStatus := status.(v1.PodStatus)
+	for _, containerStatus := range taskStatus.ContainerStatuses {
+		items := strings.Split(containerStatus.ContainerID, "//")
+		if len(items) == 2 {
+			containerIDs = append(containerIDs, items[1])
+		}
+	}
+	if len(containerIDs) == 0 {
+		return ""
+	}
+	return strings.Join(containerIDs, ",")
 }

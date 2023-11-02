@@ -415,7 +415,13 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 	return nodeRuntimes, nil
 }
 
-func GenerateLogURL(task model.JobTask) string {
+func getContainerID(task model.JobTask) string {
+	if task.LogURL != "" {
+		containerIDs := strings.Split(task.LogURL, ",")
+		if len(containerIDs) > 0 {
+			return containerIDs[0]
+		}
+	}
 	containerID := ""
 	taskStatus := task.ExtRuntimeStatus.(v1.PodStatus)
 	if len(taskStatus.ContainerStatuses) > 0 {
@@ -424,6 +430,11 @@ func GenerateLogURL(task model.JobTask) string {
 			containerID = items[1]
 		}
 	}
+	return containerID
+}
+
+func GenerateLogURL(task model.JobTask) string {
+	containerID := getContainerID(task)
 	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
