@@ -424,7 +424,7 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	}
 	if taskInfo.ID == task.ID {
 		// update task
-		tx = js.db.Table(model.JobTaskTableName).Updates(task)
+		tx = js.db.Table(model.JobTaskTableName).Where("id = ?", task.ID).Updates(task)
 	} else {
 		// create task
 		tx = js.db.Table(model.JobTaskTableName).Create(task)
