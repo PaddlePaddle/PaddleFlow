@@ -424,6 +424,9 @@ func isCleanJob(jobStatus pfschema.JobStatus) bool {
 }
 
 func getContainerIDs(status interface{}) string {
+	if status == nil {
+		return ""
+	}
 	var containerIDs []string
 	taskStatus := status.(*v1.PodStatus)
 	for _, containerStatus := range taskStatus.ContainerStatuses {

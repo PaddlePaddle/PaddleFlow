@@ -64,7 +64,7 @@ func TestGenerateLogURL(t *testing.T) {
 		{
 			name: "get container id from JobTask.LogURL",
 			task: model.JobTask{
-				ID:                   "test-task-id",
+				ID:                   "test-task-id-1",
 				JobID:                "test-job-id",
 				LogURL:               "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
 				ExtRuntimeStatusJSON: taskStatus,
@@ -75,7 +75,7 @@ func TestGenerateLogURL(t *testing.T) {
 		{
 			name: "generate log url success",
 			task: model.JobTask{
-				ID:                   "test-task-id",
+				ID:                   "test-task-id-2",
 				JobID:                "test-job-id",
 				ExtRuntimeStatusJSON: taskStatus,
 			},
