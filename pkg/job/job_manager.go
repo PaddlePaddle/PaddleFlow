@@ -46,15 +46,10 @@ type QueueJobsFunc func(string, []schema.JobStatus) []model.Job
 
 type JobManagerImpl struct {
 	// activeClusters is a method for listing active clusters from db
-	activeClusters ActiveClustersFunc
-	// activeQueueJobs is a method for listing jobs on active queue
-	// deprecated
-	activeQueueJobs QueueJobsFunc
+	activeClusters  ActiveClustersFunc
 	queueExpireTime time.Duration
 	queueCache      gcache.Cache
-
-	listQueueInitJobs func(string) []model.Job
-	jobLoopPeriod     time.Duration
+	jobLoopPeriod   time.Duration
 
 	// jobQueues contains JobQueue for jobs in queue
 	jobQueues api.JobQueues
@@ -96,10 +91,8 @@ func (m *JobManagerImpl) init() {
 	m.clusterSyncPeriod = time.Duration(clusterSyncTime) * time.Second
 }
 
-func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJobs QueueJobsFunc) {
+func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc) {
 	m.activeClusters = activeClusters
-	m.activeQueueJobs = activeQueueJobs
-	m.listQueueInitJobs = storage.Job.ListQueueInitJob
 	/// init config for job manager
 	m.init()
 	// start job manager
@@ -121,7 +114,7 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 func (m *JobManagerImpl) pJobProcessLoop() {
 	log.Infof("start job process loop ...")
 	for {
-		jobs := storage.Job.ListJobByStatus(schema.StatusJobInit)
+		jobs, _ := storage.Job.ListJob(storage.InitJobFilter)
 		startTime := time.Now()
 		for idx, job := range jobs {
 			// TODO: batch insert group by queue

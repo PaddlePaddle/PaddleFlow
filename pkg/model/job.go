@@ -28,6 +28,20 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
+var (
+	OrderMap = map[string]string{
+		"":     "asc",
+		"desc": "desc",
+		"asc":  "asc",
+	}
+	OrderByMap = map[string]string{
+		"":             "created_at",
+		"createTime":   "created_at",
+		"updateTime":   "updated_at",
+		"activateTime": "activated_at",
+	}
+)
+
 type Job struct {
 	Pk                int64               `json:"-" gorm:"primaryKey;autoIncrement"`
 	ID                string              `json:"jobID" gorm:"type:varchar(60);index:idx_id,unique;NOT NULL"`

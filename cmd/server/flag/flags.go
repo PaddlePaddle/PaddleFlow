@@ -28,6 +28,18 @@ func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 			Usage:       "token expire hour",
 			Destination: &apiConf.TokenExpirationHour,
 		},
+		&cli.BoolFlag{
+			Name:        "pprof-enable",
+			Value:       apiConf.PprofEnable,
+			Usage:       "enable pprof service",
+			Destination: &apiConf.PprofEnable,
+		},
+		&cli.IntFlag{
+			Name:        "pprof-port",
+			Value:       apiConf.PprofPort,
+			Usage:       "the port of pprof service",
+			Destination: &apiConf.PprofPort,
+		},
 	}
 }
 

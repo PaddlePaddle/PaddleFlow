@@ -23,9 +23,9 @@ class JobInfo(object):
     JobInfo
     """
 
-    def __init__(self, job_id, job_name, labels, annotations, username, queue, priority, flavour, fs, extra_fs_list,
+    def __init__(self, job_id, job_name, labels, annotations, queue, priority, flavour, fs, extra_fs_list,
                  image, env, command, args_list, port, extension_template, framework, member_list, status, message,
-                 accept_time, start_time, finish_time, runtime, distributed_runtime, workflow_runtime):
+                 accept_time, start_time, finish_time, runtime, distributed_runtime, workflow_runtime, username=None):
         """
 
         :param job_id:

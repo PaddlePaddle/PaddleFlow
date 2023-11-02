@@ -34,6 +34,7 @@ type KvTxn interface {
 }
 
 type KvClient interface {
+	Close() error
 	Name() string
 	Txn(f func(KvTxn) error) error
 }

@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	rootID  = 1
-	maxName = 255
+	rootID     = 1
+	maxName    = 255
+	maxSymlink = 4096
 )
 
 var StatsSize = 1000
@@ -186,10 +187,11 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 	var attr *Attr
 	inode, attr, err = v.Meta.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
+		log.Errorf("vfs lookup: parent[%x], path[%s], err[%v]", parent, name, err)
 		return nil, err
 	}
 	log.Debugf("vfs lookup inode[%v] from meta: attr[%+v] ", inode, *attr)
-	entry = &meta.Entry{Ino: inode, Attr: attr}
+	entry = &meta.Entry{Ino: inode, Attr: attr, Name: name}
 	return entry, err
 }
 
@@ -204,6 +206,7 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 	var attr = &Attr{}
 	err = v.Meta.GetAttr(ctx, ino, attr)
 	if utils.IsError(err) {
+		log.Errorf("vfs getattr: ino[%d], err[%v]", ino, err)
 		return nil, err
 	}
 	log.Debugf("vfs getattr: %+v", *attr)
@@ -351,11 +354,33 @@ func (v *VFS) Link(ctx *meta.Context, ino Ino, newparent Ino, newname string) (e
 }
 
 func (v *VFS) Symlink(ctx *meta.Context, path string, parent Ino, name string) (entry *meta.Entry, err syscall.Errno) {
-	return nil, syscall.ENOSYS
+	defer func() {
+		log.Debugf("symlink (%d,%s,%s): %v%+v", parent, name, path, err, entry)
+	}()
+	if parent == rootID && IsSpecialName(name) {
+		err = syscall.EEXIST
+		return
+	}
+	if len(name) > maxName || len(path) >= maxSymlink {
+		err = syscall.ENAMETOOLONG
+		return
+	}
+
+	var inode Ino
+	var attr = &Attr{}
+	err = v.Meta.Symlink(ctx, parent, name, path, &inode, attr)
+	if err == 0 {
+		entry = &meta.Entry{Ino: inode, Attr: attr, Name: name}
+	} else {
+		log.Errorf("symLink err %v", err)
+	}
+	return
 }
 
 func (v *VFS) Readlink(ctx *meta.Context, ino Ino) (path []byte, err syscall.Errno) {
-	return nil, syscall.ENOSYS
+	defer func() { log.Debugf("readlink (%d): %s (%s)", ino, err, string(path)) }()
+	err = v.Meta.ReadLink(ctx, ino, &path)
+	return
 }
 
 func (v *VFS) Access(ctx *meta.Context, ino Ino, mask uint32) (err syscall.Errno) {
@@ -589,6 +614,9 @@ func (v *VFS) Flush(ctx *meta.Context, ino Ino, fh uint64, lockOwner uint64) (er
 	}
 	if h.writer != nil {
 		err = h.writer.Flush()
+		if err != 0 {
+			log.Errorf("flush err %v", err)
+		}
 	}
 	return err
 }
