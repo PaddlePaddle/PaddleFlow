@@ -22,10 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -418,11 +416,19 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	if task == nil {
 		return fmt.Errorf("JobTask is nil")
 	}
-	// TODO: change update task logic
-	tx := js.db.Table(model.JobTaskTableName).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "annotations", "log_url", "node_name", "deleted_at"}),
-	}).Create(task)
+	var taskInfo model.JobTask
+	tx := js.db.Table(model.JobTaskTableName).Where("id = ?", task.ID).First(&taskInfo)
+	if tx.Error != nil && gorm.ErrRecordNotFound != tx.Error {
+		logger.LoggerForJob(task.ID).Errorf("get job task status failed, err %v", tx.Error.Error())
+		return tx.Error
+	}
+	if taskInfo.ID == task.ID {
+		// update task
+		tx = js.db.Table(model.JobTaskTableName).Updates(task)
+	} else {
+		// create task
+		tx = js.db.Table(model.JobTaskTableName).Create(task)
+	}
 	return tx.Error
 }
 

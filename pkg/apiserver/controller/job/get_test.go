@@ -99,6 +99,14 @@ func TestGenerateLogURL(t *testing.T) {
 			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp)
 			assert.Equal(t, expectURL, url)
 			t.Logf("log url %s", expectURL)
+
+			// test multi update
+			tc.task.LogURL = ""
+			err = storage.Job.UpdateTask(&tc.task)
+			assert.Equal(t, nil, err)
+			task, err = storage.Job.GetTaskByID(tc.task.ID)
+			assert.Equal(t, nil, err)
+			t.Logf("after second update, task logURL: %v", task.LogURL)
 		})
 	}
 }
