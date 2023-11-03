@@ -118,6 +118,17 @@ func TestListJob(t *testing.T) {
 			jobLen: 0,
 			err:    nil,
 		},
+		{
+			name: "list job with pk 0",
+			filter: JobFilter{
+				PK:      0,
+				MaxKeys: 50,
+				User:    "root",
+				Order:   "desc",
+			},
+			jobLen: 1,
+			err:    nil,
+		},
 	}
 
 	for _, tc := range testCases {

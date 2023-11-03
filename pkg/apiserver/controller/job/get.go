@@ -135,12 +135,21 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			return nil, err
 		}
 	}
-
-	timestampStr := ""
-	if request.Timestamp != 0 {
-		timestampStr = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	// filter for job
+	filter := storage.JobFilter{
+		User:      ctx.UserName,
+		PK:        pk,
+		MaxKeys:   request.MaxKeys,
+		StartTime: request.StartTime,
+		Labels:    request.Labels,
+		Order:     "desc",
 	}
-	queueID := ""
+	if request.Status != "" {
+		filter.Status = []schema.JobStatus{schema.JobStatus(request.Status)}
+	}
+	if request.Timestamp != 0 {
+		filter.UpdateTime = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	}
 	if request.Queue != "" {
 		var queue model.Queue
 		queue, err = storage.Queue.GetQueueByName(request.Queue)
@@ -149,21 +158,10 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			ctx.ErrorCode = common.QueueNameNotFound
 			return nil, err
 		}
-		queueID = queue.ID
+		filter.QueueIDs = []string{queue.ID}
 	}
-	// model list
-	filter := storage.JobFilter{
-		PK:         pk,
-		MaxKeys:    request.MaxKeys,
-		QueueIDs:   []string{queueID},
-		Status:     []schema.JobStatus{schema.JobStatus(request.Status)},
-		StartTime:  request.StartTime,
-		UpdateTime: timestampStr,
-		User:       ctx.UserName,
-		Labels:     request.Labels,
-		Order:      "desc",
-	}
-	ctx.Logging().Debugf("list job with filter: %v", filter)
+
+	ctx.Logging().Debugf("list job with filter: %#v", filter)
 	jobList, err := storage.Job.ListJob(filter)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
