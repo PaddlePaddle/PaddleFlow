@@ -255,7 +255,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 	response.Name = job.Name
 	response.SchedulingPolicy = SchedulingPolicy{
 		Queue:    job.Config.GetQueueName(),
-		Priority: job.Config.Priority,
+		Priority: job.Config.GetPriority(),
 	}
 	if job.Config != nil {
 		response.Labels = job.Config.Labels
