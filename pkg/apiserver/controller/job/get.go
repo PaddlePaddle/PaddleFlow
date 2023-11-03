@@ -163,12 +163,14 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		Labels:     request.Labels,
 		Order:      "desc",
 	}
+	ctx.Logging().Debugf("list job with filter: %v", filter)
 	jobList, err := storage.Job.ListJob(filter)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
 		return nil, err
 	}
+	ctx.Logging().Debugf("list job return, job count %d", len(jobList))
 	listJobResponse := ListJobResponse{JobList: []*GetJobResponse{}}
 
 	// get next marker
