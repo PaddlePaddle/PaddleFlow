@@ -244,7 +244,7 @@ func (js *JobStore) ListJob(filter JobFilter) ([]model.Job, error) {
 	// set orderBy and order
 	order := findMapWithDefault(model.OrderMap, strings.ToLower(filter.Order), "asc")
 	orderBy := findMapWithDefault(model.OrderByMap, filter.OrderBy, "created_at")
-	tx.Order(fmt.Sprintf("%s %s", orderBy, order))
+	tx = tx.Order(fmt.Sprintf("%s %s", orderBy, order))
 	// set limit
 	if filter.MaxKeys > 0 {
 		tx = tx.Limit(filter.MaxKeys)
