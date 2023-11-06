@@ -101,7 +101,7 @@ func TestJobManager(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			err = storage.Job.CreateJob(testCase.job)
 			assert.Equal(t, nil, err)
-			go testCase.jobManager.Start(storage.Cluster.ActiveClusters, storage.Job.ListQueueJob)
+			go testCase.jobManager.Start(storage.Cluster.ActiveClusters)
 			time.Sleep(2 * time.Second)
 		})
 	}

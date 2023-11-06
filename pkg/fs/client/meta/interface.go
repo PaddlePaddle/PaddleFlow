@@ -149,7 +149,7 @@ type Meta interface {
 	// Read returns the list of blocks
 	Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.Errno
 	// Write put a slice of data on top of the given chunk.
-	Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno
+	Write(ctx *Context, inode Ino, off uint64, length int) syscall.Errno
 
 	// CopyFileRange copies part of a file to another one.
 	CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64, size uint64, flags uint32, copied *uint64) syscall.Errno
@@ -170,6 +170,8 @@ type Meta interface {
 	Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno
 
 	LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error
+
+	ClientClose(stopChan chan struct{})
 }
 
 func (a *Attr) IsDir() bool {
@@ -181,7 +183,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Confi
 		config = &Config{
 			AttrCacheExpire:  2,
 			EntryCacheExpire: 2,
-			PathCacheExpire:  2,
+			PathCacheExpire:  0,
 			Config: kv.Config{
 				Driver: kv.MemType,
 				FsID:   fsMeta.ID,

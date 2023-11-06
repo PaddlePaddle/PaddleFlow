@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,27 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kv
+package object
 
-type Config struct {
-	FsID      string
-	Driver    string
-	CachePath string
-	Capacity  int64
-}
+import "testing"
 
-type KvTxn interface {
-	Get(key []byte) []byte
-	Set(key, value []byte) error
-	Dels(keys ...[]byte) error
-	ScanValues(prefix []byte) (map[string][]byte, error)
-	Exist(Prefix []byte) bool
-	Append(key []byte, value []byte) []byte
-	IncrBy(key []byte, value int64) int64
-}
-
-type KvClient interface {
-	Close() error
-	Name() string
-	Txn(f func(KvTxn) error) error
+func Test_a(t *testing.T) {
+	tests := []struct {
+		name string
+		want int
+	}{
+		{
+			name: "test",
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := a(); got != tt.want {
+				t.Errorf("a() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

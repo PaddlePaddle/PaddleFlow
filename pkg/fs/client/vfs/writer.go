@@ -104,15 +104,21 @@ func (f *fileWriter) Flush() syscall.Errno {
 			return syscall.EBADF
 		}
 	}
-	// todo:: 需要加一个超时和重试
-	return utils.ToSyscallErrno(f.fd.Flush())
+	err := f.fd.Flush()
+	if err != nil {
+		log.Errorf("fd flush err %v", err)
+	}
+	return utils.ToSyscallErrno(err)
 }
 
 func (f *fileWriter) Fsync(fd int) syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
-	// todo:: 需要加一个超时和重试
-	return utils.ToSyscallErrno(f.fd.Fsync(fd))
+	err := f.fd.Fsync(fd)
+	if err != nil {
+		log.Errorf("fd fsync err %v", err)
+	}
+	return utils.ToSyscallErrno(err)
 }
 
 func (f *fileWriter) Close() {

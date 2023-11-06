@@ -123,6 +123,8 @@ type ObjectStorage interface {
 	CreateMultipartUpload(key string) (*MultipartCommitOutPut, error)
 	// UploadPart upload a part of an object.
 	UploadPart(key string, uploadID string, num int64, body []byte) (*Part, error)
+	// UploadPartCopy upload a part of an object by copying from another object.
+	UploadPartCopy(key string, uploadID, bytes string, num int64, copySource string) (*Part, error)
 	// AbortUpload abort a multipart upload.
 	AbortUpload(key string, uploadID string) error
 	// CompleteUpload finish an multipart upload.

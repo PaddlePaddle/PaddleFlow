@@ -44,9 +44,7 @@ def log():
 @click.pass_context
 def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None):
     """
-
-    show run log\n
-    RUNID: the id of the specificed run.
+    [Deprecated] show run log\n
 
     """
     client = ctx.obj['client']
@@ -60,7 +58,94 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
             response['runLog'] = [response['runLog'][0]]
         _print_run_log(response, output_format)
     else:
-        click.echo("show run log failed with message[%s]" % response)
+        click.echo(f"show run log failed with message[{response}]")
+        sys.exit(1)
+
+
+@log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.argument('runid')
+@click.option('-j', '--jobid', help="job id")
+@click.option('-ps', '--pagesize', help="content lines in one page; max size 100; default value 100")
+@click.option('-pn', '--pageno', help="page number;default value 1")
+@click.option('-fp', '--logfileposition', help="read log from the beginning or the end; "
+                                               "optional value: begin, end; default value end")
+@click.pass_context
+def run(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None):
+    """
+
+    show PaddleFlow run log \n
+
+    """
+    client = ctx.obj['client']
+    output_format = 'text'
+    if not runid:
+        click.echo('log show must provide runid.', err=True)
+        sys.exit(1)
+    valid, response = client.show_log(runid, jobid, pagesize, pageno, logfileposition)
+    if valid:
+        if jobid is None and len(response['runLog']) > 0:
+            response['runLog'] = [response['runLog'][0]]
+        _print_run_log(response, output_format)
+    else:
+        click.echo(f"show run log failed with message[{response}]")
+        sys.exit(1)
+
+
+@log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.option('-n', '--name', required=True, help="the name of kubernetes resources")
+@click.option('-ns', '--namespace', required=True, help="the namespace of kubernetes resources")
+@click.option('-c', '--clustername', required=True, help="the clustername in PaddleFlow")
+@click.option('-t', '--type', required=True, help="type in deploy or pod")
+@click.option('-r', '--readfromtail', help="read logs from tail, set value means yes")
+@click.option('-l', '--line_limit', help="line_limit, default is 1000")
+@click.option('-s', '--size_limit', help="size_limit, default is 100MB")
+@click.pass_context
+def kube(ctx, name=None, namespace=None, clustername=None,  type=None, readfromtail=None, line_limit=None, size_limit=None):
+    """
+     show kubernetes log (deployment or pod)\n
+
+    """
+    # it would return deployment or pod logs by <namespace, name, type>
+    client = ctx.obj['client']
+    output_format = 'text'
+    click.echo(f"query kubernetes {type} log by [{namespace}/{name}]")
+
+    valid, response = client.show_log_by_limit(job_id=None, name=name, namespace=namespace, cluster_name=clustername, read_from_tail=readfromtail,
+                                               line_limit=line_limit, size_limit=size_limit, type=type, framework=None)
+    if valid:
+        # if jobid is None and len(response['runLog']) > 0:
+        #     response['runLog'] = [response['runLog'][0]]
+        _print_log_by_limit(response, output_format)
+    else:
+        click.echo(f"show logs failed with message[{response}]")
+        sys.exit(1)
+
+
+@log.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.option('-j', '--jobid', required=True, help="job id")
+@click.option('-f', '--framework', required=True, help="job framework")
+@click.option('-r', '--readfromtail', help="read logs from tail, set value means yes")
+@click.option('-l', '--line_limit', help="line_limit, default is 1000")
+@click.option('-s', '--size_limit', help="size_limit, default is 100MB")
+@click.pass_context
+def job(ctx, jobid=None, framework=None, readfromtail=None, line_limit=None, size_limit=None):
+    """
+     show PaddleFlow job log (since PaddleFlow 1.4.7) \n
+
+    """
+    # it would return PaddleFlow job logs by jobid
+    client = ctx.obj['client']
+    output_format = 'text'
+    click.echo(f"query logs for job {jobid}")
+
+    valid, response = client.show_log_by_limit(job_id=jobid, name=None, namespace=None, cluster_name=None, read_from_tail=readfromtail,
+                                               line_limit=line_limit, size_limit=size_limit, type=None, framework=framework)
+    if valid:
+        # if jobid is None and len(response['runLog']) > 0:
+        #     response['runLog'] = [response['runLog'][0]]
+        _print_log_by_limit(response, output_format)
+    else:
+        click.echo(f"show job {jobid} logs failed with message[{response}]")
         sys.exit(1)
 
 
@@ -76,8 +161,9 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
 @click.option('-f', '--framework', help="job framework")
 @click.pass_context
 def showlimit(ctx, jobid=None, name=None, namespace=None, clustername=None, readfromtail=None, line_limit=None, size_limit=None, type=None, framework=None):
-    """
-    show job,deployment,pod log\n
+    """[Deprecated] show job, deployment, and pod log  \n
+
+    Description:
     if jobid is null, it would return deployment or pod logs by <namespace, name, type>
     else it would return PF job logs by jobid
 
