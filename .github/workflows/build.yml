@@ -8,10 +8,10 @@ jobs:
   build_bin:
     strategy:
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.21.x]
         goos: [linux]
         goarch: [amd64,arm64]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Dump GitHub context
       id: github_context_step

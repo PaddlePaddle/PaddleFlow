@@ -135,12 +135,21 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			return nil, err
 		}
 	}
-
-	timestampStr := ""
-	if request.Timestamp != 0 {
-		timestampStr = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	// filter for job
+	filter := storage.JobFilter{
+		User:      ctx.UserName,
+		PK:        pk,
+		MaxKeys:   request.MaxKeys,
+		StartTime: request.StartTime,
+		Labels:    request.Labels,
+		Order:     "desc",
 	}
-	queueID := ""
+	if request.Status != "" {
+		filter.Status = []schema.JobStatus{schema.JobStatus(request.Status)}
+	}
+	if request.Timestamp != 0 {
+		filter.UpdateTime = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	}
 	if request.Queue != "" {
 		var queue model.Queue
 		queue, err = storage.Queue.GetQueueByName(request.Queue)
@@ -149,26 +158,17 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			ctx.ErrorCode = common.QueueNameNotFound
 			return nil, err
 		}
-		queueID = queue.ID
+		filter.QueueIDs = []string{queue.ID}
 	}
-	// model list
-	filter := storage.JobFilter{
-		PK:         pk,
-		MaxKeys:    request.MaxKeys,
-		QueueIDs:   []string{queueID},
-		Status:     []schema.JobStatus{schema.JobStatus(request.Status)},
-		StartTime:  request.StartTime,
-		UpdateTime: timestampStr,
-		User:       ctx.UserName,
-		Labels:     request.Labels,
-		Order:      "desc",
-	}
+
+	ctx.Logging().Debugf("list job with filter: %#v", filter)
 	jobList, err := storage.Job.ListJob(filter)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
 		return nil, err
 	}
+	ctx.Logging().Debugf("list job return, job count %d", len(jobList))
 	listJobResponse := ListJobResponse{JobList: []*GetJobResponse{}}
 
 	// get next marker
@@ -255,7 +255,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 	response.Name = job.Name
 	response.SchedulingPolicy = SchedulingPolicy{
 		Queue:    job.Config.GetQueueName(),
-		Priority: job.Config.Priority,
+		Priority: job.Config.GetPriority(),
 	}
 	if job.Config != nil {
 		response.Labels = job.Config.Labels
@@ -415,7 +415,13 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 	return nodeRuntimes, nil
 }
 
-func GenerateLogURL(task model.JobTask) string {
+func getContainerID(task model.JobTask) string {
+	if task.LogURL != "" {
+		containerIDs := strings.Split(task.LogURL, ",")
+		if len(containerIDs) > 0 {
+			return containerIDs[0]
+		}
+	}
 	containerID := ""
 	taskStatus := task.ExtRuntimeStatus.(v1.PodStatus)
 	if len(taskStatus.ContainerStatuses) > 0 {
@@ -424,6 +430,11 @@ func GenerateLogURL(task model.JobTask) string {
 			containerID = items[1]
 		}
 	}
+	return containerID
+}
+
+func GenerateLogURL(task model.JobTask) string {
+	containerID := getContainerID(task)
 	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
