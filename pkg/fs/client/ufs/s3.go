@@ -224,6 +224,9 @@ func (fs *s3FileSystem) isBucketExists(bucket string) (bool, error) {
 }
 
 func isNotExistErr(err error) bool {
+	if err == nil {
+		return false
+	}
 	// bos will return NotFound
 	if strings.Contains(err.Error(), "NotFound") {
 		return true

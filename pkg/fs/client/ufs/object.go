@@ -300,13 +300,13 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			log.Errorf("errDirChan object err: %v", resp)
 			return nil, resp
 		case resp := <-errObjectChan:
-			if !isNotExistErr(resp) {
+			if err != nil && !isNotExistErr(resp) {
 				log.Errorf("errObjectChan object err: %v", resp)
 				return nil, resp
 			}
 			checking--
 		case resp := <-errDirBlobChan:
-			if !isNotExistErr(resp) {
+			if err != nil && !isNotExistErr(resp) {
 				log.Errorf("errDirBlobChan object err: %v", resp)
 				return nil, resp
 			}
@@ -392,7 +392,7 @@ func (fs *objectFileSystem) Rename(oldName string, newName string) error {
 		if err == nil {
 			return syscall.ENOTDIR
 		}
-		if !isNotExistErr(err) {
+		if err != nil && !isNotExistErr(err) {
 			return err
 		}
 		// 来源是目录的话，rename也应该是目录
@@ -694,7 +694,7 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 		case resp := <-errDirChan:
 			return resp
 		case resp := <-errObjectChan:
-			if !isNotExistErr(resp) {
+			if resp != nil && !isNotExistErr(resp) {
 				log.Errorf("isDirExist object err: %v", resp)
 				return resp
 			}
