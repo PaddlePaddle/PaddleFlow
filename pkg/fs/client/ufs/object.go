@@ -211,18 +211,19 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	// 1. check if key exists
 	go func() {
 		var response *object.HeadObjectOutput
+		var headErr error
 		for i := 0; i < 5; i++ {
-			response, err = fs.storage.Head(fileKey)
-			if err != nil && !isNotExistErr(err) {
-				log.Errorf("Head[%v] object err: %v", i, err)
+			response, headErr = fs.storage.Head(fileKey)
+			if err != nil && !isNotExistErr(headErr) {
+				log.Errorf("Head[%v] object err: %v", i, headErr)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Errorf("Head object err: %v", err)
-			errObjectChan <- err
+		if headErr != nil {
+			log.Errorf("Head object err: %v", headErr)
+			errObjectChan <- headErr
 			return
 		}
 		objectChan <- response
@@ -235,18 +236,19 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			Delimiter: Delimiter,
 		}
 		var dirs *object.ListBlobsOutput
+		var errList error
 		for i := 0; i < 5; i++ {
-			dirs, err = fs.storage.List(listInput)
-			if err != nil && !isNotExistErr(err) {
-				log.Errorf("List[%v] object err: %v", i, err)
+			dirs, errList = fs.storage.List(listInput)
+			if errList != nil && !isNotExistErr(errList) {
+				log.Errorf("List[%v] object err: %v", i, errList)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Errorf("List object err: %v", err)
-			errDirChan <- err
+		if errList != nil {
+			log.Errorf("List object err: %v", errList)
+			errDirChan <- errList
 			return
 		}
 		dirChan <- dirs
@@ -254,18 +256,19 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	// 3. check if dir exists with dir key exists
 	go func() {
 		var resp *object.HeadObjectOutput
+		var headErr error
 		for i := 0; i < 5; i++ {
-			resp, err = fs.storage.Head(dirKey)
-			if err != nil && !isNotExistErr(err) {
-				log.Errorf("Head[%v] object err: %v", i, err)
+			resp, headErr = fs.storage.Head(dirKey)
+			if headErr != nil && !isNotExistErr(headErr) {
+				log.Errorf("Head[%v] object err: %v", i, headErr)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Errorf("Head object err: %v", err)
-			errObjectChan <- err
+		if headErr != nil {
+			log.Errorf("Head object err: %v", headErr)
+			errObjectChan <- headErr
 			return
 		}
 		objectChan <- resp
