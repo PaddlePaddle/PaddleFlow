@@ -198,7 +198,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
 	}
-	var response *object.HeadObjectOutput
 	var err error
 	dirChan := make(chan *object.ListBlobsOutput, 1)
 	objectChan := make(chan *object.HeadObjectOutput, 2)
@@ -211,6 +210,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 	// 1. check if key exists
 	go func() {
+		var response *object.HeadObjectOutput
 		for i := 0; i < 5; i++ {
 			response, err = fs.storage.Head(fileKey)
 			if err != nil && !isNotExistErr(err) {
@@ -281,10 +281,10 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 				fInfo.Path = fs.objectKeyName(name)
 				return fInfo, nil
 			} else {
-				aTime := fuse.UtimeToTimespec(&response.LastModified)
-				size := int64(response.Size)
+				aTime := fuse.UtimeToTimespec(&resp.LastModified)
+				size := int64(resp.Size)
 				st := fillStat(1, 0, 0, 0, size, 4096, size/512, aTime, aTime, aTime)
-				mtime := uint64((response.LastModified).Unix())
+				mtime := uint64((resp.LastModified).Unix())
 				return &base.FileInfo{
 					Name:  name,
 					Path:  fileKey,
