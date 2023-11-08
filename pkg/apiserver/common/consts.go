@@ -65,10 +65,6 @@ const (
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
 
-	NodePageSizeMax     = 100
-	NodePageSizeDefault = 100
-	NodePageNoDefault   = 1
-
 	Pod = "pod"
 
 	StsMaxSeqData = 1000

@@ -230,7 +230,7 @@ func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
 	nodePageNo, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageNo))
 	if err != nil {
 		if r.URL.Query().Get(util.ParamKeyPageNo) == "" {
-			nodePageNo = common.NodePageNoDefault
+			nodePageNo = common.LogPageNoDefault
 		} else {
 			ctx.Logging().Errorf("request param nodePageNo parse int failed. error:%s.", err.Error())
 			common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
@@ -240,7 +240,7 @@ func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
 	nodePageSize, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageSize))
 	if err != nil {
 		if r.URL.Query().Get(util.ParamKeyPageSize) == "" {
-			nodePageSize = common.NodePageSizeDefault
+			nodePageSize = common.LogPageSizeDefault
 		} else {
 			ctx.Logging().Errorf("request param nodePageSize parse int failed. error:%s.", err.Error())
 			common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
@@ -248,11 +248,11 @@ func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if nodePageNo == 0 {
-		nodePageNo = common.NodePageNoDefault
+		nodePageNo = common.LogPageNoDefault
 	}
 	if nodePageSize == 0 {
-		nodePageSize = common.NodePageSizeDefault
-	} else if nodePageSize > common.NodePageSizeMax {
+		nodePageSize = common.LogPageSizeDefault
+	} else if nodePageSize > common.LogPageSizeMax {
 		err = common.NodePageSizeOverMaxError()
 		ctx.Logging().Errorf("request param nodePageSize value over maxsize. error:%s.", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())

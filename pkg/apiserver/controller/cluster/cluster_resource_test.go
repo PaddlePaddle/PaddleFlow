@@ -129,6 +129,7 @@ func createFakePodInfo(count int, nodeID, nodeName string, reList []map[string]i
 			Name:      fmt.Sprintf("pod-%s-%d", nodeName, idx),
 			NodeName:  nodeName,
 			NodeID:    nodeID,
+			Labels:    map[string]string{"paddleflow/pod-name": fmt.Sprintf("pod-%s-%d", nodeName, idx)},
 			Status:    int(statusList[rand.Intn(statusLen)]),
 			Resources: reList[rand.Intn(reLen)],
 		}
@@ -336,11 +337,12 @@ func TestListClusterResources(t *testing.T) {
 func TestConstructNodeResponses(t *testing.T) {
 	mockClusterID := "cluster-test"
 	testCases := []struct {
-		name  string
-		nodes []model.NodeInfo
-		used  []model.ResourceInfo
-		pods  []model.PodInfo
-		err   error
+		name   string
+		nodes  []model.NodeInfo
+		used   []model.ResourceInfo
+		pods   []model.PodInfo
+		labels []model.LabelInfo
+		err    error
 	}{
 		{
 			name: "2 nodes",
@@ -409,12 +411,23 @@ func TestConstructNodeResponses(t *testing.T) {
 					NodeID:   "node-instance-1",
 					Value:    4,
 				},
+				{
+					Name:  "cpu",
+					PodID: "pod-instance-1",
+					Value: 200,
+				},
+				{
+					Name:  "cpu",
+					PodID: "pod-instance-2",
+					Value: 20,
+				},
 			},
 			pods: []model.PodInfo{
 				{
 					Name:     "pod-instance-2",
 					NodeName: "instance-2",
 					NodeID:   "node-instance-2",
+					ID:       "pod-instance-2",
 					Status:   1,
 					Resources: map[string]int64{
 						"memory":                  741824,
@@ -426,6 +439,7 @@ func TestConstructNodeResponses(t *testing.T) {
 					Name:     "pod-instance-1",
 					NodeName: "instance-1",
 					NodeID:   "node-instance-1",
+					ID:       "pod-instance-1",
 					Status:   1,
 					Resources: map[string]int64{
 						"memory":         1824,
@@ -434,16 +448,30 @@ func TestConstructNodeResponses(t *testing.T) {
 					},
 				},
 			},
+			labels: []model.LabelInfo{
+				{
+					Name:       "jobName",
+					Value:      "pod-instance-1-trainer-0",
+					ObjectID:   "pod-instance-1",
+					ObjectType: model.ObjectTypePod,
+				},
+				{
+					Name:       "jobName",
+					Value:      "pod-instance-2-trainer-0",
+					ObjectID:   "pod-instance-2",
+					ObjectType: model.ObjectTypePod,
+				},
+			},
 			err: nil,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods)
+			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods, tc.labels)
 			assert.Equal(t, tc.err, err)
 			data, err := json.Marshal(result)
 			assert.Equal(t, nil, err)
-			t.Logf("construct cluster resources: %v", string(data))
+			t.Logf("construct node resources: %v", string(data))
 		})
 	}
 }

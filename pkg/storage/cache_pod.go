@@ -188,12 +188,12 @@ func (nc *PodResourceCache) ListNodeResources(nodeIDList []string) ([]model.Reso
 	return result, nil
 }
 
-func (nc *PodResourceCache) ListPodResources(podIDList []string) ([]model.ResourceInfo, error) {
-	log.Debugf("begin to list pod resources, podIDList: %v.", podIDList)
+func (nc *PodResourceCache) ListPodResources(nodeIDList []string) ([]model.ResourceInfo, error) {
+	log.Debugf("begin to list pod resources, nodeIDList: %v.", nodeIDList)
 
 	var result []model.ResourceInfo
 	tx := nc.dbCache.Model(&model.ResourceInfo{})
-	tx = tx.Where("resource_info.pod_id IN ?", podIDList)
+	tx = tx.Where("resource_info.node_id IN ?", nodeIDList)
 	// order by
 	tx.Order("resource_info.node_id")
 

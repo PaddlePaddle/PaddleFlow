@@ -48,9 +48,10 @@ type ListNodeResponse struct {
 }
 
 type PodResources struct {
-	PodName   string           `json:"podName"`
-	Status    int              `json:"status"`
-	Resources map[string]int64 `json:"resources"`
+	PodName   string            `json:"podName"`
+	Status    int               `json:"status"`
+	Labels    map[string]string `json:"labels"`
+	Resources map[string]int64  `json:"resources"`
 }
 
 func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) (map[string]*ListNodeResponse, error) {
@@ -75,17 +76,8 @@ func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) 
 		nodeLists = append(nodeLists, nodes[i].ID)
 	}
 
-	// 2. list node resources
-	result, err := storage.ResourceCache.ListNodeResources(nodeLists)
-	if err != nil {
-		err = fmt.Errorf("list node resources from cache failed, err: %v", err.Error())
-		ctx.Logging().Errorln(err)
-		return nil, err
-	}
-	ctx.Logging().Debugf("list node resources: %v", result)
-
-	// 3. list pods
-	pods, err := storage.NodeCache.ListPods(nodeLists)
+	// 2. list pods and resources
+	podResources, err := storage.ResourceCache.ListPodResources(nodeLists)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
@@ -93,10 +85,19 @@ func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) 
 	}
 
 	var podLists []string
-	for i := range pods {
-		podLists = append(podLists, pods[i].ID)
+	for i := range podResources {
+		podLists = append(podLists, podResources[i].PodID)
 	}
 
+	// 3. list pods
+	podInfos, err := storage.NodeCache.ListPods(podLists)
+	if err != nil {
+		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return nil, err
+	}
+
+	// 4. list labels
 	podLabels, err := storage.LabelCache.ListLabels(podLists, model.ObjectTypePod)
 	if err != nil {
 		err = fmt.Errorf("list pod labels from cache failed, err: %v", err.Error())
@@ -104,18 +105,9 @@ func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) 
 		return nil, err
 	}
 
-	podResources, err := storage.ResourceCache.ListPodResources(podLists)
-	if err != nil {
-		err = fmt.Errorf("list pod resources from cache failed, err: %v", err.Error())
-		ctx.Logging().Errorln(err)
-		return nil, err
-	}
-	ctx.Logging().Debugf("list pods resources: %v", pods)
-
-	pods = ConstructPodLabelsResources(pods, podLabels, podResources)
-	fmt.Println("pods: ", pods)
-	// 4. construct node info list
-	return ConstructNodeResponses(nodes, result, pods)
+	ctx.Logging().Debugf("list pods infos: %v", podInfos)
+	// 5. construct node info list
+	return ConstructNodeResponses(nodes, podResources, podInfos, podLabels)
 }
 
 // ListClusterResources return the node resources in clusters, lists can be filtered by labels in pods or nodes
@@ -176,68 +168,59 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 	return nodes, queueName, err
 }
 
-func ConstructPodLabelsResources(pods []model.PodInfo, podLabels []model.LabelInfo, podResources []model.ResourceInfo) []model.PodInfo {
-	var podLabelsMap = map[string]map[string]string{}
-	for _, lInfo := range podLabels {
-		label, find := podLabelsMap[lInfo.ObjectID]
-		if !find {
-			label = make(map[string]string)
-			podLabelsMap[lInfo.ObjectID] = label
-		}
-
-		label[lInfo.Name] = lInfo.Value
-	}
-
-	var podResourcesMap = map[string]map[string]int64{}
-	for _, rInfo := range podResources {
-		resource, find := podResourcesMap[rInfo.PodID]
-		if !find {
-			resource = make(map[string]int64)
-			podResourcesMap[rInfo.PodID] = resource
-		}
-
-		resource[rInfo.Name] = rInfo.Value
-	}
-
-	podResponse := make([]model.PodInfo, 0)
-	for _, pod := range pods {
-		pod.Labels = podLabelsMap[pod.ID]
-		pod.Resources = podResourcesMap[pod.ID]
-		podResponse = append(podResponse, pod)
-	}
-
-	log.Debugf("pod labels: %+v, pod resources: %+v", podLabelsMap, podResourcesMap)
-	return podResponse
-}
-
 func ConstructNodeResponses(nodes []model.NodeInfo,
-	nodeResources []model.ResourceInfo, podInfos []model.PodInfo) (map[string]*ListNodeResponse, error) {
+	podResources []model.ResourceInfo, podInfos []model.PodInfo, podLabels []model.LabelInfo) (map[string]*ListNodeResponse, error) {
+
+	var err error
+	var nodeResourses = map[string]*ListNodeResponse{}
+
+	// 1. node used resources
 	var nodeUsed = map[string]map[string]int64{}
-	for _, rInfo := range nodeResources {
+	var podResource = map[string]map[string]int64{}
+	for _, rInfo := range podResources {
 		nodeUsedResources, find := nodeUsed[rInfo.NodeID]
 		if !find {
 			nodeUsedResources = make(map[string]int64)
 			nodeUsed[rInfo.NodeID] = nodeUsedResources
+			nodeUsedResources[rInfo.Name] = rInfo.Value
+		} else {
+			nodeUsedResources[rInfo.Name] += rInfo.Value
 		}
-		nodeUsedResources[rInfo.Name] = rInfo.Value
+
+		podUsedResource, find := podResource[rInfo.PodID]
+		if !find {
+			podUsedResource = make(map[string]int64)
+			podResource[rInfo.PodID] = podUsedResource
+		}
+		podUsedResource[rInfo.Name] = rInfo.Value
 	}
 
+	// 2. list pod labels
+	var podLabel = map[string]map[string]string{}
+	for _, pLabel := range podLabels {
+		pLabels, find := podLabel[pLabel.ObjectID]
+		if !find {
+			pLabels = make(map[string]string)
+			podLabel[pLabel.ObjectID] = pLabels
+		}
+		pLabels[pLabel.Name] = pLabel.Value
+	}
+
+	// 3. list pods on node
 	var nodePods = map[string][]PodResources{}
 	for _, pInfo := range podInfos {
-		podResources, find := nodePods[pInfo.NodeID]
+		pResource, find := nodePods[pInfo.NodeID]
 		if !find {
-			podResources = make([]PodResources, 0)
+			pResource = make([]PodResources, 0)
 		}
-		podResources = append(podResources, PodResources{
+		pResource = append(pResource, PodResources{
 			PodName:   pInfo.Name,
 			Status:    pInfo.Status,
-			Resources: pInfo.Resources,
+			Resources: podResource[pInfo.ID],
+			Labels:    podLabel[pInfo.ID],
 		})
-		nodePods[pInfo.NodeID] = podResources
+		nodePods[pInfo.NodeID] = pResource
 	}
-
-	var err error
-	var nodeResourses = map[string]*ListNodeResponse{}
 
 	for _, node := range nodes {
 		nodeResponse, find := nodeResourses[node.ID]
@@ -248,7 +231,6 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 				Labels:   make(map[string]string),
 				NodeName: node.Name,
 			}
-
 			nodeResourses[node.ID] = nodeResponse
 		}
 
