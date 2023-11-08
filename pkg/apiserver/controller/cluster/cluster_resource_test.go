@@ -170,6 +170,84 @@ func createFakeNodeInfo(nodeCount, podCount int, clusterList []string, rList []m
 	return err
 }
 
+func TestListNodeInfos(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	testCases := []struct {
+		name string
+		req  ListClusterResourcesRequest
+		err  error
+	}{
+		{
+			name: "list resources by physical queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q1",
+			},
+			err: nil,
+		},
+		{
+			name: "list resources by logic queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			err: nil,
+		},
+	}
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name: MockClusterName,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q1",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypePhysical,
+		},
+	})
+
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q-public",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypeLogical,
+		},
+	})
+	assert.Equal(t, nil, err)
+
+	err = driver.InitCache("DEBUG")
+	assert.Equal(t, nil, err)
+	var nodeCount = 5
+	var podCount = 20
+	err = createFakeNodeInfo(nodeCount, podCount, []string{MockClusterName, "cn1"}, rList)
+	assert.Equal(t, nil, err)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := ListNodeInfos(ctx, tc.req)
+			assert.Equal(t, tc.err, err)
+			resJSON, err := json.Marshal(res)
+			if err == nil {
+				t.Logf("node infos: %s", string(resJSON))
+			}
+		})
+	}
+
+}
+
 func TestListClusterResources(t *testing.T) {
 	ctx := &logger.RequestContext{
 		UserName: MockRootUser,
@@ -251,6 +329,121 @@ func TestListClusterResources(t *testing.T) {
 			if err == nil {
 				t.Logf("cluster resources: %s", string(resJSON))
 			}
+		})
+	}
+}
+
+func TestConstructNodeResponses(t *testing.T) {
+	mockClusterID := "cluster-test"
+	testCases := []struct {
+		name  string
+		nodes []model.NodeInfo
+		used  []model.ResourceInfo
+		pods  []model.PodInfo
+		err   error
+	}{
+		{
+			name: "2 nodes",
+			nodes: []model.NodeInfo{
+				{
+					ID:          "node-instance-1",
+					Name:        "instance-1",
+					IP:          "10.0.0.1",
+					ClusterID:   mockClusterID,
+					ClusterName: mockClusterID,
+					Status:      "Ready",
+					Capacity: map[string]string{
+						"cpu":                   "20",
+						"memory":                "100Gi",
+						"nvidia.com/gpu":        "8",
+						"baidu.com/cgpu":        "8",
+						"baidu.com/cgpu_core":   "800",
+						"baidu.com/cgpu_memory": "1600",
+					},
+				},
+				{
+					ID:          "node-instance-2",
+					Name:        "instance-2",
+					IP:          "10.0.0.2",
+					ClusterID:   mockClusterID,
+					ClusterName: mockClusterID,
+					Status:      "Ready",
+					Capacity: map[string]string{
+						"cpu":                   "30",
+						"memory":                "100Gi",
+						"nvidia.com/gpu":        "8",
+						"baidu.com/cgpu":        "8",
+						"baidu.com/cgpu_core":   "800",
+						"baidu.com/cgpu_memory": "1600",
+					},
+				},
+			},
+			used: []model.ResourceInfo{
+				{
+					Name:     "cpu",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					Value:    2795,
+				},
+				{
+					Name:     "memory",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					Value:    10737418240,
+				},
+				{
+					Name:     "cpu",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    10,
+				},
+				{
+					Name:     "memory",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    1073741824,
+				},
+				{
+					Name:     "nvidia.com/gpu",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    4,
+				},
+			},
+			pods: []model.PodInfo{
+				{
+					Name:     "pod-instance-2",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					Status:   1,
+					Resources: map[string]int64{
+						"memory":                  741824,
+						"cpu":                     200,
+						"baidu.com/p40_cgpu_core": 100,
+					},
+				},
+				{
+					Name:     "pod-instance-1",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Status:   1,
+					Resources: map[string]int64{
+						"memory":         1824,
+						"cpu":            20,
+						"nvidia.com/gpu": 2,
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods)
+			assert.Equal(t, tc.err, err)
+			data, err := json.Marshal(result)
+			assert.Equal(t, nil, err)
+			t.Logf("construct cluster resources: %v", string(data))
 		})
 	}
 }

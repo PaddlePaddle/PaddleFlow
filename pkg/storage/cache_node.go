@@ -53,6 +53,23 @@ func (nc *ClusterNodeCache) GetNode(nodeID string) (model.NodeInfo, error) {
 	return clusterNodeInfo, nil
 }
 
+func (nc *ClusterNodeCache) ListPods(nodeIDs []string) ([]model.PodInfo, error) {
+	log.Debugf("begin to list pods on nodes: %s", nodeIDs)
+	var pods []model.PodInfo
+	tx := nc.dbCache.Model(&model.PodInfo{})
+	// 1. query with nodeID list
+	if len(nodeIDs) != 0 {
+		tx = tx.Where("node_id IN ?", nodeIDs)
+	}
+
+	tx = tx.Order("pod_info.id")
+	if err := tx.Find(&pods).Error; err != nil {
+		log.Errorf("list pods failed, error:%s", err)
+		return pods, err
+	}
+	return pods, nil
+}
+
 func (nc *ClusterNodeCache) ListNode(clusterNames []string, labels string, limit int, offset int, filter map[string]string) ([]model.NodeInfo, error) {
 	log.Debugf("begin to list node, clusterNames: %v, labels: %s", clusterNames, labels)
 	var nodes []model.NodeInfo
@@ -196,4 +213,21 @@ func (lc *ObjectLabelCache) DeleteLabel(objID, objType string) error {
 		return tx.Error
 	}
 	return nil
+}
+
+func (lc *ObjectLabelCache) ListLabels(objIDs []string, objType string) ([]model.LabelInfo, error) {
+	log.Debugf("begin to list labels, objIDList: %v.", objIDs)
+
+	var result []model.LabelInfo
+	tx := lc.dbCache.Model(&model.LabelInfo{})
+	tx = tx.Where("label_info.object_id IN ? AND object_type = ?", objIDs, objType)
+	// order by
+	tx.Order("label_info.object_id")
+
+	// query
+	if tx.Find(&result); tx.Error != nil {
+		log.Errorf("list labels failed, error:%s", tx.Error)
+		return result, tx.Error
+	}
+	return result, nil
 }

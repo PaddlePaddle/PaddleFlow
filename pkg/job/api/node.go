@@ -23,6 +23,7 @@ import (
 
 type NodeSyncInfo struct {
 	Name       string
+	IP         string
 	Status     string
 	Capacity   map[string]string
 	Labels     map[string]string

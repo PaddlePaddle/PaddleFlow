@@ -44,6 +44,7 @@ type NodeInfo struct {
 	Pk           int64             `gorm:"primaryKey;autoIncrement" json:"-"`
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
+	IP           string            `gorm:"column:ip" json:"nodeIP"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
 	ClusterName  string            `gorm:"column:cluster_name" json:"clusterName"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`

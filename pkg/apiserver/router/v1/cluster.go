@@ -19,6 +19,7 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -44,6 +45,7 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Post("/cluster", cr.createCluster)
 	r.Get("/cluster", cr.listCluster)
 	r.Get("/cluster/{clusterName}", cr.getClusterDetail)
+	r.Get("/cluster/nodeInfos", cr.listNodeInfos)
 	r.Delete("/cluster/{clusterName}", cr.deleteCluster)
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
@@ -166,58 +168,112 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
 	common.Render(w, http.StatusOK, response)
 }
 
-/* 返回集群quota信息
+/*
+	返回集群quota信息
+
 返回示例:
-{
-  "shared-gpu-cluster": {
-    "summary": {
-      "total": {
-        "cpu": 16,
-        "memory": "64422.83Mi",
-        "storage": "445762.49Mi",
-        "scalarResources": {
-          "nvidia.com/gpu": "8"
-        }
-      },
-      "idle": {
-        "cpu": 11,
-        "memory": "53832.83Mi",
-        "storage": "445762.49Mi",
-        "scalarResources": {
-          "nvidia.com/gpu": "8"
-        }
-      }
-    },
-    "nodeList": [
-      {
-        "nodeName": "nodeName",
-        "schedulable": true,
-        "total": {
-          "cpu": 16,
-          "memory": "64422.83Mi",
-          "storage": "445762.49Mi",
-          "scalarResources": {
-            "nvidia.com/gpu": "8"
-          }
-        },
-        "idle": {
-          "cpu": 11,
-          "memory": "53832.83Mi",
-          "storage": "445762.49Mi",
-          "scalarResources": {
-            "nvidia.com/gpu": "8"
-          }
-        }
-      }
-    ],
-    "errMsg": ""
-  },
-  "cluster_test": {
-    "nodeList": [],
-    "errMsg": "clusterName: cluster_test, errorMsg: yaml: invalid trailing UTF-8 octet"
-  }
-}
+
+	{
+	  "shared-gpu-cluster": {
+	    "summary": {
+	      "total": {
+	        "cpu": 16,
+	        "memory": "64422.83Mi",
+	        "storage": "445762.49Mi",
+	        "scalarResources": {
+	          "nvidia.com/gpu": "8"
+	        }
+	      },
+	      "idle": {
+	        "cpu": 11,
+	        "memory": "53832.83Mi",
+	        "storage": "445762.49Mi",
+	        "scalarResources": {
+	          "nvidia.com/gpu": "8"
+	        }
+	      }
+	    },
+	    "nodeList": [
+	      {
+	        "nodeName": "nodeName",
+	        "schedulable": true,
+	        "total": {
+	          "cpu": 16,
+	          "memory": "64422.83Mi",
+	          "storage": "445762.49Mi",
+	          "scalarResources": {
+	            "nvidia.com/gpu": "8"
+	          }
+	        },
+	        "idle": {
+	          "cpu": 11,
+	          "memory": "53832.83Mi",
+	          "storage": "445762.49Mi",
+	          "scalarResources": {
+	            "nvidia.com/gpu": "8"
+	          }
+	        }
+	      }
+	    ],
+	    "errMsg": ""
+	  },
+	  "cluster_test": {
+	    "nodeList": [],
+	    "errMsg": "clusterName: cluster_test, errorMsg: yaml: invalid trailing UTF-8 octet"
+	  }
+	}
 */
+func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	queueName := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyQueueName))
+
+	nodePageNo, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageNo))
+	if err != nil {
+		if r.URL.Query().Get(util.ParamKeyPageNo) == "" {
+			nodePageNo = common.NodePageNoDefault
+		} else {
+			ctx.Logging().Errorf("request param nodePageNo parse int failed. error:%s.", err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	}
+	nodePageSize, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageSize))
+	if err != nil {
+		if r.URL.Query().Get(util.ParamKeyPageSize) == "" {
+			nodePageSize = common.NodePageSizeDefault
+		} else {
+			ctx.Logging().Errorf("request param nodePageSize parse int failed. error:%s.", err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+			return
+		}
+	}
+	if nodePageNo == 0 {
+		nodePageNo = common.NodePageNoDefault
+	}
+	if nodePageSize == 0 {
+		nodePageSize = common.NodePageSizeDefault
+	} else if nodePageSize > common.NodePageSizeMax {
+		err = common.NodePageSizeOverMaxError()
+		ctx.Logging().Errorf("request param nodePageSize value over maxsize. error:%s.", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+
+	var listNodeInfosRequest = cluster.ListClusterResourcesRequest{
+		QueueName: queueName,
+		PageNo:    nodePageNo,
+		PageSize:  nodePageSize,
+	}
+
+	nodeInfosList, err := cluster.ListNodeInfos(&ctx, listNodeInfosRequest)
+	if err != nil {
+		ctx.Logging().Errorf("list node infos failed, error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, nodeInfosList)
+}
+
 func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	clusterNames := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyClusterNames))
