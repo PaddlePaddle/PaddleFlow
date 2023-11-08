@@ -48,9 +48,6 @@ func init() {
 			count += 1
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
-				if *page_.closed {
-					page_.bufferPool.pool.Put(page_.buffer)
-				}
 				*page_.writeCacheReady = true
 				page_ = nil
 			})
@@ -261,9 +258,6 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		if *p.writeCacheReady {
-			p.bufferPool.pool.Put(p.buffer)
-		}
 		p.buffer = nil
 		p.bufferPool.cond.Signal()
 	}
@@ -273,11 +267,8 @@ func (p *Page) Free() {
 func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
 	p.bufferPool = pool
 	if size != 0 {
-		p.buffer = p.bufferPool.RequestMBuf(size, block, blockSize)
+		p.buffer = make([]byte, blockSize)
 		log.Debugf("init page %v blocksize %v and len %v", size, blockSize, len(p.buffer))
-		if p.buffer == nil {
-			return nil
-		}
 		cacheWrite := false
 		closed := false
 		p.closed = &closed

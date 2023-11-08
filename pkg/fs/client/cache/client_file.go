@@ -164,7 +164,7 @@ func (c *fileDataCache) save(key string, buf []byte) {
 
 func (c *fileDataCache) delete(key string) {
 	path := c.cachePath(key)
-	_, ok := c.load(key)
+	ok := c.exist(key)
 	if ok {
 		c.keys.Delete(key)
 	}
