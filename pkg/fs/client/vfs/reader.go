@@ -234,6 +234,36 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	}
 	d.Lock()
 	d.files[inode] = f
+	if length > DeleteBufferLimit {
+		go func() {
+			f.cleanBufferCache(f.stop)
+		}()
+	}
 	d.Unlock()
 	return f, nil
+}
+
+func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
+	for {
+		select {
+		case <-stopChan:
+			return
+		default:
+			count := 0
+			fh.bufferMapLock.Lock()
+			for index, buffer := range fh.buffersCache {
+				count += 1
+				if count > 100 {
+					break
+				}
+				now := time.Now()
+				if now.Sub(buffer.LastUsedTime) > thresholdDuration {
+					log.Infof("delete buffer auto index %v", index)
+					delete(fh.buffersCache, index)
+				}
+			}
+			fh.bufferMapLock.Unlock()
+			time.Sleep(5 * time.Second)
+		}
+	}
 }
