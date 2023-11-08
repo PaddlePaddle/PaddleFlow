@@ -198,7 +198,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
 	}
-	var err error
 	dirChan := make(chan *object.ListBlobsOutput, 1)
 	objectChan := make(chan *object.HeadObjectOutput, 2)
 	errDirBlobChan := make(chan error, 1)
@@ -214,7 +213,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 		var headErr error
 		for i := 0; i < 5; i++ {
 			response, headErr = fs.storage.Head(fileKey)
-			if err != nil && !isNotExistErr(headErr) {
+			if headErr != nil && !isNotExistErr(headErr) {
 				log.Errorf("Head[%v] object err: %v", i, headErr)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
@@ -303,13 +302,13 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			log.Errorf("errDirChan object err: %v", resp)
 			return nil, resp
 		case resp := <-errObjectChan:
-			if err != nil && !isNotExistErr(resp) {
+			if !isNotExistErr(resp) {
 				log.Errorf("errObjectChan object err: %v", resp)
 				return nil, resp
 			}
 			checking--
 		case resp := <-errDirBlobChan:
-			if err != nil && !isNotExistErr(resp) {
+			if !isNotExistErr(resp) {
 				log.Errorf("errDirBlobChan object err: %v", resp)
 				return nil, resp
 			}
@@ -653,38 +652,38 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 			MaxKeys: 1,
 		}
 		var dirs *object.ListBlobsOutput
-		var err error
+		var errList error
 		for i := 0; i < 5; i++ {
-			dirs, err = fs.storage.List(listInput)
-			if err != nil && !isNotExistErr(err) {
-				log.Errorf("List object err: %v", err)
+			dirs, errList = fs.storage.List(listInput)
+			if errList != nil && !isNotExistErr(errList) {
+				log.Errorf("List object err: %v", errList)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Debugf("List object err: %v", err)
-			errDirChan <- err
+		if errList != nil {
+			log.Debugf("List object err: %v", errList)
+			errDirChan <- errList
 			return
 		}
 		dirChan <- dirs
 	}()
 	go func() {
 		var resp *object.HeadObjectOutput
-		var err error
+		var errHead error
 		for i := 0; i < 5; i++ {
-			resp, err = fs.storage.Head(path)
-			if err != nil && !isNotExistErr(err) {
-				log.Errorf("Head object err: %v", err)
+			resp, errHead = fs.storage.Head(path)
+			if errHead != nil && !isNotExistErr(errHead) {
+				log.Errorf("Head object err: %v", errHead)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Debugf("Head object err: %v", err)
-			errObjectChan <- err
+		if errHead != nil {
+			log.Debugf("Head object err: %v", errHead)
+			errObjectChan <- errHead
 			return
 		}
 		objectChan <- resp
