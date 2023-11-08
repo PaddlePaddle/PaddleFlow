@@ -222,7 +222,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			break
 		}
 		if headErr != nil {
-			log.Errorf("Head object err: %v", headErr)
+			log.Debugf("Head object err: %v", headErr)
 			errObjectChan <- headErr
 			return
 		}
@@ -247,7 +247,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			break
 		}
 		if errList != nil {
-			log.Errorf("List object err: %v", errList)
+			log.Debugf("List object err: %v", errList)
 			errDirChan <- errList
 			return
 		}
@@ -267,7 +267,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			break
 		}
 		if headErr != nil {
-			log.Errorf("Head object err: %v", headErr)
+			log.Debugf("Head object err: %v", headErr)
 			errObjectChan <- headErr
 			return
 		}
@@ -664,7 +664,7 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 			break
 		}
 		if err != nil {
-			log.Errorf("List object err: %v", err)
+			log.Debugf("List object err: %v", err)
 			errDirChan <- err
 			return
 		}
@@ -683,7 +683,7 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 			break
 		}
 		if err != nil {
-			log.Errorf("Head object err: %v", err)
+			log.Debugf("Head object err: %v", err)
 			errObjectChan <- err
 			return
 		}
