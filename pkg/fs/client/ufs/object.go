@@ -1301,10 +1301,13 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		}
 	}
 
-	storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
+	subPathTmp, storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
 	if err != nil {
 		log.Errorf("newStorage err %v", err)
 		return nil, err
+	}
+	if subPathTmp != "" {
+		subPath = subPathTmp
 	}
 
 	fs := &objectFileSystem{
@@ -1322,7 +1325,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		exist, err := fs.exists("")
 		if err != nil {
 			log.Errorf("fs exists err %v", err)
-			storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+			_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
 			fs.storage = storage2
 			exist, err = fs.exists("")
 			if err != nil {
@@ -1333,7 +1336,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		if !exist {
 			if err = fs.createEmptyDir(Delimiter); err != nil {
 				log.Errorf("fs createEmptyDir err %v", err)
-				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
 				fs.storage = storage2
 				if err = fs.createEmptyDir(Delimiter); err != nil {
 					log.Errorf("s3 create empty dir err: %v", err)
@@ -1345,7 +1348,7 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			_, _, err = fs.list(Delimiter, "", 1, true)
 			if err != nil {
 				log.Errorf("fs list err %v", err)
-				storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
 				fs.storage = storage2
 				_, _, err = fs.list(Delimiter, "", 1, true)
 				if err != nil {
@@ -1389,7 +1392,7 @@ func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error)
 	return pfClient, nil
 }
 
-func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket string, properties map[string]interface{}, ssl bool) (storage object.ObjectStorage, err error) {
+func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket string, properties map[string]interface{}, ssl bool) (subpath string, storage object.ObjectStorage, err error) {
 	switch objectType {
 	case fsCommon.S3Type:
 		awsConfig := &aws.Config{
@@ -1415,7 +1418,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 		sess, err := session.NewSession(awsConfig)
 		if err != nil {
 			log.Errorf("new session fail: %v", err)
-			return nil, fmt.Errorf("fail to create s3 session: %v", err)
+			return "", nil, fmt.Errorf("fail to create s3 session: %v", err)
 		}
 		storage = object.NewS3Storage(bucket, s3.New(sess))
 	case fsCommon.BosType:
@@ -1428,7 +1431,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			pfClient, err := newStsServerClient(properties[fsCommon.StsServer].(string))
 			if err != nil {
 				log.Errorf("newstsClient err[%v]", err)
-				return nil, err
+				return "", nil, err
 			}
 			fsName, _ := properties[fsCommon.FsName].(string)
 			username, _ := properties[fsCommon.UserName].(string)
@@ -1438,8 +1441,9 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			}, token)
 			if err != nil {
 				log.Errorf("newstsClient GetSts err[%v]", err)
-				return nil, err
+				return "", nil, err
 			}
+			subpath = sts.SubPath
 
 			bucket = sts.Bucket
 			region = sts.Region
@@ -1447,7 +1451,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
 			if err != nil {
 				log.Errorf("AesDecrypt: err[%v]", err)
-				return nil, err
+				return "", nil, err
 			}
 			stsCredential, err := auth.NewSessionBceCredentials(
 				sts.AccessKeyId,
@@ -1455,7 +1459,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 				sts.SessionToken)
 			if err != nil {
 				log.Errorf("NewSessionBceCredentials: err[%v]", err)
-				return nil, err
+				return "", nil, err
 			}
 			clientConfig := bos.BosClientConfiguration{
 				Ak:               sts.AccessKeyId,
@@ -1467,7 +1471,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			bosClient, err := bos.NewClientWithConfig(&clientConfig)
 			if err != nil {
 				log.Errorf("NewClientWithConfigl: err[%v]", err)
-				return nil, fmt.Errorf("fail to create bos client: %v", err)
+				return "", nil, fmt.Errorf("fail to create bos client: %v", err)
 			}
 			bosClient.Config.Credentials = stsCredential
 			duration = sts.Duration
@@ -1511,7 +1515,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			bosClient, err := bos.NewClientWithConfig(&clientConfig)
 			if err != nil {
 				log.Errorf("new bos client fail: %v", err)
-				return nil, fmt.Errorf("fail to create bos client: %v", err)
+				return "", nil, fmt.Errorf("fail to create bos client: %v", err)
 			}
 			sessionToken, ok := properties[fsCommon.BosSessionToken].(string)
 			if ok {
@@ -1521,7 +1525,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 					sessionToken)
 				if err != nil {
 					log.Errorf("NewSessionBceCredentials err[%v]", err)
-					return nil, err
+					return "", nil, err
 				}
 				bosClient.Config.Credentials = stsCredential
 				startBySts = true
