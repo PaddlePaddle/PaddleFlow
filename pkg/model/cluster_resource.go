@@ -100,6 +100,7 @@ type PodInfo struct {
 	Pk        int64             `gorm:"primaryKey;autoIncrement" json:"-"`
 	ID        string            `gorm:"column:id" json:"id"`
 	Name      string            `gorm:"column:name" json:"name"`
+	Namespace string            `gorm:"column:namespace" json:"namespace"`
 	NodeID    string            `gorm:"column:node_id" json:"nodeID"`
 	NodeName  string            `gorm:"column:node_name" json:"nodeName"`
 	Status    int               `gorm:"column:status" json:"status"`

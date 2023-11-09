@@ -45,7 +45,7 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Post("/cluster", cr.createCluster)
 	r.Get("/cluster", cr.listCluster)
 	r.Get("/cluster/{clusterName}", cr.getClusterDetail)
-	r.Get("/cluster/nodeInfos", cr.listNodeInfos)
+	r.Get("/cluster/{clusterName}/nodeInfos", cr.listClusterNodeInfos)
 	r.Delete("/cluster/{clusterName}", cr.deleteCluster)
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
@@ -223,10 +223,11 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
 	  }
 	}
 */
-func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
+func (cr *ClusterRouter) listClusterNodeInfos(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	queueName := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyQueueName))
 
+	clusterName := strings.TrimSpace(chi.URLParam(r, util.ParamKeyClusterName))
+	namespace := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyNamespace))
 	nodePageNo, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageNo))
 	if err != nil {
 		if r.URL.Query().Get(util.ParamKeyPageNo) == "" {
@@ -260,12 +261,12 @@ func (cr *ClusterRouter) listNodeInfos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var listNodeInfosRequest = cluster.ListClusterResourcesRequest{
-		QueueName: queueName,
-		PageNo:    nodePageNo,
-		PageSize:  nodePageSize,
+		ClusterNameList: []string{clusterName},
+		PageNo:          nodePageNo,
+		PageSize:        nodePageSize,
 	}
 
-	nodeInfosList, err := cluster.ListNodeInfos(&ctx, listNodeInfosRequest)
+	nodeInfosList, err := cluster.ListClusterNodeInfos(&ctx, listNodeInfosRequest, namespace)
 	if err != nil {
 		ctx.Logging().Errorf("list node infos failed, error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

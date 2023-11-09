@@ -54,7 +54,7 @@ type PodResources struct {
 	Resources map[string]int64  `json:"resources"`
 }
 
-func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) (map[string]*ListNodeResponse, error) {
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) (map[string]*ListNodeResponse, error) {
 	log.Infof("list node infos request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -90,7 +90,7 @@ func ListNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) 
 	}
 
 	// 3. list pods
-	podInfos, err := storage.NodeCache.ListPods(podLists)
+	podInfos, err := storage.NodeCache.ListPods(podLists, namespace)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)

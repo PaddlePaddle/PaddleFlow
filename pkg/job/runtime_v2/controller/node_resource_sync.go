@@ -164,6 +164,7 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 	taskInfo := &model.PodInfo{
 		ID:        taskSync.ID,
 		Name:      taskSync.Name,
+		Namespace: taskSync.Namespace,
 		NodeID:    nr.generateNodeID(taskSync.NodeName),
 		NodeName:  taskSync.NodeName,
 		Status:    int(taskSync.Status),
