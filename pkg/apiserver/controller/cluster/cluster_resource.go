@@ -54,7 +54,7 @@ type PodResources struct {
 	Resources map[string]int64  `json:"resources"`
 }
 
-func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) (map[string]*ListNodeResponse, error) {
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) ([]*ListNodeResponse, error) {
 	log.Infof("list node infos request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -169,7 +169,7 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 }
 
 func ConstructNodeResponses(nodes []model.NodeInfo,
-	podResources []model.ResourceInfo, podInfos []model.PodInfo, podLabels []model.LabelInfo) (map[string]*ListNodeResponse, error) {
+	podResources []model.ResourceInfo, podInfos []model.PodInfo, podLabels []model.LabelInfo) ([]*ListNodeResponse, error) {
 
 	var err error
 	var nodeResourses = map[string]*ListNodeResponse{}
@@ -252,8 +252,13 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		nodeResponse.NodeIP = node.IP
 		nodeResponse.PodsCount = len(nodePods[node.ID])
 	}
-	log.Debugf("node resources: %+v", nodeResourses)
-	return nodeResourses, err
+
+	var nodeList []*ListNodeResponse
+	for _, node := range nodeResourses {
+		nodeList = append(nodeList, node)
+	}
+	log.Debugf("node resources: %+v", nodeList)
+	return nodeList, err
 }
 
 func ConstructClusterResources(nodes []model.NodeInfo,
