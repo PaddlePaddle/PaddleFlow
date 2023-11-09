@@ -335,7 +335,7 @@ func TestJobTaskSync(t *testing.T) {
 				JobID:  mockJobID,
 				Status: schema.StatusTaskRunning,
 				Action: schema.Update,
-				PodStatus: &v1.PodStatus{
+				PodStatus: v1.PodStatus{
 					Phase: v1.PodRunning,
 				},
 			},

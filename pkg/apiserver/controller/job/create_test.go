@@ -155,6 +155,13 @@ func TestCreatePFJob(t *testing.T) {
 							},
 							JobSpec: JobSpec{
 								Image: "busybox",
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 							},
 							Role:     string(schema.RoleWorker),
 							Replicas: 1,
@@ -185,7 +192,15 @@ func TestCreatePFJob(t *testing.T) {
 									Queue: MockQueueName,
 								},
 							},
-							JobSpec:  JobSpec{},
+							JobSpec: JobSpec{
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
+							},
 							Role:     string(schema.RoleWorker),
 							Replicas: 1,
 						},
@@ -261,6 +276,13 @@ func TestCreatePFJob(t *testing.T) {
 								FileSystem: schema.FileSystem{
 									Name: MockFS1,
 								},
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 								ExtraFileSystems: []schema.FileSystem{
 									{
 										Name:      MockFS1,
@@ -312,6 +334,13 @@ func TestCreatePFJob(t *testing.T) {
 							JobSpec: JobSpec{
 								Image:   "nginx:latest",
 								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 							},
 						},
 						{
@@ -328,6 +357,13 @@ func TestCreatePFJob(t *testing.T) {
 							JobSpec: JobSpec{
 								Image:   "nginx:latest",
 								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 							},
 						},
 					},
@@ -950,6 +986,13 @@ func TestCreatePFJob(t *testing.T) {
 							JobSpec: JobSpec{
 								Image:   "nginx:latest",
 								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 							},
 						},
 						{
@@ -966,6 +1009,13 @@ func TestCreatePFJob(t *testing.T) {
 							JobSpec: JobSpec{
 								Image:   "nginx:latest",
 								Command: "sleep 20",
+								Flavour: schema.Flavour{
+									Name: "",
+									ResourceInfo: schema.ResourceInfo{
+										CPU: "2",
+										Mem: "2Gi",
+									},
+								},
 							},
 						},
 					},
