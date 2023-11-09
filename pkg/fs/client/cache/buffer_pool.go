@@ -269,9 +269,6 @@ func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *P
 	if size != 0 {
 		p.buffer = make([]byte, blockSize)
 		log.Debugf("init page %v blocksize %v and len %v", size, blockSize, len(p.buffer))
-		if p.buffer == nil {
-			return nil
-		}
 		cacheWrite := false
 		closed := false
 		p.closed = &closed
