@@ -272,7 +272,13 @@ func (cr *ClusterRouter) listClusterNodeInfos(w http.ResponseWriter, r *http.Req
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.Render(w, http.StatusOK, nodeInfosList)
+
+	var listNodeInfosResponse = cluster.ListNodeResponse{
+		TotalCount: len(nodeInfosList),
+		NodeList:   nodeInfosList,
+	}
+
+	common.Render(w, http.StatusOK, listNodeInfosResponse)
 }
 
 func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request) {

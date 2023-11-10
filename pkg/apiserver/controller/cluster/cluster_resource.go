@@ -38,13 +38,18 @@ type NodeResourcesResponse struct {
 }
 
 type ListNodeResponse struct {
-	NodeName  string            `json:"nodeName"`
-	NodeIP    string            `json:"nodeIP"`
-	PodsCount int               `json:"podsCount"`
-	Labels    map[string]string `json:"labels"`
-	Used      map[string]int64  `json:"used"`
-	Capacity  map[string]string `json:"capacity"`
-	PodInfos  []PodResources    `json:"pods"`
+	TotalCount int             `json:"totalCount"`
+	NodeList   []*NodeResponse `json:"nodeList"`
+}
+
+type NodeResponse struct {
+	NodeName  string                 `json:"nodeName"`
+	NodeIP    string                 `json:"nodeIP"`
+	PodsCount int                    `json:"podsCount"`
+	Labels    map[string]string      `json:"labels"`
+	Used      map[string]interface{} `json:"used"`
+	Capacity  map[string]string      `json:"capacity"`
+	PodInfos  []PodResources         `json:"pods"`
 }
 
 type PodResources struct {
@@ -54,7 +59,7 @@ type PodResources struct {
 	Resources map[string]int64  `json:"resources"`
 }
 
-func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) ([]*ListNodeResponse, error) {
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) ([]*NodeResponse, error) {
 	log.Infof("list node infos request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -169,10 +174,10 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 }
 
 func ConstructNodeResponses(nodes []model.NodeInfo,
-	podResources []model.ResourceInfo, podInfos []model.PodInfo, podLabels []model.LabelInfo) ([]*ListNodeResponse, error) {
+	podResources []model.ResourceInfo, podInfos []model.PodInfo, podLabels []model.LabelInfo) ([]*NodeResponse, error) {
 
 	var err error
-	var nodeResourses = map[string]*ListNodeResponse{}
+	var nodeResourses = map[string]*NodeResponse{}
 
 	// 1. node used resources
 	var nodeUsed = map[string]map[string]int64{}
@@ -225,8 +230,8 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 	for _, node := range nodes {
 		nodeResponse, find := nodeResourses[node.ID]
 		if !find {
-			nodeResponse = &ListNodeResponse{
-				Used:     make(map[string]int64),
+			nodeResponse = &NodeResponse{
+				Used:     make(map[string]interface{}),
 				Capacity: make(map[string]string),
 				Labels:   make(map[string]string),
 				NodeName: node.Name,
@@ -235,14 +240,20 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		}
 
 		// set node used, capacity, and labels
-		used, ok := nodeUsed[node.ID]
+		usedResources, ok := nodeUsed[node.ID]
 		if !ok {
-			used = map[string]int64{}
+			usedResources = map[string]int64{}
 		}
-		log.Debugf("node %s used resources: %+v", node.Name, used)
+		log.Debugf("node %s used resources: %+v", node.Name, usedResources)
 
+		used := resources.EmptyResource()
+		for rName, rValue := range usedResources {
+			used.SetResources(rName, rValue)
+		}
+
+		podUsed := used.ToMap()
 		nodeResponse.Capacity = node.Capacity
-		nodeResponse.Used = used
+		nodeResponse.Used = podUsed
 		if node.Labels == nil {
 			node.Labels = make(map[string]string)
 		}
@@ -253,7 +264,7 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		nodeResponse.PodsCount = len(nodePods[node.ID])
 	}
 
-	var nodeList []*ListNodeResponse
+	var nodeList []*NodeResponse
 	for _, node := range nodeResourses {
 		nodeList = append(nodeList, node)
 	}

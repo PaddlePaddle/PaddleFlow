@@ -373,13 +373,13 @@ func TestConstructNodeResponses(t *testing.T) {
 			labels: []model.LabelInfo{
 				{
 					Name:       "jobName",
-					Value:      "pod-instance-1-trainer-0",
+					Value:      "job-0bb64357dbedcbdf",
 					ObjectID:   "pod-instance-1",
 					ObjectType: model.ObjectTypePod,
 				},
 				{
 					Name:       "jobName",
-					Value:      "pod-instance-2-trainer-0",
+					Value:      "job-0bb64357dbedcbdf",
 					ObjectID:   "pod-instance-2",
 					ObjectType: model.ObjectTypePod,
 				},
