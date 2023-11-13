@@ -2,10 +2,10 @@ package v1
 
 import (
 	"fmt"
-	"testing"
-
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
+	"net/url"
+	"testing"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -113,6 +113,91 @@ func TestListClusterQuotaV2(t *testing.T) {
 			res, err := PerformPostRequest(tt.args.router, baseURL+"/cluster/resource", tt.args.req)
 			assert.NoError(t, err)
 			t.Logf("list cluster %v", res)
+			if tt.wantErr {
+				assert.NotEqual(t, res.Code, 200)
+			} else {
+				t.Logf("res: %v", res)
+				assert.Equal(t, tt.responseCode, res.Code)
+			}
+		})
+	}
+}
+
+func TestListClusterNodeInfo(t *testing.T) {
+	router, routerNonRoot, baseURL := MockInitJob(t)
+	driver.InitCache("debug")
+	createMockClusters(t, 10, 10, 10)
+	type args struct {
+		ctx         *logger.RequestContext
+		PageSize    int
+		PageNo      int
+		ClusterName string
+		Namespace   string
+		router      *chi.Mux
+	}
+	ctx := &logger.RequestContext{UserName: "testusername"}
+	tests := []struct {
+		name         string
+		args         args
+		wantErr      bool
+		responseCode int
+	}{
+		{
+			name: "empty request",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				ClusterName: "",
+				Namespace:   "",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "routerNonRoot",
+			args: args{
+				ctx:         ctx,
+				router:      routerNonRoot,
+				ClusterName: "testCn1",
+			},
+			wantErr:      false,
+			responseCode: 403,
+		},
+		{
+			name: "PageSize and PageNo",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      1,
+				PageSize:    1,
+				ClusterName: "testCn1",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "normal",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      1,
+				PageSize:    10,
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := url.Values{}
+			params.Set("namespace", tt.args.Namespace)
+			params.Set("pageNo", fmt.Sprint(tt.args.PageNo))
+			params.Set("pageSize", fmt.Sprint(tt.args.PageSize))
+			res, err := PerformGetRequest(tt.args.router, fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%s", tt.args.ClusterName, params.Encode()))
+			assert.NoError(t, err)
+			t.Logf("list node %v", res)
 			if tt.wantErr {
 				assert.NotEqual(t, res.Code, 200)
 			} else {

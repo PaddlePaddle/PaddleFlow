@@ -88,7 +88,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		return 0, nil, err
 	}
 
-	// 2. list pods and resources
+	// 2. list pods resources
 	podResources, err := storage.ResourceCache.ListPodResources(nodeLists)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())

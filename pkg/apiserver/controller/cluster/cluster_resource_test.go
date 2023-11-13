@@ -127,6 +127,7 @@ func createFakePodInfo(count int, nodeID, nodeName string, reList []map[string]i
 		pInfo := &model.PodInfo{
 			ID:        uuid.GenerateIDWithLength("", 32),
 			Name:      fmt.Sprintf("pod-%s-%d", nodeName, idx),
+			Namespace: "default",
 			NodeName:  nodeName,
 			NodeID:    nodeID,
 			Labels:    map[string]string{"paddleflow/pod-name": fmt.Sprintf("pod-%s-%d", nodeName, idx)},
@@ -252,6 +253,87 @@ func TestListClusterResources(t *testing.T) {
 			if err == nil {
 				t.Logf("cluster resources: %s", string(resJSON))
 			}
+		})
+	}
+}
+
+func TestListClusterNodeInfos(t *testing.T) {
+	ctx := &logger.RequestContext{
+		UserName: MockRootUser,
+	}
+	testCases := []struct {
+		name      string
+		req       ListClusterResourcesRequest
+		namespace string
+		err       error
+	}{
+		{
+			name: "list nodes by physical queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q1",
+			},
+			namespace: "default",
+			err:       nil,
+		},
+		{
+			name: "list nodes by logic queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			namespace: "default",
+			err:       nil,
+		},
+	}
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name: MockClusterName,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q1",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypePhysical,
+		},
+	})
+
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q-public",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypeLogical,
+		},
+	})
+	assert.Equal(t, nil, err)
+
+	err = driver.InitCache("DEBUG")
+	assert.Equal(t, nil, err)
+	var nodeCount = 5
+	var podCount = 20
+	err = createFakeNodeInfo(nodeCount, podCount, []string{MockClusterName, "cn1"}, rList)
+	assert.Equal(t, nil, err)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			count, res, err := ListClusterNodeInfos(ctx, tc.req, tc.namespace)
+			assert.Equal(t, tc.err, err)
+			resJSON, err := json.Marshal(res)
+			if err == nil {
+				t.Logf("node infos: %s", string(resJSON))
+			}
+			assert.Equal(t, int(count), nodeCount)
 		})
 	}
 }
