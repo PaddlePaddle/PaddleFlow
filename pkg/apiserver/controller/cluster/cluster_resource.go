@@ -43,13 +43,13 @@ type ListNodeResponse struct {
 }
 
 type NodeResponse struct {
-	NodeName  string                 `json:"nodeName"`
-	NodeIP    string                 `json:"nodeIP"`
-	PodsCount int                    `json:"podsCount"`
-	Labels    map[string]string      `json:"labels"`
-	Used      map[string]interface{} `json:"used"`
-	Capacity  map[string]string      `json:"capacity"`
-	PodInfos  []PodResources         `json:"pods"`
+	NodeName  string                        `json:"nodeName"`
+	NodeIP    string                        `json:"nodeIP"`
+	PodsCount int                           `json:"podsCount"`
+	Labels    map[string]string             `json:"labels"`
+	Used      map[string]int64              `json:"used"`
+	Capacity  map[string]resources.Quantity `json:"capacity"`
+	PodInfos  []PodResources                `json:"pods"`
 }
 
 type PodResources struct {
@@ -231,8 +231,8 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		nodeResponse, find := nodeResourses[node.ID]
 		if !find {
 			nodeResponse = &NodeResponse{
-				Used:     make(map[string]interface{}),
-				Capacity: make(map[string]string),
+				Used:     make(map[string]int64),
+				Capacity: make(map[string]resources.Quantity),
 				Labels:   make(map[string]string),
 				NodeName: node.Name,
 			}
@@ -246,14 +246,12 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		}
 		log.Debugf("node %s used resources: %+v", node.Name, usedResources)
 
-		used := resources.EmptyResource()
-		for rName, rValue := range usedResources {
-			used.SetResources(rName, rValue)
+		capacity, err := resources.NewResourceFromMap(node.Capacity)
+		if err != nil {
+			return nil, err
 		}
-
-		podUsed := used.ToMap()
-		nodeResponse.Capacity = node.Capacity
-		nodeResponse.Used = podUsed
+		nodeResponse.Capacity = capacity.Resource()
+		nodeResponse.Used = usedResources
 		if node.Labels == nil {
 			node.Labels = make(map[string]string)
 		}
