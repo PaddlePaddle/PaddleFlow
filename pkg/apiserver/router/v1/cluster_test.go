@@ -129,8 +129,8 @@ func TestListClusterNodeInfo(t *testing.T) {
 	createMockClusters(t, 10, 10, 10)
 	type args struct {
 		ctx         *logger.RequestContext
-		PageSize    int
-		PageNo      int
+		PageSize    interface{}
+		PageNo      interface{}
 		ClusterName string
 		Namespace   string
 		router      *chi.Mux
@@ -200,12 +200,38 @@ func TestListClusterNodeInfo(t *testing.T) {
 			responseCode: 200,
 		},
 		{
-			name: "Wrong PageSize",
+			name: "Wrong PageSize 1",
 			args: args{
 				ctx:         ctx,
 				router:      router,
 				PageNo:      1,
 				PageSize:    500,
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      true,
+			responseCode: 200,
+		},
+		{
+			name: "Wrong PageSize 2",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      1,
+				PageSize:    "abc",
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      true,
+			responseCode: 200,
+		},
+		{
+			name: "Wrong PageNo",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      "abc",
+				PageSize:    100,
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
