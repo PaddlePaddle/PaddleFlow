@@ -38,7 +38,7 @@ type NodeResourcesResponse struct {
 }
 
 type ListNodeResponse struct {
-	TotalCount int             `json:"totalCount"`
+	TotalCount int64           `json:"totalCount"`
 	NodeList   []*NodeResponse `json:"nodeList"`
 }
 
@@ -59,12 +59,12 @@ type PodResources struct {
 	Resources map[string]int64  `json:"resources"`
 }
 
-func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) ([]*NodeResponse, error) {
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) (int64, []*NodeResponse, error) {
 	log.Infof("list node infos request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
 		ctx.Logging().Errorln("list node infos failed. error: admin is needed.")
-		return nil, errors.New("list node infos failed")
+		return 0, nil, errors.New("list node infos failed")
 	}
 
 	// 1. list nodes
@@ -72,7 +72,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	if err != nil {
 		err = fmt.Errorf("list nodes in queue %v from cache failed, err: %v", queueName, err.Error())
 		ctx.Logging().Errorln(err)
-		return nil, err
+		return 0, nil, err
 	}
 
 	ctx.Logging().Debugf("list nodes: %+v", nodes)
@@ -81,12 +81,19 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		nodeLists = append(nodeLists, nodes[i].ID)
 	}
 
+	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList, req.Labels)
+	if err != nil {
+		err = fmt.Errorf("count nodes cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
+	}
+
 	// 2. list pods and resources
 	podResources, err := storage.ResourceCache.ListPodResources(nodeLists)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
-		return nil, err
+		return 0, nil, err
 	}
 
 	var podLists []string
@@ -99,7 +106,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
-		return nil, err
+		return 0, nil, err
 	}
 
 	// 4. list labels
@@ -107,12 +114,14 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	if err != nil {
 		err = fmt.Errorf("list pod labels from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
-		return nil, err
+		return 0, nil, err
 	}
 
 	ctx.Logging().Debugf("list pods infos: %v", podInfos)
+
 	// 5. construct node info list
-	return ConstructNodeResponses(nodes, podResources, podInfos, podLabels)
+	nodeResponse, err := ConstructNodeResponses(nodes, podResources, podInfos, podLabels)
+	return nodeCounts, nodeResponse, err
 }
 
 // ListClusterResources return the node resources in clusters, lists can be filtered by labels in pods or nodes
@@ -166,10 +175,12 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 			labels = fmt.Sprintf("%s=%s", v1beta1.QuotaLabelKey, publicQueue)
 		}
 	}
-	filter := map[string]string{
-		model.NodeStatusFilter: req.NodeStatus,
+
+	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, labels, req.PageSize, offset, nil)
+	if err != nil {
+		return []model.NodeInfo{}, "", err
 	}
-	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, labels, req.PageSize, offset, filter)
+
 	return nodes, queueName, err
 }
 
