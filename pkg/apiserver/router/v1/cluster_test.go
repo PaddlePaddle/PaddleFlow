@@ -176,6 +176,43 @@ func TestListClusterNodeInfo(t *testing.T) {
 			responseCode: 200,
 		},
 		{
+			name: "No PageSize",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      1,
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "No PageNo",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageSize:    10,
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "Wrong PageSize",
+			args: args{
+				ctx:         ctx,
+				router:      router,
+				PageNo:      1,
+				PageSize:    500,
+				ClusterName: "testCn1",
+				Namespace:   "default",
+			},
+			wantErr:      true,
+			responseCode: 200,
+		},
+		{
 			name: "normal",
 			args: args{
 				ctx:         ctx,
