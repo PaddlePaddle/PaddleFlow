@@ -372,10 +372,10 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 
 		if c.Bool("sts") {
 			fsMeta.Properties = map[string]string{
-				common.StsServer: server,
-				common.Token:     token,
-				common.FsName:    fsName,
-				common.UserName:  userName,
+				common.Sts:      "true",
+				common.Token:    token,
+				common.FsName:   fsName,
+				common.UserName: userName,
 			}
 			fsMeta.Name = fsName
 			fsMeta.UfsType = common.BosType
@@ -393,7 +393,14 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				return err
 			}
 		}
+		if server != "" && token != "" {
+			fsMeta.Properties[common.Server] = server
+			fsMeta.Properties[common.Token] = token
+			fsMeta.Properties[common.FsName] = fsName
+			fsMeta.Properties[common.UserName] = userName
+		}
 	}
+
 	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),

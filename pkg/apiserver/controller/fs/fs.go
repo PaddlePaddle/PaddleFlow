@@ -74,6 +74,14 @@ type CreateFileSystemRequest struct {
 	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
+type UpdateFileSystemRequest struct {
+	Name                    string            `json:"name"`
+	Url                     string            `json:"url"`
+	Properties              map[string]string `json:"properties"`
+	Username                string            `json:"username"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
+}
+
 type ListFileSystemRequest struct {
 	Marker   string `json:"marker"`
 	MaxKeys  int32  `json:"maxKeys"`
@@ -107,6 +115,11 @@ type GetFileSystemResponse struct {
 }
 
 type CreateFileSystemResponse struct {
+	FsName string `json:"fsName"`
+	FsID   string `json:"fsID"`
+}
+
+type UpdateFileSystemResponse struct {
 	FsName string `json:"fsName"`
 	FsID   string `json:"fsID"`
 }
@@ -206,6 +219,29 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 	fs.ID = common.ID(req.Username, req.Name)
 
 	err := storage.Filesystem.CreatFileSystem(&fs)
+	if err != nil {
+		log.Errorf("create file system[%v] in db failed: %v", fs, err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return model.FileSystem{}, err
+	}
+	return fs, nil
+}
+
+// CreateFileSystem the function which performs the operation of creating FileSystem
+func (s *FileSystemService) UpdateFileSystem(ctx *logger.RequestContext, req *UpdateFileSystemRequest) (model.FileSystem, error) {
+	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
+	fs := model.FileSystem{
+		Name:                    req.Name,
+		PropertiesMap:           req.Properties,
+		ServerAddress:           serverAddress,
+		Type:                    fsType,
+		SubPath:                 subPath,
+		UserName:                req.Username,
+		IndependentMountProcess: req.IndependentMountProcess,
+	}
+	fs.ID = common.ID(req.Username, req.Name)
+
+	err := storage.Filesystem.UpdateFileSystem(&fs)
 	if err != nil {
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -561,9 +597,6 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	if modelsFs.Type != fsCommon.BosType {
 		log.Errorf("modefsType error %s", modelsFs.Type)
 		return nil, fmt.Errorf("sts must bos type")
-	} else if modelsFs.PropertiesMap[fsCommon.Sts] != "true" {
-		log.Errorf("bos[%v] do not support sts when it was created", modelsFs.Name)
-		return nil, fmt.Errorf("sts not allowed")
 	}
 	properties := modelsFs.PropertiesMap
 	ak := properties[fsCommon.AccessKey]

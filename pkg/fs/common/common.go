@@ -44,13 +44,13 @@ const (
 	ReplicationKey  = "replication"
 
 	Sts             = "sts"
-	StsServer       = "stsServer"
 	Token           = "token"
 	FsName          = "fsname"
 	UserName        = "userName"
 	StsDuration     = "duration"
 	StsACL          = "acl"
 	BosSessionToken = "sessionToken"
+	Server          = "server"
 
 	// AFS properties
 	AFSUser     = "username"

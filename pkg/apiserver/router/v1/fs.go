@@ -52,6 +52,7 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	log.Info("add PFS router")
 	// fs
 	r.Post("/fs", pr.createFileSystem)
+	r.Put("/fs", pr.updateFileSystem)
 	r.Get("/fs", pr.listFileSystem)
 	r.Get("/fs/{fsName}", pr.getFileSystem)
 	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
@@ -130,6 +131,129 @@ func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.Render(w, http.StatusCreated, response)
 }
 
+// updateFileSystem the function that handle the create file system request
+// @Summary updateFileSystem
+// @Description 更新文件系统
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body fs.UpdateFileSystemRequest true "request body"
+// @Success 201 {object} fs.UpdateFileSystemResponse
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /fs [put]
+func (pr *PFSRouter) updateFileSystem(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var updateRequest api.UpdateFileSystemRequest
+	err := common.BindJSON(r, &updateRequest)
+	if err != nil {
+		ctx.Logging().Errorf("CreateFileSystem bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+	ctx.Logging().Debugf("update file system with req[%v]", updateRequest)
+
+	fileSystemService := api.GetFileSystemService()
+
+	if updateRequest.Username == "" {
+		updateRequest.Username = ctx.UserName
+	}
+	err = validateUpdateFileSystem(&ctx, &updateRequest)
+
+	if err != nil {
+		ctx.Logging().Errorf("update file system params error: %v", err)
+		ctx.ErrorMessage = err.Error()
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+
+	fs, err := fileSystemService.UpdateFileSystem(&ctx, &updateRequest)
+	if err != nil {
+		ctx.Logging().Errorf("update file system with error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	response := api.UpdateFileSystemResponse{FsName: fs.Name, FsID: fs.ID}
+
+	ctx.Logging().Debugf("Update Fs:%v", string(config.PrettyFormat(response)))
+	common.Render(w, http.StatusCreated, response)
+}
+
+func validateUpdateFileSystem(ctx *logger.RequestContext, req *api.UpdateFileSystemRequest) error {
+	if req.Username == "" {
+		ctx.Logging().Error("userName is empty")
+		ctx.ErrorCode = common.AuthFailed
+		return fmt.Errorf("userName is empty")
+	}
+	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_-]{1,%d}$", FsNameMaxLen), req.Name)
+	if err != nil {
+		ctx.Logging().Errorf("regexp err[%v]", err)
+		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = err.Error()
+		return err
+	}
+	if !matchBool {
+		ctx.Logging().Errorf("regexp match failed with fsName[%s]", req.Name)
+		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen)).Error()
+		return common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen))
+	}
+	if len(req.Username)+len(req.Name) > FsnamePlusUsernameMaxLen {
+		ctx.Logging().Errorf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsnamePlusUsernameMaxLen)
+		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = common.InvalidField("username and name", fmt.Sprintf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsnamePlusUsernameMaxLen)).Error()
+		return common.InvalidField("name", fmt.Sprintf("The sum of the lengths of username[%s] and fsName[%s] should be less than %d", req.Username, req.Name, FsNameMaxLen))
+	}
+	urlArr := strings.Split(req.Url, ":")
+	if len(urlArr) < 2 {
+		ctx.Logging().Errorf("[%s] is not a correct file-system url", req.Url)
+		ctx.ErrorCode = common.InvalidFileSystemURL
+		return common.InvalidField("url", "is not a correct file-system url")
+	}
+
+	fileSystemType := urlArr[0]
+	if !URLPrefix[fileSystemType] {
+		ctx.Logging().Errorf("url[%s] can not support [%s] file system", req.Url, fileSystemType)
+		ctx.ErrorCode = common.InvalidFileSystemURL
+		return common.InvalidField("url", fmt.Sprintf("can not support [%s] file system", fileSystemType))
+	}
+	err = checkURLFormat(fileSystemType, req.Url, req.Properties)
+	if err != nil {
+		ctx.Logging().Errorf("check url format err[%v] with url[%s]", err, req.Url)
+		ctx.ErrorCode = common.InvalidFileSystemURL
+		return err
+	}
+	err = checkProperties(fileSystemType, req.Properties)
+	if err != nil {
+		ctx.Logging().Errorf("check properties err[%v] with properties[%v]", err, req.Properties)
+		ctx.ErrorCode = common.InvalidFileSystemProperties
+		ctx.ErrorMessage = err.Error()
+		return err
+	}
+
+	if fileSystemType == fsCommon.MockType || fileSystemType == fsCommon.LocalType || fileSystemType == fsCommon.CFSType || fileSystemType == fsCommon.AFSType {
+		return nil
+	}
+	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
+	fsMeta := fsCommon.FSMeta{
+		ID:            common.ID(req.Username, req.Name),
+		Name:          req.Name,
+		UfsType:       fsType,
+		ServerAddress: serverAddress,
+		SubPath:       subPath,
+		Properties:    req.Properties,
+		Type:          fsCommon.FSType,
+	}
+	err = checkStorageConnectivity(fsMeta)
+	if err != nil {
+		ctx.Logging().Errorf("check fs[%s] connectivity failed and err[%v]", req.Name, err)
+		ctx.ErrorCode = common.ConnectivityFailed
+		return err
+	}
+	return nil
+}
+
 func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSystemRequest) error {
 	if req.Username == "" {
 		ctx.Logging().Error("userName is empty")
@@ -174,7 +298,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.InvalidFileSystemURL
 		return err
 	}
-	err = checkProperties(fileSystemType, req)
+	err = checkProperties(fileSystemType, req.Properties)
 	if err != nil {
 		ctx.Logging().Errorf("check properties err[%v] with properties[%v]", err, req.Properties)
 		ctx.ErrorCode = common.InvalidFileSystemProperties
@@ -220,30 +344,30 @@ func checkStorageConnectivity(fsMeta fsCommon.FSMeta) error {
 	return nil
 }
 
-func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
-	if req.Properties[fsCommon.FileMode] != "" {
-		if _, err := strconv.Atoi(req.Properties[fsCommon.FileMode]); err != nil {
+func checkProperties(fsType string, properties map[string]string) error {
+	if properties[fsCommon.FileMode] != "" {
+		if _, err := strconv.Atoi(properties[fsCommon.FileMode]); err != nil {
 			return err
 		}
 	}
-	if req.Properties[fsCommon.DirMode] != "" {
-		if _, err := strconv.Atoi(req.Properties[fsCommon.DirMode]); err != nil {
+	if properties[fsCommon.DirMode] != "" {
+		if _, err := strconv.Atoi(properties[fsCommon.DirMode]); err != nil {
 			return err
 		}
 	}
 	switch fsType {
 	case fsCommon.HDFSType:
-		if req.Properties[fsCommon.KeyTabData] != "" {
-			err := common.CheckKerberosProperties(req.Properties)
+		if properties[fsCommon.KeyTabData] != "" {
+			err := common.CheckKerberosProperties(properties)
 			if err != nil {
 				log.Errorf("check kerberos properties err[%v]", err)
 				return err
 			}
-		} else if req.Properties[fsCommon.UserKey] != "" {
-			if req.Properties[fsCommon.UserKey] == "" {
+		} else if properties[fsCommon.UserKey] != "" {
+			if properties[fsCommon.UserKey] == "" {
 				return common.InvalidField("properties", "key[user] cannot be empty")
 			}
-			if req.Properties[fsCommon.Group] == "" {
+			if properties[fsCommon.Group] == "" {
 				return common.InvalidField("properties", "key[group] cannot be empty")
 			}
 		} else {
@@ -251,90 +375,90 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		}
 		return nil
 	case fsCommon.S3Type:
-		if req.Properties[fsCommon.AccessKey] == "" || req.Properties[fsCommon.SecretKey] == "" {
+		if properties[fsCommon.AccessKey] == "" || properties[fsCommon.SecretKey] == "" {
 			log.Error("s3 ak or sk is empty")
 			return common.InvalidField("properties", fmt.Sprintf("key %s or %s is empty", fsCommon.AccessKey, fsCommon.SecretKey))
 		}
-		if req.Properties[fsCommon.Endpoint] == "" {
+		if properties[fsCommon.Endpoint] == "" {
 			log.Error("endpoint is empty")
 			return common.InvalidField("properties", "key[endpoint] is empty")
 		}
-		if req.Properties[fsCommon.Bucket] == "" {
+		if properties[fsCommon.Bucket] == "" {
 			log.Error("bucket is empty")
 			return common.InvalidField("properties", "url bucket is empty")
 		}
-		if req.Properties[fsCommon.Region] == "" {
-			req.Properties[fsCommon.Region] = ""
+		if properties[fsCommon.Region] == "" {
+			properties[fsCommon.Region] = ""
 		}
-		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.SecretKey], common.GetAESEncryptKey())
+		encodedSk, err := common.AesEncrypt(properties[fsCommon.SecretKey], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt s3 sk failed: %v", err)
 			return err
 		}
-		req.Properties[fsCommon.SecretKey] = encodedSk
+		properties[fsCommon.SecretKey] = encodedSk
 		return nil
 	case fsCommon.SFTPType:
-		if req.Properties[fsCommon.UserKey] == "" {
+		if properties[fsCommon.UserKey] == "" {
 			return common.InvalidField(fsCommon.UserKey, "key[user] cannot be empty")
 		}
-		if req.Properties[fsCommon.Password] == "" {
+		if properties[fsCommon.Password] == "" {
 			return common.InvalidField("properties", "key[password] cannot be empty")
 		}
-		encodePassword, err := common.AesEncrypt(req.Properties[fsCommon.Password], common.GetAESEncryptKey())
+		encodePassword, err := common.AesEncrypt(properties[fsCommon.Password], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt sftp password failed: %v", err)
 			return err
 		}
-		req.Properties[fsCommon.Password] = encodePassword
+		properties[fsCommon.Password] = encodePassword
 		return nil
 	case fsCommon.MockType:
-		pvc := req.Properties[fsCommon.PVC]
+		pvc := properties[fsCommon.PVC]
 		if pvc == "" {
 			return common.InvalidField(fsCommon.PVC, "key[pvc] cannot be empty")
 		}
-		namespace := req.Properties[fsCommon.Namespace]
+		namespace := properties[fsCommon.Namespace]
 		if namespace == "" {
 			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
 		}
 		return nil
 	case fsCommon.AFSType:
-		if req.Properties[fsCommon.AFSUser] == "" {
+		if properties[fsCommon.AFSUser] == "" {
 			log.Error("afs user is empty")
 			return common.InvalidField("properties", fmt.Sprintf("%s is empty", fsCommon.AFSUser))
 		}
-		if req.Properties[fsCommon.AFSPassword] == "" {
+		if properties[fsCommon.AFSPassword] == "" {
 			log.Error("afs password empty")
 			return common.InvalidField("properties", fmt.Sprintf("%s is empty", fsCommon.AFSPassword))
 		}
-		encodedP, err := common.AesEncrypt(req.Properties[fsCommon.AFSPassword], common.GetAESEncryptKey())
+		encodedP, err := common.AesEncrypt(properties[fsCommon.AFSPassword], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt AFSPassword failed: %v", err)
 			return err
 		}
-		req.Properties[fsCommon.AFSPassword] = encodedP
+		properties[fsCommon.AFSPassword] = encodedP
 		return nil
 	case fsCommon.BosType:
-		if req.Properties[fsCommon.AccessKey] == "" || req.Properties[fsCommon.SecretKey] == "" {
+		if properties[fsCommon.AccessKey] == "" || properties[fsCommon.SecretKey] == "" {
 			log.Error("s3 ak or sk is empty")
 			return common.InvalidField("properties", fmt.Sprintf("key %s or %s is empty", fsCommon.AccessKey, fsCommon.SecretKey))
 		}
-		if req.Properties[fsCommon.Endpoint] == "" {
+		if properties[fsCommon.Endpoint] == "" {
 			log.Error("endpoint is empty")
 			return common.InvalidField("properties", "key[endpoint] is empty")
 		}
-		if req.Properties[fsCommon.Bucket] == "" {
+		if properties[fsCommon.Bucket] == "" {
 			log.Error("bucket is empty")
 			return common.InvalidField("properties", "url bucket is empty")
 		}
-		if req.Properties[fsCommon.Region] == "" {
-			req.Properties[fsCommon.Region] = "bj"
+		if properties[fsCommon.Region] == "" {
+			properties[fsCommon.Region] = "bj"
 		}
 
-		if req.Properties[fsCommon.Sts] == "true" {
-			if req.Properties[fsCommon.StsDuration] == "" {
-				req.Properties[fsCommon.StsDuration] = util.StsDurationDefault
+		if properties[fsCommon.Sts] == "true" {
+			if properties[fsCommon.StsDuration] == "" {
+				properties[fsCommon.StsDuration] = util.StsDurationDefault
 			}
-			duration, err := strconv.Atoi(req.Properties[fsCommon.StsDuration])
+			duration, err := strconv.Atoi(properties[fsCommon.StsDuration])
 			if err != nil {
 				log.Errorf(err.Error())
 				return err
@@ -344,19 +468,19 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 				return fmt.Errorf("duration must be in [60,129600]")
 			}
 
-			_, err = object.StsSessionToken(req.Properties[fsCommon.AccessKey], req.Properties[fsCommon.SecretKey], 10, req.Properties[fsCommon.StsACL])
+			_, err = object.StsSessionToken(properties[fsCommon.AccessKey], properties[fsCommon.SecretKey], 10, properties[fsCommon.StsACL])
 			if err != nil {
-				log.Errorf("StsSessionToken properties[%v]: err[%v]", req.Properties, err)
+				log.Errorf("StsSessionToken properties[%v]: err[%v]", properties, err)
 				return err
 			}
 		}
 
-		encodedSk, err := common.AesEncrypt(req.Properties[fsCommon.SecretKey], common.GetAESEncryptKey())
+		encodedSk, err := common.AesEncrypt(properties[fsCommon.SecretKey], common.GetAESEncryptKey())
 		if err != nil {
 			log.Errorf("encrypt s3 sk failed: %v", err)
 			return err
 		}
-		req.Properties[fsCommon.SecretKey] = encodedSk
+		properties[fsCommon.SecretKey] = encodedSk
 		return nil
 	default:
 		return nil
