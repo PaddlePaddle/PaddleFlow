@@ -129,8 +129,8 @@ func TestListClusterNodeInfo(t *testing.T) {
 	createMockClusters(t, 10, 10, 10)
 	type args struct {
 		ctx         *logger.RequestContext
-		PageSize    interface{}
-		PageNo      interface{}
+		PageSize    string
+		PageNo      string
 		ClusterName string
 		Namespace   string
 		router      *chi.Mux
@@ -168,8 +168,8 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageNo:      1,
-				PageSize:    1,
+				PageNo:      "1",
+				PageSize:    "1",
 				ClusterName: "testCn1",
 			},
 			wantErr:      false,
@@ -180,7 +180,7 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageNo:      1,
+				PageNo:      "1",
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
@@ -192,7 +192,7 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageSize:    10,
+				PageSize:    "10",
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
@@ -204,8 +204,8 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageNo:      1,
-				PageSize:    500,
+				PageNo:      "1",
+				PageSize:    "500",
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
@@ -217,7 +217,7 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageNo:      1,
+				PageNo:      "1",
 				PageSize:    "abc",
 				ClusterName: "testCn1",
 				Namespace:   "default",
@@ -231,7 +231,7 @@ func TestListClusterNodeInfo(t *testing.T) {
 				ctx:         ctx,
 				router:      router,
 				PageNo:      "abc",
-				PageSize:    100,
+				PageSize:    "100",
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
@@ -243,8 +243,8 @@ func TestListClusterNodeInfo(t *testing.T) {
 			args: args{
 				ctx:         ctx,
 				router:      router,
-				PageNo:      1,
-				PageSize:    10,
+				PageNo:      "1",
+				PageSize:    "10",
 				ClusterName: "testCn1",
 				Namespace:   "default",
 			},
@@ -256,8 +256,9 @@ func TestListClusterNodeInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			params := url.Values{}
 			params.Set("namespace", tt.args.Namespace)
-			params.Set("pageNo", fmt.Sprint(tt.args.PageNo))
-			params.Set("pageSize", fmt.Sprint(tt.args.PageSize))
+			params.Set("pageNo", tt.args.PageNo)
+			params.Set("pageSize", tt.args.PageSize)
+			t.Logf("request url %v", fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%v", tt.args.ClusterName, params.Encode()))
 			res, err := PerformGetRequest(tt.args.router, fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%s", tt.args.ClusterName, params.Encode()))
 			assert.NoError(t, err)
 			t.Logf("list node %v", res)
