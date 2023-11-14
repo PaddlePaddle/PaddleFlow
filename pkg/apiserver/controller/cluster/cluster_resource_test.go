@@ -258,13 +258,11 @@ func TestListClusterResources(t *testing.T) {
 }
 
 func TestListClusterNodeInfos(t *testing.T) {
-	ctx := &logger.RequestContext{
-		UserName: MockRootUser,
-	}
 	testCases := []struct {
 		name      string
 		req       ListClusterResourcesRequest
 		namespace string
+		ctx       *logger.RequestContext
 		err       error
 	}{
 		{
@@ -273,6 +271,9 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q1",
+			},
+			ctx: &logger.RequestContext{
+				UserName: MockRootUser,
 			},
 			namespace: "default",
 			err:       nil,
@@ -284,8 +285,24 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageNo:    1,
 				QueueName: "test-q-public",
 			},
+			ctx: &logger.RequestContext{
+				UserName: MockRootUser,
+			},
 			namespace: "default",
 			err:       nil,
+		},
+		{
+			name: "NonRoot User",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			ctx: &logger.RequestContext{
+				UserName: MockNonRootUser,
+			},
+			namespace: "default",
+			err:       fmt.Errorf("list node infos failed"),
 		},
 	}
 	driver.InitMockDB()
@@ -327,13 +344,15 @@ func TestListClusterNodeInfos(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			count, res, err := ListClusterNodeInfos(ctx, tc.req, tc.namespace)
-			assert.Equal(t, tc.err, err)
-			resJSON, err := json.Marshal(res)
-			if err == nil {
+			count, res, listErr := ListClusterNodeInfos(tc.ctx, tc.req, tc.namespace)
+			assert.Equal(t, tc.err, listErr)
+			if listErr == nil {
+				assert.Equal(t, int(count), nodeCount)
+			}
+			resJSON, resErr := json.Marshal(res)
+			if resErr == nil {
 				t.Logf("node infos: %s", string(resJSON))
 			}
-			assert.Equal(t, int(count), nodeCount)
 		})
 	}
 }
