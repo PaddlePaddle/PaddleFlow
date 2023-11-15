@@ -1521,6 +1521,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			}, token)
 			if err != nil {
 				log.Errorf("GetSts: err[%v]", err)
+				return subpath, storage, err
 			}
 			newProperties := fs.Properties
 			secretKey_, err = common.AesDecrypt(newProperties[fsCommon.SecretKey], common.GetAESEncryptKey())
@@ -1556,10 +1557,11 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 						Username: username,
 					}, token)
 					if err != nil {
-						log.Errorf("GetSts: err[%v]", err)
+						log.Errorf("get filesystem fsName[%s]: err[%v]", fsName, err)
 						time.Sleep(10 * time.Second)
 						continue
 					}
+					newProperties = fs.Properties
 					secretKey_, err = common.AesDecrypt(newProperties[fsCommon.SecretKey], common.GetAESEncryptKey())
 					stsCredential, err = auth.NewSessionBceCredentials(
 						newProperties[fsCommon.AccessKey],
