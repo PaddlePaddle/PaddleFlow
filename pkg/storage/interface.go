@@ -134,6 +134,7 @@ type PipelineStoreInterface interface {
 type FileSystemStoreInterface interface {
 	// filesystem
 	CreatFileSystem(fs *model.FileSystem) error
+	UpdateFileSystem(fs *model.FileSystem) error
 	GetFileSystemWithFsID(fsID string) (model.FileSystem, error)
 	DeleteFileSystem(tx *gorm.DB, id string) error
 	ListFileSystem(limit int, userName, marker, fsName string) ([]model.FileSystem, error)

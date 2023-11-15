@@ -72,12 +72,12 @@ func TestSTS(t *testing.T) {
 	properties[fsCommon.FsName] = "fsbb"
 	properties[fsCommon.Group] = "root-group"
 	properties[fsCommon.Owner] = "root"
-	properties[fsCommon.StsServer] = "127.0.0.1:8999"
+	properties[fsCommon.Server] = "127.0.0.1:8999"
 	properties[fsCommon.BosSessionToken] = "token"
 
 	_, err := NewObjectFileSystem(properties)
 	assert.NotNil(t, err, nil)
-	delete(properties, fsCommon.StsServer)
+	delete(properties, fsCommon.Server)
 	_, err = NewObjectFileSystem(properties)
 	assert.NotNil(t, err, nil)
 }

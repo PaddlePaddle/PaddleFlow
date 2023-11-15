@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -28,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	k8sCore "k8s.io/api/core/v1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -568,6 +571,86 @@ func TestCreateStsError(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, result.Code)
 
+}
+
+func TestUpdateSts(t *testing.T) {
+	ak := os.Getenv(Ori_ak)
+	sk := os.Getenv(Ori_sk)
+	bucket := os.Getenv(Ori_Bucket)
+	if bucket == "" || sk == "" || ak == "" {
+		log.Info("no ak or sk")
+		return
+	}
+	router, baseUrl := prepareDBAndAPI(t)
+
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey": ak,
+			"region":    "bj",
+			"secretKey": sk,
+			"endpoint":  "bj.bcebos.com",
+			"sts":       "true",
+			"duration":  "270",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	fsUrlSts := baseUrl + "/fsSts/" + mockFsName
+	result, err = PerformGetRequest(router, fsUrlSts)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, result.Code)
+	data, err := io.ReadAll(result.Body)
+	assert.Nil(t, err)
+	properties := map[string]string{}
+	json.Unmarshal(data, &properties)
+
+	ak = properties[fsCommon.AccessKey]
+	sk = properties[fsCommon.SecretKey]
+	sk, err = common.AesDecrypt(sk, common.GetAESEncryptKey())
+	assert.Nil(t, err)
+	sessionToken := properties[fsCommon.BosSessionToken]
+	if bucket == "" || sk == "" || ak == "" {
+		log.Info("no ak or sk")
+		return
+	}
+	router, baseUrl = prepareDBAndAPI(t)
+	createFsReq = fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey":    ak,
+			"region":       "bj",
+			"endpoint":     "bj.bcebos.com",
+			"secretKey":    sk,
+			"sessionToken": sessionToken,
+		},
+	}
+
+	fsUrl = baseUrl + "/fs"
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	updateFsReq := fs.UpdateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "bos://" + bucket + "/" + Test_SubPath,
+		Properties: map[string]string{
+			"accessKey":    ak,
+			"region":       "bj",
+			"endpoint":     "bj.bcebos.com",
+			"secretKey":    sk,
+			"sessionToken": sessionToken,
+		},
+	}
+	result, err = PerformPutRequest(router, fsUrl, updateFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
 }
 
 func TestCreateSts(t *testing.T) {
