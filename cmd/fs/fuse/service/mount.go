@@ -371,12 +371,11 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		}
 
 		if c.Bool("sts") {
-			fsMeta.Properties = map[string]string{
-				common.Sts:      "true",
-				common.Token:    token,
-				common.FsName:   fsName,
-				common.UserName: userName,
-			}
+			fsMeta.Properties[common.Sts] = "true"
+			fsMeta.Properties[common.Server] = server
+			fsMeta.Properties[common.Token] = token
+			fsMeta.Properties[common.FsName] = fsName
+			fsMeta.Properties[common.UserName] = userName
 			fsMeta.Name = fsName
 			fsMeta.UfsType = common.BosType
 		} else {
@@ -419,6 +418,11 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		Config: kv.Config{
 			CachePath: c.String("data-cache-path"),
 		},
+	}
+	if c.Bool("no-implicit-dir") {
+		fsMeta.Properties[common.ImplicitDir] = "false"
+	} else {
+		fsMeta.Properties[common.ImplicitDir] = "true"
 	}
 	vfsOptions := []vfs.Option{
 		vfs.WithDataCacheConfig(d),

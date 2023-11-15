@@ -74,6 +74,7 @@ const (
 	S3ForcePathStyle   = "s3ForcePathStyle"
 	DirMode            = "dirMode"
 	FileMode           = "fileMode"
+	ImplicitDir        = "implicitDir"
 
 	// sftp properties
 	Address  = "address"

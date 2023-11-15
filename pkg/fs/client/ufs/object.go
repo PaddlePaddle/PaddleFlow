@@ -55,6 +55,7 @@ type objectFileSystem struct {
 	subPath     string // bucket:subPath/name
 	storage     object.ObjectStorage
 	defaultTime time.Time
+	implicitDir bool
 	sync.Mutex
 	chunkPool *sync.Pool
 	copyPool  *ants.Pool
@@ -229,6 +230,11 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	}()
 	// 2. check if dir exists with dir key not exist
 	go func() {
+		if !fs.implicitDir {
+			log.Infof("returen xx")
+			return
+		}
+		log.Infof("list is")
 		listInput := &object.ListInput{
 			Prefix:    dirKey,
 			MaxKeys:   1,
@@ -1372,6 +1378,15 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		Group = group.(string)
 	} else {
 		Group = "root"
+	}
+	implicitDir, ok := properties[fsCommon.ImplicitDir].(string)
+	fmt.Println(properties[fsCommon.ImplicitDir])
+	if ok && implicitDir == "false" {
+		log.Infof("fsfffl false")
+		fs.implicitDir = false
+	} else {
+		log.Infof("true ruttttttt")
+		fs.implicitDir = true
 	}
 
 	return fs, nil
