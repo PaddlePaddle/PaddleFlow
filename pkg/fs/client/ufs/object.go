@@ -231,10 +231,8 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	// 2. check if dir exists with dir key not exist
 	go func() {
 		if !fs.implicitDir {
-			log.Infof("returen xx")
 			return
 		}
-		log.Infof("list is")
 		listInput := &object.ListInput{
 			Prefix:    dirKey,
 			MaxKeys:   1,
@@ -653,6 +651,9 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 	errObjectChan := make(chan error, 1)
 	errDirChan := make(chan error, 1)
 	go func() {
+		if fs.implicitDir {
+			return
+		}
 		listInput := &object.ListInput{
 			Prefix:  path,
 			MaxKeys: 1,
@@ -1339,7 +1340,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}
 		}
 		if !exist {
-			fmt.Println("gghhhhhhh")
 			if err = fs.createEmptyDir(Delimiter); err != nil {
 				log.Errorf("fs createEmptyDir err %v", err)
 				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
@@ -1380,12 +1380,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		Group = "root"
 	}
 	implicitDir, ok := properties[fsCommon.ImplicitDir].(string)
-	fmt.Println(properties[fsCommon.ImplicitDir])
 	if ok && implicitDir == "false" {
-		log.Infof("fsfffl false")
 		fs.implicitDir = false
 	} else {
-		log.Infof("true ruttttttt")
 		fs.implicitDir = true
 	}
 
