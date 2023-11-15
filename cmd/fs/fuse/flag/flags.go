@@ -134,7 +134,7 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 		},
 		&cli.Float64Flag{
 			Name:  "free-space-ratio",
-			Value: 0.1,
+			Value: 0.3,
 			Usage: "min free space (ratio)",
 		},
 		&cli.BoolFlag{
