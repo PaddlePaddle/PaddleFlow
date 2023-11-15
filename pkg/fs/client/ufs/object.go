@@ -651,9 +651,6 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 	errObjectChan := make(chan error, 1)
 	errDirChan := make(chan error, 1)
 	go func() {
-		if fs.implicitDir {
-			return
-		}
 		listInput := &object.ListInput{
 			Prefix:  path,
 			MaxKeys: 1,
