@@ -290,6 +290,15 @@ func BuildJobMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 	}
 }
 
+func BuildTaskLabels(labels map[string]string, jobID string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[schema.JobIDLabel] = jobID
+	labels[schema.JobOwnerLabel] = schema.JobOwnerValue
+	return labels
+}
+
 func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *schema.Conf) {
 	if metadata == nil || taskConf == nil {
 		return
