@@ -90,19 +90,29 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 		}
 
 	}
-	in, err := fh.storage.Get(fh.key, int64(off), int64(limit))
-	if err != nil {
-		log.Errorf("fh.storage.Get: key[%s] off[%d] limit[%d] err[%v]", fh.key, off, limit, err)
-		return 0, err
-	}
-
 	var n int
-	n, err = io.ReadFull(in, dest)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		log.Errorf("io.ReadFull: key[%s] off[%d] limit[%d] err[%v]", fh.key, off, limit, err)
-		return 0, err
+	var err error
+	var in io.ReadCloser
+	for i := 0; i < 5; i++ {
+		in, err = fh.storage.Get(fh.key, int64(off), int64(limit))
+		if err != nil && !strings.Contains(err.Error(), "not exist") {
+			log.Errorf("fh.storage.Get[%v]: key[%s] off[%d] limit[%d] err[%v]", i, fh.key, off, limit, err)
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		if err != nil {
+			return 0, err
+		}
+
+		n, err = io.ReadFull(in, dest)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			log.Errorf("io.ReadFull[%v]: key[%s] off[%d] limit[%d] err[%v]", i, fh.key, off, limit, err)
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		break
 	}
-	return n, nil
+	return n, err
 }
 
 func (fh *objectFileHandle) Write(data []byte, off uint64) (written uint32, code error) {
@@ -201,7 +211,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	}
 	dirChan := make(chan *object.ListBlobsOutput, 1)
 	objectChan := make(chan *object.HeadObjectOutput, 2)
-	errDirBlobChan := make(chan error, 1)
 	errDirChan := make(chan error, 1)
 	errObjectChan := make(chan error, 1)
 
@@ -222,7 +231,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			break
 		}
 		if headErr != nil {
-			log.Debugf("Head object err: %v", headErr)
+			log.Infof("key[%s] Head object err: %v", fileKey, headErr)
 			errObjectChan <- headErr
 			return
 		}
@@ -231,10 +240,8 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	// 2. check if dir exists with dir key not exist
 	go func() {
 		if !fs.implicitDir {
-			log.Infof("returen xx")
 			return
 		}
-		log.Infof("list is")
 		listInput := &object.ListInput{
 			Prefix:    dirKey,
 			MaxKeys:   1,
@@ -265,14 +272,14 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 		for i := 0; i < 5; i++ {
 			resp, headErr = fs.storage.Head(dirKey)
 			if headErr != nil && !isNotExistErr(headErr) {
-				log.Errorf("Head[%v] object err: %v", i, headErr)
+				log.Errorf("Key[%s] Head[%v] object err: %v", dirKey, i, headErr)
 				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
 				continue
 			}
 			break
 		}
 		if headErr != nil {
-			log.Debugf("Head object err: %v", headErr)
+			log.Infof("Key[%s] Head object err: %v", dirKey, headErr)
 			errObjectChan <- headErr
 			return
 		}
@@ -313,12 +320,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 				return nil, resp
 			}
 			checking--
-		case resp := <-errDirBlobChan:
-			if !isNotExistErr(resp) {
-				log.Errorf("errDirBlobChan object err: %v", resp)
-				return nil, resp
-			}
-			checking--
 		case resp := <-dirChan:
 			if len(resp.Items) > 0 || len(resp.Prefixes) > 0 {
 				fInfo := fs.getRootDirAttr()
@@ -328,11 +329,18 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			}
 			checking--
 		}
-		switch checking {
-		case 1:
-			break
-		case 0:
-			return nil, syscall.ENOENT
+		if fs.implicitDir {
+			switch checking {
+			case 1:
+				break
+			case 0:
+				return nil, syscall.ENOENT
+			}
+		} else {
+			switch checking {
+			case 1:
+				return nil, syscall.ENOENT
+			}
 		}
 	}
 }
@@ -585,7 +593,7 @@ func (fs *objectFileSystem) Get(name string, flags uint32, off, limit int64) (io
 	var err error
 	for i := 0; i < 10; i++ {
 		response, err = fs.storage.Get(key, off, limit)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "not exist") {
 			log.Errorf("fs.storage.Get: key[%s] off[%d] limit[%d] err[%v] [%v]", name, off, limit, err, i)
 			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "send request failed") {
 				time.Sleep(100 * time.Duration(i+1) * time.Millisecond)
@@ -1339,7 +1347,6 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			}
 		}
 		if !exist {
-			fmt.Println("gghhhhhhh")
 			if err = fs.createEmptyDir(Delimiter); err != nil {
 				log.Errorf("fs createEmptyDir err %v", err)
 				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
@@ -1380,12 +1387,9 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		Group = "root"
 	}
 	implicitDir, ok := properties[fsCommon.ImplicitDir].(string)
-	fmt.Println(properties[fsCommon.ImplicitDir])
 	if ok && implicitDir == "false" {
-		log.Infof("fsfffl false")
 		fs.implicitDir = false
 	} else {
-		log.Infof("true ruttttttt")
 		fs.implicitDir = true
 	}
 

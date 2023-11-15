@@ -275,6 +275,7 @@ func cleanCache() (errRet error) {
 func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	var fsMeta common.FSMeta
 	var links map[string]common.FSMeta
+	fsMeta.Properties = make(map[string]string)
 	server := c.String("server")
 	if c.Bool("local") == true {
 		localRoot := c.String("local-root")

@@ -55,6 +55,7 @@ func NewDataCache(config Config) DataCacheClient {
 	config.CachePath = filepath.Join(config.CachePath, config.FsID,
 		strconv.Itoa(int(time.Now().Unix()))+"_"+utils.GetRandID(5))
 	DataCachePath = config.CachePath
+	// currently, supports file client only
 	return newFileClient(config)
 }
 
@@ -66,7 +67,7 @@ type rCache struct {
 	ufs           ufs.UnderFileStorage
 	buffers       ReadBufferMap
 	bufferPool    *BufferPool
-	lock          sync.RWMutex
+	lock          *sync.RWMutex
 	seqReadAmount uint64
 }
 
@@ -108,6 +109,11 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		buffer, findBuffer := r.buffers[indexOff]
 		if findBuffer && buffer.page != nil && buffer.page.ready && buffer.size <= 0 {
 			delete(r.buffers, indexOff)
+		} else {
+			if findBuffer {
+				buffer.LastUsedTime = time.Now()
+				r.buffers[indexOff] = buffer
+			}
 		}
 		r.lock.Unlock()
 		if nread == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
