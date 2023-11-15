@@ -192,11 +192,11 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 func (mountInfo *Info) commonOptions() []string {
 	var options []string
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
-	if mountInfo.ServerAddress != "" {
-		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
-	}
 	if mountInfo.FS.PropertiesMap[common.Sts] == "true" && mountInfo.FS.Type == common.BosType {
 		options = append(options, "--sts=true")
+		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
+	} else if mountInfo.FS.PropertiesMap[common.BosSessionToken] != "" && mountInfo.FS.Type == common.BosType {
+		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
 	} else {
 		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 	}
