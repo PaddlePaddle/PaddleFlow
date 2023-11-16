@@ -39,7 +39,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -320,7 +319,8 @@ func getQueueUsedQuota(clusterInfo string, client kubernetes.Interface, q *api.Q
 func isAllocatedPod(pod *corev1.Pod, queueName string) bool {
 	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
 		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
-	if pod.Annotations == nil || pod.Annotations[v1alpha1.QueueNameKey] != queueName {
+	if pod.Annotations[pfschema.QueueLabelKey] != queueName ||
+		pod.Annotations[pfschema.SchedulingQueueLabelKey] != queueName {
 		return false
 	}
 	if pod.Spec.NodeName != "" {
