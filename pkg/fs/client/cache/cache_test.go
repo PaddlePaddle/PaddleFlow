@@ -42,6 +42,7 @@ func Test_rCache_readFromReadAhead(t *testing.T) {
 				id:      "xx",
 				length:  10,
 				buffers: ReadBufferMap{1: &ReadBuffer{}},
+				lock: &sync.RWMutex{},
 			},
 			wantBytesRead: 0,
 			wantErr:       true,
