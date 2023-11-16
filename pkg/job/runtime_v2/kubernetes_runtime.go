@@ -319,7 +319,7 @@ func getQueueUsedQuota(clusterInfo string, client kubernetes.Interface, q *api.Q
 func isAllocatedPod(pod *corev1.Pod, queueName string) bool {
 	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
 		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
-	if pod.Annotations[pfschema.QueueLabelKey] != queueName ||
+	if pod.Annotations[pfschema.QueueLabelKey] != queueName &&
 		pod.Annotations[pfschema.SchedulingQueueLabelKey] != queueName {
 		return false
 	}
