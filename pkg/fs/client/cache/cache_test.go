@@ -19,7 +19,7 @@ func Test_rCache_readFromReadAhead(t *testing.T) {
 		ufs           ufs.UnderFileStorage
 		buffers       ReadBufferMap
 		bufferPool    *BufferPool
-		lock          sync.RWMutex
+		lock          *sync.RWMutex
 		seqReadAmount uint64
 	}
 	type args struct {
