@@ -1320,11 +1320,13 @@ func TestCreatePPLJob(t *testing.T) {
 			wantErr: fmt.Errorf("required fields in {image} are empty, please fill it"),
 		},
 		{
-			name: "image are empty",
+			name: "create successfully",
 			args: args{
 				req: &schema.Conf{
-					Name:            "ppl",
-					Env:             map[string]string{},
+					Name: "ppl",
+					Env: map[string]string{
+						schema.EnvJobFlavour: MockFlavour2,
+					},
 					Command:         "",
 					Image:           "busybox:1",
 					ExtraFileSystem: nil,
