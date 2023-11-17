@@ -106,11 +106,18 @@ func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 
 		n, err = io.ReadFull(in, dest)
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			if in != nil {
+				in.Close()
+				in = nil
+			}
 			log.Errorf("io.ReadFull[%v]: key[%s] off[%d] limit[%d] err[%v]", i, fh.key, off, limit, err)
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		break
+	}
+	if err == nil && in != nil {
+		in.Close()
 	}
 	return n, err
 }

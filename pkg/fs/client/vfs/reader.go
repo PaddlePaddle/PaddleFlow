@@ -33,7 +33,7 @@ import (
 const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)
 const DeleteBufferLimit = uint64(100 * 1024 * 1024)
 
-const thresholdDuration = 2 * time.Minute
+const thresholdDuration = 1 * time.Minute
 
 type FileReader interface {
 	Read(buf []byte, off uint64) (int, syscall.Errno)
@@ -131,6 +131,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			}
 			bytesRead += nread
 			fh.seqReadAmount += uint64(nread)
+			fh.readBufOffset += uint64(nread)
 			if off+uint64(nread) >= fh.length {
 				break
 			}
@@ -142,8 +143,11 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 		}
 	} else {
 		if fh.fd == nil {
-			log.Debug("fd is empty")
-			return 0, syscall.EBADF
+			fh.fd, err = fh.ufs.Open(fh.path, syscall.O_RDONLY, fh.length)
+			if err != nil {
+				log.Errorf("fh ufs open err %v", err)
+				return 0, syscall.EBADF
+			}
 		}
 		// todo:: 不走缓存部分需要保持原来open-read模式，保证这部分性能
 		bytesRead, err = fh.fd.Read(buf, off)
@@ -174,7 +178,6 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 	}
 
 	bytesRead, err = fh.streamReader.Read(buf)
-	fh.readBufOffset += uint64(bytesRead)
 	if err != nil {
 		log.Debugf("stream reader err %v", err)
 		if err != io.EOF {
