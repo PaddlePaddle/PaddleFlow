@@ -70,8 +70,8 @@ func (nc *ClusterNodeCache) ListPods(podIDs []string, namespace string) ([]model
 	return pods, nil
 }
 
-func (nc *ClusterNodeCache) CountNode(clusterNames []string, labels string) (int64, error) {
-	log.Debugf("begin to count node, clusterNames: %v, labels: %s", clusterNames, labels)
+func (nc *ClusterNodeCache) CountNode(clusterNames []string) (int64, error) {
+	log.Debugf("begin to count node, clusterNames: %v", clusterNames)
 	tx := nc.dbCache.Model(&model.NodeInfo{})
 
 	// 1. query with clusterNames if set

@@ -67,7 +67,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		return 0, nil, errors.New("list node infos failed")
 	}
 
-	// 1. list nodes
+	// 1. list nodes and count
 	nodes, queueName, err := listClusterNodes(req)
 	if err != nil {
 		err = fmt.Errorf("list nodes in queue %v from cache failed, err: %v", queueName, err.Error())
@@ -81,14 +81,14 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		nodeLists = append(nodeLists, nodes[i].ID)
 	}
 
-	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList, req.Labels)
+	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList)
 	if err != nil {
 		err = fmt.Errorf("count nodes cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
 		return 0, nil, err
 	}
 
-	// 2. list pods resources
+	// 2. list pod resources
 	podResources, err := storage.ResourceCache.ListPodResources(nodeLists)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
@@ -101,7 +101,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		podLists = append(podLists, podResources[i].PodID)
 	}
 
-	// 3. list pods
+	// 3. list pod infos
 	podInfos, err := storage.NodeCache.ListPods(podLists, namespace)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
@@ -109,7 +109,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		return 0, nil, err
 	}
 
-	// 4. list labels
+	// 4. list pod labels
 	podLabels, err := storage.LabelCache.ListLabels(podLists, model.ObjectTypePod)
 	if err != nil {
 		err = fmt.Errorf("list pod labels from cache failed, err: %v", err.Error())

@@ -2,10 +2,11 @@ package v1
 
 import (
 	"fmt"
-	"github.com/go-chi/chi"
-	"github.com/stretchr/testify/assert"
 	"net/url"
 	"testing"
+
+	"github.com/go-chi/chi"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -258,7 +259,7 @@ func TestListClusterNodeInfo(t *testing.T) {
 			params.Set("namespace", tt.args.Namespace)
 			params.Set("pageNo", tt.args.PageNo)
 			params.Set("pageSize", tt.args.PageSize)
-			t.Logf("request url %v", fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%v", tt.args.ClusterName, params.Encode()))
+			t.Logf("request url: %v", fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%v", tt.args.ClusterName, params.Encode()))
 			res, err := PerformGetRequest(tt.args.router, fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%s", tt.args.ClusterName, params.Encode()))
 			assert.NoError(t, err)
 			t.Logf("list node %v", res)
