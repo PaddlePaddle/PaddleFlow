@@ -53,12 +53,16 @@ func warmup_(fname string, paths []string, threads int, warmType string) error {
 	for _, path := range paths {
 		path_ := path
 		_ = pool.Submit(func() {
-			if warmType == "meta" {
-				warmupMeta(path_)
-			} else if warmType == "data" {
-				warmupData(path_)
+			if strings.HasSuffix(path_, "/") {
+				warmupDir(path_)
 			} else {
-				log.Fatal("type of warmup must meta or data")
+				if warmType == "meta" {
+					warmupMeta(path_)
+				} else if warmType == "data" {
+					warmupData(path_)
+				} else {
+					log.Fatal("type of warmup must meta or data")
+				}
 			}
 			bar.IncrBy(1)
 		})
@@ -72,6 +76,13 @@ func warmupMeta(fileName string) {
 	_, err := os.Stat(fileName)
 	if err != nil {
 		log.Errorf("Stat file %s with error: %v", fileName, err)
+	}
+}
+
+func warmupDir(dirName string) {
+	_, err := os.ReadDir(dirName)
+	if err != nil {
+		log.Errorf("ReadDir %s with error: %v", dirName, err)
 	}
 }
 
