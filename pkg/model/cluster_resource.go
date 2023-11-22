@@ -96,16 +96,56 @@ func (node *NodeInfo) AfterFind(tx *gorm.DB) error {
 	return nil
 }
 
+func (pod *PodInfo) BeforeSave(tx *gorm.DB) error {
+	if pod.Labels != nil {
+		infoJson, err := json.Marshal(pod.Labels)
+		if err != nil {
+			return err
+		}
+		pod.LabelsJSON = string(infoJson)
+	}
+	if pod.Resources != nil {
+		infoJson, err := json.Marshal(pod.Resources)
+		if err != nil {
+			return err
+		}
+		pod.ResourcesJSON = string(infoJson)
+	}
+	return nil
+}
+
+func (pod *PodInfo) AfterFind(tx *gorm.DB) error {
+	if pod.ResourcesJSON != "" {
+		var resources = make(map[string]int64)
+		err := json.Unmarshal([]byte(pod.ResourcesJSON), &resources)
+		if err != nil {
+			return err
+		}
+		pod.Resources = resources
+	}
+	if pod.LabelsJSON != "" {
+		var labels = make(map[string]string)
+		err := json.Unmarshal([]byte(pod.LabelsJSON), &labels)
+		if err != nil {
+			return err
+		}
+		pod.Labels = labels
+	}
+	return nil
+}
+
 type PodInfo struct {
-	Pk        int64             `gorm:"primaryKey;autoIncrement" json:"-"`
-	ID        string            `gorm:"column:id" json:"id"`
-	Name      string            `gorm:"column:name" json:"name"`
-	Namespace string            `gorm:"column:namespace" json:"namespace"`
-	NodeID    string            `gorm:"column:node_id" json:"nodeID"`
-	NodeName  string            `gorm:"column:node_name" json:"nodeName"`
-	Status    int               `gorm:"column:status" json:"status"`
-	Labels    map[string]string `gorm:"-" json:"labels"`
-	Resources map[string]int64  `gorm:"-" json:"resources"`
+	Pk            int64             `gorm:"primaryKey;autoIncrement" json:"-"`
+	ID            string            `gorm:"column:id" json:"id"`
+	Name          string            `gorm:"column:name" json:"name"`
+	Namespace     string            `gorm:"column:namespace" json:"namespace"`
+	NodeID        string            `gorm:"column:node_id" json:"nodeID"`
+	NodeName      string            `gorm:"column:node_name" json:"nodeName"`
+	Status        int               `gorm:"column:status" json:"status"`
+	Labels        map[string]string `gorm:"-" json:"labels"`
+	LabelsJSON    string            `gorm:"column:labels" json:"-"`
+	Resources     map[string]int64  `gorm:"-" json:"resources"`
+	ResourcesJSON string            `gorm:"column:resources" json:"-"`
 }
 
 func (PodInfo) TableName() string {
