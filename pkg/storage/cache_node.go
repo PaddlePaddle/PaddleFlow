@@ -53,14 +53,14 @@ func (nc *ClusterNodeCache) GetNode(nodeID string) (model.NodeInfo, error) {
 	return clusterNodeInfo, nil
 }
 
-func (nc *ClusterNodeCache) ListPods(podIDs []string, namespace string) ([]model.PodInfo, error) {
-	log.Debugf("begin to list pods: %s", podIDs)
+func (nc *ClusterNodeCache) ListPods(nodeIDs []string, namespace string) ([]model.PodInfo, error) {
+	log.Debugf("begin to list pods on nodes %s", nodeIDs)
 	var pods []model.PodInfo
 	tx := nc.dbCache.Model(&model.PodInfo{})
 
 	// 1. query with nodeID list
-	if len(podIDs) != 0 {
-		tx = tx.Where("id IN ?", podIDs)
+	if len(nodeIDs) != 0 {
+		tx = tx.Where("node_id IN ?", nodeIDs)
 	}
 
 	// 2. query with namespace

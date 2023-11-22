@@ -77,10 +77,6 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	ctx.Logging().Debugf("list nodes: %+v", nodes)
-	var nodeList []string
-	for i := range nodes {
-		nodeList = append(nodeList, nodes[i].ID)
-	}
 
 	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList)
 	if err != nil {
@@ -89,30 +85,30 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 		return 0, nil, err
 	}
 
-	// 2. list pod resources
-	podResources, err := storage.ResourceCache.ListPodResources(nodeList)
-	if err != nil {
-		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
-		ctx.Logging().Errorln(err)
-		return 0, nil, err
+	var nodeList []string
+	for i := range nodes {
+		nodeList = append(nodeList, nodes[i].ID)
 	}
 
-	var podLists []string
-	for i := range podResources {
-		podLists = append(podLists, podResources[i].PodID)
+	// 2. list node resources
+	nodeResources, err := storage.ResourceCache.ListNodeResources(nodeList)
+	if err != nil {
+		err = fmt.Errorf("list node resources from cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
 	}
 
 	// 3. list pod infos
-	podInfos, err := storage.NodeCache.ListPods(podLists, req.Namespace)
+	podInfos, err := storage.NodeCache.ListPods(nodeList, req.Namespace)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
 		return 0, nil, err
 	}
-
 	ctx.Logging().Debugf("list pods infos: %v", podInfos)
+
 	// 4. construct node info list
-	nodeResponse, err := ConstructNodeResponses(nodes, podResources, podInfos)
+	nodeResponse, err := ConstructNodeResponses(nodes, nodeResources, podInfos)
 	return nodeCounts, nodeResponse, err
 }
 
@@ -177,33 +173,21 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 }
 
 func ConstructNodeResponses(nodes []model.NodeInfo,
-	podResources []model.ResourceInfo, podInfos []model.PodInfo) ([]*NodeResponse, error) {
+	nodeResources []model.ResourceInfo, podInfos []model.PodInfo) ([]*NodeResponse, error) {
 
 	var err error
-	var nodeResourses = map[string]*NodeResponse{}
+	var nodeResponses = map[string]*NodeResponse{}
 
-	// 1. node used resources
 	var nodeUsed = map[string]map[string]int64{}
-	var podResource = map[string]map[string]int64{}
-	for _, rInfo := range podResources {
+	for _, rInfo := range nodeResources {
 		nodeUsedResources, find := nodeUsed[rInfo.NodeID]
 		if !find {
 			nodeUsedResources = make(map[string]int64)
 			nodeUsed[rInfo.NodeID] = nodeUsedResources
-			nodeUsedResources[rInfo.Name] = rInfo.Value
-		} else {
-			nodeUsedResources[rInfo.Name] += rInfo.Value
 		}
-
-		podUsedResource, find := podResource[rInfo.PodID]
-		if !find {
-			podUsedResource = make(map[string]int64)
-			podResource[rInfo.PodID] = podUsedResource
-		}
-		podUsedResource[rInfo.Name] = rInfo.Value
+		nodeUsedResources[rInfo.Name] = rInfo.Value
 	}
 
-	// 2. list pods on node
 	var nodePods = map[string][]PodResources{}
 	for _, pInfo := range podInfos {
 		pResource, find := nodePods[pInfo.NodeID]
@@ -213,14 +197,14 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 		pResource = append(pResource, PodResources{
 			PodName:   pInfo.Name,
 			Status:    pInfo.Status,
-			Resources: podResource[pInfo.ID],
+			Resources: pInfo.Resources,
 			Labels:    pInfo.Labels,
 		})
 		nodePods[pInfo.NodeID] = pResource
 	}
 
 	for _, node := range nodes {
-		nodeResponse, find := nodeResourses[node.ID]
+		nodeResponse, find := nodeResponses[node.ID]
 		if !find {
 			nodeResponse = &NodeResponse{
 				Used:     make(map[string]int64),
@@ -228,7 +212,7 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 				Labels:   make(map[string]string),
 				NodeName: node.Name,
 			}
-			nodeResourses[node.ID] = nodeResponse
+			nodeResponses[node.ID] = nodeResponse
 		}
 
 		// set node used, capacity, and labels
@@ -255,7 +239,7 @@ func ConstructNodeResponses(nodes []model.NodeInfo,
 	}
 
 	var nodeList []*NodeResponse
-	for _, node := range nodeResourses {
+	for _, node := range nodeResponses {
 		nodeList = append(nodeList, node)
 	}
 	log.Debugf("node resources: %+v", nodeList)

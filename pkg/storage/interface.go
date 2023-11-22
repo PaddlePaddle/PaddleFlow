@@ -259,7 +259,7 @@ type NodeCacheInterface interface {
 	GetNode(nodeID string) (model.NodeInfo, error)
 	ListNode([]string, string, int, int, map[string]string) ([]model.NodeInfo, error)
 	CountNode(clusterList []string) (int64, error)
-	ListPods(podIDList []string, namespace string) ([]model.PodInfo, error)
+	ListPods(nodeIDList []string, namespace string) ([]model.PodInfo, error)
 }
 
 type PodCacheInterface interface {
@@ -272,7 +272,6 @@ type ResourceCacheInterface interface {
 	AddResource(rInfo *model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
 	ListNodeResources(nodeIDList []string) ([]model.ResourceInfo, error)
-	ListPodResources(nodeIDList []string) ([]model.ResourceInfo, error)
 }
 
 type LabelCacheInterface interface {

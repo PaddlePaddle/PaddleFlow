@@ -432,16 +432,6 @@ func TestConstructNodeResponses(t *testing.T) {
 					NodeID:   "node-instance-1",
 					Value:    4,
 				},
-				{
-					Name:  "cpu",
-					PodID: "pod-instance-1",
-					Value: 200,
-				},
-				{
-					Name:  "cpu",
-					PodID: "pod-instance-2",
-					Value: 20,
-				},
 			},
 			pods: []model.PodInfo{
 				{
@@ -453,6 +443,9 @@ func TestConstructNodeResponses(t *testing.T) {
 					Labels: map[string]string{
 						"jobName": "job-b286f95359884378",
 					},
+					Resources: map[string]int64{
+						"cpu": 20,
+					},
 				},
 				{
 					Name:     "pod-instance-1",
@@ -462,6 +455,9 @@ func TestConstructNodeResponses(t *testing.T) {
 					Status:   1,
 					Labels: map[string]string{
 						"jobName": "job-0bb64357dbedcbdf",
+					},
+					Resources: map[string]int64{
+						"cpu": 200,
 					},
 				},
 			},
