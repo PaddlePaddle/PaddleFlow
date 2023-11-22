@@ -360,12 +360,11 @@ func TestListClusterNodeInfos(t *testing.T) {
 func TestConstructNodeResponses(t *testing.T) {
 	mockClusterID := "cluster-test"
 	testCases := []struct {
-		name   string
-		nodes  []model.NodeInfo
-		used   []model.ResourceInfo
-		pods   []model.PodInfo
-		labels []model.LabelInfo
-		err    error
+		name  string
+		nodes []model.NodeInfo
+		used  []model.ResourceInfo
+		pods  []model.PodInfo
+		err   error
 	}{
 		{
 			name: "2 nodes",
@@ -457,6 +456,9 @@ func TestConstructNodeResponses(t *testing.T) {
 						"cpu":                     200,
 						"baidu.com/p40_cgpu_core": 100,
 					},
+					Labels: map[string]string{
+						"jobName": "job-0bb64357dbedcbdf",
+					},
 				},
 				{
 					Name:     "pod-instance-1",
@@ -469,20 +471,9 @@ func TestConstructNodeResponses(t *testing.T) {
 						"cpu":            20,
 						"nvidia.com/gpu": 2,
 					},
-				},
-			},
-			labels: []model.LabelInfo{
-				{
-					Name:       "jobName",
-					Value:      "job-0bb64357dbedcbdf",
-					ObjectID:   "pod-instance-1",
-					ObjectType: model.ObjectTypePod,
-				},
-				{
-					Name:       "jobName",
-					Value:      "job-0bb64357dbedcbdf",
-					ObjectID:   "pod-instance-2",
-					ObjectType: model.ObjectTypePod,
+					Labels: map[string]string{
+						"jobName": "job-0bb64357dbedcbdf",
+					},
 				},
 			},
 			err: nil,
@@ -490,7 +481,7 @@ func TestConstructNodeResponses(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods, tc.labels)
+			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods)
 			assert.Equal(t, tc.err, err)
 			data, err := json.Marshal(result)
 			assert.Equal(t, nil, err)

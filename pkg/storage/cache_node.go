@@ -233,20 +233,3 @@ func (lc *ObjectLabelCache) DeleteLabel(objID, objType string) error {
 	}
 	return nil
 }
-
-func (lc *ObjectLabelCache) ListLabels(objIDs []string, objType string) ([]model.LabelInfo, error) {
-	log.Debugf("begin to list labels, objIDList: %v.", objIDs)
-
-	var result []model.LabelInfo
-	tx := lc.dbCache.Model(&model.LabelInfo{})
-	tx = tx.Where("label_info.object_id IN ? AND object_type = ?", objIDs, objType)
-	// order by
-	tx.Order("label_info.object_id")
-
-	// query
-	if tx.Find(&result); tx.Error != nil {
-		log.Errorf("list labels failed, error:%s", tx.Error)
-		return result, tx.Error
-	}
-	return result, nil
-}

@@ -277,5 +277,4 @@ type ResourceCacheInterface interface {
 type LabelCacheInterface interface {
 	AddLabel(lInfo *model.LabelInfo) error
 	DeleteLabel(objID, objType string) error
-	ListLabels([]string, string) ([]model.LabelInfo, error)
 }
