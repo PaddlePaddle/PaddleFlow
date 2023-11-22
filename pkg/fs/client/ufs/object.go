@@ -232,7 +232,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			response, headErr = fs.storage.Head(fileKey)
 			if headErr != nil && !isNotExistErr(headErr) {
 				log.Errorf("Head[%v] object err: %v", i, headErr)
-				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
 				continue
 			}
 			break
@@ -260,7 +260,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			dirs, errList = fs.storage.List(listInput)
 			if errList != nil && !isNotExistErr(errList) {
 				log.Errorf("List[%v] object err: %v", i, errList)
-				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
 				continue
 			}
 			break
@@ -280,7 +280,7 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			resp, headErr = fs.storage.Head(dirKey)
 			if headErr != nil && !isNotExistErr(headErr) {
 				log.Errorf("Key[%s] Head[%v] object err: %v", dirKey, i, headErr)
-				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
 				continue
 			}
 			break
@@ -1598,6 +1598,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 						time.Sleep(2 * time.Second)
 						continue
 					}
+					log.Infof("update ak %s", newProperties[fsCommon.AccessKey])
 					bosClient.Config.Credentials = stsCredential
 					time.Sleep(60 * time.Second)
 				}

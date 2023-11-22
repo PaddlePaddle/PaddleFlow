@@ -254,7 +254,7 @@ func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
 			return
 		default:
 			processMemPercent := utils.GetProcessMemPercent()
-			// 程序内存超过10%的占用触发自动清理
+			// 程序超过20%清理buffer，程序内存超过10%的占用触发自动清理且buffer1分钟未用则清理
 			if processMemPercent/100 >= 0.2 {
 				fh.bufferMapLock.Lock()
 				for index, _ := range fh.buffersCache {
@@ -273,7 +273,6 @@ func (fh *fileReader) cleanBufferCache(stopChan chan struct{}) {
 				}
 				fh.bufferMapLock.Unlock()
 			}
-			log.Infof("processMem %v", processMemPercent)
 			time.Sleep(5 * time.Second)
 		}
 	}
