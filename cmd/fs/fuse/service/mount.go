@@ -275,6 +275,7 @@ func cleanCache() (errRet error) {
 func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	var fsMeta common.FSMeta
 	var links map[string]common.FSMeta
+	fsMeta.Properties = make(map[string]string)
 	server := c.String("server")
 	if c.Bool("local") == true {
 		localRoot := c.String("local-root")
@@ -371,12 +372,11 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		}
 
 		if c.Bool("sts") {
-			fsMeta.Properties = map[string]string{
-				common.StsServer: server,
-				common.Token:     token,
-				common.FsName:    fsName,
-				common.UserName:  userName,
-			}
+			fsMeta.Properties[common.Sts] = "true"
+			fsMeta.Properties[common.Server] = server
+			fsMeta.Properties[common.Token] = token
+			fsMeta.Properties[common.FsName] = fsName
+			fsMeta.Properties[common.UserName] = userName
 			fsMeta.Name = fsName
 			fsMeta.UfsType = common.BosType
 		} else {
@@ -393,7 +393,14 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				return err
 			}
 		}
+		if server != "" && token != "" {
+			fsMeta.Properties[common.Server] = server
+			fsMeta.Properties[common.Token] = token
+			fsMeta.Properties[common.FsName] = fsName
+			fsMeta.Properties[common.UserName] = userName
+		}
 	}
+
 	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
@@ -412,6 +419,11 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		Config: kv.Config{
 			CachePath: c.String("data-cache-path"),
 		},
+	}
+	if c.Bool("no-implicit-dir") {
+		fsMeta.Properties[common.ImplicitDir] = "false"
+	} else {
+		fsMeta.Properties[common.ImplicitDir] = "true"
 	}
 	vfsOptions := []vfs.Option{
 		vfs.WithDataCacheConfig(d),
