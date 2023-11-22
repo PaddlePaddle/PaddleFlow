@@ -57,9 +57,15 @@ func (nc *ClusterNodeCache) ListPods(podIDs []string, namespace string) ([]model
 	log.Debugf("begin to list pods: %s", podIDs)
 	var pods []model.PodInfo
 	tx := nc.dbCache.Model(&model.PodInfo{})
+
 	// 1. query with nodeID list
 	if len(podIDs) != 0 {
-		tx = tx.Where("id IN ? AND namespace = ?", podIDs, namespace)
+		tx = tx.Where("id IN ?", podIDs)
+	}
+
+	// 2. query with namespace
+	if len(namespace) != 0 {
+		tx = tx.Where("namespace = ?", namespace)
 	}
 
 	tx = tx.Order("pod_info.id")

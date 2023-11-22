@@ -21,6 +21,7 @@ const (
 type ListClusterResourcesRequest struct {
 	ClusterNameList []string `json:"clusterNames"` // list resources by cluster
 	QueueName       string   `json:"queueName"`    // list resources by queue
+	Namespace       string   `json:"namespace"`    // list pod by namespace
 	Labels          string   `json:"labels"`
 	LabelType       string   `json:"-"`
 	NodeStatus      string   `json:"nodeStatus"`
@@ -59,7 +60,7 @@ type PodResources struct {
 	Resources map[string]int64  `json:"resources"`
 }
 
-func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest, namespace string) (int64, []*NodeResponse, error) {
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) (int64, []*NodeResponse, error) {
 	log.Infof("list node infos request: %v", req)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -76,9 +77,9 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	ctx.Logging().Debugf("list nodes: %+v", nodes)
-	var nodeLists []string
+	var nodeList []string
 	for i := range nodes {
-		nodeLists = append(nodeLists, nodes[i].ID)
+		nodeList = append(nodeList, nodes[i].ID)
 	}
 
 	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList)
@@ -89,7 +90,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	// 2. list pod resources
-	podResources, err := storage.ResourceCache.ListPodResources(nodeLists)
+	podResources, err := storage.ResourceCache.ListPodResources(nodeList)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
@@ -102,7 +103,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	// 3. list pod infos
-	podInfos, err := storage.NodeCache.ListPods(podLists, namespace)
+	podInfos, err := storage.NodeCache.ListPods(podLists, req.Namespace)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)

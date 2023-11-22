@@ -264,9 +264,10 @@ func (cr *ClusterRouter) listClusterNodeInfos(w http.ResponseWriter, r *http.Req
 		ClusterNameList: []string{clusterName},
 		PageNo:          nodePageNo,
 		PageSize:        nodePageSize,
+		Namespace:       namespace,
 	}
 
-	nodeCount, nodeInfosList, err := cluster.ListClusterNodeInfos(&ctx, listNodeInfosRequest, namespace)
+	nodeCount, nodeInfosList, err := cluster.ListClusterNodeInfos(&ctx, listNodeInfosRequest)
 	if err != nil {
 		ctx.Logging().Errorf("list node infos failed, error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

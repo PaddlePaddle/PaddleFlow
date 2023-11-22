@@ -259,11 +259,10 @@ func TestListClusterResources(t *testing.T) {
 
 func TestListClusterNodeInfos(t *testing.T) {
 	testCases := []struct {
-		name      string
-		req       ListClusterResourcesRequest
-		namespace string
-		ctx       *logger.RequestContext
-		err       error
+		name string
+		req  ListClusterResourcesRequest
+		ctx  *logger.RequestContext
+		err  error
 	}{
 		{
 			name: "list nodes by physical queue",
@@ -271,12 +270,12 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q1",
+				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockRootUser,
 			},
-			namespace: "default",
-			err:       nil,
+			err: nil,
 		},
 		{
 			name: "list nodes by logic queue",
@@ -284,12 +283,12 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q-public",
+				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockRootUser,
 			},
-			namespace: "default",
-			err:       nil,
+			err: nil,
 		},
 		{
 			name: "NonRoot User",
@@ -297,12 +296,12 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q-public",
+				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockNonRootUser,
 			},
-			namespace: "default",
-			err:       fmt.Errorf("list node infos failed"),
+			err: fmt.Errorf("list node infos failed"),
 		},
 	}
 	driver.InitMockDB()
@@ -344,7 +343,7 @@ func TestListClusterNodeInfos(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			count, res, listErr := ListClusterNodeInfos(tc.ctx, tc.req, tc.namespace)
+			count, res, listErr := ListClusterNodeInfos(tc.ctx, tc.req)
 			assert.Equal(t, tc.err, listErr)
 			if listErr == nil {
 				assert.Equal(t, int(count), nodeCount)
@@ -451,13 +450,8 @@ func TestConstructNodeResponses(t *testing.T) {
 					NodeID:   "node-instance-2",
 					ID:       "pod-instance-2",
 					Status:   1,
-					Resources: map[string]int64{
-						"memory":                  741824,
-						"cpu":                     200,
-						"baidu.com/p40_cgpu_core": 100,
-					},
 					Labels: map[string]string{
-						"jobName": "job-0bb64357dbedcbdf",
+						"jobName": "job-b286f95359884378",
 					},
 				},
 				{
@@ -466,11 +460,6 @@ func TestConstructNodeResponses(t *testing.T) {
 					NodeID:   "node-instance-1",
 					ID:       "pod-instance-1",
 					Status:   1,
-					Resources: map[string]int64{
-						"memory":         1824,
-						"cpu":            20,
-						"nvidia.com/gpu": 2,
-					},
 					Labels: map[string]string{
 						"jobName": "job-0bb64357dbedcbdf",
 					},
