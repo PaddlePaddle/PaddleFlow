@@ -18,8 +18,10 @@ package cache
 
 import (
 	"io"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -27,17 +29,18 @@ import (
 )
 
 type ReadBuffer struct {
-	ufs      ufslib.UnderFileStorage
-	nRetries uint8
-	page     *Page
-	path     string
-	flags    uint32
-	offset   uint64
-	size     uint32
-	index    int
-	lock     sync.RWMutex
-	r        *rCache
-	Buffer   *Buffer
+	ufs          ufslib.UnderFileStorage
+	nRetries     uint8
+	page         *Page
+	path         string
+	flags        uint32
+	offset       uint64
+	size         uint32
+	index        int
+	LastUsedTime time.Time
+	lock         sync.RWMutex
+	r            *rCache
+	Buffer       *Buffer
 }
 
 type ReadBufferMap map[uint64]*ReadBuffer
@@ -46,6 +49,7 @@ func (b *ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	b.nRetries = 3
 	p := &Page{r: b.r, index: b.index}
 	b.page = p.Init(pool, uint64(b.size), false, blocksize)
+	b.LastUsedTime = time.Now()
 	if b.page == nil {
 		return nil
 	}
@@ -61,7 +65,7 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 		for i := 0; i < 3; i++ {
 			log.Debugf("initBuffer reader offset %d size %d", offset, size)
 			resp, err = b.ufs.Get(b.path, syscall.O_RDONLY, int64(offset), int64(size))
-			if err != nil {
+			if err != nil && !strings.Contains(err.Error(), "not exist") {
 				log.Errorf("init ufs reader[%d] with offset[%d] size[%d] error: %v", i, offset, size, err)
 			} else {
 				break
