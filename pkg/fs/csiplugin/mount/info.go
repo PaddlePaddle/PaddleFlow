@@ -195,6 +195,8 @@ func (mountInfo *Info) commonOptions() []string {
 	if mountInfo.FS.PropertiesMap[common.Sts] == "true" && mountInfo.FS.Type == common.BosType {
 		options = append(options, "--sts=true")
 		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
+	} else if mountInfo.FS.PropertiesMap[common.BosSessionToken] != "" && mountInfo.FS.Type == common.BosType {
+		options = append(options, fmt.Sprintf("--%s=%s", "server", mountInfo.ServerAddress))
 	} else {
 		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 	}

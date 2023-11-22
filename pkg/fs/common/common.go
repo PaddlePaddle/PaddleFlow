@@ -44,13 +44,13 @@ const (
 	ReplicationKey  = "replication"
 
 	Sts             = "sts"
-	StsServer       = "stsServer"
 	Token           = "token"
 	FsName          = "fsname"
 	UserName        = "userName"
 	StsDuration     = "duration"
 	StsACL          = "acl"
 	BosSessionToken = "sessionToken"
+	Server          = "server"
 
 	// AFS properties
 	AFSUser     = "username"
@@ -74,6 +74,7 @@ const (
 	S3ForcePathStyle   = "s3ForcePathStyle"
 	DirMode            = "dirMode"
 	FileMode           = "fileMode"
+	ImplicitDir        = "implicitDir"
 
 	// sftp properties
 	Address  = "address"

@@ -238,7 +238,7 @@ func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 		return 0, err
 	}
 	timeOutReader := &TimeoutReader{
-		source:  reader,
+		source: reader,
 		// 2 minutes超时，这里buffer最大是20m，5分钟超时防止一直读不完，程序卡死
 		timeout: 5 * time.Minute,
 	}
