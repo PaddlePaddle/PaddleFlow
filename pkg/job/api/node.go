@@ -23,6 +23,7 @@ import (
 
 type NodeSyncInfo struct {
 	Name       string
+	IP         string
 	Status     string
 	Capacity   map[string]string
 	Labels     map[string]string
@@ -34,6 +35,7 @@ type NodeTaskSyncInfo struct {
 	ID         string
 	Name       string
 	NodeName   string
+	Namespace  string
 	Status     model.TaskAllocateStatus
 	Resources  map[string]int64
 	Labels     map[string]string

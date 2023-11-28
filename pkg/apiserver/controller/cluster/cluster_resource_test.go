@@ -127,8 +127,10 @@ func createFakePodInfo(count int, nodeID, nodeName string, reList []map[string]i
 		pInfo := &model.PodInfo{
 			ID:        uuid.GenerateIDWithLength("", 32),
 			Name:      fmt.Sprintf("pod-%s-%d", nodeName, idx),
+			Namespace: "default",
 			NodeName:  nodeName,
 			NodeID:    nodeID,
+			Labels:    map[string]string{"paddleflow/pod-name": fmt.Sprintf("pod-%s-%d", nodeName, idx)},
 			Status:    int(statusList[rand.Intn(statusLen)]),
 			Resources: reList[rand.Intn(reLen)],
 		}
@@ -251,6 +253,221 @@ func TestListClusterResources(t *testing.T) {
 			if err == nil {
 				t.Logf("cluster resources: %s", string(resJSON))
 			}
+		})
+	}
+}
+
+func TestListClusterNodeInfos(t *testing.T) {
+	testCases := []struct {
+		name string
+		req  ListClusterResourcesRequest
+		ctx  *logger.RequestContext
+		err  error
+	}{
+		{
+			name: "list nodes by physical queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q1",
+			},
+			ctx: &logger.RequestContext{
+				UserName: MockRootUser,
+			},
+			err: nil,
+		},
+		{
+			name: "list nodes by logic queue",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			ctx: &logger.RequestContext{
+				UserName: MockRootUser,
+			},
+			err: nil,
+		},
+		{
+			name: "NonRoot User",
+			req: ListClusterResourcesRequest{
+				PageSize:  500,
+				PageNo:    1,
+				QueueName: "test-q-public",
+			},
+			ctx: &logger.RequestContext{
+				UserName: MockNonRootUser,
+			},
+			err: fmt.Errorf("list node infos failed"),
+		},
+	}
+	driver.InitMockDB()
+	err := storage.Cluster.CreateCluster(&model.ClusterInfo{
+		Model: model.Model{
+			ID: MockClusterName,
+		},
+		Name: MockClusterName,
+	})
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q1",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypePhysical,
+		},
+	})
+
+	assert.Equal(t, nil, err)
+	err = storage.Queue.CreateQueue(&model.Queue{
+		Name:        "test-q-public",
+		Namespace:   "default",
+		ClusterId:   MockClusterName,
+		ClusterName: MockClusterName,
+		Location: map[string]string{
+			v1beta1.QuotaTypeKey: v1beta1.QuotaTypeLogical,
+		},
+	})
+	assert.Equal(t, nil, err)
+
+	err = driver.InitCache("DEBUG")
+	assert.Equal(t, nil, err)
+	var nodeCount = 5
+	var podCount = 20
+	err = createFakeNodeInfo(nodeCount, podCount, []string{MockClusterName, "cn1"}, rList)
+	assert.Equal(t, nil, err)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			count, res, listErr := ListClusterNodeInfos(tc.ctx, tc.req)
+			assert.Equal(t, tc.err, listErr)
+			if listErr == nil {
+				assert.Equal(t, int(count), nodeCount)
+			}
+			resJSON, resErr := json.Marshal(res)
+			if resErr == nil {
+				t.Logf("node infos: %s", string(resJSON))
+			}
+		})
+	}
+}
+
+func TestConstructNodeResponses(t *testing.T) {
+	mockClusterID := "cluster-test"
+	testCases := []struct {
+		name  string
+		nodes []model.NodeInfo
+		used  []model.ResourceInfo
+		pods  []model.PodInfo
+		err   error
+	}{
+		{
+			name: "2 nodes",
+			nodes: []model.NodeInfo{
+				{
+					ID:          "node-instance-1",
+					Name:        "instance-1",
+					IP:          "10.0.0.1",
+					ClusterID:   mockClusterID,
+					ClusterName: mockClusterID,
+					Status:      "Ready",
+					Capacity: map[string]string{
+						"cpu":                   "20",
+						"memory":                "100Gi",
+						"nvidia.com/gpu":        "8",
+						"baidu.com/cgpu":        "8",
+						"baidu.com/cgpu_core":   "800",
+						"baidu.com/cgpu_memory": "1600",
+					},
+				},
+				{
+					ID:          "node-instance-2",
+					Name:        "instance-2",
+					IP:          "10.0.0.2",
+					ClusterID:   mockClusterID,
+					ClusterName: mockClusterID,
+					Status:      "Ready",
+					Capacity: map[string]string{
+						"cpu":                   "30",
+						"memory":                "100Gi",
+						"nvidia.com/gpu":        "8",
+						"baidu.com/cgpu":        "8",
+						"baidu.com/cgpu_core":   "800",
+						"baidu.com/cgpu_memory": "1600",
+					},
+				},
+			},
+			used: []model.ResourceInfo{
+				{
+					Name:     "cpu",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					Value:    2795,
+				},
+				{
+					Name:     "memory",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					Value:    10737418240,
+				},
+				{
+					Name:     "cpu",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    10,
+				},
+				{
+					Name:     "memory",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    1073741824,
+				},
+				{
+					Name:     "nvidia.com/gpu",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					Value:    4,
+				},
+			},
+			pods: []model.PodInfo{
+				{
+					Name:     "pod-instance-2",
+					NodeName: "instance-2",
+					NodeID:   "node-instance-2",
+					ID:       "pod-instance-2",
+					Status:   1,
+					Labels: map[string]string{
+						"jobName": "job-b286f95359884378",
+					},
+					Resources: map[string]int64{
+						"cpu": 20,
+					},
+				},
+				{
+					Name:     "pod-instance-1",
+					NodeName: "instance-1",
+					NodeID:   "node-instance-1",
+					ID:       "pod-instance-1",
+					Status:   1,
+					Labels: map[string]string{
+						"jobName": "job-0bb64357dbedcbdf",
+					},
+					Resources: map[string]int64{
+						"cpu": 200,
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := ConstructNodeResponses(tc.nodes, tc.used, tc.pods)
+			assert.Equal(t, tc.err, err)
+			data, err := json.Marshal(result)
+			assert.Equal(t, nil, err)
+			t.Logf("construct node resources: %v", string(data))
 		})
 	}
 }

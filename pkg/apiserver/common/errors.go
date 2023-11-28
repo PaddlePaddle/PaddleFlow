@@ -407,6 +407,10 @@ func LogPageSizeOverMaxError() error {
 	return fmt.Errorf("LogPageSize over max value")
 }
 
+func NodePageSizeOverMaxError() error {
+	return fmt.Errorf("NodePageSize over max value")
+}
+
 func LogFilePositionInvalidValueError() error {
 	return fmt.Errorf("LogFilePosition has wrong value")
 }

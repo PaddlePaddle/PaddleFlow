@@ -365,6 +365,7 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
 		Status:   getNodeStatus(node),
+		IP:       getNodeIP(node),
 		Capacity: capacity,
 		Labels:   labels,
 		Action:   action,
@@ -451,6 +452,16 @@ func getNodeStatus(node *corev1.Node) string {
 	return nodeStatus
 }
 
+func getNodeIP(node *corev1.Node) string {
+	var nodeIP string
+	for _, address := range node.Status.Addresses {
+		if address.Type == corev1.NodeInternalIP {
+			nodeIP = address.Address
+		}
+	}
+	return nodeIP
+}
+
 func getLabels(labelKeys []string, totalLabels map[string]string) map[string]string {
 	labels := make(map[string]string)
 
@@ -511,6 +522,7 @@ func (n *NodeTaskHandler) addQueue(pod *corev1.Pod, action pfschema.ActionType, 
 		ID:        string(pod.UID),
 		Name:      pod.Name,
 		NodeName:  pod.Spec.NodeName,
+		Namespace: pod.Namespace,
 		Status:    status,
 		Resources: convertPodResources(pod),
 		Labels:    labels,

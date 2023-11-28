@@ -37,6 +37,80 @@ type NodeResourcesResponse struct {
 	QueueName     string                            `json:"queueName,omitempty"`
 }
 
+type ListNodeResponse struct {
+	TotalCount int64           `json:"totalCount"`
+	NodeList   []*NodeResponse `json:"nodeList"`
+}
+
+type NodeResponse struct {
+	NodeName  string                        `json:"nodeName"`
+	NodeIP    string                        `json:"nodeIP"`
+	PodsCount int                           `json:"podsCount"`
+	Labels    map[string]string             `json:"labels"`
+	Used      map[string]int64              `json:"used"`
+	Capacity  map[string]resources.Quantity `json:"capacity"`
+	PodInfos  []PodResources                `json:"pods"`
+}
+
+type PodResources struct {
+	PodName   string            `json:"podName"`
+	Status    int               `json:"status"`
+	Labels    map[string]string `json:"labels"`
+	Resources map[string]int64  `json:"resources"`
+}
+
+func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRequest) (int64, []*NodeResponse, error) {
+	log.Infof("list node infos request: %v", req)
+	if !common.IsRootUser(ctx.UserName) {
+		ctx.ErrorCode = common.OnlyRootAllowed
+		ctx.Logging().Errorln("list node infos failed. error: admin is needed.")
+		return 0, nil, errors.New("list node infos failed")
+	}
+
+	// 1. list nodes and count
+	nodes, queueName, err := listClusterNodes(req)
+	if err != nil {
+		err = fmt.Errorf("list nodes in queue %v from cache failed, err: %v", queueName, err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
+	}
+
+	ctx.Logging().Debugf("list nodes: %+v", nodes)
+
+	nodeCounts, err := storage.NodeCache.CountNode(req.ClusterNameList)
+	if err != nil {
+		err = fmt.Errorf("count nodes cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
+	}
+
+	var nodeList []string
+	for i := range nodes {
+		nodeList = append(nodeList, nodes[i].ID)
+	}
+
+	// 2. list node resources
+	nodeResources, err := storage.ResourceCache.ListNodeResources(nodeList)
+	if err != nil {
+		err = fmt.Errorf("list node resources from cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
+	}
+
+	// 3. list pod infos
+	podInfos, err := storage.NodeCache.ListPods(nodeList)
+	if err != nil {
+		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
+		ctx.Logging().Errorln(err)
+		return 0, nil, err
+	}
+	ctx.Logging().Debugf("list pods infos: %v", podInfos)
+
+	// 4. construct node info list
+	nodeResponse, err := ConstructNodeResponses(nodes, nodeResources, podInfos)
+	return nodeCounts, nodeResponse, err
+}
+
 // ListClusterResources return the node resources in clusters, lists can be filtered by labels in pods or nodes
 func ListClusterResources(ctx *logger.RequestContext, req ListClusterResourcesRequest) (map[string]*NodeResourcesResponse, error) {
 	log.Infof("list cluster resources request: %v", req)
@@ -88,11 +162,87 @@ func listClusterNodes(req ListClusterResourcesRequest) ([]model.NodeInfo, string
 			labels = fmt.Sprintf("%s=%s", v1beta1.QuotaLabelKey, publicQueue)
 		}
 	}
-	filter := map[string]string{
-		model.NodeStatusFilter: req.NodeStatus,
+
+	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, labels, req.PageSize, offset, nil)
+	if err != nil {
+		return []model.NodeInfo{}, "", err
 	}
-	nodes, err := storage.NodeCache.ListNode(req.ClusterNameList, labels, req.PageSize, offset, filter)
+
 	return nodes, queueName, err
+}
+
+func ConstructNodeResponses(nodes []model.NodeInfo,
+	nodeResources []model.ResourceInfo, podInfos []model.PodInfo) ([]*NodeResponse, error) {
+
+	var err error
+	var nodeResponses = map[string]*NodeResponse{}
+
+	var nodeUsed = map[string]map[string]int64{}
+	for _, rInfo := range nodeResources {
+		nodeUsedResources, find := nodeUsed[rInfo.NodeID]
+		if !find {
+			nodeUsedResources = make(map[string]int64)
+			nodeUsed[rInfo.NodeID] = nodeUsedResources
+		}
+		nodeUsedResources[rInfo.Name] = rInfo.Value
+	}
+
+	var nodePods = map[string][]PodResources{}
+	for _, pInfo := range podInfos {
+		pResource, find := nodePods[pInfo.NodeID]
+		if !find {
+			pResource = make([]PodResources, 0)
+		}
+		pResource = append(pResource, PodResources{
+			PodName:   pInfo.Name,
+			Status:    pInfo.Status,
+			Resources: pInfo.Resources,
+			Labels:    pInfo.Labels,
+		})
+		nodePods[pInfo.NodeID] = pResource
+	}
+
+	for _, node := range nodes {
+		nodeResponse, find := nodeResponses[node.ID]
+		if !find {
+			nodeResponse = &NodeResponse{
+				Used:     make(map[string]int64),
+				Capacity: make(map[string]resources.Quantity),
+				Labels:   make(map[string]string),
+				NodeName: node.Name,
+			}
+			nodeResponses[node.ID] = nodeResponse
+		}
+
+		// set node used, capacity, and labels
+		usedResources, ok := nodeUsed[node.ID]
+		if !ok {
+			usedResources = map[string]int64{}
+		}
+		log.Debugf("node %s used resources: %+v", node.Name, usedResources)
+
+		capacity, err := resources.NewResourceFromMap(node.Capacity)
+		if err != nil {
+			return nil, err
+		}
+		nodeResponse.Capacity = capacity.Resource()
+		nodeResponse.Used = usedResources
+		if node.Labels == nil {
+			node.Labels = make(map[string]string)
+		}
+		node.Labels["paddleflow/node-status"] = node.Status
+		nodeResponse.Labels = node.Labels
+		nodeResponse.PodInfos = nodePods[node.ID]
+		nodeResponse.NodeIP = node.IP
+		nodeResponse.PodsCount = len(nodePods[node.ID])
+	}
+
+	var nodeList []*NodeResponse
+	for _, node := range nodeResponses {
+		nodeList = append(nodeList, node)
+	}
+	log.Debugf("node resources: %+v", nodeList)
+	return nodeList, err
 }
 
 func ConstructClusterResources(nodes []model.NodeInfo,

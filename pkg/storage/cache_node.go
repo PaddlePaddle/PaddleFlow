@@ -53,6 +53,42 @@ func (nc *ClusterNodeCache) GetNode(nodeID string) (model.NodeInfo, error) {
 	return clusterNodeInfo, nil
 }
 
+func (nc *ClusterNodeCache) ListPods(nodeIDs []string) ([]model.PodInfo, error) {
+	log.Debugf("begin to list pods on nodes %s", nodeIDs)
+	var pods []model.PodInfo
+	tx := nc.dbCache.Model(&model.PodInfo{})
+
+	// 1. query with nodeID list
+	if len(nodeIDs) != 0 {
+		tx = tx.Where("node_id IN ?", nodeIDs)
+	}
+
+	tx = tx.Order("pod_info.id")
+	if err := tx.Find(&pods).Error; err != nil {
+		log.Errorf("list pods failed, error:%s", err)
+		return pods, err
+	}
+	return pods, nil
+}
+
+func (nc *ClusterNodeCache) CountNode(clusterNames []string) (int64, error) {
+	log.Debugf("begin to count node, clusterNames: %v", clusterNames)
+	tx := nc.dbCache.Model(&model.NodeInfo{})
+
+	// 1. query with clusterNames if set
+	if len(clusterNames) != 0 {
+		tx = tx.Where("`cluster_name` IN ?", clusterNames)
+	}
+
+	// 2. query node count
+	var count int64
+	countResult := tx.Count(&count)
+	if countResult.Error != nil {
+		return 0, countResult.Error
+	}
+	return count, nil
+}
+
 func (nc *ClusterNodeCache) ListNode(clusterNames []string, labels string, limit int, offset int, filter map[string]string) ([]model.NodeInfo, error) {
 	log.Debugf("begin to list node, clusterNames: %v, labels: %s", clusterNames, labels)
 	var nodes []model.NodeInfo
@@ -88,6 +124,7 @@ func (nc *ClusterNodeCache) ListNode(clusterNames []string, labels string, limit
 			tx = tx.Where("`l`.label_name = ? AND `l`.label_value = ?", eq[0], eq[1])
 		}
 	}
+
 	// 3. query with limit or offset if set
 	if limit > 0 {
 		tx = tx.Limit(limit)
