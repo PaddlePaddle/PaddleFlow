@@ -151,6 +151,7 @@ const (
 	SparkAPPJobNameLabel    = "sparkoperator.k8s.io/app-name"
 
 	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
+	QueueSyncLabel           = "paddleflow/queue-sync"
 
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
