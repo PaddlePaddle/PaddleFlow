@@ -259,7 +259,7 @@ type NodeCacheInterface interface {
 	GetNode(nodeID string) (model.NodeInfo, error)
 	ListNode([]string, string, int, int, map[string]string) ([]model.NodeInfo, error)
 	CountNode(clusterList []string) (int64, error)
-	ListPods(nodeIDList []string, namespace string) ([]model.PodInfo, error)
+	ListPods(nodeIDList []string) ([]model.PodInfo, error)
 }
 
 type PodCacheInterface interface {

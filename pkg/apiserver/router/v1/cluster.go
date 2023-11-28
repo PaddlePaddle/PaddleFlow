@@ -227,7 +227,6 @@ func (cr *ClusterRouter) listClusterNodeInfos(w http.ResponseWriter, r *http.Req
 	ctx := common.GetRequestContext(r)
 
 	clusterName := strings.TrimSpace(chi.URLParam(r, util.ParamKeyClusterName))
-	namespace := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyNamespace))
 	nodePageNo, err := strconv.Atoi(r.URL.Query().Get(util.ParamKeyPageNo))
 	if err != nil {
 		if r.URL.Query().Get(util.ParamKeyPageNo) == "" {
@@ -264,7 +263,6 @@ func (cr *ClusterRouter) listClusterNodeInfos(w http.ResponseWriter, r *http.Req
 		ClusterNameList: []string{clusterName},
 		PageNo:          nodePageNo,
 		PageSize:        nodePageSize,
-		Namespace:       namespace,
 	}
 
 	nodeCount, nodeInfosList, err := cluster.ListClusterNodeInfos(&ctx, listNodeInfosRequest)

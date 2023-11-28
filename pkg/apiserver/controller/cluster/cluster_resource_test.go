@@ -270,7 +270,6 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q1",
-				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockRootUser,
@@ -283,7 +282,6 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q-public",
-				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockRootUser,
@@ -296,7 +294,6 @@ func TestListClusterNodeInfos(t *testing.T) {
 				PageSize:  500,
 				PageNo:    1,
 				QueueName: "test-q-public",
-				Namespace: "default",
 			},
 			ctx: &logger.RequestContext{
 				UserName: MockNonRootUser,

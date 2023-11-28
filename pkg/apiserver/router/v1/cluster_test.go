@@ -133,7 +133,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 		PageSize    string
 		PageNo      string
 		ClusterName string
-		Namespace   string
 		router      *chi.Mux
 	}
 	ctx := &logger.RequestContext{UserName: "testusername"}
@@ -149,7 +148,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				ctx:         ctx,
 				router:      router,
 				ClusterName: "",
-				Namespace:   "",
 			},
 			wantErr:      false,
 			responseCode: 200,
@@ -183,7 +181,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				router:      router,
 				PageNo:      "1",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      false,
 			responseCode: 200,
@@ -195,7 +192,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				router:      router,
 				PageSize:    "10",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      false,
 			responseCode: 200,
@@ -208,7 +204,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				PageNo:      "1",
 				PageSize:    "500",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      true,
 			responseCode: 200,
@@ -221,7 +216,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				PageNo:      "1",
 				PageSize:    "abc",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      true,
 			responseCode: 200,
@@ -234,7 +228,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				PageNo:      "abc",
 				PageSize:    "100",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      true,
 			responseCode: 200,
@@ -247,7 +240,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 				PageNo:      "1",
 				PageSize:    "10",
 				ClusterName: "testCn1",
-				Namespace:   "default",
 			},
 			wantErr:      false,
 			responseCode: 200,
@@ -256,7 +248,6 @@ func TestListClusterNodeInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			params := url.Values{}
-			params.Set("namespace", tt.args.Namespace)
 			params.Set("pageNo", tt.args.PageNo)
 			params.Set("pageSize", tt.args.PageSize)
 			t.Logf("request url: %v", fmt.Sprintf(baseURL+"/cluster/%s/nodeInfos?%v", tt.args.ClusterName, params.Encode()))

@@ -21,7 +21,6 @@ const (
 type ListClusterResourcesRequest struct {
 	ClusterNameList []string `json:"clusterNames"` // list resources by cluster
 	QueueName       string   `json:"queueName"`    // list resources by queue
-	Namespace       string   `json:"namespace"`    // list pod by namespace
 	Labels          string   `json:"labels"`
 	LabelType       string   `json:"-"`
 	NodeStatus      string   `json:"nodeStatus"`
@@ -99,7 +98,7 @@ func ListClusterNodeInfos(ctx *logger.RequestContext, req ListClusterResourcesRe
 	}
 
 	// 3. list pod infos
-	podInfos, err := storage.NodeCache.ListPods(nodeList, req.Namespace)
+	podInfos, err := storage.NodeCache.ListPods(nodeList)
 	if err != nil {
 		err = fmt.Errorf("list pods from cache failed, err: %v", err.Error())
 		ctx.Logging().Errorln(err)
