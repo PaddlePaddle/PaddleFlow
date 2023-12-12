@@ -483,7 +483,7 @@ func getPaddleJobRoleAndIndex(name string, annotations map[string]string) (schem
 func getAITrainingJobRoleAndIndex(name string, infos map[string]string) (schema.MemberRole, int) {
 	taskRole, taskIndex := schema.RoleWorker, 0
 	// TODO: get task role from task labels
-	//  worker is named with format: xxxx-worker-0
+	//  worker is named with format: xxxx-trainer-1
 	items := strings.Split(name, "-")
 	if len(items) > 0 {
 		taskIndex, _ = strconv.Atoi(items[len(items)-1])
