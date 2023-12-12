@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,6 +97,8 @@ type RuntimeInfo struct {
 	ID               string `json:"id,omitempty"`
 	Status           string `json:"status,omitempty"`
 	NodeName         string `json:"nodeName"`
+	Role             string `json:"role,omitempty"`
+	Index            int    `json:"index,omitempty"`
 	AcceleratorCards string `json:"acceleratorCards,omitempty"`
 	LogURL           string `json:"logURL,omitempty"`
 }
@@ -257,15 +260,17 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 		Queue:    job.Config.GetQueueName(),
 		Priority: job.Config.GetPriority(),
 	}
+	kindGroupVersion := schema.KindGroupVersion{}
 	if job.Config != nil {
 		response.Labels = job.Config.Labels
 		response.Annotations = job.Config.Annotations
+		kindGroupVersion = job.Config.GetKindGroupVersion(job.Framework)
 	}
 	// process runtime info && member
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if runtimeFlag && job.RuntimeInfo != nil {
-			runtimes, err := getTaskRuntime(job.ID)
+			runtimes, err := getTaskRuntime(job.ID, &kindGroupVersion)
 			if err != nil || len(runtimes) < 1 {
 				return response, err
 			}
@@ -289,7 +294,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				log.Errorf("parse distributed job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			runtimes, err := getTaskRuntime(job.ID)
+			runtimes, err := getTaskRuntime(job.ID, &kindGroupVersion)
 			if err != nil {
 				return response, err
 			}
@@ -356,7 +361,7 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 	return k8sMeta, nil
 }
 
-func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
+func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
 	tasks, err := storage.Job.ListByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
@@ -372,6 +377,12 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 			NodeName:         task.NodeName,
 			AcceleratorCards: task.Annotations[k8s.GPUIdxKey],
 			LogURL:           GenerateLogURL(task),
+		}
+		// get task role
+		role, idx, find := getTaskRoleAndIndex(task, kGroupVer)
+		if find {
+			runtime.Role = role
+			runtime.Index = idx
 		}
 		runtimes = append(runtimes, runtime)
 	}
@@ -398,7 +409,7 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 			log.Errorf("parse workflow node[%s] status failed, error:[%s]", node.ID, err.Error())
 			return nil, err
 		}
-		taskRuntime, err := getTaskRuntime(node.ID)
+		taskRuntime, err := getTaskRuntime(node.ID, nil)
 		if err != nil {
 			log.Errorf("get node[%s] task runtime failed, error:[%s]", node.ID, err.Error())
 			return nil, err
@@ -451,4 +462,48 @@ func getLogToken(jobID, containerID string) (string, int64) {
 	}
 	timeStamp := time.Now().Unix()
 	return fmt.Sprintf("%s/%s/%s@%d", jobID, containerID, saltStr, timeStamp), timeStamp
+}
+
+// getPaddleJobRoleAndIndex returns the runtime info of paddle job
+func getPaddleJobRoleAndIndex(name string, annotations map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	if annotations["paddle-resource"] == "ps" {
+		taskRole = schema.RoleMaster
+	} else {
+		//  worker is named with format: xxxx-worker-0
+		items := strings.Split(name, "-")
+		if len(items) > 0 {
+			taskIndex, _ = strconv.Atoi(items[len(items)-1])
+		}
+	}
+	return taskRole, taskIndex
+}
+
+// getAITrainingJobRoleAndIndex returns the runtime info of AITraining job
+func getAITrainingJobRoleAndIndex(name string, infos map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	// TODO: get task role from task labels
+	//  worker is named with format: xxxx-worker-0
+	items := strings.Split(name, "-")
+	if len(items) > 0 {
+		taskIndex, _ = strconv.Atoi(items[len(items)-1])
+	}
+	return taskRole, taskIndex
+}
+
+// getTaskRoleAndIndex returns the runtime info of task
+func getTaskRoleAndIndex(task model.JobTask, kgv *schema.KindGroupVersion) (string, int, bool) {
+	if kgv == nil {
+		return "", 0, false
+	}
+	taskRole, taskIndex, find := schema.RoleWorker, 0, false
+	switch kgv.String() {
+	case schema.StandaloneKindGroupVersion.String():
+		taskRole, find = schema.RoleWorker, true
+	case schema.PaddleKindGroupVersion.String():
+		taskRole, taskIndex = getPaddleJobRoleAndIndex(task.Name, task.Annotations)
+	case schema.AITrainingKindGroupVersion.String():
+		taskRole, taskIndex = getAITrainingJobRoleAndIndex(task.Name, task.Annotations)
+	}
+	return string(taskRole), taskIndex, find
 }

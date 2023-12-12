@@ -482,29 +482,6 @@ func (c *Conf) GetProcessedFileSystem() []FileSystem {
 	return c.processedFS
 }
 
-/**
-// Scan for gorm
-func (s *Conf) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Conf scan failed")
-	}
-	err := json.Unmarshal(b, s)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Value for gorm
-func (s Conf) Value() (driver.Value, error) {
-	value, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
-}*/
-
 type Member struct {
 	ID       string     `json:"id"`
 	Replicas int        `json:"replicas"`
