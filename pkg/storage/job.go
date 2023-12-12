@@ -82,15 +82,6 @@ func (js *JobStore) GetUnscopedJobByID(jobID string) (model.Job, error) {
 	return job, nil
 }
 
-// Deprecated
-func (js *JobStore) GetJobStatusByID(jobID string) (schema.JobStatus, error) {
-	job, err := js.GetJobByID(jobID)
-	if err != nil {
-		return "", errors.JobIDNotFoundError(jobID)
-	}
-	return job.Status, nil
-}
-
 func (js *JobStore) DeleteJob(jobID string) error {
 	t := js.db.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").UpdateColumn("deleted_at", time.Now().Format(model.TimeFormat))
 	if t.Error != nil {
@@ -257,30 +248,6 @@ func (js *JobStore) ListJob(filter JobFilter) ([]model.Job, error) {
 	return jobList, nil
 }
 
-// Deprecated
-func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job {
-	var jobs []model.Job
-	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
-	err := db.Find(&jobs).Error
-	if err != nil {
-		log.Errorf("list jobs in queues %v with status %s failed, err: %s", queueIDs, status, err.Error())
-		return []model.Job{}
-	}
-	return jobs
-}
-
-// Deprecated
-func (js *JobStore) ListJobByStatus(status schema.JobStatus) []model.Job {
-	db := js.db.Table("job").Where("status = ?", status).Where("deleted_at = ''")
-
-	var jobs []model.Job
-	if err := db.Find(&jobs).Error; err != nil {
-		log.Errorf("get collect jobs failed, error:%s", err.Error())
-		return []model.Job{}
-	}
-	return jobs
-}
-
 func (js *JobStore) GetJobsByRunID(runID string, jobID string) ([]model.Job, error) {
 	var jobList []model.Job
 	query := js.db.Table("job").Where("id like ?", "job-"+runID+"-%").Where("deleted_at = ''")
@@ -295,28 +262,6 @@ func (js *JobStore) GetJobsByRunID(runID string, jobID string) ([]model.Job, err
 	return jobList, nil
 }
 
-// Deprecated
-func (js *JobStore) ListJobByUpdateTime(updateTime string) ([]model.Job, error) {
-	var jobList []model.Job
-	err := js.db.Table("job").Where("updated_at >= ?", updateTime).Where("deleted_at = ''").Find(&jobList).Error
-	if err != nil {
-		log.Errorf("list job by updateTime[%s] failed, error:[%s]", updateTime, err.Error())
-		return nil, err
-	}
-	return jobList, nil
-}
-
-// Deprecated
-func (js *JobStore) ListJobByParentID(parentID string) ([]model.Job, error) {
-	var jobList []model.Job
-	err := js.db.Table("job").Where("parent_job = ?", parentID).Where("deleted_at = ''").Find(&jobList).Error
-	if err != nil {
-		log.Errorf("list job by parentID[%s] failed, error:[%s]", parentID, err.Error())
-		return nil, err
-	}
-	return jobList, nil
-}
-
 func (js *JobStore) GetLastJob() (model.Job, error) {
 	job := model.Job{}
 	tx := js.db.Table("job").Where("deleted_at = ''").Last(&job)
@@ -325,43 +270,6 @@ func (js *JobStore) GetLastJob() (model.Job, error) {
 		return model.Job{}, tx.Error
 	}
 	return job, nil
-}
-
-// Deprecated
-func (js *JobStore) ListJobOld(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error) {
-	tx := js.db.Table("job").Where("pk > ?", pk).Where("parent_job = ''").Where("deleted_at = ''")
-	if userFilter != "root" {
-		tx = tx.Where("user_name = ?", userFilter)
-	}
-	if queue != "" {
-		tx = tx.Where("queue_id = ?", queue)
-	}
-	if status != "" {
-		tx = tx.Where("status = ?", status)
-	}
-	if startTime != "" {
-		tx = tx.Where("activated_at > ?", startTime)
-	}
-	if len(labels) > 0 {
-		jobIDs, err := js.ListJobIDByLabels(labels)
-		if err != nil {
-			return []model.Job{}, err
-		}
-		tx = tx.Where("id IN (?)", jobIDs)
-	}
-	if timestamp != "" {
-		tx = tx.Where("updated_at > ?", timestamp)
-	}
-	if maxKeys > 0 {
-		tx = tx.Limit(maxKeys)
-	}
-	var jobList []model.Job
-	tx = tx.Find(&jobList)
-	if tx.Error != nil {
-		return []model.Job{}, tx.Error
-	}
-
-	return jobList, nil
 }
 
 // list job process multi label get and result

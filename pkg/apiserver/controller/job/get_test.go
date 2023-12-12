@@ -128,10 +128,13 @@ func initMockJob(t *testing.T) {
 			RuntimeInfo: corev1.PodSpec{},
 			QueueID:     "test-queue-1",
 			Status:      schema.StatusJobRunning,
-			Config:      &schema.Conf{},
-			ParentJob:   testParentID,
-			CreatedAt:   time1,
-			UpdatedAt:   time1.Add(2 * time.Second),
+			Framework:   schema.FrameworkStandalone,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.StandaloneKindGroupVersion,
+			},
+			ParentJob: testParentID,
+			CreatedAt: time1,
+			UpdatedAt: time1.Add(2 * time.Second),
 			ActivatedAt: sql.NullTime{
 				Time:  time1.Add(2 * time.Second),
 				Valid: true,
@@ -145,22 +148,48 @@ func initMockJob(t *testing.T) {
 			RuntimeInfo: corev1.PodSpec{},
 			QueueID:     "test-queue-1",
 			Status:      schema.StatusJobRunning,
-			Config:      &schema.Conf{},
-			ParentJob:   testParentID,
-			CreatedAt:   time1.Add(2 * time.Second),
-			UpdatedAt:   time1.Add(4 * time.Second),
+			Framework:   schema.FrameworkPaddle,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PaddleKindGroupVersion,
+			},
+			ParentJob: testParentID,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
 			ActivatedAt: sql.NullTime{
 				Time:  time1.Add(4 * time.Second),
 				Valid: true,
 			},
 		},
 		{
-			ID:        "job-00003",
-			Name:      "test-job-3",
+			ID:          "job-00003",
+			Name:        "test-job-3",
+			UserName:    "user1",
+			Type:        string(schema.TypeDistributed),
+			RuntimeInfo: corev1.PodSpec{},
+			QueueID:     "test-queue-1",
+			Status:      schema.StatusJobRunning,
+			Framework:   schema.FrameworkAITJ,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.AITrainingKindGroupVersion,
+			},
+			ParentJob: testParentID,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:        "job-00004",
+			Name:      "test-job-4",
 			UserName:  "user1",
 			QueueID:   "test-queue-1",
 			Status:    schema.StatusJobRunning,
-			Config:    &schema.Conf{},
+			Framework: schema.FrameworkPaddle,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PaddleKindGroupVersion,
+			},
 			ParentJob: testParentID,
 			CreatedAt: time1.Add(2 * time.Second),
 			UpdatedAt: time1.Add(4 * time.Second),
@@ -180,13 +209,29 @@ func initMockJob(t *testing.T) {
 		{
 			ID:        "job-00001-task",
 			JobID:     "job-00001",
+			Name:      "job-123456",
 			Namespace: "default",
 			NodeName:  "node-001",
 			LogURL:    "container-123456",
 		},
 		{
-			ID:        "job-00002-task",
-			JobID:     "job-00002",
+			ID:    "job-00002-task",
+			JobID: "job-00002",
+			Name:  "job-100000",
+			Annotations: map[string]string{
+				"paddle-resource": "ps",
+			},
+			Namespace: "default",
+			NodeName:  "node-001",
+			LogURL:    "container-123456,11",
+		},
+		{
+			ID:    "job-00002-worker-1",
+			JobID: "job-00002",
+			Name:  "job-100000-worker-1",
+			Annotations: map[string]string{
+				"paddle-resource": "worker",
+			},
 			Namespace: "default",
 			NodeName:  "node-001",
 			LogURL:    "container-123456,11",
@@ -194,6 +239,14 @@ func initMockJob(t *testing.T) {
 		{
 			ID:        "job-00003-task",
 			JobID:     "job-00003",
+			Name:      "job-100001-trainer-3",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00004-task",
+			JobID:     "job-00004",
+			Name:      "job-100002-worker-4",
 			Namespace: "default",
 			NodeName:  "node-001",
 		},
@@ -238,7 +291,7 @@ func TestListJob(t *testing.T) {
 				Status: string(schema.StatusJobRunning),
 			},
 			err:            nil,
-			wantedJobCount: 3,
+			wantedJobCount: 4,
 		},
 		{
 			name: "list job with timestamp",
@@ -246,7 +299,7 @@ func TestListJob(t *testing.T) {
 				Timestamp: timeStamp,
 			},
 			err:            nil,
-			wantedJobCount: 3,
+			wantedJobCount: 4,
 		},
 		{
 			name: "list job with queue",
@@ -254,7 +307,7 @@ func TestListJob(t *testing.T) {
 				Queue: "test-queue-1-name",
 			},
 			err:            nil,
-			wantedJobCount: 3,
+			wantedJobCount: 4,
 		},
 	}
 
@@ -297,11 +350,19 @@ func TestGetJob(t *testing.T) {
 			err:   nil,
 		},
 		{
-			name: "get distributed job",
+			name: "get distributed paddle job",
 			ctx: &logger.RequestContext{
 				UserName: "root",
 			},
 			jobID: "job-00002",
+			err:   nil,
+		},
+		{
+			name: "get distributed aitj job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00003",
 			err:   nil,
 		},
 	}
