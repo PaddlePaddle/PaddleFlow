@@ -172,7 +172,6 @@ func initMockJob(t *testing.T) {
 			Config: &schema.Conf{
 				KindGroupVersion: schema.AITrainingKindGroupVersion,
 			},
-			ParentJob: testParentID,
 			CreatedAt: time1.Add(2 * time.Second),
 			UpdatedAt: time1.Add(4 * time.Second),
 			ActivatedAt: sql.NullTime{
@@ -184,13 +183,47 @@ func initMockJob(t *testing.T) {
 			ID:        "job-00004",
 			Name:      "test-job-4",
 			UserName:  "user1",
+			Type:      string(schema.TypeDistributed),
 			QueueID:   "test-queue-1",
 			Status:    schema.StatusJobRunning,
-			Framework: schema.FrameworkPaddle,
+			Framework: schema.FrameworkSpark,
 			Config: &schema.Conf{
-				KindGroupVersion: schema.PaddleKindGroupVersion,
+				KindGroupVersion: schema.SparkKindGroupVersion,
 			},
-			ParentJob: testParentID,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00005",
+			Name:     "test-job-5",
+			UserName: "user1",
+			Type:     string(schema.TypeWorkflow),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.WorkflowKindGroupVersion,
+			},
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00006",
+			Name:     "test-job-6",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.MPIKindGroupVersion,
+			},
 			CreatedAt: time1.Add(2 * time.Second),
 			UpdatedAt: time1.Add(4 * time.Second),
 			ActivatedAt: sql.NullTime{
@@ -246,7 +279,14 @@ func initMockJob(t *testing.T) {
 		{
 			ID:        "job-00004-task",
 			JobID:     "job-00004",
-			Name:      "job-100002-worker-4",
+			Name:      "job-10004-driver-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00006-task",
+			JobID:     "job-00006",
+			Name:      "job-10006-launcher",
 			Namespace: "default",
 			NodeName:  "node-001",
 		},
@@ -291,7 +331,7 @@ func TestListJob(t *testing.T) {
 				Status: string(schema.StatusJobRunning),
 			},
 			err:            nil,
-			wantedJobCount: 4,
+			wantedJobCount: 6,
 		},
 		{
 			name: "list job with timestamp",
@@ -299,7 +339,7 @@ func TestListJob(t *testing.T) {
 				Timestamp: timeStamp,
 			},
 			err:            nil,
-			wantedJobCount: 4,
+			wantedJobCount: 6,
 		},
 		{
 			name: "list job with queue",
@@ -307,7 +347,7 @@ func TestListJob(t *testing.T) {
 				Queue: "test-queue-1-name",
 			},
 			err:            nil,
-			wantedJobCount: 4,
+			wantedJobCount: 6,
 		},
 	}
 
@@ -363,6 +403,30 @@ func TestGetJob(t *testing.T) {
 				UserName: "root",
 			},
 			jobID: "job-00003",
+			err:   nil,
+		},
+		{
+			name: "get spark job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00004",
+			err:   nil,
+		},
+		{
+			name: "get mpi job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00006",
+			err:   nil,
+		},
+		{
+			name: "get workflow",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00005",
 			err:   nil,
 		},
 	}
