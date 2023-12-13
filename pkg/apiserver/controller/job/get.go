@@ -97,8 +97,8 @@ type RuntimeInfo struct {
 	ID               string `json:"id,omitempty"`
 	Status           string `json:"status,omitempty"`
 	NodeName         string `json:"nodeName"`
-	Role             string `json:"role,omitempty"`
-	Index            int    `json:"index,omitempty"`
+	Role             string `json:"role"`
+	Index            int    `json:"index"`
 	AcceleratorCards string `json:"acceleratorCards,omitempty"`
 	LogURL           string `json:"logURL,omitempty"`
 }
@@ -496,14 +496,16 @@ func getTaskRoleAndIndex(task model.JobTask, kgv *schema.KindGroupVersion) (stri
 	if kgv == nil {
 		return "", 0, false
 	}
-	taskRole, taskIndex, find := schema.RoleWorker, 0, false
+	taskRole, taskIndex, find := schema.RoleWorker, 0, true
 	switch kgv.String() {
 	case schema.StandaloneKindGroupVersion.String():
-		taskRole, find = schema.RoleWorker, true
+		taskRole, taskIndex = schema.RoleWorker, 0
 	case schema.PaddleKindGroupVersion.String():
 		taskRole, taskIndex = getPaddleJobRoleAndIndex(task.Name, task.Annotations)
 	case schema.AITrainingKindGroupVersion.String():
 		taskRole, taskIndex = getAITrainingJobRoleAndIndex(task.Name, task.Annotations)
+	default:
+		find = false
 	}
 	return string(taskRole), taskIndex, find
 }
