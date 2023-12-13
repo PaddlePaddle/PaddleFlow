@@ -47,7 +47,7 @@ dns_lookup_kdc = false
 ticket_lifetime = 72h
 renew_lifetime = 7d
 forwardable = true
-clockskew = 120
+clockskew = 600
 [realms]
 %s = {
   kdc = %s
@@ -128,9 +128,9 @@ func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFile
 		options.KerberosClient = krbClient
 		options.KerberosServicePrincipleName = strings.Split(krbConfig.NameNodePrincipal, "@")[0]
 		options.DataTransferProtection = krbConfig.DataTransferProtection
-		if options.DataTransferProtection == "" {
-			options.DataTransferProtection = "integrity"
-		}
+		//if options.DataTransferProtection == "" {
+		//	options.DataTransferProtection = "integrity"
+		//}
 	} else {
 		return nil, err
 	}
