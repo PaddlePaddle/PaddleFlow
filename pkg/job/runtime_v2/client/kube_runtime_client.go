@@ -65,7 +65,7 @@ var (
 	// maximum number of bytes loaded from the apiserver
 	byteReadLimit int64 = 500000
 	// SyncJobPluginsPeriod defines how often to sync jobPlugins
-	SyncJobPluginsPeriod int = 5
+	SyncJobPluginsPeriod int = 3
 	// TaskGVK gvk for task
 	TaskGVK = k8s.PodGVK
 )
@@ -168,7 +168,7 @@ func (krc *KubeRuntimeClient) registerJobListener(workQueue workqueue.RateLimiti
 	go func() {
 		for len(krc.unRegisteredMap) != 0 {
 			krc.addJobInformers(workQueue)
-			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Second)
+			time.Sleep(time.Duration(SyncJobPluginsPeriod) * time.Minute)
 		}
 	}()
 
