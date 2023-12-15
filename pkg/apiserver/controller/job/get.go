@@ -355,13 +355,21 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 	return response, nil
 }
 
+// getJobFinishTime 返回一个指向时间类型的指针，表示任务的完成时间
+// 参数:
+//
+//	job model.Job: 表示任务模型
+//
+// 返回值:
+//
+//	*time.Time: 表示任务的完成时间，如果任务未完成则返回nil
 func getJobFinishTime(job model.Job) *time.Time {
 	var finishTime *time.Time
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if job.RuntimeStatus != nil {
-			runtimestatus := job.RuntimeStatus.(*v1.PodStatus)
-			for _, conStatus := range runtimestatus.ContainerStatuses {
+			runtimeStatus := job.RuntimeStatus.(*v1.PodStatus)
+			for _, conStatus := range runtimeStatus.ContainerStatuses {
 				if conStatus.State.Terminated != nil {
 					finishTime = &conStatus.State.Terminated.FinishedAt.Time
 					break

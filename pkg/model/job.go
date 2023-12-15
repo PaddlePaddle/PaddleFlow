@@ -66,7 +66,7 @@ type Job struct {
 	ParentJob         string              `json:"-" gorm:"type:varchar(60)"`
 	CreatedAt         time.Time           `json:"createTime"`
 	ActivatedAt       sql.NullTime        `json:"activateTime"`
-	FinishedAt        sql.NullTime        `json:"finishTime" gorm:"-"` // TODO: store finishTime in db
+	FinishedAt        sql.NullTime        `json:"-" gorm:"-"` // TODO: store finishTime in db
 	UpdatedAt         time.Time           `json:"updateTime,omitempty"`
 	DeletedAt         string              `json:"-" gorm:"index:idx_id"`
 }
