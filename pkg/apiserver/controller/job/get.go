@@ -252,7 +252,17 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 		response.StartTime = job.ActivatedAt.Time.Format(model.TimeFormat)
 	}
 	if schema.IsImmutableJobStatus(job.Status) {
-		response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+		if job.FinishedAt.Valid {
+			response.FinishTime = job.FinishedAt.Time.Format(model.TimeFormat)
+		} else {
+			// Compatible with old version data
+			finishTime := getJobFinishTime(job)
+			if finishTime != nil {
+				response.FinishTime = finishTime.Format(model.TimeFormat)
+			} else {
+				response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+			}
+		}
 	}
 	response.ID = job.ID
 	response.Name = job.Name
@@ -343,6 +353,28 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 		}
 	}
 	return response, nil
+}
+
+func getJobFinishTime(job model.Job) *time.Time {
+	var finishTime *time.Time
+	switch job.Type {
+	case string(schema.TypeSingle):
+		if job.RuntimeStatus != nil {
+			runtimestatus := job.RuntimeStatus.(*v1.PodStatus)
+			for _, conStatus := range runtimestatus.ContainerStatuses {
+				if conStatus.State.Terminated != nil {
+					finishTime = &conStatus.State.Terminated.FinishedAt.Time
+					break
+				}
+			}
+		}
+	case string(schema.TypeDistributed):
+		// TODO: get finish time for distributed job
+		finishTime = nil
+	default:
+		finishTime = nil
+	}
+	return finishTime
 }
 
 func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
