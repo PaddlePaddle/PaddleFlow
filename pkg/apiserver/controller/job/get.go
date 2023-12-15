@@ -364,15 +364,25 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 //
 //	*time.Time: 表示任务的完成时间，如果任务未完成则返回nil
 func getJobFinishTime(job model.Job) *time.Time {
+	if job.RuntimeStatus == nil {
+		return nil
+	}
+	runtimeStatusByte, err := json.Marshal(job.RuntimeStatus)
+	if err != nil {
+		return nil
+	}
 	var finishTime *time.Time
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if job.RuntimeStatus != nil {
-			runtimeStatus := job.RuntimeStatus.(*v1.PodStatus)
-			for _, conStatus := range runtimeStatus.ContainerStatuses {
-				if conStatus.State.Terminated != nil {
-					finishTime = &conStatus.State.Terminated.FinishedAt.Time
-					break
+			podStatus := v1.PodStatus{}
+			err = json.Unmarshal(runtimeStatusByte, &podStatus)
+			if err == nil {
+				for _, conStatus := range podStatus.ContainerStatuses {
+					if conStatus.State.Terminated != nil {
+						finishTime = &conStatus.State.Terminated.FinishedAt.Time
+						break
+					}
 				}
 			}
 		}
