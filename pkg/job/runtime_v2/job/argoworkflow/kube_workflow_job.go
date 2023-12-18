@@ -114,6 +114,8 @@ func (pj *KubeArgoWorkflowJob) JobStatus(obj interface{}) (api.StatusInfo, error
 		OriginStatus: string(job.Status.Phase),
 		Status:       state,
 		Message:      job.Status.Message,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime()),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.FinishTime()),
 	}, nil
 }
 

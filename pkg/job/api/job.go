@@ -145,6 +145,8 @@ type JobSyncInfo struct {
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
 	Annotations      map[string]string
+	FinishedTime     *time.Time
+	StartTime        *time.Time
 	Message          string
 	Action           schema.ActionType
 	RetryTimes       int
@@ -182,6 +184,8 @@ type StatusInfo struct {
 	OriginStatus string
 	Status       schema.JobStatus
 	Message      string
+	StartTime    *time.Time
+	FinishedTime *time.Time
 }
 
 type GetStatusFunc func(interface{}) (StatusInfo, error)

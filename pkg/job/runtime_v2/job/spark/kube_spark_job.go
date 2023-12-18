@@ -298,6 +298,8 @@ func (sj *KubeSparkJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(job.Status.AppState.State),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(nil),
+		FinishedTime: kuberuntime.GetKubeTime(&job.Status.TerminationTime),
 	}, nil
 }
 

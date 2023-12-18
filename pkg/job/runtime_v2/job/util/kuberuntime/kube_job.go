@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	log "github.com/sirupsen/logrus"
@@ -891,6 +892,16 @@ func GetKubeflowJobStatus(jobCond kubeflowv1.JobCondition) (schema.JobStatus, st
 		return status, msg, fmt.Errorf("unexpected job status: %s", jobCond.Type)
 	}
 	return status, msg, nil
+}
+
+// GetKubeTime 函数接收一个metav1.Time类型的指针t，返回一个time.Time类型的指针
+func GetKubeTime(t *metav1.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	var newT = metav1.Time{}
+	t.DeepCopyInto(&newT)
+	return &newT.Time
 }
 
 // BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on

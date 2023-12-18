@@ -176,6 +176,8 @@ func (pj *KubePyTorchJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(jobCond.Type),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.CompletionTime),
 	}, nil
 }
 

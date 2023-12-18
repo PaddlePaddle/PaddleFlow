@@ -119,6 +119,8 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 		RuntimeInfo:      runtimeInfo,
 		RuntimeStatus:    runtimeStatus,
 		Message:          statusInfo.Message,
+		FinishedTime:     statusInfo.FinishedTime,
+		StartTime:        statusInfo.StartTime,
 		Action:           schema.Create,
 	}
 	log.Infof("add %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
@@ -168,6 +170,8 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		Status:           newStatusInfo.Status,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
 		Message:          newStatusInfo.Message,
+		FinishedTime:     newStatusInfo.FinishedTime,
+		StartTime:        newStatusInfo.StartTime,
 		Action:           schema.Update,
 	}
 	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
