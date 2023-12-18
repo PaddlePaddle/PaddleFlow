@@ -156,12 +156,11 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 
 func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do create action, job sync info: %s", jobSyncInfo.String())
-	_, err := storage.Job.GetJobByID(jobSyncInfo.ID)
-	if err == nil {
+	if jobSyncInfo.ParentJobID == "" {
+		// update job
 		return j.doUpdateAction(jobSyncInfo)
-	}
-	// only create job for subtask
-	if jobSyncInfo.ParentJobID != "" {
+	} else {
+		// only create job for subtask
 		// check weather parent job is exist or not
 		parentJob, err := storage.Job.GetJobByID(jobSyncInfo.ParentJobID)
 		if err != nil {
@@ -192,29 +191,69 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 	return nil
 }
 
+// doDeleteAction delete job
 func (j *JobSync) doDeleteAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, pfschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo,
-		jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
-		log.Errorf("sync job status failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
-		return err
-	}
-	return nil
+	// 1. update job status and message
+	jobSyncInfo.Status = pfschema.StatusJobTerminated
+	jobSyncInfo.Message = "job is deleted"
+	// 2. update job
+	return j.doUpdateAction(jobSyncInfo)
 }
 
+// doUpdateAction update job status and message
 func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do update action. jobID: %s, action: %s, status: %s, message: %s",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
-
-	// add time point
-	if pfschema.IsImmutableJobStatus(jobSyncInfo.Status) {
-		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, time.Now(), metrics.Info{
+	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
+	if err != nil {
+		log.Infof("do update action. get jobID: %s from database failed, err: %v", jobSyncInfo.ID, err)
+		return err
+	}
+	// 1. update job status and message
+	newStatus, message := storage.JobStatusTransition(job.ID, job.Status, jobSyncInfo.Status, jobSyncInfo.Message)
+	job.RuntimeInfo = jobSyncInfo.RuntimeInfo
+	job.RuntimeStatus = jobSyncInfo.RuntimeStatus
+	job.Status = newStatus
+	job.Message = message
+	// 2. update activated time if it's need
+	if newStatus == pfschema.StatusJobRunning && !job.ActivatedAt.Valid {
+		// add queue id here
+		// in case panic
+		var queueName, userName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+			userName = job.Config.GetUserName()
+		}
+		startTime := time.Now()
+		if jobSyncInfo.StartTime != nil {
+			startTime = *jobSyncInfo.FinishedTime
+		}
+		metrics.Job.AddTimestamp(job.ID, metrics.T7, startTime, metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: queueName,
+			metrics.UserNameLabel:  userName,
+		})
+		// set job activated time
+		job.ActivatedAt.Time = startTime
+		job.ActivatedAt.Valid = true
+	}
+	// 3. update finished time if it's need
+	if pfschema.IsImmutableJobStatus(newStatus) && !job.FinishedAt.Valid {
+		finishTime := time.Now()
+		if jobSyncInfo.FinishedTime != nil {
+			finishTime = *jobSyncInfo.FinishedTime
+		}
+		// record job finished time point
+		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, finishTime, metrics.Info{
 			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
 		})
+		// set job finished time
+		job.FinishedAt.Time = finishTime
+		job.FinishedAt.Valid = true
 	}
-
-	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo,
-		jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
+	// 4. update job in storage
+	if err = storage.Job.Update(jobSyncInfo.ID, &job); err != nil {
 		log.Errorf("update job failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}

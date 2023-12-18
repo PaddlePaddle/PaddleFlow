@@ -215,6 +215,7 @@ type JobStoreInterface interface {
 	// UpdateJobStatus update job status
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
+	Update(jobID string, job *model.Job) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	// ListJob list job with filter
 	ListJob(filter JobFilter) ([]model.Job, error)
