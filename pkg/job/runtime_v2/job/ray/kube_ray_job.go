@@ -306,6 +306,8 @@ func (rj *KubeRayJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(state),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.EndTime),
 	}, nil
 }
 

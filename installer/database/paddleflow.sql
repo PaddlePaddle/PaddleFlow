@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `parent_job` varchar(60) DEFAULT NULL,
     `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
     `activated_at` datetime(3) DEFAULT NULL,
+    `finished_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),

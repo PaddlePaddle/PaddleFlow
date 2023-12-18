@@ -252,7 +252,12 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 		response.StartTime = job.ActivatedAt.Time.Format(model.TimeFormat)
 	}
 	if schema.IsImmutableJobStatus(job.Status) {
-		response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+		if job.FinishedAt.Valid {
+			response.FinishTime = job.FinishedAt.Time.Format(model.TimeFormat)
+		} else {
+			// Compatible with old version data
+			response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+		}
 	}
 	response.ID = job.ID
 	response.Name = job.Name

@@ -177,6 +177,8 @@ func (pj *KubeAITrainingJob) JobStatus(obj interface{}) (api.StatusInfo, error) 
 		OriginStatus: string(job.Status.Phase),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartRunningTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.EndTime),
 	}, nil
 }
 

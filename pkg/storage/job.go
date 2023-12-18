@@ -96,7 +96,7 @@ func (js *JobStore) UpdateJobStatus(jobId, errMessage string, newStatus schema.J
 		return errors.JobIDNotFoundError(jobId)
 	}
 	updatedJob := model.Job{}
-	updatedJob.Status, errMessage = jobStatusTransition(job.ID, job.Status, newStatus, errMessage)
+	updatedJob.Status, errMessage = JobStatusTransition(job.ID, job.Status, newStatus, errMessage)
 	if errMessage != "" {
 		updatedJob.Message = errMessage
 	}
@@ -124,7 +124,7 @@ func (js *JobStore) UpdateJobConfig(jobId string, conf *schema.Conf) error {
 	return nil
 }
 
-func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, msg string) (schema.JobStatus, string) {
+func JobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, msg string) (schema.JobStatus, string) {
 	if schema.IsImmutableJobStatus(preStatus) {
 		return preStatus, ""
 	}
@@ -148,13 +148,23 @@ func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, ms
 	return newStatus, msg
 }
 
+// Update the status of existing job
+func (js *JobStore) Update(jobID string, job *model.Job) error {
+	tx := js.db.Model(&model.Job{}).Where("id = ?", jobID).Where("deleted_at = ''").Updates(job)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
+// UpdateJob update job status and runtime info Deprecated
 func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error) {
 	job, err := js.GetUnscopedJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
 	updatedJob := model.Job{}
-	updatedJob.Status, message = jobStatusTransition(jobID, job.Status, status, message)
+	updatedJob.Status, message = JobStatusTransition(jobID, job.Status, status, message)
 	if runtimeInfo != nil {
 		updatedJob.RuntimeInfo = runtimeInfo
 	}

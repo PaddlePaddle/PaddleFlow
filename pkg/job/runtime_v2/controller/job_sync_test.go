@@ -188,6 +188,9 @@ func TestJobSync(t *testing.T) {
 	mockJobID2 := "test-job-id2"
 	mockSubJobID := "test-sub-job-id"
 	mockNamespace := "default"
+	timeNow := time.Now()
+	startTime1 := timeNow.Add(10 * time.Second)
+	endTime1 := timeNow.Add(30 * time.Second)
 
 	testCases := []struct {
 		name        string
@@ -210,6 +213,29 @@ func TestJobSync(t *testing.T) {
 				Namespace:   mockNamespace,
 				Status:      schema.StatusJobPending,
 				Action:      schema.Create,
+			},
+		},
+		{
+			name: "sync parent job running",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:          mockSubJobID,
+				ParentJobID: mockJobID,
+				Namespace:   mockNamespace,
+				Status:      schema.StatusJobRunning,
+				Action:      schema.Create,
+				StartTime:   &startTime1,
+			},
+		},
+		{
+			name: "sync parent job success",
+			jobSyncInfo: &api.JobSyncInfo{
+				ID:           mockSubJobID,
+				ParentJobID:  mockJobID,
+				Namespace:    mockNamespace,
+				Status:       schema.StatusJobFailed,
+				Action:       schema.Create,
+				StartTime:    &startTime1,
+				FinishedTime: &endTime1,
 			},
 		},
 		{
