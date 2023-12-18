@@ -183,6 +183,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			RuntimeStatus: jobSyncInfo.RuntimeStatus,
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
+		if pfschema.IsImmutableJobStatus(job.Status) {
+			job.FinishedAt.Time = getWantedTime(jobSyncInfo.FinishedTime)
+			job.FinishedAt.Valid = true
+		} else if job.Status == pfschema.StatusJobRunning {
+			job.ActivatedAt.Time = getWantedTime(jobSyncInfo.StartTime)
+			job.ActivatedAt.Valid = true
+		}
 		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err
@@ -225,10 +232,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 			queueName = job.Config.GetQueueName()
 			userName = job.Config.GetUserName()
 		}
-		startTime := time.Now()
-		if jobSyncInfo.StartTime != nil {
-			startTime = *jobSyncInfo.FinishedTime
-		}
+		startTime := getWantedTime(jobSyncInfo.StartTime)
 		metrics.Job.AddTimestamp(job.ID, metrics.T7, startTime, metrics.Info{
 			metrics.QueueIDLabel:   job.QueueID,
 			metrics.QueueNameLabel: queueName,
@@ -240,10 +244,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 	}
 	// 3. update finished time if it's need
 	if pfschema.IsImmutableJobStatus(newStatus) && !job.FinishedAt.Valid {
-		finishTime := time.Now()
-		if jobSyncInfo.FinishedTime != nil {
-			finishTime = *jobSyncInfo.FinishedTime
-		}
+		finishTime := getWantedTime(jobSyncInfo.FinishedTime)
 		// record job finished time point
 		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, finishTime, metrics.Info{
 			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
@@ -258,6 +259,14 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 		return err
 	}
 	return nil
+}
+
+// getWantedTime return the wanted time if it's not nil, otherwise return current time
+func getWantedTime(newTime *time.Time) time.Time {
+	if newTime != nil {
+		return *newTime
+	}
+	return time.Now()
 }
 
 func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
