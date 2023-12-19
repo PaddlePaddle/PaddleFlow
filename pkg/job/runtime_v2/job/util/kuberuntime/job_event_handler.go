@@ -174,6 +174,13 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 		StartTime:        newStatusInfo.StartTime,
 		Action:           schema.Update,
 	}
+	// startTime for single job
+	if kindGroupVersion == schema.StandaloneKindGroupVersion &&
+		oldStatusInfo.OriginStatus != newStatusInfo.OriginStatus &&
+		newStatusInfo.Status == schema.StatusJobRunning {
+		timeNow := time.Now()
+		jobInfo.StartTime = &timeNow
+	}
 	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
 		jobInfo.ID, jobInfo.Status, jobInfo.Message)
 	return jobInfo, nil
