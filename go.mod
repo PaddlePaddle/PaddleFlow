@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible
-	github.com/agiledragon/gomonkey/v2 v2.7.0
+	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/argoproj/argo v0.0.0-20210119221932-53f022c3f740
 	github.com/aws/aws-sdk-go v1.44.233
 	github.com/baidubce/bce-sdk-go v0.9.146
@@ -42,7 +42,6 @@ require (
 	github.com/shirou/gopsutil/v3 v3.20.10
 	github.com/sirupsen/logrus v1.8.1
 	github.com/smallnest/chanx v1.0.0
-	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
@@ -143,6 +142,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	github.com/shabbyrobe/gocovmerge v0.0.0-20180507124511-f6ea450bfb63 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
