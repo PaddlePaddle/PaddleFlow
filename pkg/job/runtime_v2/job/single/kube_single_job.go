@@ -177,7 +177,6 @@ func (sp *KubeSingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(jobStatus.Phase),
 		Status:       state,
 		Message:      msg,
-		StartTime:    kuberuntime.GetKubeTime(jobStatus.StartTime),
 		FinishedTime: sp.getJobFinishedTime(jobStatus),
 	}, nil
 }
