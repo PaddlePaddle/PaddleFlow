@@ -99,7 +99,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		return
 	}
 
-	j.preHandleTerminatingJob()
+	j.preHandleUnfinishedJob()
 	go wait.Until(j.runJobWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 	go wait.Until(j.runJobGCWorker, 0, stopCh)
@@ -302,7 +302,8 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 	return nil
 }
 
-func (j *JobSync) preHandleTerminatingJob() {
+// preHandleUnfinishedJob get unfinished job from database and check if it exists in cluster
+func (j *JobSync) preHandleUnfinishedJob() {
 	queues := storage.Queue.ListQueuesByCluster(j.runtimeClient.ClusterID())
 	if len(queues) == 0 {
 		return
@@ -311,21 +312,27 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, q := range queues {
 		queueIDs = append(queueIDs, q.ID)
 	}
-
-	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, pfschema.StatusJobTerminating)
+	// unfinished job status
+	unfinishedJobStatuses := []pfschema.JobStatus{
+		pfschema.StatusJobTerminating,
+		pfschema.StatusJobRunning,
+		pfschema.StatusJobPending,
+	}
+	// get jobs from database
+	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, unfinishedJobStatuses)
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
 		fwVersion := j.runtimeClient.JobFrameworkVersion(pfschema.JobType(job.Type), job.Framework)
 
-		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
+		log.Debugf("pre handle unfinished job, get %s job %s/%s from cluster", fwVersion, namespace, name)
 		_, err := j.runtimeClient.Get(namespace, name, fwVersion)
 		if err != nil && k8serrors.IsNotFound(err) {
 			j.jobQueue.Add(&api.JobSyncInfo{
 				ID:     job.ID,
 				Action: pfschema.Delete,
 			})
-			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", fwVersion, namespace, name)
+			log.Infof("pre handle unfinished %s job enqueue, job name %s/%s", fwVersion, namespace, name)
 		}
 	}
 }
