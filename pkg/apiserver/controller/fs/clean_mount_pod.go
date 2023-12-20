@@ -53,7 +53,6 @@ func cleanMountPod(expireDuration time.Duration) error {
 			podCleanMap[runtimePtr] = podsToClean
 		}
 	}
-	log.Infof("clean expired mount pods: %+v", podCleanMap)
 	if len(podCleanMap) == 0 {
 		return nil
 	}
