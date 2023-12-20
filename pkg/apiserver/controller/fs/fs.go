@@ -413,14 +413,19 @@ func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRun
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
-				return err
+				err = fmt.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				log.Error(err.Error())
+				errorsSlice = append(errorsSlice, err.Error())
 			}
 		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
 	}
 	return nil
 }
