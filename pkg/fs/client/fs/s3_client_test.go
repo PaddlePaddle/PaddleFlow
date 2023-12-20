@@ -106,7 +106,7 @@ func TestReadBigDir(t *testing.T) {
 		EntryCacheExpire: 10 * time.Minute,
 		PathCacheExpire:  10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.DiskType,
+			Driver:    kv.MemType,
 			CachePath: "./mock-meta",
 		},
 	}
