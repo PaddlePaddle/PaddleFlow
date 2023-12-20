@@ -214,9 +214,9 @@ func (js *JobStore) ListQueueInitJob(queueID string) []model.Job {
 	return jobs
 }
 
-func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job {
+func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status []schema.JobStatus) []model.Job {
 	var jobs []model.Job
-	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
+	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status IN ?", status).Where("deleted_at = ''")
 	err := db.Find(&jobs).Error
 	if err != nil {
 		log.Errorf("list jobs in queues %v with status %s failed, err: %s", queueIDs, status, err.Error())

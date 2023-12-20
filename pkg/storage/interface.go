@@ -186,7 +186,7 @@ type JobStoreInterface interface {
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job
 	ListQueueInitJob(queueID string) []model.Job
-	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job
+	ListJobsByQueueIDsAndStatus(queueIDs []string, status []schema.JobStatus) []model.Job
 	ListJobByStatus(status schema.JobStatus) []model.Job
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
