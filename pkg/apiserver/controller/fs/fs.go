@@ -377,14 +377,19 @@ func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRun
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
-				return err
+				err = fmt.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				log.Error(err.Error())
+				errorsSlice = append(errorsSlice, err.Error())
 			}
 		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
 	}
 	return nil
 }
@@ -406,6 +411,40 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func deletePvPvcs(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
+	for k8sRuntime, pods := range podMap {
+		namespaces := []string{}
+		nsList, err := k8sRuntime.ListNamespaces(k8sMeta.ListOptions{})
+		if err != nil {
+			log.Errorf("ListNamespaces err %v", err)
+			continue
+		}
+		for _, ns := range nsList.Items {
+			if ns.Status.Phase == k8sCore.NamespaceActive {
+				namespaces = append(namespaces, ns.Name)
+			}
+		}
+		for _, po := range pods {
+			for _, ns := range namespaces {
+				// delete pod
+				log.Infof("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s]",
+					po.Name, ns, po.Labels[schema.LabelKeyFsID])
+				if err = patchAndDeletePvcPv(k8sRuntime, ns, po.Labels[schema.LabelKeyFsID]); err != nil && !k8sErrors.IsNotFound(err) {
+					err = fmt.Errorf("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s] failed: %v",
+						po.Name, ns, po.Labels[schema.LabelKeyFsID], err)
+					log.Error(err.Error())
+					errorsSlice = append(errorsSlice, err.Error())
+				}
+			}
+		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
 	}
 	return nil
 }
