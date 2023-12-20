@@ -47,7 +47,7 @@ func cleanMountPod(expireDuration time.Duration) error {
 		runtimePtr, podsToClean, err := expiredMountedPodsSingleCluster(cluster, expireDuration)
 		if err != nil {
 			log.Errorf("expiredMountedPodsSingleCluster[%s] failed: %v", cluster.ID, err)
-			return err
+			continue
 		}
 		if len(podsToClean) > 0 {
 			podCleanMap[runtimePtr] = podsToClean
