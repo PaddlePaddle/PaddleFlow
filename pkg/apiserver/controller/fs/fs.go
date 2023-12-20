@@ -434,6 +434,9 @@ func deletePvPvcs(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 				// delete pod
 				log.Infof("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s]",
 					po.Name, ns, po.Labels[schema.LabelKeyFsID])
+				if po.Labels[schema.LabelKeyFsID] == "" {
+					continue
+				}
 				if err = patchAndDeletePvcPv(k8sRuntime, ns, po.Labels[schema.LabelKeyFsID]); err != nil && !k8sErrors.IsNotFound(err) {
 					err = fmt.Errorf("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s] failed: %v",
 						po.Name, ns, po.Labels[schema.LabelKeyFsID], err)
