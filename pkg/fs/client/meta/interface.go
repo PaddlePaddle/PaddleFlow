@@ -187,7 +187,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, config *Confi
 			Config: kv.Config{
 				Driver:    kv.DiskType,
 				FsID:      fsMeta.ID,
-				CachePath: "./.tmp",
+				CachePath: kv.TmpDir,
 			},
 		}
 	}

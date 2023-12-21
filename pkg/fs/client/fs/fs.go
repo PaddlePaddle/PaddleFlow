@@ -81,6 +81,9 @@ func NewFileSystem(fsMeta common.FSMeta, links map[string]common.FSMeta, skipSub
 			_ = vfs.Meta.LinksMetaUpdateHandler(fs.stop, meta.DefaultLinkUpdateInterval, linkMetaDirPrefix)
 		}()
 	}
+	go func() {
+		vfs.Meta.ClientClose(fs.stop)
+	}()
 
 	if hasCache {
 		fs.setCache(defaultEntryCacheSize, defaultAttrCacheSize, defaultEntryExpire, defaultAttrExpire)
@@ -351,7 +354,7 @@ func (fs *FileSystem) SetAttr(name string, set, mode, uid, gid uint32, atime, mt
 		log.Errorf("fs.SetAttr [%v] err: %v", name, err.Error())
 		return nil, err
 	}
-	//需要更新fs.cache并且获取新的attr返回，所以直接调用fs.lookup
+	// 需要更新fs.cache并且获取新的attr返回，所以直接调用fs.lookup
 	attr, _, err := fs.lookup(ctx, path.Dir(name), true)
 	if utils.IsError(err) {
 		log.Errorf("fs.SetAttr relookup [%v] err: %v", name, err.Error())
