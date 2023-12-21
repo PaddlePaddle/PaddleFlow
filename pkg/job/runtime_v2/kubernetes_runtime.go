@@ -263,6 +263,12 @@ func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 			log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
 			return
 		}
+		// register hook for job sync
+		err = jobController.RegisterHook(controller.PVCCleanHook, kr.deletePFSPVC())
+		if err != nil {
+			log.Errorf("register post hook for job controller failed, err: %v", err)
+		}
+
 		queueController := controller.NewQueueSync()
 		err = queueController.Initialize(kr.kubeClient)
 		if err != nil {
@@ -488,6 +494,44 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	newPVC.Spec.VolumeName = pv
 	// create pvc in k8s
 	if _, err := kr.createPersistentVolumeClaim(namespace, newPVC); err != nil {
+		log.Errorf(err.Error())
+		return err
+	}
+	return nil
+}
+
+// deletePFSPVC deletes pvc in k8s
+func (kr *KubeRuntime) deletePFSPVC() func(string, string) error {
+	client := kr.clientset()
+	return func(namespace, fsID string) error {
+		name := pfschema.ConcatenatePVCName(fsID)
+		return deletePVC(client, namespace, name)
+	}
+}
+
+// deletePVC deletes pvc in k8s
+func deletePVC(client kubernetes.Interface, namespace, name string) error {
+	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		err = fmt.Errorf("get pvc[%s/%s] err: %v", namespace, name, err)
+		log.Errorf(err.Error())
+		return err
+	}
+
+	if len(pvc.Finalizers) > 0 {
+		if err = patchPVCFinalizer(client, namespace, name); err != nil {
+			err := fmt.Errorf("PatchPVCFinalizerNull [%s/%s] err: %v", namespace, name, err)
+			log.Errorf(err.Error())
+			return err
+		}
+	}
+	// delete pvc manually. pv will be deleted automatically
+	err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		err = fmt.Errorf("delete pvc[%s/%s] err: %v", namespace, name, err)
 		log.Errorf(err.Error())
 		return err
 	}
@@ -739,7 +783,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 	return kr.clientset().CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 
-func (kr *KubeRuntime) PatchPVCFinalizerNull(namespace, name string) error {
+func patchPVCFinalizer(client kubernetes.Interface, namespace, name string) error {
 	type patchStruct struct {
 		Op    string   `json:"op"`
 		Path  string   `json:"path"`
@@ -755,11 +799,17 @@ func (kr *KubeRuntime) PatchPVCFinalizerNull(namespace, name string) error {
 		log.Errorf("parse pvc[%s-%s] finalizer null error: %v", namespace, name, err)
 		return err
 	}
-	if err := kr.patchPersistentVolumeClaim(namespace, name, payloadBytes); err != nil {
+	_, err = client.CoreV1().PersistentVolumeClaims(namespace).Patch(context.TODO(), name,
+		types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	if err != nil {
 		log.Errorf("patch pvc[%s-%s] [%s] error: %v", namespace, name, string(payloadBytes), err)
 		return err
 	}
 	return nil
+}
+
+func (kr *KubeRuntime) PatchPVCFinalizerNull(namespace, name string) error {
+	return patchPVCFinalizer(kr.clientset(), namespace, name)
 }
 
 func (kr *KubeRuntime) patchPersistentVolumeClaim(namespace, name string, data []byte) error {
