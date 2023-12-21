@@ -280,14 +280,19 @@ func (j *JobSync) doJobPostHook(jobSyncInfo *api.JobSyncInfo) error {
 	}
 	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err != nil {
-		log.Infof("get job from database failed. jobID: %s not found", jobSyncInfo.ID)
+		log.Infof("get job from database failed. job %s not found", jobSyncInfo.ID)
 		return err
+	}
+	if !pfschema.IsImmutableJobStatus(job.Status) {
+		log.Warnf("job %s dose not finished, skip post hook", jobSyncInfo.ID)
+		return nil
 	}
 	// execute pvc post hook
 	for hookType, hook := range j.jobPostHook {
 		switch hookType {
 		case PVCCleanHook:
 			// 1.1 execute pvc post hook
+			log.Infof("begin to execute post hook[%s] for job %s", hookType, job.ID)
 			namespace := job.Config.GetNamespace()
 			fsList := job.Config.GetAllFileSystem()
 			for _, fs := range fsList {
