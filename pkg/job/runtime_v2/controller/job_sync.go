@@ -43,7 +43,18 @@ const (
 	JobSyncControllerName = "JobSync"
 	DefaultSyncRetryTimes = 3
 	DefaultJobTTLSeconds  = 600
+
+	PVCCleanHook = "pvcClean"
 )
+
+// HookFunc defines a hook function
+type HookFunc func(string, string) error
+
+// Hook defines a hook info
+type Hook struct {
+	HookType   string
+	HookHandle HookFunc
+}
 
 type JobSync struct {
 	runtimeClient framework.RuntimeClientInterface
@@ -53,6 +64,8 @@ type JobSync struct {
 	taskQueue workqueue.RateLimitingInterface
 	//  waitedCleanQueue contains jobs to be deleted
 	waitedCleanQueue workqueue.DelayingInterface
+	//  job post hook
+	jobPostHook map[string]Hook
 }
 
 func NewJobSync() *JobSync {
@@ -61,6 +74,26 @@ func NewJobSync() *JobSync {
 
 func (j *JobSync) Name() string {
 	return fmt.Sprintf("%s controller for %s", JobSyncControllerName, j.runtimeClient.Cluster())
+}
+
+func (j *JobSync) RegisterHook(hookType string, hook HookFunc) error {
+	if hook == nil {
+		return fmt.Errorf("register hook %s failed, hook is nil", hookType)
+	}
+	if hookType != PVCCleanHook {
+		return fmt.Errorf("register hook %s failed, only support pvcClean now", hookType)
+	}
+	if _, ok := j.jobPostHook[hookType]; !ok {
+		if j.jobPostHook == nil {
+			j.jobPostHook = make(map[string]Hook)
+		}
+		// register hook
+		j.jobPostHook[hookType] = Hook{
+			HookType:   hookType,
+			HookHandle: hook,
+		}
+	}
+	return nil
 }
 
 func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
@@ -199,7 +232,8 @@ func (j *JobSync) doDeleteAction(jobSyncInfo *api.JobSyncInfo) error {
 		log.Errorf("sync job status failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}
-	return nil
+	// call post hook
+	return j.doJobPostHook(jobSyncInfo)
 }
 
 func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
@@ -235,7 +269,42 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, job.Config.GetKindGroupVersion(job.Framework))
 	if err != nil {
 		log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
+		return err
 	}
+	return j.doJobPostHook(jobSyncInfo)
+}
+
+func (j *JobSync) doJobPostHook(jobSyncInfo *api.JobSyncInfo) error {
+	if j.jobPostHook == nil {
+		return nil
+	}
+	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
+	if err != nil {
+		log.Infof("get job from database failed. job %s not found", jobSyncInfo.ID)
+		return err
+	}
+	if !pfschema.IsImmutableJobStatus(job.Status) {
+		log.Warnf("job %s dose not finished, skip post hook", jobSyncInfo.ID)
+		return nil
+	}
+	// execute pvc post hook
+	for hookType, hook := range j.jobPostHook {
+		switch hookType {
+		case PVCCleanHook:
+			// 1.1 execute pvc post hook
+			log.Infof("begin to execute post hook[%s] for job %s", hookType, job.ID)
+			namespace := job.Config.GetNamespace()
+			fsList := job.Config.GetAllFileSystem()
+			for _, fs := range fsList {
+				if err = hook.HookHandle(namespace, fs.ID); err != nil {
+					log.Errorf("do post pvc clean hook for job %s failed, err: %v", job.ID, err)
+				}
+			}
+		default:
+			log.Warnf("unknown hook type: %s", hookType)
+		}
+	}
+	log.Infof("post hook for job %s finished", job.ID)
 	return err
 }
 
