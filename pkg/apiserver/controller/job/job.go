@@ -183,9 +183,9 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		return fmt.Errorf(msg)
 	}
 
-	if job.Status == schema.StatusJobInit {
-		err = storage.Job.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated)
-	} else {
+	var errMessage = "job is terminated."
+	var jobStatus = schema.StatusJobTerminated
+	if job.Status != schema.StatusJobInit {
 		var runtimeSvc runtime.RuntimeService
 		runtimeSvc, err = getRuntimeByQueue(ctx, job.QueueID)
 		if err != nil {
@@ -205,8 +205,9 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 			}
 		}(&job, runtimeSvc)
 		// update job status
-		err = storage.Job.UpdateJobStatus(jobID, "job is terminating.", schema.StatusJobTerminating)
+		errMessage, jobStatus = "job is terminating.", schema.StatusJobTerminating
 	}
+	err = storage.Job.UpdateJobStatus(jobID, errMessage, jobStatus)
 	if err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminating, err)
 		return err
@@ -266,7 +267,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		job.Config.SetAnnotations(key, value)
 	}
 
-	err = storage.Job.UpdateJobConfig(job.ID, job.Config)
+	err = storage.Job.Update(job.ID, &model.Job{Config: job.Config})
 	if err != nil {
 		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
 		ctx.ErrorCode = common.DBUpdateFailed

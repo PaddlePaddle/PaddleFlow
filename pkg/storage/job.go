@@ -17,7 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -102,22 +101,6 @@ func (js *JobStore) UpdateJobStatus(jobId, errMessage string, newStatus schema.J
 	}
 	log.Infof("update for job %s, updated content [%+v]", jobId, updatedJob)
 	tx := js.db.Model(&model.Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(updatedJob)
-	if tx.Error != nil {
-		return tx.Error
-	}
-	return nil
-}
-
-func (js *JobStore) UpdateJobConfig(jobId string, conf *schema.Conf) error {
-	if conf == nil {
-		return fmt.Errorf("job config is nil")
-	}
-	confJSON, err := json.Marshal(conf)
-	if err != nil {
-		return err
-	}
-	log.Infof("update job config [%v]", conf)
-	tx := js.db.Model(&model.Job{}).Where("id = ?", jobId).Where("deleted_at = ''").UpdateColumn("config", confJSON)
 	if tx.Error != nil {
 		return tx.Error
 	}
