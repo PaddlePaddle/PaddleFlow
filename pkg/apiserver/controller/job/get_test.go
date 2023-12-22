@@ -328,7 +328,8 @@ func TestListJob(t *testing.T) {
 		{
 			name: "list job with status filter",
 			request: ListJobRequest{
-				Status: string(schema.StatusJobRunning),
+				Status:  string(schema.StatusJobRunning),
+				MaxKeys: 50,
 			},
 			err:            nil,
 			wantedJobCount: 6,
@@ -337,6 +338,7 @@ func TestListJob(t *testing.T) {
 			name: "list job with timestamp",
 			request: ListJobRequest{
 				Timestamp: timeStamp,
+				MaxKeys:   50,
 			},
 			err:            nil,
 			wantedJobCount: 6,
@@ -344,10 +346,38 @@ func TestListJob(t *testing.T) {
 		{
 			name: "list job with queue",
 			request: ListJobRequest{
-				Queue: "test-queue-1-name",
+				Queue:   "test-queue-1-name",
+				MaxKeys: 50,
 			},
 			err:            nil,
 			wantedJobCount: 6,
+		},
+		{
+			name: "list job with maxKeys 0",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 0,
+			},
+			err:            nil,
+			wantedJobCount: 0,
+		},
+		{
+			name: "list job with maxKeys 1",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 1,
+			},
+			err:            nil,
+			wantedJobCount: 1,
+		},
+		{
+			name: "list job with maxKeys 2",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 2,
+			},
+			err:            nil,
+			wantedJobCount: 2,
 		},
 	}
 
