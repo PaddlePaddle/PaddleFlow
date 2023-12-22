@@ -209,7 +209,6 @@ type JobStoreInterface interface {
 	CreateJob(job *model.Job) error
 	// GetJobByID get job
 	GetJobByID(jobID string) (model.Job, error)
-	GetLastJob() (model.Job, error)
 	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
 	// UpdateJobStatus update job status
