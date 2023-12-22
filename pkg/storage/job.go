@@ -272,16 +272,6 @@ func (js *JobStore) GetJobsByRunID(runID string, jobID string) ([]model.Job, err
 	return jobList, nil
 }
 
-func (js *JobStore) GetLastJob() (model.Job, error) {
-	job := model.Job{}
-	tx := js.db.Table("job").Where("deleted_at = ''").Last(&job)
-	if tx.Error != nil {
-		log.Errorf("get last job failed. error:%s", tx.Error.Error())
-		return model.Job{}, tx.Error
-	}
-	return job, nil
-}
-
 // list job process multi label get and result
 func (js *JobStore) ListJobIDByLabels(labels map[string]string) ([]string, error) {
 	jobIDs := make([]string, 0)
