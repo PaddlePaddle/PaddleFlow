@@ -220,7 +220,7 @@ type JobStoreInterface interface {
 	// GetTaskByID get job task
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
-	ListByJobID(jobID string) ([]model.JobTask, error)
+	ListTaskByJobID(jobID string) ([]model.JobTask, error)
 }
 
 type ImageStoreInterface interface {

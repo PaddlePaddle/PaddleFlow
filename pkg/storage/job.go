@@ -323,7 +323,7 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	return tx.Error
 }
 
-func (js *JobStore) ListByJobID(jobID string) ([]model.JobTask, error) {
+func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	var jobList []model.JobTask
 	err := js.db.Table(model.JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
 	if err != nil {
