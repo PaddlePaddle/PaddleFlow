@@ -73,6 +73,7 @@ const (
 	QueryKeyStatus           = "status"
 	QueryKeyTimestamp        = "timestamp"
 	QueryKeyStartTime        = "startTime"
+	QueryKeyEndTime          = "endTime"
 	QueryKeyQueue            = "queue"
 	QueryKeyLabels           = "labels"
 	QueryKeyReadFromTail     = "readFromTail"

@@ -19,6 +19,7 @@ package common
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -64,6 +65,8 @@ const (
 
 	FsPrefix = "fs-"
 	UserRoot = "root"
+
+	TIME_LAYOUT = "2006-01-02 15:04:05"
 )
 
 func init() {
@@ -269,4 +272,8 @@ func CheckPermission(requestUserName, ownerUserName, resourceType, resourceID st
 		return err
 	}
 	return nil
+}
+
+func Floor2decimal(num float64) float64 {
+	return math.Floor(num*100) / 100.0
 }

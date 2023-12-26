@@ -17,7 +17,11 @@ limitations under the License.
 package statistics
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
+	"time"
 
 	prometheusModel "github.com/prometheus/common/model"
 
@@ -56,6 +60,40 @@ type TaskStatistics struct {
 type MetricInfo struct {
 	MetricName string       `json:"metric"`
 	Values     [][2]float64 `json:"values"`
+}
+
+type GetCardTimeBatchRequest struct {
+	StartTime  string   `json:"startTime"`
+	EndTime    string   `json:"endTime"`
+	QueueNames []string `json:"queueNames"`
+}
+
+type GetCardTimeResponse struct {
+	QueueName string      `json:"queueName"`
+	CardTime  float64     `json:"cardTime"`
+	Detail    []JobDetail `json:"detail"`
+}
+
+type JobStatusDataForCardTime struct {
+	JobID      string  `json:"jobId"`
+	CardTime   float64 `json:"cardTime"`
+	CreateTime string  `json:"createTime"`
+	StartTime  string  `json:"startTime"`
+	FinishTime string  `json:"finishTime"`
+	GpuCount   int     `json:"gpuCount"`
+}
+
+type JobDetail struct {
+	UserName      string                     `json:"userName"`
+	JobInfoList   []JobStatusDataForCardTime `json:"jobInfoList"`
+	JobCount      int                        `json:"jobCount"`
+	TotalCardTime float64                    `json:"totalCardTime"`
+}
+
+type CardTimeInfo struct {
+	QueueName string      `json:"queueName"`
+	CardTime  float64     `json:"cardTime"`
+	Detail    []JobDetail `json:"detail"`
 }
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
@@ -220,4 +258,219 @@ func convertResultToResponse(response *JobStatisticsResponse, result float64, me
 
 func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
+}
+
+func GetCardTimeByQueueName(ctx *logger.RequestContext, queueName string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
+	startTime, err := time.Parse(common.TIME_LAYOUT, startTimeStr)
+	if err != nil {
+		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
+		return nil, err
+	}
+	endTime, err := time.Parse(common.TIME_LAYOUT, endTimeStr)
+	if err != nil {
+		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
+		return nil, err
+	}
+	if startTime.After(endTime) {
+		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
+	}
+	queue, err := storage.Queue.GetQueueByName(queueName)
+	if err != nil {
+		ctx.ErrorMessage = err.Error()
+		ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", queueName)
+		return nil, err
+	}
+	detailInfo, cardTimeData, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
+	if err != nil {
+		ctx.ErrorMessage = err.Error()
+		ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queueName)
+		return nil, err
+	}
+	cardTimeInfo := &CardTimeInfo{
+		QueueName: queue.Name,
+		CardTime:  cardTimeData,
+		Detail:    detailInfo,
+	}
+
+	return &GetCardTimeResponse{QueueName: cardTimeInfo.QueueName,
+		CardTime: cardTimeInfo.CardTime,
+		Detail:   cardTimeInfo.Detail}, nil
+}
+
+func GetCardTimeBatch(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*CardTimeInfo, error) {
+	var cardTimeInfoList []*CardTimeInfo
+	startTime, err := time.Parse(common.TIME_LAYOUT, startTimeStr)
+	if err != nil {
+		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
+		return nil, err
+	}
+	endTime, err := time.Parse(common.TIME_LAYOUT, endTimeStr)
+	if err != nil {
+		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
+		return nil, err
+	}
+	if startTime.After(endTime) {
+		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
+	}
+
+	for _, groupName := range queueNames {
+		queue, err := storage.Queue.GetQueueByName(groupName)
+		if err != nil {
+			ctx.ErrorMessage = err.Error()
+			ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", groupName)
+			return nil, err
+		}
+		detailInfo, cardTime, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
+		if err != nil {
+			ctx.ErrorMessage = err.Error()
+			ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queue.Name)
+			return nil, err
+		}
+		cardTimeInfo := &CardTimeInfo{
+			QueueName: queue.Name,
+			CardTime:  cardTime,
+			Detail:    detailInfo,
+		}
+		cardTimeInfoList = append(cardTimeInfoList, cardTimeInfo)
+	}
+	return cardTimeInfoList, nil
+}
+
+func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
+	queueID string, minDuration time.Duration) ([]JobDetail, float64, error) {
+	// endDate 原本为 20xx-xx-xx xx:59:59  加一秒
+	endDate = endDate.Add(time.Second)
+	period := endDate.Sub(startDate)
+	// 若指定的时间段长度小于最小任务运行时间，报错
+	logger.Logger().Infof("[GetCardTimeFromQueueID]groupID:%v, period:%#v, startDate:%v, endDate:%v",
+		queueID, period, startDate, endDate)
+	if period < minDuration {
+		return nil, 0, fmt.Errorf("time period less than minDuration")
+	}
+
+	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
+	detailInfoMap := make(map[string][]JobStatusDataForCardTime)
+
+	// case 1: 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
+	jobStatusForCase1, err := storage.Job.GetJobStatusForCase1(startDate, endDate, queueID)
+	cardTimeCalculation1 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+		return float64(gpuCards) * period.Seconds()
+	}
+	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase1, cardTimeCalculation1)
+	if err != nil {
+		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+	}
+
+	// case 2: 任务开始运行时间 < start_date，任务结束时间 <= end_date
+	jobStatusForCase2, err := storage.Job.GetJobStatusForCase2(startDate, endDate, queueID, minDuration)
+	cardTimeCalculation2 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+		return jobStatus.UpdatedAt.Sub(startDate).Seconds() * float64(gpuCards)
+	}
+	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase2, cardTimeCalculation2)
+	if err != nil {
+		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+	}
+
+	// case 3: 任务开始运行时间 >= start_date，任务结束时间 <= end_date
+	jobStatusForCase3, err := storage.Job.GetJobStatusForCase3(startDate, endDate, queueID, minDuration)
+	cardTimeCalculation3 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+		return jobStatus.UpdatedAt.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+	}
+	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase3, cardTimeCalculation3)
+	if err != nil {
+		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+	}
+
+	// case 4: 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
+	jobStatusForCase4, err := storage.Job.GetJobStatusForCase4(startDate, endDate, queueID, minDuration)
+	cardTimeCalculation4 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+		return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+	}
+	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase4, cardTimeCalculation4)
+	if err != nil {
+		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+	}
+
+	cardTimeForGroup := float64(0)
+	var detailInfo []JobDetail
+	// 遍历detailInfoMap，计算每个用户的卡时以及该group的总卡时
+	for userName, jobInfoList := range detailInfoMap {
+		var totalCardTime float64 = 0
+		for _, jobStatusData := range jobInfoList {
+			totalCardTime += jobStatusData.CardTime
+		}
+		totalCardTime = common.Floor2decimal(totalCardTime)
+		detailInfo = append(detailInfo, JobDetail{
+			UserName:      userName,
+			JobInfoList:   jobInfoList,
+			JobCount:      len(jobInfoList),
+			TotalCardTime: totalCardTime,
+		})
+		cardTimeForGroup += totalCardTime
+	}
+	return detailInfo, cardTimeForGroup, nil
+}
+
+func in(target string, str_array []string) bool {
+	sort.Strings(str_array)
+	index := sort.SearchStrings(str_array, target)
+	if index < len(str_array) && str_array[index] == target {
+		return true
+	}
+	return false
+}
+
+// TODO: 从job中获取gpu卡数
+func GetGpuCards(jobStatus *model.Job) int {
+	jobID := jobStatus.ID
+	queueID := jobStatus.QueueID
+	resourceJsonStr := jobStatus.ResourceJson
+	var resourceJsonMap map[string]interface{}
+	err := json.Unmarshal([]byte(resourceJsonStr), &resourceJsonMap)
+	if err != nil {
+		logger.LoggerForJob(jobID).Errorf("queueID:%v, jobid is %v, unmarshal resourceJson error: %v", queueID, jobID, err)
+		return 0
+	}
+	//jobResourceList 存放所有的资源类型
+	jobResourceList := []string{"k8s", "slurm", "k8s-new", "aistudio", "kubernetes"}
+	var gpuCards int = 0
+	for resourceKey, resourceValue := range resourceJsonMap {
+		if in(resourceKey, jobResourceList) == true {
+			gpuCards += resourceValue.(int)
+		}
+	}
+	return gpuCards
+}
+
+func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobStatusDataForCardTime,
+	jobStatusCase []*model.Job, cardTimeCalculation func(*model.Job, time.Time, time.Time, int) float64) (map[string][]JobStatusDataForCardTime, error) {
+	for _, jobStatus := range jobStatusCase {
+		// TODO：用GetGpuCards(jobStatus)获得GPU卡数，此处暂时mock
+		gpuCards := 1
+		cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards) / 3600
+		cardTime = common.Floor2decimal(cardTime)
+		_, ok := detailInfo[jobStatus.UserName]
+		if ok {
+			detailInfo[jobStatus.UserName] = append(detailInfo[jobStatus.UserName], JobStatusDataForCardTime{
+				JobID:      jobStatus.ID,
+				CardTime:   cardTime,
+				CreateTime: jobStatus.CreatedAt.Format(common.TIME_LAYOUT),
+				StartTime:  jobStatus.ActivatedAt.Time.Format(common.TIME_LAYOUT),
+				FinishTime: jobStatus.UpdatedAt.Format(common.TIME_LAYOUT),
+				GpuCount:   gpuCards,
+			})
+		} else {
+			var jobStatusDataForCardTimeList []JobStatusDataForCardTime
+			jobStatusDataForCardTimeList = append(jobStatusDataForCardTimeList, JobStatusDataForCardTime{
+				JobID:      jobStatus.ID,
+				CardTime:   cardTime,
+				CreateTime: jobStatus.CreatedAt.Format(common.TIME_LAYOUT),
+				StartTime:  jobStatus.ActivatedAt.Time.Format(common.TIME_LAYOUT),
+				FinishTime: jobStatus.UpdatedAt.Format(common.TIME_LAYOUT),
+				GpuCount:   gpuCards,
+			})
+			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList
+		}
+	}
+	return detailInfo, nil
 }

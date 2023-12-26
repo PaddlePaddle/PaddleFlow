@@ -331,3 +331,47 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	}
 	return jobList, nil
 }
+
+func (js *JobStore) GetJobStatusForCase1(startDate, endDate time.Time, queueID string) ([]*model.Job, error) {
+	jobStatusForCase1 := []*model.Job{}
+	result := js.db.Table("job").Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00' and (updated_at >= ? or updated_at = '0000-00-00 00:00:00') "+
+		"and queue_id = ?", startDate, endDate, queueID).Find(&jobStatusForCase1)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for case 1 failed, err %v", result.Error.Error())
+		return nil, result.Error
+	}
+	return jobStatusForCase1, nil
+}
+
+func (js *JobStore) GetJobStatusForCase2(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error) {
+	jobStatusForCase2 := []*model.Job{}
+	result := js.db.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00' and updated_at <= ? and updated_at > ? and TIMESTAMPDIFF(Second,?,updated_at) "+
+		"> ? and queue_id = ?", startDate, endDate, startDate, startDate, int(minDuration.Seconds()), queueID).Find(&jobStatusForCase2)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for case 2 failed, err %v", result.Error.Error())
+		return nil, result.Error
+	}
+	return jobStatusForCase2, nil
+}
+
+func (js *JobStore) GetJobStatusForCase3(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error) {
+	jobStatusForCase3 := []*model.Job{}
+	result := js.db.Where("activated_at >= ? and updated_at <= ? and TIMESTAMPDIFF(Second,activated_at,updated_at) > ? "+
+		"and queue_id = ?", startDate, endDate, int(minDuration.Seconds()), queueID).Find(&jobStatusForCase3)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for case 3 failed, err %v", result.Error.Error())
+		return nil, result.Error
+	}
+	return jobStatusForCase3, nil
+}
+
+func (js *JobStore) GetJobStatusForCase4(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error) {
+	jobStatusForCase4 := []*model.Job{}
+	result := js.db.Where("activated_at >= ? and (updated_at >= ? or updated_at = '0000-00-00 00:00:00') and TIMESTAMPDIFF(Second"+
+		",activated_at,?) > ? and queue_id = ?", startDate, endDate, endDate, int(minDuration.Seconds()), queueID).Find(&jobStatusForCase4)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for case 4 failed, err %v", result.Error.Error())
+		return nil, result.Error
+	}
+	return jobStatusForCase4, nil
+}

@@ -17,8 +17,10 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -39,6 +41,8 @@ func (sr *StatisticsRouter) AddRouter(r chi.Router) {
 
 	r.Get("/statistics/job/{jobID}", sr.getJobStatistics)
 	r.Get("/statistics/jobDetail/{jobID}", sr.getJobDetailStatistics)
+	r.Get("/statistics/cardTime/{queueName}", sr.getCardTimeDetail)
+	r.Post("/stat/job/cardTime", sr.getCardTimeBatch)
 
 }
 
@@ -121,4 +125,36 @@ func validateStatisticsParam(start, end, step int64) error {
 		return common.InvalidStatisticsParams("end")
 	}
 	return nil
+}
+
+func (sr *StatisticsRouter) getCardTimeDetail(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	queueName := strings.TrimSpace(chi.URLParam(r, util.ParamKeyQueueName))
+	startTime := r.URL.Query().Get(util.QueryKeyStartTime)
+	endTime := r.URL.Query().Get(util.QueryKeyEndTime)
+
+	response, err := statistics.GetCardTimeByQueueName(&ctx, queueName, startTime, endTime)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+
+	common.Render(w, http.StatusOK, response)
+}
+
+func (sr *StatisticsRouter) getCardTimeBatch(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var request statistics.GetCardTimeBatchRequest
+	if err := common.BindJSON(r, &request); err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"get cardTime batch failed parsing request body:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	cardTimeBatchData, err := statistics.GetCardTimeBatch(&ctx, request.QueueNames, request.StartTime, request.EndTime)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	common.Render(w, http.StatusOK, cardTimeBatchData)
 }
