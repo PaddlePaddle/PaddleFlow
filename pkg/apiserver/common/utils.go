@@ -226,7 +226,6 @@ func CheckFsNested(path1, path2 string) bool {
 	if len(path1Arr) > len(path2Arr) {
 		minIndex = len(path2Arr)
 	}
-
 	for index := 0; index < minIndex; index++ {
 		if path1Arr[index] != path2Arr[index] {
 			return false

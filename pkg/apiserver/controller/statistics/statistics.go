@@ -34,6 +34,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
+const (
+	CaseType1 = "case1"
+	CaseType2 = "case2"
+	CaseType3 = "case3"
+	CaseType4 = "case4"
+)
+
 var metricNameList = [...]string{
 	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
 	consts.MetricMemoryUsage, consts.MetricDiskUsage,
@@ -260,7 +267,8 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }
 
-func GetCardTimeByQueueName(ctx *logger.RequestContext, queueName string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
+func GetCardTimeByQueue(ctx *logger.RequestContext, queueName string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
+	// parse start time and end time
 	startTime, err := time.Parse(common.TIME_LAYOUT, startTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
@@ -274,6 +282,7 @@ func GetCardTimeByQueueName(ctx *logger.RequestContext, queueName string, startT
 	if startTime.After(endTime) {
 		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
 	}
+	// get queue info by queue name
 	queue, err := storage.Queue.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorMessage = err.Error()
@@ -352,7 +361,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	detailInfoMap := make(map[string][]JobStatusDataForCardTime)
 
 	// case 1: 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase1, err := storage.Job.GetJobStatusForCase1(startDate, endDate, queueID)
+	jobStatusForCase1, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType1, minDuration)
 	cardTimeCalculation1 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return float64(gpuCards) * period.Seconds()
 	}
@@ -362,7 +371,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 2: 任务开始运行时间 < start_date，任务结束时间 <= end_date
-	jobStatusForCase2, err := storage.Job.GetJobStatusForCase2(startDate, endDate, queueID, minDuration)
+	jobStatusForCase2, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType2, minDuration)
 	cardTimeCalculation2 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return jobStatus.UpdatedAt.Sub(startDate).Seconds() * float64(gpuCards)
 	}
@@ -372,7 +381,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 3: 任务开始运行时间 >= start_date，任务结束时间 <= end_date
-	jobStatusForCase3, err := storage.Job.GetJobStatusForCase3(startDate, endDate, queueID, minDuration)
+	jobStatusForCase3, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType3, minDuration)
 	cardTimeCalculation3 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return jobStatus.UpdatedAt.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
 	}
@@ -382,7 +391,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 4: 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase4, err := storage.Job.GetJobStatusForCase4(startDate, endDate, queueID, minDuration)
+	jobStatusForCase4, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType4, minDuration)
 	cardTimeCalculation4 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
 	}

@@ -17,13 +17,14 @@ limitations under the License.
 package storage
 
 import (
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	"time"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	"time"
 )
 
 var (
@@ -221,10 +222,7 @@ type JobStoreInterface interface {
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
 	ListTaskByJobID(jobID string) ([]model.JobTask, error)
-	GetJobStatusForCase1(startDate, endDate time.Time, queueID string) ([]*model.Job, error)
-	GetJobStatusForCase2(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error)
-	GetJobStatusForCase3(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error)
-	GetJobStatusForCase4(startDate, endDate time.Time, queueID string, minDuration time.Duration) ([]*model.Job, error)
+	ListJobStatus(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error)
 }
 
 type ImageStoreInterface interface {

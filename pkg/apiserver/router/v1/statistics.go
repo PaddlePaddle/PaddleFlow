@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/statistics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 type StatisticsRouter struct{}
@@ -42,7 +42,7 @@ func (sr *StatisticsRouter) AddRouter(r chi.Router) {
 	r.Get("/statistics/job/{jobID}", sr.getJobStatistics)
 	r.Get("/statistics/jobDetail/{jobID}", sr.getJobDetailStatistics)
 	r.Get("/statistics/cardTime/{queueName}", sr.getCardTimeDetail)
-	r.Post("/stat/job/cardTime", sr.getCardTimeBatch)
+	r.Post("/statistics/cardTime", sr.getCardTimeBatch)
 
 }
 
@@ -133,7 +133,7 @@ func (sr *StatisticsRouter) getCardTimeDetail(w http.ResponseWriter, r *http.Req
 	startTime := r.URL.Query().Get(util.QueryKeyStartTime)
 	endTime := r.URL.Query().Get(util.QueryKeyEndTime)
 
-	response, err := statistics.GetCardTimeByQueueName(&ctx, queueName, startTime, endTime)
+	response, err := statistics.GetCardTimeByQueue(&ctx, queueName, startTime, endTime)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return

@@ -15,16 +15,10 @@ import (
 )
 
 const (
-	mockRootUser    = "root"
 	MockQueueName   = "default-queue"
 	MockQueueID     = "default-queue"
 	MockClusterName = "default-cluster"
 	MockClusterID   = "default-cluster"
-	MockFlavour0    = "default-flavour0"
-	MockFlavour1    = "default-flavour1"
-	MockFlavour2    = "default-flavour2"
-	MockFS1         = "fs1"
-	MockFS2         = "fs2"
 	MockRootUser    = "root"
 )
 
@@ -78,7 +72,7 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 	storage.Queue.CreateQueue(&mockQueue)
 	storage.Job.CreateJob(&mockJob)
 	t.Run("testname", func(t *testing.T) {
-		cardTimeRes, err := GetCardTimeByQueueName(ctx, MockQueueName, startTime, endTime)
+		cardTimeRes, err := GetCardTimeByQueue(ctx, MockQueueName, startTime, endTime)
 		if err != nil {
 			t.Errorf("GetCardTimeByQueueName failed,err:%s", err)
 		}
