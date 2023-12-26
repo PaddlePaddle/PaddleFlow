@@ -209,21 +209,18 @@ type JobStoreInterface interface {
 	CreateJob(job *model.Job) error
 	// GetJobByID get job
 	GetJobByID(jobID string) (model.Job, error)
-	GetLastJob() (model.Job, error)
 	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
 	// UpdateJobStatus update job status
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
-	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	Update(jobID string, job *model.Job) error
-	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	// ListJob list job with filter
 	ListJob(filter JobFilter) ([]model.Job, error)
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	// GetTaskByID get job task
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
-	ListByJobID(jobID string) ([]model.JobTask, error)
+	ListTaskByJobID(jobID string) ([]model.JobTask, error)
 }
 
 type ImageStoreInterface interface {

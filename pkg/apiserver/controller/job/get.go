@@ -119,6 +119,7 @@ type WorkflowRuntimeInfo struct {
 	Nodes     []DistributedRuntimeInfo `json:"nodes,omitempty"`
 }
 
+// ListJob list job with filter
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	ctx.Logging().Debugf("begin list job.")
 	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, ""); err != nil {
@@ -139,10 +140,11 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		}
 	}
 	// filter for job
+	var maxKeys = request.MaxKeys + 1
 	filter := storage.JobFilter{
 		User:      ctx.UserName,
 		PK:        pk,
-		MaxKeys:   request.MaxKeys,
+		MaxKeys:   maxKeys,
 		StartTime: request.StartTime,
 		Labels:    request.Labels,
 		Order:     "desc",
@@ -174,16 +176,19 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	ctx.Logging().Debugf("list job return, job count %d", len(jobList))
 	listJobResponse := ListJobResponse{JobList: []*GetJobResponse{}}
 
-	// get next marker
+	// get next marker if total count is equal to request.MaxKeys+1
 	listJobResponse.IsTruncated = false
-	if len(jobList) > 0 {
-		job := jobList[len(jobList)-1]
-		if !isLastJobPk(ctx, job.Pk) {
+	if len(jobList) == maxKeys && maxKeys > 0 {
+		// total count is request.MaxKeys + 1, so we need to remove the last one
+		jobList = jobList[:len(jobList)-1]
+		// check if the length of jobList
+		jobListLen := len(jobList)
+		if jobListLen > 0 {
+			// get next marker
+			job := jobList[jobListLen-1]
 			nextMarker, err := common.EncryptPk(job.Pk)
 			if err != nil {
-				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]",
-					job.Pk, err.Error())
-				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]", job.Pk, err.Error())
 				return nil, err
 			}
 			listJobResponse.NextMarker = nextMarker
@@ -203,6 +208,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	return &listJobResponse, nil
 }
 
+// GetJob get job by id
 func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
@@ -221,17 +227,6 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		return nil, err
 	}
 	return &response, nil
-}
-
-func isLastJobPk(ctx *logger.RequestContext, pk int64) bool {
-	lastJob, err := storage.Job.GetLastJob()
-	if err != nil {
-		ctx.Logging().Errorf("get last job failed. error:[%s]", err.Error())
-	}
-	if lastJob.Pk == pk {
-		return true
-	}
-	return false
 }
 
 func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, error) {
@@ -367,7 +362,7 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 }
 
 func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
-	tasks, err := storage.Job.ListByJobID(jobID)
+	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return nil, err

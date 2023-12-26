@@ -130,7 +130,7 @@ func getPodNameList(podNameList *[]string, job model.Job) error {
 
 func getTaskName(jobID string) ([]string, error) {
 	taskNameList := make([]string, 0)
-	tasks, err := storage.Job.ListByJobID(jobID)
+	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return taskNameList, err

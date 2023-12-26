@@ -82,7 +82,7 @@ func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (float64,
 }
 
 func (km *KubernetesMetric) GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error) {
-	tasks, err := storage.Job.ListByJobID(jobID)
+	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("job[%s] get task error %s", jobID, err.Error())
 		return nil, err

@@ -17,7 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -102,22 +101,6 @@ func (js *JobStore) UpdateJobStatus(jobId, errMessage string, newStatus schema.J
 	}
 	log.Infof("update for job %s, updated content [%+v]", jobId, updatedJob)
 	tx := js.db.Model(&model.Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(updatedJob)
-	if tx.Error != nil {
-		return tx.Error
-	}
-	return nil
-}
-
-func (js *JobStore) UpdateJobConfig(jobId string, conf *schema.Conf) error {
-	if conf == nil {
-		return fmt.Errorf("job config is nil")
-	}
-	confJSON, err := json.Marshal(conf)
-	if err != nil {
-		return err
-	}
-	log.Infof("update job config [%v]", conf)
-	tx := js.db.Model(&model.Job{}).Where("id = ?", jobId).Where("deleted_at = ''").UpdateColumn("config", confJSON)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -272,16 +255,6 @@ func (js *JobStore) GetJobsByRunID(runID string, jobID string) ([]model.Job, err
 	return jobList, nil
 }
 
-func (js *JobStore) GetLastJob() (model.Job, error) {
-	job := model.Job{}
-	tx := js.db.Table("job").Where("deleted_at = ''").Last(&job)
-	if tx.Error != nil {
-		log.Errorf("get last job failed. error:%s", tx.Error.Error())
-		return model.Job{}, tx.Error
-	}
-	return job, nil
-}
-
 // list job process multi label get and result
 func (js *JobStore) ListJobIDByLabels(labels map[string]string) ([]string, error) {
 	jobIDs := make([]string, 0)
@@ -350,7 +323,7 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	return tx.Error
 }
 
-func (js *JobStore) ListByJobID(jobID string) ([]model.JobTask, error) {
+func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	var jobList []model.JobTask
 	err := js.db.Table(model.JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
 	if err != nil {
