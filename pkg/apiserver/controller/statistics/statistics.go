@@ -34,13 +34,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-const (
-	CaseType1 = "case1"
-	CaseType2 = "case2"
-	CaseType3 = "case3"
-	CaseType4 = "case4"
-)
-
 var metricNameList = [...]string{
 	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
 	consts.MetricMemoryUsage, consts.MetricDiskUsage,
@@ -76,25 +69,26 @@ type GetCardTimeBatchRequest struct {
 }
 
 type GetCardTimeResponse struct {
-	QueueName string      `json:"queueName"`
-	CardTime  float64     `json:"cardTime"`
-	Detail    []JobDetail `json:"detail"`
+	QueueName  string      `json:"queueName"`
+	CardTime   float64     `json:"cardTime"`
+	DeviceType string      `json:"deviceType"`
+	Detail     []JobDetail `json:"detail"`
 }
 
-type JobStatusDataForCardTime struct {
-	JobID      string  `json:"jobId"`
-	CardTime   float64 `json:"cardTime"`
-	CreateTime string  `json:"createTime"`
-	StartTime  string  `json:"startTime"`
-	FinishTime string  `json:"finishTime"`
-	GpuCount   int     `json:"gpuCount"`
+type JobCardTimeInfo struct {
+	JobID       string  `json:"jobId"`
+	CardTime    float64 `json:"cardTime"`
+	CreateTime  string  `json:"createTime"`
+	StartTime   string  `json:"startTime"`
+	FinishTime  string  `json:"finishTime"`
+	DeviceCount int     `json:"deviceCount"`
 }
 
 type JobDetail struct {
-	UserName      string                     `json:"userName"`
-	JobInfoList   []JobStatusDataForCardTime `json:"jobInfoList"`
-	JobCount      int                        `json:"jobCount"`
-	TotalCardTime float64                    `json:"totalCardTime"`
+	UserName      string            `json:"userName"`
+	JobInfoList   []JobCardTimeInfo `json:"jobInfoList"`
+	JobCount      int               `json:"jobCount"`
+	TotalCardTime float64           `json:"totalCardTime"`
 }
 
 type CardTimeInfo struct {
@@ -358,10 +352,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
-	detailInfoMap := make(map[string][]JobStatusDataForCardTime)
+	detailInfoMap := make(map[string][]JobCardTimeInfo)
 
 	// case 1: 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase1, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType1, minDuration)
+	jobStatusForCase1, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case1", minDuration)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case1 failed, error: %s", err.Error())
 	}
@@ -374,7 +368,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 2: 任务开始运行时间 < start_date，任务结束时间 <= end_date
-	jobStatusForCase2, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType2, minDuration)
+	jobStatusForCase2, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case2", minDuration)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case2 failed, error: %s", err.Error())
 	}
@@ -387,7 +381,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 3: 任务开始运行时间 >= start_date，任务结束时间 <= end_date
-	jobStatusForCase3, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType3, minDuration)
+	jobStatusForCase3, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case3", minDuration)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case3 failed, error: %s", err.Error())
 	}
@@ -400,7 +394,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 4: 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase4, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType4, minDuration)
+	jobStatusForCase4, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case4", minDuration)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case4 failed, error: %s", err.Error())
 	}
@@ -463,8 +457,8 @@ func GetGpuCards(jobStatus *model.Job) int {
 	return gpuCards
 }
 
-func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobStatusDataForCardTime,
-	jobStatusCase []*model.Job, cardTimeCalculation func(*model.Job, time.Time, time.Time, int) float64) (map[string][]JobStatusDataForCardTime, error) {
+func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobCardTimeInfo,
+	jobStatusCase []*model.Job, cardTimeCalculation func(*model.Job, time.Time, time.Time, int) float64) (map[string][]JobCardTimeInfo, error) {
 	for _, jobStatus := range jobStatusCase {
 		// TODO：用GetGpuCards(jobStatus)获得GPU卡数，此处暂时mock
 		gpuCards := 1
@@ -472,23 +466,23 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 		cardTime = common.Floor2decimal(cardTime)
 		_, ok := detailInfo[jobStatus.UserName]
 		if ok {
-			detailInfo[jobStatus.UserName] = append(detailInfo[jobStatus.UserName], JobStatusDataForCardTime{
-				JobID:      jobStatus.ID,
-				CardTime:   cardTime,
-				CreateTime: jobStatus.CreatedAt.Format(model.TimeFormat),
-				StartTime:  jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime: jobStatus.UpdatedAt.Format(model.TimeFormat),
-				GpuCount:   gpuCards,
+			detailInfo[jobStatus.UserName] = append(detailInfo[jobStatus.UserName], JobCardTimeInfo{
+				JobID:       jobStatus.ID,
+				CardTime:    cardTime,
+				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
+				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
+				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
+				DeviceCount: gpuCards,
 			})
 		} else {
-			var jobStatusDataForCardTimeList []JobStatusDataForCardTime
-			jobStatusDataForCardTimeList = append(jobStatusDataForCardTimeList, JobStatusDataForCardTime{
-				JobID:      jobStatus.ID,
-				CardTime:   cardTime,
-				CreateTime: jobStatus.CreatedAt.Format(model.TimeFormat),
-				StartTime:  jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime: jobStatus.UpdatedAt.Format(model.TimeFormat),
-				GpuCount:   gpuCards,
+			var jobStatusDataForCardTimeList []JobCardTimeInfo
+			jobStatusDataForCardTimeList = append(jobStatusDataForCardTimeList, JobCardTimeInfo{
+				JobID:       jobStatus.ID,
+				CardTime:    cardTime,
+				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
+				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
+				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
+				DeviceCount: gpuCards,
 			})
 			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList
 		}
