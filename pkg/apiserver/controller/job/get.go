@@ -362,7 +362,7 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 }
 
 func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
-	tasks, err := storage.Job.ListByJobID(jobID)
+	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return nil, err

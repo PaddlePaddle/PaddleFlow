@@ -219,10 +219,12 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 	}
 	// 1. update job status and message
 	newStatus, message := storage.JobStatusTransition(job.ID, job.Status, jobSyncInfo.Status, jobSyncInfo.Message)
-	job.RuntimeInfo = jobSyncInfo.RuntimeInfo
-	job.RuntimeStatus = jobSyncInfo.RuntimeStatus
-	job.Status = newStatus
-	job.Message = message
+	updatedJob := model.Job{
+		RuntimeInfo:   jobSyncInfo.RuntimeInfo,
+		RuntimeStatus: jobSyncInfo.RuntimeStatus,
+		Status:        newStatus,
+		Message:       message,
+	}
 	// 2. update activated time if it's need
 	if newStatus == pfschema.StatusJobRunning && !job.ActivatedAt.Valid {
 		// add queue id here
@@ -239,8 +241,8 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 			metrics.UserNameLabel:  userName,
 		})
 		// set job activated time
-		job.ActivatedAt.Time = startTime
-		job.ActivatedAt.Valid = true
+		updatedJob.ActivatedAt.Time = startTime
+		updatedJob.ActivatedAt.Valid = true
 	}
 	// 3. update finished time if it's need
 	if pfschema.IsImmutableJobStatus(newStatus) && !job.FinishedAt.Valid {
@@ -250,11 +252,11 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
 		})
 		// set job finished time
-		job.FinishedAt.Time = finishTime
-		job.FinishedAt.Valid = true
+		updatedJob.FinishedAt.Time = finishTime
+		updatedJob.FinishedAt.Valid = true
 	}
 	// 4. update job in storage
-	if err = storage.Job.Update(jobSyncInfo.ID, &job); err != nil {
+	if err = storage.Job.Update(job.ID, &updatedJob); err != nil {
 		log.Errorf("update job failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}
