@@ -332,7 +332,7 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	return jobList, nil
 }
 
-func (js *JobStore) ListJobStatus(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error) {
+func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error) {
 	jobStatus := []*model.Job{}
 	var result *gorm.DB
 	switch caseType {

@@ -269,12 +269,12 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 
 func GetCardTimeByQueue(ctx *logger.RequestContext, queueName string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
 	// parse start time and end time
-	startTime, err := time.Parse(common.TIME_LAYOUT, startTimeStr)
+	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
 		return nil, err
 	}
-	endTime, err := time.Parse(common.TIME_LAYOUT, endTimeStr)
+	endTime, err := time.Parse(model.TimeFormat, endTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
 		return nil, err
@@ -308,12 +308,12 @@ func GetCardTimeByQueue(ctx *logger.RequestContext, queueName string, startTimeS
 
 func GetCardTimeBatch(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*CardTimeInfo, error) {
 	var cardTimeInfoList []*CardTimeInfo
-	startTime, err := time.Parse(common.TIME_LAYOUT, startTimeStr)
+	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
 		return nil, err
 	}
-	endTime, err := time.Parse(common.TIME_LAYOUT, endTimeStr)
+	endTime, err := time.Parse(model.TimeFormat, endTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
 		return nil, err
@@ -361,7 +361,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	detailInfoMap := make(map[string][]JobStatusDataForCardTime)
 
 	// case 1: 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase1, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType1, minDuration)
+	jobStatusForCase1, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType1, minDuration)
+	if err != nil {
+		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case1 failed, error: %s", err.Error())
+	}
 	cardTimeCalculation1 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return float64(gpuCards) * period.Seconds()
 	}
@@ -371,7 +374,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 2: 任务开始运行时间 < start_date，任务结束时间 <= end_date
-	jobStatusForCase2, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType2, minDuration)
+	jobStatusForCase2, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType2, minDuration)
+	if err != nil {
+		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case2 failed, error: %s", err.Error())
+	}
 	cardTimeCalculation2 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return jobStatus.UpdatedAt.Sub(startDate).Seconds() * float64(gpuCards)
 	}
@@ -381,7 +387,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 3: 任务开始运行时间 >= start_date，任务结束时间 <= end_date
-	jobStatusForCase3, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType3, minDuration)
+	jobStatusForCase3, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType3, minDuration)
+	if err != nil {
+		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case3 failed, error: %s", err.Error())
+	}
 	cardTimeCalculation3 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return jobStatus.UpdatedAt.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
 	}
@@ -391,7 +400,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 
 	// case 4: 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase4, err := storage.Job.ListJobStatus(startDate, endDate, queueID, CaseType4, minDuration)
+	jobStatusForCase4, err := storage.Job.ListJobStat(startDate, endDate, queueID, CaseType4, minDuration)
+	if err != nil {
+		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case4 failed, error: %s", err.Error())
+	}
 	cardTimeCalculation4 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
 		return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
 	}
@@ -463,9 +475,9 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 			detailInfo[jobStatus.UserName] = append(detailInfo[jobStatus.UserName], JobStatusDataForCardTime{
 				JobID:      jobStatus.ID,
 				CardTime:   cardTime,
-				CreateTime: jobStatus.CreatedAt.Format(common.TIME_LAYOUT),
-				StartTime:  jobStatus.ActivatedAt.Time.Format(common.TIME_LAYOUT),
-				FinishTime: jobStatus.UpdatedAt.Format(common.TIME_LAYOUT),
+				CreateTime: jobStatus.CreatedAt.Format(model.TimeFormat),
+				StartTime:  jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
+				FinishTime: jobStatus.UpdatedAt.Format(model.TimeFormat),
 				GpuCount:   gpuCards,
 			})
 		} else {
@@ -473,9 +485,9 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 			jobStatusDataForCardTimeList = append(jobStatusDataForCardTimeList, JobStatusDataForCardTime{
 				JobID:      jobStatus.ID,
 				CardTime:   cardTime,
-				CreateTime: jobStatus.CreatedAt.Format(common.TIME_LAYOUT),
-				StartTime:  jobStatus.ActivatedAt.Time.Format(common.TIME_LAYOUT),
-				FinishTime: jobStatus.UpdatedAt.Format(common.TIME_LAYOUT),
+				CreateTime: jobStatus.CreatedAt.Format(model.TimeFormat),
+				StartTime:  jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
+				FinishTime: jobStatus.UpdatedAt.Format(model.TimeFormat),
 				GpuCount:   gpuCards,
 			})
 			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList
