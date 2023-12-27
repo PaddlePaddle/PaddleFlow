@@ -343,15 +343,15 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID, caseType 
 	case "case2":
 		session = session.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
 			Where("finished_at <= ? and finished_at > ?", endDate, startDate).
-			Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds())).
+			Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds()))
 	case "case3":
 		session = session.Where("activated_at >= ?", startDate).
 			Where("finished_at <= ? ", endDate).
-			Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ? ", int(minDuration.Seconds())).
+			Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ? ", int(minDuration.Seconds()))
 	case "case4":
 		session = session.Where("activated_at >= ?", startDate).
 			Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
-			Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds())).
+			Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds()))
 	}
 	result := session.Find(&jobStatus)
 	if result.Error != nil {
