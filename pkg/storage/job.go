@@ -333,30 +333,29 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 }
 
 func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error) {
-	session := js.db.Table("job")
+	session := js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+		Where(" queue_id = ?", queueID)
 	jobStatus := []*model.Job{}
 	switch caseType {
 	case "case1":
-		session = session.Where("activated_at <= ?", startDate).Where("activated_at != '0000-00-00 00:00:00'").
-			Where("updated_at >= ? or updated_at = '0000-00-00 00:00:00')", endDate).
-			Where(" queue_id = ?", queueID)
+		session = session.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+			Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate)
 	case "case2":
-		session = js.db.Where("activated_at <= ?", startDate).Where(" activated_at != '0000-00-00 00:00:00'").
-			Where("updated_at <= ?", endDate).Where("updated_at > ?", startDate).
-			Where(" TIMESTAMPDIFF(Second,?,updated_at) > ?", startDate, int(minDuration.Seconds())).
-			Where("queue_id = ?", queueID)
+		session = session.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+			Where("finished_at <= ? and finished_at > ?", endDate, startDate).
+			Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds())).
 	case "case3":
-		session = js.db.Where("activated_at >= ?", startDate).Where("updated_at <= ? ", endDate).
-			Where("TIMESTAMPDIFF(Second,activated_at,updated_at) > ? ", int(minDuration.Seconds())).
-			Where("queue_id = ?", queueID)
+		session = session.Where("activated_at >= ?", startDate).
+			Where("finished_at <= ? ", endDate).
+			Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ? ", int(minDuration.Seconds())).
 	case "case4":
-		session = js.db.Where("activated_at >= ?", startDate).Where("(updated_at >= ? or updated_at = '0000-00-00 00:00:00')", endDate).
+		session = session.Where("activated_at >= ?", startDate).
+			Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 			Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds())).
-			Where(" queue_id = ?", queueID)
 	}
 	result := session.Find(&jobStatus)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for case 4 failed, err %v", result.Error.Error())
+		logger.Logger().Errorf("get job status for %v failed, err %v", caseType, result.Error.Error())
 		return nil, result.Error
 	}
 	return jobStatus, nil

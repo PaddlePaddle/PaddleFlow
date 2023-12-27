@@ -261,46 +261,7 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }
 
-func GetCardTimeByQueue(ctx *logger.RequestContext, queueName string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
-	// parse start time and end time
-	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
-	if err != nil {
-		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
-		return nil, err
-	}
-	endTime, err := time.Parse(model.TimeFormat, endTimeStr)
-	if err != nil {
-		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
-		return nil, err
-	}
-	if startTime.After(endTime) {
-		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
-	}
-	// get queue info by queue name
-	queue, err := storage.Queue.GetQueueByName(queueName)
-	if err != nil {
-		ctx.ErrorMessage = err.Error()
-		ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", queueName)
-		return nil, err
-	}
-	detailInfo, cardTimeData, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
-	if err != nil {
-		ctx.ErrorMessage = err.Error()
-		ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queueName)
-		return nil, err
-	}
-	cardTimeInfo := &CardTimeInfo{
-		QueueName: queue.Name,
-		CardTime:  cardTimeData,
-		Detail:    detailInfo,
-	}
-
-	return &GetCardTimeResponse{QueueName: cardTimeInfo.QueueName,
-		CardTime: cardTimeInfo.CardTime,
-		Detail:   cardTimeInfo.Detail}, nil
-}
-
-func GetCardTimeBatch(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*CardTimeInfo, error) {
+func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*CardTimeInfo, error) {
 	var cardTimeInfoList []*CardTimeInfo
 	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
 	if err != nil {
@@ -316,11 +277,11 @@ func GetCardTimeBatch(ctx *logger.RequestContext, queueNames []string, startTime
 		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
 	}
 
-	for _, groupName := range queueNames {
-		queue, err := storage.Queue.GetQueueByName(groupName)
+	for _, queueName := range queueNames {
+		queue, err := storage.Queue.GetQueueByName(queueName)
 		if err != nil {
 			ctx.ErrorMessage = err.Error()
-			ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", groupName)
+			ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", queueName)
 			return nil, err
 		}
 		detailInfo, cardTime, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
@@ -373,7 +334,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case2 failed, error: %s", err.Error())
 	}
 	cardTimeCalculation2 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return jobStatus.UpdatedAt.Sub(startDate).Seconds() * float64(gpuCards)
+		return jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
 	}
 	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase2, cardTimeCalculation2)
 	if err != nil {
@@ -386,7 +347,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case3 failed, error: %s", err.Error())
 	}
 	cardTimeCalculation3 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return jobStatus.UpdatedAt.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+		return jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
 	}
 	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase3, cardTimeCalculation3)
 	if err != nil {
@@ -471,7 +432,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				CardTime:    cardTime,
 				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
 				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
+				FinishTime:  jobStatus.FinishedAt.Time.Format(model.TimeFormat),
 				DeviceCount: gpuCards,
 			})
 		} else {
@@ -481,7 +442,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				CardTime:    cardTime,
 				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
 				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
+				FinishTime:  jobStatus.FinishedAt.Time.Format(model.TimeFormat),
 				DeviceCount: gpuCards,
 			})
 			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList

@@ -132,14 +132,12 @@ func (sr *StatisticsRouter) getCardTimeDetail(w http.ResponseWriter, r *http.Req
 	queueName := strings.TrimSpace(chi.URLParam(r, util.ParamKeyQueueName))
 	startTime := r.URL.Query().Get(util.QueryKeyStartTime)
 	endTime := r.URL.Query().Get(util.QueryKeyEndTime)
-
-	response, err := statistics.GetCardTimeByQueue(&ctx, queueName, startTime, endTime)
+	response, err := statistics.GetCardTimeInfo(&ctx, []string{queueName}, startTime, endTime)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
-
-	common.Render(w, http.StatusOK, response)
+	common.Render(w, http.StatusOK, response[0])
 }
 
 func (sr *StatisticsRouter) getCardTimeBatch(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +149,7 @@ func (sr *StatisticsRouter) getCardTimeBatch(w http.ResponseWriter, r *http.Requ
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	cardTimeBatchData, err := statistics.GetCardTimeBatch(&ctx, request.QueueNames, request.StartTime, request.EndTime)
+	cardTimeBatchData, err := statistics.GetCardTimeInfo(&ctx, request.QueueNames, request.StartTime, request.EndTime)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
