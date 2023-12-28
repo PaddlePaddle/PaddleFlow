@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/emirpasic/gods/trees/binaryheap"
-	"github.com/orcaman/concurrent-map"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/viney-shih/go-lock"
 )
@@ -86,7 +86,7 @@ func (t Trace) String() string {
 func (d *DefaultTraceLoggerManager) String() string {
 	lines := make([]string, 0, d.cache.Count())
 	for x := range d.cache.IterBuffered() {
-		v := x.Val.(Trace)
+		v := x.Val
 		lines = append(lines, v.String())
 	}
 	return strings.Join(lines, "\n")
@@ -227,7 +227,7 @@ func (d *defaultTraceLogger) GetTrace() Trace {
 type DefaultTraceLoggerManager struct {
 	// use more efficient map as local cache
 	// see https://github.com/orcaman/concurrent-map
-	cache cmap.ConcurrentMap
+	cache cmap.ConcurrentMap[string, Trace]
 	// save temp trace fileLogger before call update key
 	tmpKeyMap sync.Map
 	l         *logrus.Logger
@@ -254,7 +254,7 @@ type DefaultTraceLoggerManager struct {
 
 func NewDefaultTraceLoggerManager(cacheSize int, timeout time.Duration, debug bool) *DefaultTraceLoggerManager {
 	return &DefaultTraceLoggerManager{
-		cache:                cmap.New(),
+		cache:                cmap.New[Trace](),
 		tmpKeyMap:            sync.Map{},
 		l:                    fileLogger,
 		evictLock:            lock.NewCASMutex(),
@@ -291,7 +291,7 @@ func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) 
 	if !ok {
 		return Trace{}, false
 	}
-	trace := val.(Trace)
+	trace := val
 	logger.Debugf("get trace from cache [%s]: %s", key, trace)
 	return trace, ok
 }
@@ -300,7 +300,7 @@ func (d *DefaultTraceLoggerManager) GetAllTraceFromCache() []Trace {
 	iter := d.cache.IterBuffered()
 	traces := make([]Trace, 0, d.cache.Count())
 	for x := range iter {
-		traces = append(traces, x.Val.(Trace))
+		traces = append(traces, x.Val)
 	}
 	return traces
 }
@@ -322,11 +322,11 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 		d.evictCache()
 	}
 
-	d.cache.Upsert(key, trace, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+	d.cache.Upsert(key, trace, func(exist bool, valueInMap Trace, newValue Trace) Trace {
 		// if trace exists, copy last synced index to new trace
-		newVal := newValue.(Trace)
+		newVal := newValue
 		if exist {
-			newVal.lastSyncIndex = valueInMap.(Trace).lastSyncIndex
+			newVal.lastSyncIndex = valueInMap.lastSyncIndex
 		}
 		return newVal
 	})
@@ -370,7 +370,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 		if numberToBeDeleted <= 0 {
 			break
 		}
-		k, v := x.Key, x.Val.(Trace)
+		k, v := x.Key, x.Val
 
 		if v.UpdateTime.Before(ddl) {
 			logger.Debugf("evict key: %s", k)
@@ -408,7 +408,7 @@ func (d *DefaultTraceLoggerManager) sync() error {
 
 	// sync trace to file
 	for x := range iter {
-		k, v := x.Key, x.Val.(Trace)
+		k, v := x.Key, x.Val
 		d.StoreTraceToFile(v)
 		v.lastSyncIndex = len(v.Logs)
 		d.cache.Set(k, v)
@@ -513,12 +513,15 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (count int, er
 		if err != nil {
 			return count, fmt.Errorf("parse log fail: %w", err)
 		}
-		d.cache.Upsert(log.Key, log, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+		newTrace := Trace{
+			Logs: []traceLog{log},
+		}
+		d.cache.Upsert(log.Key, newTrace, func(exist bool, valueInMap Trace, newValue Trace) Trace {
 			val := Trace{}
 			if exist {
-				val = valueInMap.(Trace)
+				val = valueInMap
 			}
-			val.Logs = append(val.Logs, newValue.(traceLog))
+			val.Logs = append(val.Logs, newValue.Logs...)
 			val.lastSyncIndex = len(val.Logs)
 			val.UpdateTime = time.Now()
 			return val
@@ -588,7 +591,7 @@ func (d *DefaultTraceLoggerManager) deleteExpiredCache(timeout time.Duration, me
 	// delete all the trace Logs before the ddl
 	iter := d.cache.IterBuffered()
 	for x := range iter {
-		k, v := x.Key, x.Val.(Trace)
+		k, v := x.Key, x.Val
 		if v.UpdateTime.Before(ddl) && method(k) {
 			logger.Debugf("delete expired cache: %s", k)
 			d.removeKey(k)
@@ -597,7 +600,7 @@ func (d *DefaultTraceLoggerManager) deleteExpiredCache(timeout time.Duration, me
 }
 
 func (d *DefaultTraceLoggerManager) removeKey(key string) bool {
-	return d.cache.RemoveCb(key, func(key string, v interface{}, exists bool) bool {
+	return d.cache.RemoveCb(key, func(key string, v Trace, exists bool) bool {
 		if !exists {
 			return false
 		}
