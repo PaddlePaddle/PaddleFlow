@@ -173,6 +173,12 @@ func InitMockDB() {
 	if err := createDatabaseTables(db); err != nil {
 		log.Fatalf("initMockDB createDatabaseTables error[%s]", err.Error())
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Get DB.DB error[%s]", err.Error())
+		return
+	}
+	sqlDB.SetMaxOpenConns(1)
 	storage.DB = db
 	storage.InitStores(db)
 }
