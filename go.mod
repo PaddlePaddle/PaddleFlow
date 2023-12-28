@@ -29,7 +29,7 @@ require (
 	github.com/kubernetes-csi/drivers v1.0.2
 	github.com/mattn/go-isatty v0.0.13
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/orcaman/concurrent-map v1.0.0
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/paddleflow/paddle-operator v0.3.1
 	github.com/panjf2000/ants/v2 v2.7.2
 	github.com/pkg/errors v0.9.1
