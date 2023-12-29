@@ -332,31 +332,55 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	return jobList, nil
 }
 
-func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error) {
-	session := js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
-		Where(" queue_id = ?", queueID)
-	jobStatus := []*model.Job{}
-	switch caseType {
-	case "case1":
-		session = session.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
-			Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate)
-	case "case2":
-		session = session.Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
-			Where("finished_at <= ? and finished_at > ?", endDate, startDate).
-			Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds()))
-	case "case3":
-		session = session.Where("activated_at >= ?", startDate).
-			Where("finished_at <= ? ", endDate).
-			Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ? ", int(minDuration.Seconds()))
-	case "case4":
-		session = session.Where("activated_at >= ?", startDate).
-			Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
-			Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds()))
-	}
-	result := session.Find(&jobStatus)
+func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, minDuration time.Duration, limit, offset int) (map[string][]*model.Job, error) {
+	JobStatMap := make(map[string][]*model.Job)
+	// case1
+	jobStatusForCase1 := []*model.Job{}
+	result := js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for %v failed, err %v", caseType, result.Error.Error())
+		logger.Logger().Errorf("get job status for %v failed, err %v", "case1", result.Error.Error())
 		return nil, result.Error
 	}
-	return jobStatus, nil
+	JobStatMap["case1"] = jobStatusForCase1
+	// case2
+	jobStatusForCase2 := []*model.Job{}
+	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
+		Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds())).
+		Limit(limit).Offset(offset).Find(&jobStatusForCase2)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for %v failed, err %v", "case2", result.Error.Error())
+		return nil, result.Error
+	}
+	JobStatMap["case2"] = jobStatusForCase2
+	// case3
+	jobStatusForCase3 := []*model.Job{}
+	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+		Where(" queue_id = ?", queueID).
+		Where("activated_at >= ?", startDate).
+		Where("finished_at <= ? ", endDate).
+		Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ?  ", int(minDuration.Seconds())).
+		Limit(limit).Offset(offset).Find(&jobStatusForCase3)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for %v failed, err %v", "case3", result.Error.Error())
+		return nil, result.Error
+	}
+	JobStatMap["case3"] = jobStatusForCase3
+	// case4
+	jobStatusForCase4 := []*model.Job{}
+	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+		Where(" queue_id = ?", queueID).Where("activated_at >= ?", startDate).
+		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+		Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds())).
+		Limit(limit).Offset(offset).Find(&jobStatusForCase4)
+	if result.Error != nil {
+		logger.Logger().Errorf("get job status for %v failed, err %v", "case4", result.Error.Error())
+		return nil, result.Error
+	}
+	JobStatMap["case4"] = jobStatusForCase4
+	return JobStatMap, nil
 }

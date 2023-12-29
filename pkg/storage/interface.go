@@ -195,8 +195,8 @@ type JobFilter struct {
 	Labels     map[string]string
 	OrderBy    string
 	Order      string
-	PK         int64
-	MaxKeys    int
+	PK         int64 // offset
+	MaxKeys    int   // limit
 }
 
 var (
@@ -216,7 +216,7 @@ type JobStoreInterface interface {
 	Update(jobID string, job *model.Job) error
 	// ListJob list job with filter
 	ListJob(filter JobFilter) ([]model.Job, error)
-	ListJobStat(startDate, endDate time.Time, queueID, caseType string, minDuration time.Duration) ([]*model.Job, error)
+	ListJobStat(startDate, endDate time.Time, queueID string, minDuration time.Duration, limit, offset int) (map[string][]*model.Job, error)
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	// GetTaskByID get job task
 	GetTaskByID(id string) (model.JobTask, error)

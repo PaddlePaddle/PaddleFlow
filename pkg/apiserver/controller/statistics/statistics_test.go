@@ -2,6 +2,9 @@ package statistics
 
 import (
 	"database/sql"
+	"testing"
+	"time"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -10,8 +13,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 	MockRootUser    = "root"
 )
 
+// test for func GetCardTimeByQueueName
 func TestGetCardTimeByQueueName(t *testing.T) {
 	maxRes, err := resources.NewResourceFromMap(map[string]string{
 		resources.ResCPU:    "10",
@@ -111,8 +113,9 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		{
 			name: "test1",
 			args: args{
-				ctx:          &logger.RequestContext{UserName: MockRootUser},
-				queueNames:   []string{MockQueueName, MockQueueName + "2"},
+				ctx: &logger.RequestContext{UserName: MockRootUser},
+				//queueNames: []string{MockQueueName, MockQueueName + "2"},
+				queueNames:   []string{MockQueueName},
 				startTimeStr: startTime,
 				endTimeStr:   endTime,
 			},

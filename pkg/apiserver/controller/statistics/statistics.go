@@ -311,60 +311,20 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	if period < minDuration {
 		return nil, 0, fmt.Errorf("time period less than minDuration")
 	}
-
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
-	detailInfoMap := make(map[string][]JobCardTimeInfo)
-
-	// case 1: 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase1, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case1", minDuration)
+	limit, offset := 5000, 0
+	//jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
+	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case1 failed, error: %s", err.Error())
 	}
-	cardTimeCalculation1 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return float64(gpuCards) * period.Seconds()
-	}
-	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase1, cardTimeCalculation1)
-	if err != nil {
-		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
-	}
-
-	// case 2: 任务开始运行时间 < start_date，任务结束时间 <= end_date
-	jobStatusForCase2, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case2", minDuration)
-	if err != nil {
-		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case2 failed, error: %s", err.Error())
-	}
-	cardTimeCalculation2 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
-	}
-	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase2, cardTimeCalculation2)
-	if err != nil {
-		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
-	}
-
-	// case 3: 任务开始运行时间 >= start_date，任务结束时间 <= end_date
-	jobStatusForCase3, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case3", minDuration)
-	if err != nil {
-		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case3 failed, error: %s", err.Error())
-	}
-	cardTimeCalculation3 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
-	}
-	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase3, cardTimeCalculation3)
-	if err != nil {
-		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
-	}
-
-	// case 4: 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
-	jobStatusForCase4, err := storage.Job.ListJobStat(startDate, endDate, queueID, "case4", minDuration)
-	if err != nil {
-		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case4 failed, error: %s", err.Error())
-	}
-	cardTimeCalculation4 := func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-		return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
-	}
-	detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStatusForCase4, cardTimeCalculation4)
-	if err != nil {
-		logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+	detailInfoMap := make(map[string][]JobCardTimeInfo)
+	for caseType, jobStat := range jobStats {
+		cardTimeCalculation := getCardTimeCalculation(caseType)
+		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, cardTimeCalculation)
+		if err != nil {
+			logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
+		}
 	}
 
 	cardTimeForGroup := float64(0)
@@ -385,6 +345,29 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		cardTimeForGroup += totalCardTime
 	}
 	return detailInfo, cardTimeForGroup, nil
+}
+
+func getCardTimeCalculation(caseType string) (cardTimeCalculation func(jobStatus *model.Job, startDate,
+	endDate time.Time, gpuCards int) float64) {
+	switch caseType {
+	case "case1":
+		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+			return float64(gpuCards) * endDate.Sub(startDate).Seconds()
+		}
+	case "case2":
+		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+			return jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
+		}
+	case "case3":
+		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+			return jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+		}
+	case "case4":
+		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+			return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+		}
+	}
+	return cardTimeCalculation
 }
 
 func in(target string, str_array []string) bool {
@@ -411,7 +394,7 @@ func GetGpuCards(jobStatus *model.Job) int {
 	jobResourceList := []string{"k8s", "slurm", "k8s-new", "aistudio", "kubernetes"}
 	var gpuCards int = 0
 	for resourceKey, resourceValue := range resourceJsonMap {
-		if in(resourceKey, jobResourceList) == true {
+		if in(resourceKey, jobResourceList) {
 			gpuCards += resourceValue.(int)
 		}
 	}
