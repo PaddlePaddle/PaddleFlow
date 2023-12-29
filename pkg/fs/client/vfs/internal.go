@@ -41,7 +41,7 @@ type internalNode struct {
 }
 
 var internalNodes = []*internalNode{
-	{statsInode, ".stats", &Attr{Mode: 33206}},
+	{&Attr{Mode: 33206}, ".stats", statsInode},
 }
 
 func initInternalNodes() {

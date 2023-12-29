@@ -40,7 +40,8 @@ func ReadBuffer(buf []byte) *Buffer {
 
 // FromBuffer utility to create *Buffer
 func FromBuffer(buf []byte) *Buffer {
-	return &Buffer{binary.BigEndian, 0, buf}
+	return &Buffer{
+		endian: binary.BigEndian, off: 0, buf: buf}
 }
 
 // Len returns length of buffer
@@ -149,7 +150,7 @@ var nativeEndian binary.ByteOrder
 
 // NewNativeBuffer utility to create *Buffer of given size with nativeEndian
 func NewNativeBuffer(buf []byte) *Buffer {
-	return &Buffer{nativeEndian, 0, buf}
+	return &Buffer{nativeEndian, buf, 0}
 }
 
 func init() {

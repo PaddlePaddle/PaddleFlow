@@ -1593,8 +1593,8 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				insertChildEntry.ino = newInode
 			}
 			entrySlice = append(entrySlice, entrySliceItem{
-				dir.Name,
-				insertChildEntry,
+				name: dir.Name,
+				et:   insertChildEntry,
 			})
 			expire = now.Add(m.attrTimeOut).Unix()
 			insertChildInode = &inodeItem{
@@ -1638,8 +1638,8 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 			childEntryItem.Attr.Mode = insertChildInode.attr.Mode
 
 			inodeSlice = append(inodeSlice, inodeSliceItem{
-				newInode,
-				insertChildInode,
+				ino: newInode,
+				it:  insertChildInode,
 			})
 			childEntryItem.Ino = newInode
 			*entries = append(*entries, childEntryItem)
