@@ -89,7 +89,6 @@ type kvMeta struct {
 	client     kv.KvClient
 	defaultUfs ufslib.UnderFileStorage
 	ufsMap     *sync.Map
-	symlinks   *sync.Map
 
 	pathCache  *ristretto.Cache
 	freeInodes freeID

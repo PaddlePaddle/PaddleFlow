@@ -82,8 +82,8 @@ func (i *FileInfo) String() string {
 }
 
 type DirEntry struct {
-	info FileInfo
 	name string
+	info FileInfo
 	ino  uint64
 	mode uint32
 }
@@ -115,9 +115,9 @@ func (d *DirEntry) Info() (os.FileInfo, error) {
 
 // 参考os.file对外的接口实现, 部分未实现
 type File struct {
+	fs   *FileSystem
 	attr FileInfo
 
-	fs          *FileSystem
 	inode       vfs.Ino
 	fh          uint64
 	readOffset  int64

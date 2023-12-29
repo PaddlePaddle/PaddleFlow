@@ -67,7 +67,6 @@ type fileReader struct {
 	stop          chan struct{}
 	path          string
 	inode         Ino
-	size          int64
 	length        uint64
 	seqReadAmount uint64
 	readBufOffset uint64

@@ -19,10 +19,11 @@ type ItemOutput struct {
 
 type HeadObjectOutput struct {
 	Metadata map[string]*string
-	ItemOutput
 
 	ContentType string
-	IsDir       bool
+	ItemOutput
+
+	IsDir bool
 }
 
 type PrefixOutput struct {

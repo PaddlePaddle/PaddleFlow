@@ -49,7 +49,6 @@ type VFS struct {
 	handleMap  map[Ino][]*handle
 	registry   *prometheus.Registry
 	fsMeta     common.FSMeta
-	links      []common.FSMeta
 	nextfh     uint64
 	handleLock sync.RWMutex
 }
