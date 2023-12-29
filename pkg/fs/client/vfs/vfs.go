@@ -380,6 +380,9 @@ func (v *VFS) Symlink(ctx *meta.Context, path string, parent Ino, name string) (
 func (v *VFS) Readlink(ctx *meta.Context, ino Ino) (path []byte, err syscall.Errno) {
 	defer func() { log.Debugf("readlink (%d): %s (%s)", ino, err, string(path)) }()
 	err = v.Meta.ReadLink(ctx, ino, &path)
+	if err != 0 {
+		log.Errorf("Readlink err %v", err)
+	}
 	return
 }
 
