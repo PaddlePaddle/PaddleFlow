@@ -46,18 +46,18 @@ type volumeMountInfo struct {
 	// ClaimName is the PVC's name
 	ClaimName string
 
-	// ReadOnly which setting in pod's volumes
-	ReadOnly bool
-
 	// A SubPath is a volumeMount with subPath param in the pod's spec
 	SubPaths []SubPath
+
+	// ReadOnly which setting in pod's volumes
+	ReadOnly bool
 }
 
 // The SubPath is a volumeMount with subPath param in the pod's spec
 type SubPath struct {
-	ReadOnly   bool
 	SourcePath string
 	TargetPath string
+	ReadOnly   bool
 }
 
 func getPodVolumeMounts(pod *v1.Pod) []volumeMountInfo {

@@ -56,15 +56,15 @@ func NewDataWriter(m meta.Meta, blockSize int, store cache.Store) DataWriter {
 }
 
 type fileWriter struct {
-	sync.Mutex
-	writer *dataWriter
-	inode  Ino
-	path   string
-	length uint64
-	ufs    ufslib.UnderFileStorage
+	ufs ufslib.UnderFileStorage
 
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
-	fd ufslib.FileHandle
+	fd     ufslib.FileHandle
+	writer *dataWriter
+	path   string
+	inode  Ino
+	length uint64
+	sync.Mutex
 }
 
 func (f *fileWriter) Fallocate(size int64, off int64, mode uint32) syscall.Errno {
@@ -137,12 +137,12 @@ func (f *fileWriter) Truncate(size uint64) syscall.Errno {
 }
 
 type dataWriter struct {
-	sync.Mutex
 	m         meta.Meta
+	store     cache.Store
 	ufsMap    *ufsMap
 	files     map[Ino]*fileWriter
-	store     cache.Store
 	blockSize int
+	sync.Mutex
 }
 
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {

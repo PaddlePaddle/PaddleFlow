@@ -160,9 +160,9 @@ func (c *k8sClient) GetPod(namespace, name string) (*corev1.Pod, error) {
 }
 
 type PatchMapValue struct {
+	Value map[string]string `json:"value"`
 	Op    string            `json:"op"`
 	Path  string            `json:"path"`
-	Value map[string]string `json:"value"`
 }
 
 func (c *k8sClient) PatchPod(namespace, name string, data []byte) error {

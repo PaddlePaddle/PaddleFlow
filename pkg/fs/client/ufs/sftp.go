@@ -75,10 +75,10 @@ func (sc *sshConn) closed() error {
 }
 
 type sftpFileSystem struct {
-	addr    string // host:port
-	subpath string
 	config  *ssh.ClientConfig
 	sc      *sshConn
+	addr    string // host:port
+	subpath string
 }
 
 // Open a new connection to the SFTP server.
@@ -319,9 +319,9 @@ func (fs *sftpFileSystem) StatFs(name string) *base.StatfsOut {
 }
 
 type sftpFileHandle struct {
-	name string
 	f    *sftp.File
 	fs   *sftpFileSystem
+	name string
 }
 
 var _ FileHandle = &sftpFileHandle{}

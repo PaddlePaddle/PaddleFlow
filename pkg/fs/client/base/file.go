@@ -26,15 +26,15 @@ import (
 type DirEntry fuse.DirEntry
 
 type FileInfo struct {
-	Name  string // relative path of file
-	Path  string // full path of file
-	Size  int64
-	Mtime uint64
-	IsDir bool
+	Sys   interface{} // underlying data source (can return nil)
+	Name  string      // relative path of file
+	Path  string      // full path of file
 	Owner string
 	Group string
+	Size  int64
+	Mtime uint64
 	Mode  os.FileMode // file mode, not stat mode
-	Sys   interface{} // underlying data source (can return nil)
+	IsDir bool
 }
 
 type StatfsOut fuse.StatfsOut

@@ -42,16 +42,16 @@ const (
 var StatsSize = 1000
 
 type VFS struct {
-	fsMeta     common.FSMeta
-	links      []common.FSMeta
 	reader     DataReader
 	writer     DataWriter
-	handleMap  map[Ino][]*handle
-	handleLock sync.RWMutex
-	nextfh     uint64
 	Meta       meta.Meta
 	Store      cache.Store
+	handleMap  map[Ino][]*handle
 	registry   *prometheus.Registry
+	fsMeta     common.FSMeta
+	links      []common.FSMeta
+	nextfh     uint64
+	handleLock sync.RWMutex
 }
 
 type Config struct {

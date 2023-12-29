@@ -57,31 +57,31 @@ func NewDataReader(m meta.Meta, blockSize int, store cache.Store) DataReader {
 }
 
 type fileReader struct {
-	inode  Ino
-	size   int64
-	flags  uint32
-	path   string
-	length uint64
-	ufs    ufslib.UnderFileStorage
-	reader *dataReader
-	sync.Mutex
+	ufs ufslib.UnderFileStorage
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
 	fd            ufslib.FileHandle
-	buffersCache  cache.ReadBufferMap
 	streamReader  io.ReadCloser
-	seqReadAmount uint64
-	readBufOffset uint64
+	reader        *dataReader
+	buffersCache  cache.ReadBufferMap
 	bufferMapLock *sync.RWMutex
 	stop          chan struct{}
+	path          string
+	inode         Ino
+	size          int64
+	length        uint64
+	seqReadAmount uint64
+	readBufOffset uint64
+	sync.Mutex
+	flags uint32
 }
 
 type dataReader struct {
-	sync.Mutex
 	m          meta.Meta
-	files      map[Ino]*fileReader
 	store      cache.Store
+	files      map[Ino]*fileReader
 	bufferPool *cache.BufferPool
 	blockSize  int
+	sync.Mutex
 }
 
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {

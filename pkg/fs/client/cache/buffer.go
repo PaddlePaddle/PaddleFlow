@@ -29,18 +29,18 @@ import (
 )
 
 type ReadBuffer struct {
-	ufs          ufslib.UnderFileStorage
-	nRetries     uint8
-	page         *Page
-	path         string
-	flags        uint32
-	offset       uint64
-	size         uint32
-	index        int
 	LastUsedTime time.Time
-	lock         sync.RWMutex
+	ufs          ufslib.UnderFileStorage
+	page         *Page
 	r            *rCache
 	Buffer       *Buffer
+	path         string
+	offset       uint64
+	index        int
+	lock         sync.RWMutex
+	flags        uint32
+	size         uint32
+	nRetries     uint8
 }
 
 type ReadBufferMap map[uint64]*ReadBuffer

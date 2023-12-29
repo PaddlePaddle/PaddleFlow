@@ -10,18 +10,18 @@ import (
 )
 
 type ItemOutput struct {
+	LastModified time.Time
 	Key          string
 	ETag         string
-	LastModified time.Time
-	Size         uint64
 	StorageClass string
+	Size         uint64
 }
 
 type HeadObjectOutput struct {
+	Metadata map[string]*string
 	ItemOutput
 
 	ContentType string
-	Metadata    map[string]*string
 	IsDir       bool
 }
 
@@ -30,12 +30,12 @@ type PrefixOutput struct {
 }
 
 type ListBlobsOutput struct {
-	Prefixes              []PrefixOutput
-	Items                 []ItemOutput
 	NextContinuationToken string
-	IsTruncated           bool
 
-	RequestId string
+	RequestId   string
+	Prefixes    []PrefixOutput
+	Items       []ItemOutput
+	IsTruncated bool
 }
 
 type MultipartCommitOutPut struct {
@@ -48,22 +48,22 @@ type MultipartCommitOutPut struct {
 }
 
 type Part struct {
+	ETag string
 	Num  int64
 	Size int
-	ETag string
 }
 
 type PendingPart struct {
+	Created  time.Time
 	Key      string
 	UploadID string
-	Created  time.Time
 }
 
 type ListInput struct {
 	Prefix            string
 	Delimiter         string
-	MaxKeys           int64
 	ContinuationToken string
+	MaxKeys           int64
 }
 
 func findLen(in io.Reader) (io.Reader, int64, error) {

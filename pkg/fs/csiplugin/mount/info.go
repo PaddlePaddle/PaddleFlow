@@ -43,18 +43,18 @@ const (
 )
 
 type Info struct {
+	K8sClient     utils.Client
+	PodResource   corev1.ResourceRequirements
 	CacheConfig   model.FSCacheConfig
-	FS            model.FileSystem
 	FSBase64Str   string
 	TargetPath    string
 	SourcePath    string
 	Cmd           string
-	Args          []string
-	ReadOnly      bool
-	K8sClient     utils.Client
-	PodResource   corev1.ResourceRequirements
 	ServerAddress string
 	Token         string
+	FS            model.FileSystem
+	Args          []string
+	ReadOnly      bool
 }
 
 func ConstructMountInfo(serverAddress, fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {

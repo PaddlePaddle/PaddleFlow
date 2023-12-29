@@ -60,15 +60,15 @@ func NewDataCache(config Config) DataCacheClient {
 }
 
 type rCache struct {
-	id            string
-	flags         uint32
-	length        int
-	store         *store
 	ufs           ufs.UnderFileStorage
+	store         *store
 	buffers       ReadBufferMap
 	bufferPool    *BufferPool
 	lock          *sync.RWMutex
+	id            string
+	length        int
 	seqReadAmount uint64
+	flags         uint32
 }
 
 func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err error) {

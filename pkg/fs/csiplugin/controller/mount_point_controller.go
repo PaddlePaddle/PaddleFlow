@@ -55,20 +55,21 @@ type pvParams struct {
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
 type MountPointController struct {
-	nodeID           string
-	masterNodesAware bool
-	podMap           map[string]v1.Pod
-	removePods       sync.Map
-	rateLimiter      chan struct{}
-
 	kubeClient kubernetes.Interface
 	// pvInformer and pvLister
 	pvInformer coreinformers.PersistentVolumeInformer
 	pvLister   corelisters.PersistentVolumeLister
-	pvSynced   cache.InformerSynced
 
 	queue       workqueue.RateLimitingInterface
-	pvParamsMap map[string]pvParams
+	podMap      map[string]v1.Pod
+	rateLimiter chan struct{}
+
+	pvSynced cache.InformerSynced
+
+	pvParamsMap      map[string]pvParams
+	removePods       sync.Map
+	nodeID           string
+	masterNodesAware bool
 }
 
 func GetMountPointController(nodeID string) *MountPointController {

@@ -67,15 +67,15 @@ var Owner string
 var Group string
 
 type s3FileSystem struct {
+	defaultTime time.Time
+	sess        *session.Session
+	s3          *s3.S3
+	chunkPool   *sync.Pool
 	bucket      string
 	subpath     string // bucket:subpath/name
 	dirMode     int
 	fileMode    int
-	sess        *session.Session
-	s3          *s3.S3
-	defaultTime time.Time
 	sync.Mutex
-	chunkPool *sync.Pool
 }
 
 var _ UnderFileStorage = &s3FileSystem{}
@@ -972,23 +972,23 @@ func (fs *s3FileSystem) StatFs(name string) *base.StatfsOut {
 
 type mpuInfo struct {
 	uploadID      *string
+	partsETag     []*string
 	lastPartNum   int64
 	lastUploadEnd int64
-	partsETag     []*string
 }
 
 type s3FileHandle struct {
-	mpuInfo        mpuInfo
+	writeSrcReader io.ReadCloser
+	writeTmpfile   *os.File
+	canWrite       chan struct{}
+	fs             *s3FileSystem
 	bucket         string
 	name           string
 	path           string
+	mpuInfo        mpuInfo
 	size           uint64
-	flags          uint32
-	writeTmpfile   *os.File
-	canWrite       chan struct{}
-	writeSrcReader io.ReadCloser
-	fs             *s3FileSystem
 	mu             sync.RWMutex
+	flags          uint32
 	writeDirty     bool
 }
 

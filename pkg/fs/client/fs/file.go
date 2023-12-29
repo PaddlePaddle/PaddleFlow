@@ -34,13 +34,13 @@ import (
 )
 
 type FileInfo struct {
+	sys       interface{}
 	path      string
 	size      int64
 	mtime     uint64
 	mtimensec uint64
-	isDir     bool
 	mode      os.FileMode
-	sys       interface{}
+	isDir     bool
 }
 
 func NewFileInfoForCreate(path string, mode os.FileMode) FileInfo {
@@ -82,10 +82,10 @@ func (i *FileInfo) String() string {
 }
 
 type DirEntry struct {
-	mode uint32
+	info FileInfo
 	name string
 	ino  uint64
-	info FileInfo
+	mode uint32
 }
 
 func NewDirEntry(dir base.DirEntry, info FileInfo) DirEntry {
@@ -115,13 +115,13 @@ func (d *DirEntry) Info() (os.FileInfo, error) {
 
 // 参考os.file对外的接口实现, 部分未实现
 type File struct {
+	attr FileInfo
+
+	fs          *FileSystem
 	inode       vfs.Ino
 	fh          uint64
-	attr        FileInfo
 	readOffset  int64
 	writeOffset int64
-
-	fs *FileSystem
 }
 
 func NewPFILE(fh uint64, inode vfs.Ino, attr FileInfo, fs *FileSystem) File {

@@ -24,8 +24,8 @@ import (
 // Buffer is a buffer to read/write integers.
 type Buffer struct {
 	endian binary.ByteOrder
-	off    int
 	buf    []byte
+	off    int
 }
 
 // NewBuffer returns a buffer with sz number of bytes.

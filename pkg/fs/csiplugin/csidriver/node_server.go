@@ -37,8 +37,8 @@ import (
 )
 
 type nodeServer struct {
-	nodeId string
 	*csicommon.DefaultNodeServer
+	nodeId string
 }
 
 func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {

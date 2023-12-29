@@ -52,26 +52,26 @@ var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChun
 var duration int
 
 type objectFileSystem struct {
-	subPath     string // bucket:subPath/name
-	storage     object.ObjectStorage
 	defaultTime time.Time
-	implicitDir bool
+	storage     object.ObjectStorage
+	chunkPool   *sync.Pool
+	copyPool    *ants.Pool
+	subPath     string // bucket:subPath/name
 	sync.Mutex
-	chunkPool *sync.Pool
-	copyPool  *ants.Pool
+	implicitDir bool
 }
 
 type objectFileHandle struct {
-	mpuInfo        mpuInfo
 	storage        object.ObjectStorage
-	name           string
-	key            string
-	size           uint64
-	flags          uint32
+	writeSrcReader io.ReadCloser
 	writeTmpfile   *os.File
 	canWrite       chan struct{}
-	writeSrcReader io.ReadCloser
+	name           string
+	key            string
+	mpuInfo        mpuInfo
+	size           uint64
 	mu             sync.RWMutex
+	flags          uint32
 	writeDirty     bool
 }
 

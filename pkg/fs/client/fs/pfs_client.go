@@ -49,9 +49,9 @@ func init() {
 }
 
 type PFSClient struct {
+	pfs    *FileSystem
 	server string
 	fsID   string
-	pfs    *FileSystem
 }
 
 func NewPFSClient(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FSMeta) (*PFSClient, error) {

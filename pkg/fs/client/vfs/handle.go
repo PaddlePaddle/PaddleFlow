@@ -25,16 +25,17 @@ import (
 )
 
 type handle struct {
-	lock     sync.RWMutex
-	fh       uint64
-	inode    Ino
 	reader   FileReader
 	writer   FileWriter
 	children []*meta.Entry
 
+	data  []byte
+	fh    uint64
+	inode Ino
+
 	// internal files
 	off  uint64
-	data []byte
+	lock sync.RWMutex
 }
 
 func (v *VFS) newHandle(inode Ino) *handle {
@@ -95,10 +96,10 @@ func (v *VFS) releaseFileHandle(ino Ino, fh uint64) {
 	v.releaseHandle(ino, fh)
 }
 
-//  O_ACCMODE<0003>：读写文件操作时，用于取出flag的低2位
-//  O_RDONLY<00>：只读打开
-//  O_WRONLY<01>：只写打开
-//  O_RDWR<02>：读写打开
+// O_ACCMODE<0003>：读写文件操作时，用于取出flag的低2位
+// O_RDONLY<00>：只读打开
+// O_WRONLY<01>：只写打开
+// O_RDWR<02>：读写打开
 func (v *VFS) newFileHandle(inode Ino, length uint64, flags uint32, ufs ufslib.UnderFileStorage, path string) (uint64, error) {
 	h := v.newHandle(inode)
 	var err error

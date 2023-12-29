@@ -35,9 +35,9 @@ const (
 )
 
 type internalNode struct {
-	inode Ino
-	name  string
 	attr  *Attr
+	name  string
+	inode Ino
 }
 
 var internalNodes = []*internalNode{

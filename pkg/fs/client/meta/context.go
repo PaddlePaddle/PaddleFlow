@@ -23,8 +23,8 @@ import (
 )
 
 type Context struct {
-	base.Context
 	cancel <-chan struct{}
+	base.Context
 }
 
 func NewContext(cancel <-chan struct{}, Uid, Pid, Gid uint32) *Context {

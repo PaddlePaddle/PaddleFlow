@@ -60,9 +60,9 @@ type Config struct {
 }
 
 type store struct {
-	conf   Config
-	meta   map[string]string
 	client DataCacheClient
+	meta   map[string]string
+	conf   Config
 	sync.RWMutex
 }
 

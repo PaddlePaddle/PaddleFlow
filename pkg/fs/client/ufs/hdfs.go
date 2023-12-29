@@ -487,10 +487,10 @@ func (fs *hdfsFileSystem) shouldRetry(err error) bool {
 }
 
 type hdfsFileHandle struct {
-	name   string
 	fs     *hdfsFileSystem
 	writer *hdfs.FileWriter
 	reader *hdfs.FileReader
+	name   string
 }
 
 var _ FileHandle = &hdfsFileHandle{}

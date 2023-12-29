@@ -86,39 +86,41 @@ var FuseConf = &FuseConfig{
 
 // kvMeta
 type kvMeta struct {
-	client       kv.KvClient
-	attrTimeOut  time.Duration
-	entryTimeOut time.Duration
-	defaultUfs   ufslib.UnderFileStorage
-	ufsMap       *sync.Map
-	ufsMapLock   sync.RWMutex
-	symlinks     *sync.Map
-	ufsMapUT     int64
-	setOwner     bool
-	uid          uint32
-	gid          uint32
+	client     kv.KvClient
+	defaultUfs ufslib.UnderFileStorage
+	ufsMap     *sync.Map
+	symlinks   *sync.Map
 
-	freeMu     sync.Mutex
+	pathCache  *ristretto.Cache
 	freeInodes freeID
 
-	pathCache   *ristretto.Cache
-	pathTimeOut time.Duration
+	attrTimeOut  time.Duration
+	entryTimeOut time.Duration
+	ufsMapUT     int64
+	pathTimeOut  time.Duration
+	ufsMapLock   sync.RWMutex
+
+	freeMu sync.Mutex
+	uid    uint32
+	gid    uint32
+
+	setOwner bool
 }
 
 type entryItem struct {
 	ino    Ino
-	mode   uint32
 	expire int64
+	mode   uint32
 	// if done is true, means the parent entry for readdir cache is effective.
 	done uint8
 }
 
 type inodeItem struct {
+	name        []byte
 	attr        Attr
 	parentIno   Ino
 	expire      int64
 	fileHandles int32
-	name        []byte
 }
 
 type pathItem struct {
@@ -1404,13 +1406,13 @@ func (m *kvMeta) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Att
 
 // badger do not allow a Tnx which is too big
 type entrySliceItem struct {
-	name string
 	et   *entryItem
+	name string
 }
 
 type inodeSliceItem struct {
-	ino Ino
 	it  *inodeItem
+	ino Ino
 }
 
 func (m *kvMeta) updateDirentrys(parent Ino, entrySlice []entrySliceItem, inodeSlice []inodeSliceItem) error {

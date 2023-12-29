@@ -29,12 +29,12 @@ import (
 var Client *_Client
 
 type _Client struct {
+	httpClient *core.PaddleFlowClient
 	Uuid       string
 	FsID       string
 	FsName     string
 	UserName   string
 	Token      string
-	httpClient *core.PaddleFlowClient
 }
 
 func NewClient(fsID string, c *core.PaddleFlowClient, token string) (*_Client, error) {

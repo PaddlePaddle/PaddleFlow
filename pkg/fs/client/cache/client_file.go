@@ -41,18 +41,18 @@ var _ DataCacheClient = &fileDataCache{}
 var deleteCachePool, _ = ants.NewPool(5)
 
 type cacheItem struct {
-	size    int64
 	expTime time.Time
+	size    int64
 }
 
 type fileDataCache struct {
-	sync.RWMutex
+	keys           sync.Map
 	dir            string
 	capacity       int64
 	avail          int64
 	expire         time.Duration
-	keys           sync.Map
 	freeSpaceRatio float64
+	sync.RWMutex
 }
 
 func newFileClient(config Config) DataCacheClient {

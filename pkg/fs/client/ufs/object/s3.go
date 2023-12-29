@@ -16,8 +16,8 @@ import (
 const S3Name = "s3"
 
 type S3Storage struct {
-	bucket string
 	s3     *s3.S3
+	bucket string
 }
 
 func NewS3Storage(bucket string, s3 *s3.S3) S3Storage {

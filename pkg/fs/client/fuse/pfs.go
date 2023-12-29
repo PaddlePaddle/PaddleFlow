@@ -31,8 +31,8 @@ import (
 const fsName = "PaddleFlowFS"
 
 type PFS struct {
-	debug bool
 	fuse.RawFileSystem
+	debug bool
 }
 
 func NewPaddleFlowFileSystem(debug bool) *PFS {

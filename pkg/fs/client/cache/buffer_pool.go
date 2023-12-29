@@ -85,14 +85,14 @@ func freeMemory() {
 
 type Page struct {
 	bufferPool      *BufferPool
-	writeLength     int
-	lock            sync.RWMutex
-	buffer          []byte
-	ready           bool
-	index           int
 	r               *rCache
 	closed          *bool
 	writeCacheReady *bool
+	buffer          []byte
+	writeLength     int
+	index           int
+	lock            sync.RWMutex
+	ready           bool
 }
 
 type TimeoutReader struct {
@@ -101,14 +101,15 @@ type TimeoutReader struct {
 }
 
 type BufferPool struct {
-	mu   sync.Mutex
 	cond *sync.Cond
+
+	pool *sync.Pool
 
 	bufSize            uint64
 	totalBuffers       uint64
 	computedMaxBuffers uint64
 
-	pool *sync.Pool
+	mu sync.Mutex
 }
 
 func maxBuffers(bufSize uint64) uint64 {
@@ -213,8 +214,8 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 // 实现Read方法
 func (tr *TimeoutReader) Read(p []byte) (n int, err error) {
 	type readResult struct {
-		n   int
 		err error
+		n   int
 	}
 	readChan := make(chan readResult)
 
@@ -287,12 +288,12 @@ func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *P
 }
 
 type Buffer struct {
-	mu     sync.Mutex
-	cond   *sync.Cond
-	offset uint64
-	page   *Page
 	reader io.ReadCloser
 	err    error
+	cond   *sync.Cond
+	page   *Page
+	offset uint64
+	mu     sync.Mutex
 }
 
 type ReaderProvider func() (io.ReadCloser, error)

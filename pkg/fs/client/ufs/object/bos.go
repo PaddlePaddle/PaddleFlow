@@ -21,8 +21,8 @@ const (
 )
 
 type Bos struct {
-	bucket     string
 	bosClient  *bos.Client
+	bucket     string
 	startBySts bool
 }
 

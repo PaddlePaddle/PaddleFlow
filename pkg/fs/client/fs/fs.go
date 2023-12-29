@@ -35,10 +35,10 @@ import (
 )
 
 type FileSystem struct {
-	fsMeta common.FSMeta
 	vfs    *vfs.VFS
 	stop   chan struct{}
 	cache  *metaCache
+	fsMeta common.FSMeta
 }
 
 var collectorOnce sync.Once
