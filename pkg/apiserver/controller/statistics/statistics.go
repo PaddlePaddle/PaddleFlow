@@ -91,12 +91,6 @@ type JobDetail struct {
 	TotalCardTime float64           `json:"totalCardTime"`
 }
 
-type CardTimeInfo struct {
-	QueueName string      `json:"queueName"`
-	CardTime  float64     `json:"cardTime"`
-	Detail    []JobDetail `json:"detail"`
-}
-
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
 	response := &JobStatisticsResponse{
 		MetricsInfo: make(map[string]string),
@@ -261,8 +255,8 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }
 
-func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*CardTimeInfo, error) {
-	var cardTimeInfoList []*CardTimeInfo
+func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*GetCardTimeResponse, error) {
+	var cardTimeInfoList []*GetCardTimeResponse
 	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
 	if err != nil {
 		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
@@ -290,7 +284,7 @@ func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeS
 			ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queue.Name)
 			return nil, err
 		}
-		cardTimeInfo := &CardTimeInfo{
+		cardTimeInfo := &GetCardTimeResponse{
 			QueueName: queue.Name,
 			CardTime:  cardTime,
 			Detail:    detailInfo,
@@ -320,7 +314,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 	detailInfoMap := make(map[string][]JobCardTimeInfo)
 	for caseType, jobStat := range jobStats {
-		cardTimeCalculation := getCardTimeCalculation(caseType)
+		cardTimeCalculation := CalculationCardTime(caseType)
 		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, cardTimeCalculation)
 		if err != nil {
 			logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
@@ -347,7 +341,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	return detailInfo, cardTimeForGroup, nil
 }
 
-func getCardTimeCalculation(caseType string) (cardTimeCalculation func(jobStatus *model.Job, startDate,
+func CalculationCardTime(caseType string) (cardTimeCalculation func(jobStatus *model.Job, startDate,
 	endDate time.Time, gpuCards int) float64) {
 	switch caseType {
 	case "case1":
