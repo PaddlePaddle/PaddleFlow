@@ -32,10 +32,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 	})
 	assert.Equal(t, nil, err)
 
-	//ctx := &logger.RequestContext{}
-	//ctx := logger.NewContext(nil, &apiserver.RequestContext{})
-	startTime := "2023-03-01 00:00:00"
-	endTime := "2023-03-05 00:00:00"
 	driver.InitMockDB()
 	mockCluster := model.ClusterInfo{
 		Model: model.Model{
@@ -79,8 +75,22 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			Valid: true,
 		},
 		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 2, 1, 0, 0, 0, time.UTC),
+			Time:  time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 			Valid: true,
+		},
+		Members: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Flavour: schema.Flavour{
+						ResourceInfo: schema.ResourceInfo{
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "1",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	mockJob2 := model.Job{
@@ -93,8 +103,22 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			Valid: true,
 		},
 		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 6, 0, 0, 0, 0, time.UTC),
+			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
 			Valid: true,
+		},
+		Members: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Flavour: schema.Flavour{
+						ResourceInfo: schema.ResourceInfo{
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "2",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -111,16 +135,100 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		responseCode int
 	}{
 		{
-			name: "test1",
+			name: "case1",
 			args: args{
-				ctx: &logger.RequestContext{UserName: MockRootUser},
-				//queueNames: []string{MockQueueName, MockQueueName + "2"},
-				queueNames:   []string{MockQueueName},
-				startTimeStr: startTime,
-				endTimeStr:   endTime,
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-02 06:00:00",
+				endTimeStr:   "2023-03-02 08:00:00",
 			},
 			wantErr:      false,
 			responseCode: 200,
+		},
+		{
+			name: "case2",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-02 06:00:00",
+				endTimeStr:   "2023-03-02 16:00:00",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "case3",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-01 00:00:00",
+				endTimeStr:   "2023-03-05 00:00:00",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "case4",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-01 12:00:00",
+				endTimeStr:   "2023-03-02 16:00:00",
+			},
+			wantErr:      false,
+			responseCode: 200,
+		},
+		{
+			name: "start time parse err",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-01 00-00-00",
+				endTimeStr:   "2023-03-05 00:00:00",
+			},
+			wantErr:      true,
+			responseCode: 500,
+		},
+		{
+			name: "end time parse err",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-01 00:00:00",
+				endTimeStr:   "2023-03-05 00-00-00",
+			},
+			wantErr:      true,
+			responseCode: 500,
+		},
+		{
+			name: "end time before start time",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{MockQueueName, MockQueueName + "2"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-05 00:00:00",
+				endTimeStr:   "2023-03-01 00:00:00",
+			},
+			wantErr:      true,
+			responseCode: 500,
+		},
+		{
+			name: "get queue by name failed",
+			args: args{
+				ctx:        &logger.RequestContext{UserName: MockRootUser},
+				queueNames: []string{"000"},
+				//queueNames:   []string{MockQueueName},
+				startTimeStr: "2023-03-01 00:00:00",
+				endTimeStr:   "2023-03-05 00:00:00",
+			},
+			wantErr:      true,
+			responseCode: 500,
 		},
 	}
 
@@ -148,3 +256,23 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		})
 	}
 }
+
+//
+//func TestGetGpuCards(t *testing.T) {
+//	jobStatus := &model.Job{}
+//	t.Run("TestGetGpuCards-1", func(t *testing.T) {
+//		resourceJsonStr := `{"k8s":1,"slurm":2,"k8s-new":3,"aistudio":4,"kubernetes":5}`
+//		jobStatus.ResourceJson = resourceJsonStr
+//		require.Equal(t, GetGpuCards(jobStatus), 1+2+3+4+5, "GetGpuCards func return %v, expect 1+2+3+4+5", GetGpuCards(jobStatus))
+//	})
+//	t.Run("TestGetGpuCards-2", func(t *testing.T) {
+//		resourceJsonStr := `{"k8s":0,"slurm":0,"k8s-new":0,"aistudio":0,"kubernetes":0}`
+//		jobStatus.ResourceJson = resourceJsonStr
+//		require.Equal(t, GetGpuCards(jobStatus), 0, "GetGpuCards func return %v, expect 0", GetGpuCards(jobStatus))
+//	})
+//	t.Run("TestGetGpuCards-3", func(t *testing.T) {
+//		resourceJsonStr := `{"k8s":1,"slurm":0,"k8s-new":0,"aistudio":0,"kubernetes":0}`
+//		jobStatus.ResourceJson = resourceJsonStr
+//		require.Equal(t, GetGpuCards(jobStatus), 1, "GetGpuCards func return %v, expect 1", GetGpuCards(jobStatus))
+//	})
+//}

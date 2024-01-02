@@ -17,10 +17,8 @@ limitations under the License.
 package statistics
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	prometheusModel "github.com/prometheus/common/model"
@@ -28,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
@@ -307,15 +306,14 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
 	limit, offset := 5000, 0
-	//jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
 	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case1 failed, error: %s", err.Error())
+		return nil, 0, err
 	}
 	detailInfoMap := make(map[string][]JobCardTimeInfo)
 	for caseType, jobStat := range jobStats {
-		cardTimeCalculation := CalculationCardTime(caseType)
-		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, cardTimeCalculation)
+		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, caseType)
 		if err != nil {
 			logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
 		}
@@ -341,65 +339,59 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	return detailInfo, cardTimeForGroup, nil
 }
 
-func CalculationCardTime(caseType string) (cardTimeCalculation func(jobStatus *model.Job, startDate,
-	endDate time.Time, gpuCards int) float64) {
-	switch caseType {
-	case "case1":
-		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-			return float64(gpuCards) * endDate.Sub(startDate).Seconds()
+func containsStr(target string, strSlice []string) bool {
+	for _, str := range strSlice {
+		if str == target {
+			return true
 		}
-	case "case2":
-		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-			return jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
-		}
-	case "case3":
-		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-			return jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
-		}
-	case "case4":
-		cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
-			return endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
-		}
-	}
-	return cardTimeCalculation
-}
-
-func in(target string, str_array []string) bool {
-	sort.Strings(str_array)
-	index := sort.SearchStrings(str_array, target)
-	if index < len(str_array) && str_array[index] == target {
-		return true
 	}
 	return false
 }
 
-// TODO: 从job中获取gpu卡数
-func GetGpuCards(jobStatus *model.Job) int {
-	jobID := jobStatus.ID
-	queueID := jobStatus.QueueID
-	resourceJsonStr := jobStatus.ResourceJson
-	var resourceJsonMap map[string]interface{}
-	err := json.Unmarshal([]byte(resourceJsonStr), &resourceJsonMap)
+func GetFlavourCards(flavour schema.Flavour, deviceCardTypes []string) int {
+	res, err := resources.NewResourceFromMap(flavour.ToMap())
 	if err != nil {
-		logger.LoggerForJob(jobID).Errorf("queueID:%v, jobid is %v, unmarshal resourceJson error: %v", queueID, jobID, err)
+		logger.Logger().Errorf("[GetFlavourCards] NewResourceFromMap failed, error: %s", err.Error())
 		return 0
 	}
-	//jobResourceList 存放所有的资源类型
-	jobResourceList := []string{"k8s", "slurm", "k8s-new", "aistudio", "kubernetes"}
-	var gpuCards int = 0
-	for resourceKey, resourceValue := range resourceJsonMap {
-		if in(resourceKey, jobResourceList) {
-			gpuCards += resourceValue.(int)
+	for rName, rValue := range res.ScalarResources("") {
+		if containsStr(rName, deviceCardTypes) && rValue > 0 {
+			return int(rValue)
 		}
+	}
+	return 0
+}
+
+func GetGpuCards(jobStatus *model.Job) int {
+	members := jobStatus.Members
+	//jobResourceList 存放所有的资源类型
+	jobResourceList := []string{"nvidia.com/gpu", "amd.com/gpu"}
+	var gpuCards int = 0
+	for _, member := range members {
+		gpuCards += GetFlavourCards(member.Flavour, jobResourceList) * member.Replicas
 	}
 	return gpuCards
 }
 
 func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobCardTimeInfo,
-	jobStatusCase []*model.Job, cardTimeCalculation func(*model.Job, time.Time, time.Time, int) float64) (map[string][]JobCardTimeInfo, error) {
+	jobStatusCase []*model.Job, caseType string) (map[string][]JobCardTimeInfo, error) {
+	var cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+		var cardTime float64 = 0
+		switch caseType {
+		case "case1":
+			cardTime = float64(gpuCards) * endDate.Sub(startDate).Seconds()
+		case "case2":
+			cardTime = jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
+		case "case3":
+			cardTime = jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+		case "case4":
+			cardTime = endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+		}
+		return cardTime
+	}
+
 	for _, jobStatus := range jobStatusCase {
-		// TODO：用GetGpuCards(jobStatus)获得GPU卡数，此处暂时mock
-		gpuCards := 1
+		gpuCards := GetGpuCards(jobStatus)
 		cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards) / 3600
 		cardTime = common.Floor2decimal(cardTime)
 		_, ok := detailInfo[jobStatus.UserName]

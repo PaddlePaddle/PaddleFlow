@@ -17,13 +17,15 @@ limitations under the License.
 package storage
 
 import (
+	"time"
+
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	"time"
 )
 
 var (

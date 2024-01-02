@@ -32,6 +32,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
+const (
+	jobStatSelectColumn = "id,queue_id,user_name,activated_at,finished_at,members"
+)
+
 type JobStore struct {
 	db *gorm.DB
 }
@@ -336,7 +340,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	JobStatMap := make(map[string][]*model.Job)
 	// case1
 	jobStatusForCase1 := []*model.Job{}
-	result := js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+	result := js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
@@ -347,7 +351,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	JobStatMap["case1"] = jobStatusForCase1
 	// case2
 	jobStatusForCase2 := []*model.Job{}
-	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
 		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
 		Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds())).
@@ -359,7 +363,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	JobStatMap["case2"] = jobStatusForCase2
 	// case3
 	jobStatusForCase3 := []*model.Job{}
-	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).
 		Where("activated_at >= ?", startDate).
 		Where("finished_at <= ? ", endDate).
@@ -372,7 +376,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	JobStatMap["case3"] = jobStatusForCase3
 	// case4
 	jobStatusForCase4 := []*model.Job{}
-	result = js.db.Table("job").Select("id,queue_id,user_name,activated_at,finished_at").
+	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).Where("activated_at >= ?", startDate).
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 		Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds())).
