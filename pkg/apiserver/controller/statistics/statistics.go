@@ -19,6 +19,7 @@ package statistics
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	prometheusModel "github.com/prometheus/common/model"
@@ -341,7 +342,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 
 func containsStr(target string, strSlice []string) bool {
 	for _, str := range strSlice {
-		if str == target {
+		if strings.HasSuffix(target, str) {
 			return true
 		}
 	}
@@ -364,11 +365,11 @@ func GetFlavourCards(flavour schema.Flavour, deviceCardTypes []string) int {
 
 func GetGpuCards(jobStatus *model.Job) int {
 	members := jobStatus.Members
-	//jobResourceList 存放所有的资源类型
-	jobResourceList := []string{"nvidia.com/gpu", "amd.com/gpu"}
+	//cardNameList 存放所有的资源类型
+	cardNameList := []string{"nvidia.com/gpu", "_cgpu"}
 	var gpuCards int = 0
 	for _, member := range members {
-		gpuCards += GetFlavourCards(member.Flavour, jobResourceList) * member.Replicas
+		gpuCards += GetFlavourCards(member.Flavour, cardNameList) * member.Replicas
 	}
 	return gpuCards
 }
