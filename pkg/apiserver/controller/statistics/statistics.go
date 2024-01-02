@@ -275,13 +275,13 @@ func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeS
 		if err != nil {
 			ctx.ErrorMessage = err.Error()
 			ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", queueName)
-			return nil, err
+			continue
 		}
 		detailInfo, cardTime, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
 		if err != nil {
 			ctx.ErrorMessage = err.Error()
 			ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queue.Name)
-			return nil, err
+			continue
 		}
 		cardTimeInfo := &GetCardTimeResponse{
 			QueueName: queue.Name,
