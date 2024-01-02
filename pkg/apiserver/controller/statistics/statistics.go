@@ -306,6 +306,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		return nil, 0, fmt.Errorf("time period less than minDuration")
 	}
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
+	// TODO: 优化大数据量时的查询方案
 	limit, offset := 5000, 0
 	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
 	if err != nil {
