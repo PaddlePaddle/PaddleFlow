@@ -34,6 +34,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
+// cardNameList 存放所有的资源类型
+var cardNameList = []string{"nvidia.com/gpu", "_cgpu"}
+
 var metricNameList = [...]string{
 	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
 	consts.MetricMemoryUsage, consts.MetricDiskUsage,
@@ -255,6 +258,14 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }
 
+// GetCardTimeInfo 函数从给定的队列中获取卡片时间信息
+// ctx: 请求上下文
+// queueNames: 队列名称列表
+// startTimeStr: 开始时间字符串
+// endTimeStr: 结束时间字符串
+// 返回值：
+// []*GetCardTimeResponse: 卡片时间信息列表
+// error: 错误信息
 func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*GetCardTimeResponse, error) {
 	var cardTimeInfoList []*GetCardTimeResponse
 	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
@@ -341,6 +352,10 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	return detailInfo, cardTimeForGroup, nil
 }
 
+// containsStr 判断目标字符串是否包含切片中的任意一个字符串
+// 参数 target: 目标字符串
+// 参数 strSlice: 字符串切片
+// 返回值: 如果目标字符串包含切片中的任意一个字符串，返回 true，否则返回 false
 func containsStr(target string, strSlice []string) bool {
 	for _, str := range strSlice {
 		if strings.HasSuffix(target, str) {
@@ -350,6 +365,7 @@ func containsStr(target string, strSlice []string) bool {
 	return false
 }
 
+// GetFlavourCards 根据传入的 Flavour 参数和设备卡类型列表，返回符合条件的资源数量
 func GetFlavourCards(flavour schema.Flavour, deviceCardTypes []string) int {
 	res, err := resources.NewResourceFromMap(flavour.ToMap())
 	if err != nil {
@@ -364,10 +380,11 @@ func GetFlavourCards(flavour schema.Flavour, deviceCardTypes []string) int {
 	return 0
 }
 
+// GetGpuCards 函数用于获取指定任务状态下的GPU卡数量
+// 参数jobStatus为任务状态，类型为model.Job指针
+// 返回值为int类型，表示GPU卡数量
 func GetGpuCards(jobStatus *model.Job) int {
 	members := jobStatus.Members
-	//cardNameList 存放所有的资源类型
-	cardNameList := []string{"nvidia.com/gpu", "_cgpu"}
 	var gpuCards int = 0
 	for _, member := range members {
 		gpuCards += GetFlavourCards(member.Flavour, cardNameList) * member.Replicas
