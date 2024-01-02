@@ -314,7 +314,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	}
 	detailInfoMap := make(map[string][]JobCardTimeInfo)
 	for caseType, jobStat := range jobStats {
-		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, caseType)
+		detailInfoMap, err = FulfillDetailInfo(startDate, endDate, detailInfoMap, jobStat, caseType, minDuration)
 		if err != nil {
 			logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
 		}
@@ -375,25 +375,38 @@ func GetGpuCards(jobStatus *model.Job) int {
 }
 
 func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobCardTimeInfo,
-	jobStatusCase []*model.Job, caseType string) (map[string][]JobCardTimeInfo, error) {
-	var cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) float64 {
+	jobStatusCase []*model.Job, caseType string, minDuration time.Duration) (map[string][]JobCardTimeInfo, error) {
+	var cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) (time.Duration, float64) {
 		var cardTime float64 = 0
+		var jobDuration time.Duration
 		switch caseType {
 		case "case1":
+			// 任务开始运行时间 < start_date， 任务结束时间 > end_date 或者 任务尚未结束
+			jobDuration = endDate.Sub(startDate)
 			cardTime = float64(gpuCards) * endDate.Sub(startDate).Seconds()
 		case "case2":
-			cardTime = jobStatus.FinishedAt.Time.Sub(startDate).Seconds() * float64(gpuCards)
+			// 任务开始运行时间 < start_date，任务结束时间 <= end_date
+			jobDuration = jobStatus.FinishedAt.Time.Sub(startDate)
+			cardTime = jobDuration.Seconds() * float64(gpuCards)
 		case "case3":
-			cardTime = jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+			// 任务开始运行时间 >= start_date，任务结束时间 <= end_date
+			jobDuration = jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time)
+			cardTime = jobDuration.Seconds() * float64(gpuCards)
 		case "case4":
-			cardTime = endDate.Sub((*jobStatus).ActivatedAt.Time).Seconds() * float64(gpuCards)
+			// 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
+			jobDuration = endDate.Sub((*jobStatus).ActivatedAt.Time)
+			cardTime = jobDuration.Seconds() * float64(gpuCards)
 		}
-		return cardTime
+		return jobDuration, cardTime
 	}
 
 	for _, jobStatus := range jobStatusCase {
 		gpuCards := GetGpuCards(jobStatus)
-		cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards) / 3600
+		jobDuration, cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards)
+		if jobDuration < minDuration {
+			continue
+		}
+		cardTime = cardTime / 3600
 		cardTime = common.Floor2decimal(cardTime)
 		_, ok := detailInfo[jobStatus.UserName]
 		if ok {

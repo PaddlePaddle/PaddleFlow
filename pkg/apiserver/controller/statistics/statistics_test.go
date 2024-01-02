@@ -227,7 +227,7 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 				startTimeStr: "2023-03-01 00:00:00",
 				endTimeStr:   "2023-03-05 00:00:00",
 			},
-			wantErr:      true,
+			wantErr:      false,
 			responseCode: 500,
 		},
 	}

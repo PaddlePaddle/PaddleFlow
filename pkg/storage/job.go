@@ -341,7 +341,8 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	// case1
 	jobStatusForCase1 := []*model.Job{}
 	result := js.db.Table("job").Select(jobStatSelectColumn).
-		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+		Where(" queue_id = ?", queueID).
+		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
 	if result.Error != nil {
@@ -352,9 +353,9 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	// case2
 	jobStatusForCase2 := []*model.Job{}
 	result = js.db.Table("job").Select(jobStatSelectColumn).
-		Where(" queue_id = ?", queueID).Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+		Where(" queue_id = ?", queueID).
+		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
 		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
-		Where(" TIMESTAMPDIFF(Second,?,finished_at) > ?", startDate, int(minDuration.Seconds())).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase2)
 	if result.Error != nil {
 		logger.Logger().Errorf("get job status for %v failed, err %v", "case2", result.Error.Error())
@@ -367,7 +368,6 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 		Where(" queue_id = ?", queueID).
 		Where("activated_at >= ?", startDate).
 		Where("finished_at <= ? ", endDate).
-		Where("TIMESTAMPDIFF(Second,activated_at,finished_at) > ?  ", int(minDuration.Seconds())).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase3)
 	if result.Error != nil {
 		logger.Logger().Errorf("get job status for %v failed, err %v", "case3", result.Error.Error())
@@ -377,9 +377,9 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	// case4
 	jobStatusForCase4 := []*model.Job{}
 	result = js.db.Table("job").Select(jobStatSelectColumn).
-		Where(" queue_id = ?", queueID).Where("activated_at >= ?", startDate).
+		Where(" queue_id = ?", queueID).
+		Where("activated_at >= ?", startDate).
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
-		Where("TIMESTAMPDIFF(Second,activated_at,?) > ?", endDate, int(minDuration.Seconds())).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase4)
 	if result.Error != nil {
 		logger.Logger().Errorf("get job status for %v failed, err %v", "case4", result.Error.Error())
