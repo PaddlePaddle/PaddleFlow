@@ -35,15 +35,16 @@ import (
 )
 
 // cardNameList 存放所有的资源类型
-var cardNameList = []string{"nvidia.com/gpu", "_cgpu"}
-
-var metricNameList = [...]string{
-	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
-	consts.MetricMemoryUsage, consts.MetricDiskUsage,
-	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes,
-	consts.MetricDiskReadRate, consts.MetricDiskWriteRate,
-	consts.MetricGpuUtil, consts.MetricGpuMemoryUtil,
-	consts.MetricGpuMemoryUsage}
+var (
+	cardNameList   = []string{"nvidia.com/gpu", "_cgpu"}
+	metricNameList = [...]string{
+		consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
+		consts.MetricMemoryUsage, consts.MetricDiskUsage,
+		consts.MetricNetReceiveBytes, consts.MetricNetSendBytes,
+		consts.MetricDiskReadRate, consts.MetricDiskWriteRate,
+		consts.MetricGpuUtil, consts.MetricGpuMemoryUtil,
+		consts.MetricGpuMemoryUsage}
+)
 
 type JobStatisticsResponse struct {
 	MetricsInfo map[string]string `json:"metricsInfo"`
@@ -305,6 +306,18 @@ func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeS
 	return cardTimeInfoList, nil
 }
 
+// GetCardTimeByQueueID 根据队列ID获取任务卡片运行时间
+//
+// 参数：
+// startDate: 开始时间，格式为20xx-xx-xx
+// endDate: 结束时间，格式为20xx-xx-xx
+// queueID: 队列ID
+// minDuration: 最小任务运行时间
+//
+// 返回值：
+// []JobDetail: 任务详情列表
+// float64: 任务卡片运行时间总和
+// error: 错误信息，若成功则为nil
 func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	queueID string, minDuration time.Duration) ([]JobDetail, float64, error) {
 	// endDate 原本为 20xx-xx-xx xx:59:59  加一秒
@@ -392,6 +405,19 @@ func GetGpuCards(jobStatus *model.Job) int {
 	return gpuCards
 }
 
+// FulfillDetailInfo 函数用于填充任务详情信息
+//
+// 参数：
+// startTime: 开始时间
+// endTime: 结束时间
+// detailInfo: 任务详情信息
+// jobStatusCase: 任务状态列表
+// caseType: 任务状态类型
+// minDuration: 最小持续时间
+//
+// 返回值：
+// map[string][]JobCardTimeInfo: 更新后的任务详情信息
+// error: 错误信息
 func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobCardTimeInfo,
 	jobStatusCase []*model.Job, caseType string, minDuration time.Duration) (map[string][]JobCardTimeInfo, error) {
 	var cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) (time.Duration, float64) {
