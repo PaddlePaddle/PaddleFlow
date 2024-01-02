@@ -121,6 +121,62 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			},
 		},
 	}
+	mockJob3 := model.Job{
+		ID:       "MockJobID3",
+		Name:     "MockJobName3",
+		UserName: MockRootUser,
+		QueueID:  MockQueueID,
+		ActivatedAt: sql.NullTime{
+			Time:  time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
+			Valid: true,
+		},
+		FinishedAt: sql.NullTime{
+			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
+			Valid: true,
+		},
+		Members: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Flavour: schema.Flavour{
+						ResourceInfo: schema.ResourceInfo{
+							ScalarResources: map[schema.ResourceName]string{
+								"cpu": "2",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	mockJob4 := model.Job{
+		ID:       "MockJobID4",
+		Name:     "MockJobName4",
+		UserName: MockRootUser,
+		QueueID:  MockQueueID,
+		ActivatedAt: sql.NullTime{
+			Time:  time.Date(2023, 3, 1, 0, 0, 0, 0, time.UTC),
+			Valid: true,
+		},
+		FinishedAt: sql.NullTime{
+			Time:  time.Date(2023, 3, 7, 0, 0, 0, 0, time.UTC),
+			Valid: true,
+		},
+		Members: []schema.Member{
+			{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Flavour: schema.Flavour{
+						ResourceInfo: schema.ResourceInfo{
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "2",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 
 	type args struct {
 		ctx          *logger.RequestContext
@@ -240,6 +296,8 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 	storage.Queue.CreateQueue(&mockQueue2)
 	storage.Job.CreateJob(&mockJob1)
 	storage.Job.CreateJob(&mockJob2)
+	storage.Job.CreateJob(&mockJob3)
+	storage.Job.CreateJob(&mockJob4)
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Logf("name=%s args=[%#v], wantError=%v", tt.name, tt.args, tt.wantErr)
@@ -256,23 +314,3 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		})
 	}
 }
-
-//
-//func TestGetGpuCards(t *testing.T) {
-//	jobStatus := &model.Job{}
-//	t.Run("TestGetGpuCards-1", func(t *testing.T) {
-//		resourceJsonStr := `{"k8s":1,"slurm":2,"k8s-new":3,"aistudio":4,"kubernetes":5}`
-//		jobStatus.ResourceJson = resourceJsonStr
-//		require.Equal(t, GetGpuCards(jobStatus), 1+2+3+4+5, "GetGpuCards func return %v, expect 1+2+3+4+5", GetGpuCards(jobStatus))
-//	})
-//	t.Run("TestGetGpuCards-2", func(t *testing.T) {
-//		resourceJsonStr := `{"k8s":0,"slurm":0,"k8s-new":0,"aistudio":0,"kubernetes":0}`
-//		jobStatus.ResourceJson = resourceJsonStr
-//		require.Equal(t, GetGpuCards(jobStatus), 0, "GetGpuCards func return %v, expect 0", GetGpuCards(jobStatus))
-//	})
-//	t.Run("TestGetGpuCards-3", func(t *testing.T) {
-//		resourceJsonStr := `{"k8s":1,"slurm":0,"k8s-new":0,"aistudio":0,"kubernetes":0}`
-//		jobStatus.ResourceJson = resourceJsonStr
-//		require.Equal(t, GetGpuCards(jobStatus), 1, "GetGpuCards func return %v, expect 1", GetGpuCards(jobStatus))
-//	})
-//}

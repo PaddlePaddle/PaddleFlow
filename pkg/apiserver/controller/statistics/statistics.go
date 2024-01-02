@@ -309,7 +309,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	limit, offset := 5000, 0
 	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
 	if err != nil {
-		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status for case1 failed, error: %s", err.Error())
+		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status failed, error: %s", err.Error())
 		return nil, 0, err
 	}
 	detailInfoMap := make(map[string][]JobCardTimeInfo)

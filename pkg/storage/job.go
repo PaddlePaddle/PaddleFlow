@@ -346,7 +346,6 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for %v failed, err %v", "case1", result.Error.Error())
 		return nil, result.Error
 	}
 	JobStatMap["case1"] = jobStatusForCase1
@@ -358,7 +357,6 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase2)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for %v failed, err %v", "case2", result.Error.Error())
 		return nil, result.Error
 	}
 	JobStatMap["case2"] = jobStatusForCase2
@@ -370,7 +368,6 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 		Where("finished_at <= ? ", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase3)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for %v failed, err %v", "case3", result.Error.Error())
 		return nil, result.Error
 	}
 	JobStatMap["case3"] = jobStatusForCase3
@@ -382,7 +379,6 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase4)
 	if result.Error != nil {
-		logger.Logger().Errorf("get job status for %v failed, err %v", "case4", result.Error.Error())
 		return nil, result.Error
 	}
 	JobStatMap["case4"] = jobStatusForCase4
