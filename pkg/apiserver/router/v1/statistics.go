@@ -137,6 +137,10 @@ func (sr *StatisticsRouter) getCardTimeDetail(w http.ResponseWriter, r *http.Req
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
+	if response == nil || len(response) != 1 {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, "invalid queue name")
+		return
+	}
 	common.Render(w, http.StatusOK, response[0])
 }
 
