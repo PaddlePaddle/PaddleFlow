@@ -336,6 +336,55 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	return jobList, nil
 }
 
+//func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, minDuration time.Duration, limit, offset int) (map[string][]*model.Job, error) {
+//	JobStatMap := make(map[string][]*model.Job)
+//	// case1
+//	jobStatusForCase1 := []*model.Job{}
+//	result := js.db.Table("job").Select(jobStatSelectColumn).
+//		Where(" queue_id = ?", queueID).
+//		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+//		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+//		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
+//	if result.Error != nil {
+//		return nil, result.Error
+//	}
+//	JobStatMap["case1"] = jobStatusForCase1
+//	// case2
+//	jobStatusForCase2 := []*model.Job{}
+//	result = js.db.Table("job").Select(jobStatSelectColumn).
+//		Where(" queue_id = ?", queueID).
+//		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
+//		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
+//		Limit(limit).Offset(offset).Find(&jobStatusForCase2)
+//	if result.Error != nil {
+//		return nil, result.Error
+//	}
+//	JobStatMap["case2"] = jobStatusForCase2
+//	// case3
+//	jobStatusForCase3 := []*model.Job{}
+//	result = js.db.Table("job").Select(jobStatSelectColumn).
+//		Where(" queue_id = ?", queueID).
+//		Where("activated_at >= ?", startDate).
+//		Where("finished_at <= ? ", endDate).
+//		Limit(limit).Offset(offset).Find(&jobStatusForCase3)
+//	if result.Error != nil {
+//		return nil, result.Error
+//	}
+//	JobStatMap["case3"] = jobStatusForCase3
+//	// case4
+//	jobStatusForCase4 := []*model.Job{}
+//	result = js.db.Table("job").Select(jobStatSelectColumn).
+//		Where(" queue_id = ?", queueID).
+//		Where("activated_at >= ?", startDate).
+//		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+//		Limit(limit).Offset(offset).Find(&jobStatusForCase4)
+//	if result.Error != nil {
+//		return nil, result.Error
+//	}
+//	JobStatMap["case4"] = jobStatusForCase4
+//	return JobStatMap, nil
+//}
+
 func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, minDuration time.Duration, limit, offset int) (map[string][]*model.Job, error) {
 	JobStatMap := make(map[string][]*model.Job)
 	// case1
@@ -343,7 +392,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	result := js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).
 		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
-		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+		Where("updated_at >= ? or updated_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase1)
 	if result.Error != nil {
 		return nil, result.Error
@@ -354,7 +403,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).
 		Where("activated_at <= ? and activated_at != '0000-00-00 00:00:00'", startDate).
-		Where("finished_at <= ? and finished_at > ?", endDate, startDate).
+		Where("updated_at <= ? and updated_at > ?", endDate, startDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase2)
 	if result.Error != nil {
 		return nil, result.Error
@@ -365,7 +414,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).
 		Where("activated_at >= ?", startDate).
-		Where("finished_at <= ? ", endDate).
+		Where("updated_at <= ? ", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase3)
 	if result.Error != nil {
 		return nil, result.Error
@@ -376,7 +425,7 @@ func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, mi
 	result = js.db.Table("job").Select(jobStatSelectColumn).
 		Where(" queue_id = ?", queueID).
 		Where("activated_at >= ?", startDate).
-		Where("finished_at >= ? or finished_at = '0000-00-00 00:00:00'", endDate).
+		Where("updated_at >= ? or updated_at = '0000-00-00 00:00:00'", endDate).
 		Limit(limit).Offset(offset).Find(&jobStatusForCase4)
 	if result.Error != nil {
 		return nil, result.Error

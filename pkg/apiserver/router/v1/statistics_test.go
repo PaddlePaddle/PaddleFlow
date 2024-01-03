@@ -190,6 +190,7 @@ func MockDBForCardTime(t *testing.T) {
 			Time:  time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
+		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
 				Replicas: 1,
@@ -218,6 +219,7 @@ func MockDBForCardTime(t *testing.T) {
 			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
+		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
 				Replicas: 1,
@@ -246,6 +248,7 @@ func MockDBForCardTime(t *testing.T) {
 			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
+		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
 				Replicas: 1,
@@ -274,6 +277,7 @@ func MockDBForCardTime(t *testing.T) {
 			Time:  time.Date(2023, 3, 7, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
+		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
 				Replicas: 1,
