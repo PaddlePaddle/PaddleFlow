@@ -336,7 +336,7 @@ func (js *JobStore) ListTaskByJobID(jobID string) ([]model.JobTask, error) {
 	return jobList, nil
 }
 
-func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, minDuration time.Duration, limit, offset int) (map[string][]*model.Job, error) {
+func (js *JobStore) ListJobStat(startDate, endDate time.Time, queueID string, limit, offset int) (map[string][]*model.Job, error) {
 	JobStatMap := make(map[string][]*model.Job)
 	// case1
 	jobStatusForCase1 := []*model.Job{}
