@@ -49,18 +49,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			wantErr:      false,
 			responseCode: 200,
 		},
-		//{
-		//	name: "empty request",
-		//	args: args{
-		//		ctx:       ctx,
-		//		router:    routerNonRoot,
-		//		queueName: MockQueueName,
-		//		startTime: "2023-03-02 06:00:00",
-		//		endTime:   "2023-03-02 08:00:00",
-		//	},
-		//	wantErr:      false,
-		//	responseCode: 200,
-		//},
 	}
 
 	MockDBForCardTime(t)
