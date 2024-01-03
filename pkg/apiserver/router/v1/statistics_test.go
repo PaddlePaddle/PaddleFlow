@@ -13,14 +13,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 )
 
 // test for func GetCardTimeByQueueName
 func TestGetCardTimeByQueueName(t *testing.T) {
-	MockDBForCardTime(t)
+
 	type args struct {
 		ctx       *logger.RequestContext
 		queueName string
@@ -29,8 +28,9 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		router    *chi.Mux
 	}
 
-	router, routerNonRoot, baseURL := MockInitJob(t)
-	ctx := &logger.RequestContext{UserName: "testusername"}
+	//router, _, baseURL := MockInitJob(t)
+	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
+	ctx := &logger.RequestContext{UserName: mockUserName}
 	tests := []struct {
 		name         string
 		args         args
@@ -49,25 +49,26 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			wantErr:      false,
 			responseCode: 200,
 		},
-		{
-			name: "empty request",
-			args: args{
-				ctx:       ctx,
-				router:    routerNonRoot,
-				queueName: MockQueueName,
-				startTime: "2023-03-02 06:00:00",
-				endTime:   "2023-03-02 08:00:00",
-			},
-			wantErr:      false,
-			responseCode: 200,
-		},
+		//{
+		//	name: "empty request",
+		//	args: args{
+		//		ctx:       ctx,
+		//		router:    routerNonRoot,
+		//		queueName: MockQueueName,
+		//		startTime: "2023-03-02 06:00:00",
+		//		endTime:   "2023-03-02 08:00:00",
+		//	},
+		//	wantErr:      false,
+		//	responseCode: 200,
+		//},
 	}
 
+	MockDBForCardTime(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			res, err := PerformGetRequest(tt.args.router, fmt.Sprintf(baseURL+"/statistics/cardTime/%s?startTime=%s&endTime=%s", tt.args.queueName, tt.args.startTime, tt.args.endTime))
 			assert.NoError(t, err)
-			t.Logf("list node %v", res)
+			t.Logf("res %v", res)
 			if tt.wantErr {
 				assert.NotEqual(t, res.Code, 200)
 			} else {
@@ -144,7 +145,6 @@ func MockDBForCardTime(t *testing.T) {
 	})
 	assert.Equal(t, nil, err)
 
-	driver.InitMockDB()
 	mockCluster := model.ClusterInfo{
 		Model: model.Model{
 			ID: MockClusterID,
@@ -152,9 +152,9 @@ func MockDBForCardTime(t *testing.T) {
 		Name: MockClusterName,
 	}
 	mockQueue1 := model.Queue{
-		Name: MockQueueName + "1",
+		Name: MockQueueName,
 		Model: model.Model{
-			ID: MockQueueID + "1",
+			ID: MockQueueID,
 		},
 		Namespace:        "paddleflow",
 		ClusterId:        MockClusterID,

@@ -73,6 +73,10 @@ type GetCardTimeBatchRequest struct {
 }
 
 type GetCardTimeResponse struct {
+	QueueCardTimeInfo []*QueueCardTimeInfo `json:"queueCardTimeInfo"`
+}
+
+type QueueCardTimeInfo struct {
 	QueueName  string      `json:"queueName"`
 	CardTime   float64     `json:"cardTime"`
 	DeviceType string      `json:"deviceType"`
@@ -267,22 +271,27 @@ func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 // 返回值：
 // []*GetCardTimeResponse: 卡片时间信息列表
 // error: 错误信息
-func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) ([]*GetCardTimeResponse, error) {
-	var cardTimeInfoList []*GetCardTimeResponse
+func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeStr string, endTimeStr string) (*GetCardTimeResponse, error) {
+	var cardTimeInfoList []*QueueCardTimeInfo
 	startTime, err := time.Parse(model.TimeFormat, startTimeStr)
 	if err != nil {
-		ctx.Logging().Errorf("[GetCardTime] startTime parse failed, err:%s", err.Error())
+		ctx.Logging().Errorf("[GetCardTimeInfo] startTime parse failed, err:%s", err.Error())
 		return nil, err
 	}
 	endTime, err := time.Parse(model.TimeFormat, endTimeStr)
 	if err != nil {
-		ctx.Logging().Errorf("[GetCardTime] endTime parse failed, err:%s", err.Error())
+		ctx.Logging().Errorf("[GetCardTimeInfo] endTime parse failed, err:%s", err.Error())
 		return nil, err
 	}
 	if startTime.After(endTime) {
-		return nil, errors.New("[GetCardTime] startTime must be before than endTime")
+		return nil, errors.New("[GetCardTimeInfo] startTime must be before than endTime")
 	}
-
+	minDuration := time.Second * 0
+	// 若指定的时间段长度小于最小任务运行时间，报错
+	logger.Logger().Infof("[GetCardTimeInfo] queueNames:%s, startDate:%v, endDate:%v", queueNames, startTime, endTime)
+	if endTime.Sub(startTime) < minDuration {
+		return nil, fmt.Errorf("time period less than minDuration")
+	}
 	for _, queueName := range queueNames {
 		queue, err := storage.Queue.GetQueueByName(queueName)
 		if err != nil {
@@ -290,20 +299,21 @@ func GetCardTimeInfo(ctx *logger.RequestContext, queueNames []string, startTimeS
 			ctx.Logging().Errorf("get queue by name failed. queuerName:[%s]", queueName)
 			continue
 		}
-		detailInfo, cardTime, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, 0)
+		logger.Logger().Infof("[GetCardTimeInfo] queueName:%s, queueID:%s", queueName, queue.ID)
+		detailInfo, cardTime, err := GetCardTimeByQueueID(startTime, endTime, queue.ID, minDuration)
 		if err != nil {
 			ctx.ErrorMessage = err.Error()
 			ctx.Logging().Errorf("get cardTime failed. queuerName:[%s]", queue.Name)
 			continue
 		}
-		cardTimeInfo := &GetCardTimeResponse{
+		cardTimeInfo := &QueueCardTimeInfo{
 			QueueName: queue.Name,
 			CardTime:  cardTime,
 			Detail:    detailInfo,
 		}
 		cardTimeInfoList = append(cardTimeInfoList, cardTimeInfo)
 	}
-	return cardTimeInfoList, nil
+	return &GetCardTimeResponse{cardTimeInfoList}, nil
 }
 
 // GetCardTimeByQueueID 根据队列ID获取任务卡片运行时间
@@ -322,13 +332,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	queueID string, minDuration time.Duration) ([]JobDetail, float64, error) {
 	// endDate 原本为 20xx-xx-xx xx:59:59  加一秒
 	endDate = endDate.Add(time.Second)
-	period := endDate.Sub(startDate)
-	// 若指定的时间段长度小于最小任务运行时间，报错
-	logger.Logger().Infof("[GetCardTimeFromQueueID]groupID:%v, period:%#v, startDate:%v, endDate:%v",
-		queueID, period, startDate, endDate)
-	if period < minDuration {
-		return nil, 0, fmt.Errorf("time period less than minDuration")
-	}
+	logger.Logger().Infof("[GetCardTimeFromQueueID] startDate:%s, endDate:%s,queueID: %s", startDate, endDate, queueID)
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
 	// TODO: 优化大数据量时的查询方案
 	limit, offset := 5000, 0
@@ -344,7 +348,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 			logger.Logger().Errorf("processCardTimeCase error: %s", err.Error())
 		}
 	}
-
+	logger.Logger().Infof("[GetCardTimeFromQueueID] detail info map: %v", detailInfoMap)
 	cardTimeForGroup := float64(0)
 	var detailInfo []JobDetail
 	// 遍历detailInfoMap，计算每个用户的卡时以及该group的总卡时
@@ -362,6 +366,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		})
 		cardTimeForGroup += totalCardTime
 	}
+	logger.Logger().Infof("[GetCardTimeFromQueueID] detail info map: %v", detailInfoMap)
 	return detailInfo, cardTimeForGroup, nil
 }
 
@@ -446,6 +451,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 
 	for _, jobStatus := range jobStatusCase {
 		gpuCards := GetGpuCards(jobStatus)
+		logger.Logger().Infof("[FulfillDetailInfo] jobID: %s,gpu cards:%v", jobStatus.ID, gpuCards)
 		jobDuration, cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards)
 		if jobDuration < minDuration {
 			continue
