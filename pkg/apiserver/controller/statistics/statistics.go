@@ -520,10 +520,12 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 		if jobDuration < minDuration {
 			continue
 		}
+		logger.Logger().Infof("[FulfillDetailInfo] card time:%v", cardTime)
 		cardTime = cardTime / 3600
 		cardTime = common.Floor2decimal(cardTime)
 		_, ok := detailInfo[jobStatus.UserName]
 		if ok {
+			logger.Logger().Infof("[FulfillDetailInfo] detail info has key:%v", jobStatus.UserName)
 			detailInfo[jobStatus.UserName] = append(detailInfo[jobStatus.UserName], JobCardTimeInfo{
 				JobID:       jobStatus.ID,
 				CardTime:    cardTime,
@@ -532,7 +534,9 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
 				DeviceCount: gpuCards,
 			})
+			logger.Logger().Infof("[FulfillDetailInfo] detail info :%v", detailInfo)
 		} else {
+			logger.Logger().Infof("[FulfillDetailInfo] detail info does not have key:%v", jobStatus.UserName)
 			var jobStatusDataForCardTimeList []JobCardTimeInfo
 			jobStatusDataForCardTimeList = append(jobStatusDataForCardTimeList, JobCardTimeInfo{
 				JobID:       jobStatus.ID,
@@ -543,6 +547,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				DeviceCount: gpuCards,
 			})
 			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList
+			logger.Logger().Infof("[FulfillDetailInfo] detail info :%v", detailInfo)
 		}
 	}
 	return detailInfo, nil
