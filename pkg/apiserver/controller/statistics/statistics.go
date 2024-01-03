@@ -336,7 +336,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	// 初始化detailInfo,map的key为userName，value为[]PaddleJobStatusDataForCardTime
 	// TODO: 优化大数据量时的查询方案
 	limit, offset := 5000, 0
-	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
+	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, limit, offset)
 	logger.Logger().Debugf("[GetCardTimeFromQueueID] job stats: %v", jobStats)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status failed, error: %s", err.Error())

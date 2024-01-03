@@ -311,7 +311,7 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 				t.Logf("name=%s err: %v", tt.name, err)
 			} else {
 				assert.Equal(t, nil, err)
-				cardTimeInfos := res.QueueCardTimeInfo
+				cardTimeInfos := res.Data
 				for _, cardTimeInfo := range cardTimeInfos {
 					t.Logf("case[%s] result=%+v", tt.name, cardTimeInfo)
 				}
