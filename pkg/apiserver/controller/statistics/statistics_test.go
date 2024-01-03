@@ -74,10 +74,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			Time:  time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
-		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
-			Valid: true,
-		},
 		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
@@ -101,10 +97,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		QueueID:  MockQueueID + "2",
 		ActivatedAt: sql.NullTime{
 			Time:  time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
-			Valid: true,
-		},
-		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
 		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
@@ -132,10 +124,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 			Time:  time.Date(2023, 3, 2, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
-		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC),
-			Valid: true,
-		},
 		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
 		Members: []schema.Member{
 			{
@@ -159,10 +147,6 @@ func TestGetCardTimeByQueueName(t *testing.T) {
 		QueueID:  MockQueueID,
 		ActivatedAt: sql.NullTime{
 			Time:  time.Date(2023, 3, 1, 0, 0, 0, 0, time.UTC),
-			Valid: true,
-		},
-		FinishedAt: sql.NullTime{
-			Time:  time.Date(2023, 3, 7, 0, 0, 0, 0, time.UTC),
 			Valid: true,
 		},
 		UpdatedAt: time.Date(2023, 3, 2, 12, 0, 0, 0, time.UTC),
