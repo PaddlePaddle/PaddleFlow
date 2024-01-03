@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	jobStatSelectColumn = "id,queue_id,user_name,activated_at,finished_at,members"
+	jobStatSelectColumn = "id,queue_id,user_name,created_at,activated_at,finished_at,members"
 )
 
 type JobStore struct {
