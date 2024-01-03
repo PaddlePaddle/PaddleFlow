@@ -337,6 +337,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 	// TODO: 优化大数据量时的查询方案
 	limit, offset := 5000, 0
 	jobStats, err := storage.Job.ListJobStat(startDate, endDate, queueID, minDuration, limit, offset)
+	logger.Logger().Debugf("[GetCardTimeFromQueueID] job stats: %v", jobStats)
 	if err != nil {
 		logger.Logger().Errorf("[GetCardTimeFromQueueID] list job status failed, error: %s", err.Error())
 		return nil, 0, err
@@ -366,7 +367,7 @@ func GetCardTimeByQueueID(startDate time.Time, endDate time.Time,
 		})
 		cardTimeForGroup += totalCardTime
 	}
-	logger.Logger().Infof("[GetCardTimeFromQueueID] detail info map: %v", detailInfoMap)
+	logger.Logger().Infof("[GetCardTimeFromQueueID] detail info: %v", detailInfo)
 	return detailInfo, cardTimeForGroup, nil
 }
 
@@ -425,6 +426,7 @@ func GetGpuCards(jobStatus *model.Job) int {
 // error: 错误信息
 func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[string][]JobCardTimeInfo,
 	jobStatusCase []*model.Job, caseType string, minDuration time.Duration) (map[string][]JobCardTimeInfo, error) {
+	logger.Logger().Infof("[FulfillDetailInfo] case type:%s, job status cases:%v", caseType, jobStatusCase)
 	var cardTimeCalculation = func(jobStatus *model.Job, startDate, endDate time.Time, gpuCards int) (time.Duration, float64) {
 		var cardTime float64 = 0
 		var jobDuration time.Duration
