@@ -306,7 +306,7 @@ func (s *FileSystemService) checkFsMountedAllClustersAndScheduledJobs(fsID strin
 		if err != nil {
 			err := fmt.Errorf("check fs[%s] mounted in cluster[%s] err: %v", fsID, cluster.Name, err)
 			log.Errorf(err.Error())
-			return false, nil, err
+			continue
 		}
 		if mounted {
 			return true, nil, nil
