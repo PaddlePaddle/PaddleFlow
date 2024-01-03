@@ -437,11 +437,11 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 			cardTime = float64(gpuCards) * endDate.Sub(startDate).Seconds()
 		case "case2":
 			// 任务开始运行时间 < start_date，任务结束时间 <= end_date
-			jobDuration = jobStatus.FinishedAt.Time.Sub(startDate)
+			jobDuration = jobStatus.UpdatedAt.Sub(startDate)
 			cardTime = jobDuration.Seconds() * float64(gpuCards)
 		case "case3":
 			// 任务开始运行时间 >= start_date，任务结束时间 <= end_date
-			jobDuration = jobStatus.FinishedAt.Time.Sub((*jobStatus).ActivatedAt.Time)
+			jobDuration = jobStatus.UpdatedAt.Sub((*jobStatus).ActivatedAt.Time)
 			cardTime = jobDuration.Seconds() * float64(gpuCards)
 		case "case4":
 			// 任务开始运行时间 >= start_date， 任务结束时间 > end_date 或者 任务尚未结束
@@ -467,7 +467,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				CardTime:    cardTime,
 				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
 				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime:  jobStatus.FinishedAt.Time.Format(model.TimeFormat),
+				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
 				DeviceCount: gpuCards,
 			})
 		} else {
@@ -477,7 +477,7 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 				CardTime:    cardTime,
 				CreateTime:  jobStatus.CreatedAt.Format(model.TimeFormat),
 				StartTime:   jobStatus.ActivatedAt.Time.Format(model.TimeFormat),
-				FinishTime:  jobStatus.FinishedAt.Time.Format(model.TimeFormat),
+				FinishTime:  jobStatus.UpdatedAt.Format(model.TimeFormat),
 				DeviceCount: gpuCards,
 			})
 			detailInfo[jobStatus.UserName] = jobStatusDataForCardTimeList
