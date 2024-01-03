@@ -73,7 +73,7 @@ type GetCardTimeBatchRequest struct {
 }
 
 type GetCardTimeResponse struct {
-	Data []*QueueCardTimeInfo `json:"queueCardTimeInfo"`
+	Data []*QueueCardTimeInfo `json:"data"`
 }
 
 type QueueCardTimeInfo struct {
