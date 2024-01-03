@@ -19,6 +19,7 @@ package common
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -223,7 +224,6 @@ func CheckFsNested(path1, path2 string) bool {
 	if len(path1Arr) > len(path2Arr) {
 		minIndex = len(path2Arr)
 	}
-
 	for index := 0; index < minIndex; index++ {
 		if path1Arr[index] != path2Arr[index] {
 			return false
@@ -252,4 +252,8 @@ func CheckPermission(requestUserName, ownerUserName, resourceType, resourceID st
 		return err
 	}
 	return nil
+}
+
+func Floor2decimal(num float64) float64 {
+	return math.Floor(num*100) / 100.0
 }

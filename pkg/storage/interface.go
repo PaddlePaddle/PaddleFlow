@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -184,6 +186,7 @@ type JobStoreInterface interface {
 	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
+
 	UpdateJobConfig(jobId string, conf *schema.Conf) error
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	// ListQueueJob TODO(dongzezhao): merge list interface
@@ -194,6 +197,7 @@ type JobStoreInterface interface {
 	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
 	ListJobByParentID(parentID string) ([]model.Job, error)
 	ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]model.Job, error)
+	ListJobStat(startDate, endDate time.Time, queueID string, limit, offset int) (map[string][]*model.Job, error)
 	// job task
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
