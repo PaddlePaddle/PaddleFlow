@@ -517,7 +517,9 @@ func FulfillDetailInfo(startTime time.Time, endTime time.Time, detailInfo map[st
 		gpuCards := GetGpuCards(jobStatus)
 		logger.Logger().Infof("[FulfillDetailInfo] jobID: %s,gpu cards:%v", jobStatus.ID, gpuCards)
 		jobDuration, cardTime := cardTimeCalculation(jobStatus, startTime, endTime, gpuCards)
+		logger.Logger().Infof("[FulfillDetailInfo] jobDuration:%v, cardTime:%v, minDuration:%v", jobDuration, cardTime, minDuration)
 		if jobDuration < minDuration {
+			logger.Logger().Infof("[FulfillDetailInfo] jobDuration < minDuration")
 			continue
 		}
 		logger.Logger().Infof("[FulfillDetailInfo] card time:%v", cardTime)
