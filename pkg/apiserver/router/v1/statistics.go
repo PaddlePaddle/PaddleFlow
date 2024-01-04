@@ -134,7 +134,8 @@ func (sr *StatisticsRouter) getCardTimeDetail(w http.ResponseWriter, r *http.Req
 	endTime := r.URL.Query().Get(util.QueryKeyEndTime)
 	response, err := statistics.GetCardTimeInfo(&ctx, []string{queueName}, startTime, endTime)
 	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		ctx.ErrorCode = common.InternalError
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	common.Render(w, http.StatusOK, response)
@@ -146,12 +147,14 @@ func (sr *StatisticsRouter) getCardTimeBatch(w http.ResponseWriter, r *http.Requ
 	if err := common.BindJSON(r, &request); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"get cardTime batch failed parsing request body:%+v. error:%s", r.Body, err.Error())
+		ctx.ErrorCode = common.InternalError
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	cardTimeBatchData, err := statistics.GetCardTimeInfo(&ctx, request.QueueNames, request.StartTime, request.EndTime)
 	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		ctx.ErrorCode = common.InternalError
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	common.Render(w, http.StatusOK, cardTimeBatchData)
