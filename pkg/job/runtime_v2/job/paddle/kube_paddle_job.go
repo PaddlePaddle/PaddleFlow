@@ -123,9 +123,9 @@ func patchCustomPaddleTask(rSpec *paddlejobv1.ResourceSpec, task pfschema.Member
 	if rSpec.Replicas <= 0 {
 		rSpec.Replicas = kuberuntime.DefaultReplicas
 	}
-	kuberuntime.BuildTaskMetadata(&rSpec.Template.ObjectMeta, jobID, &task.Conf)
-	// build pod spec
-	return kuberuntime.BuildPodSpec(&rSpec.Template.Spec, task)
+	// build pod template
+	kuberuntime.NewPodTemplateSpecBuilder(&rSpec.Template, jobID).Build(task)
+	return nil
 }
 
 func (pj *KubePaddleJob) buildSchedulingPolicy(pdjSpec *paddlejobv1.PaddleJobSpec, jobConf pfschema.PFJobConf) error {
@@ -229,9 +229,9 @@ func (pj *KubePaddleJob) patchPaddleTask(resourceSpec *paddlejobv1.ResourceSpec,
 	if task.Name == "" {
 		task.Name = uuid.GenerateIDWithLength(jobID, 3)
 	}
-	kuberuntime.BuildTaskMetadata(&resourceSpec.Template.ObjectMeta, jobID, &task.Conf)
-	// build pod spec
-	return kuberuntime.BuildPodSpec(&resourceSpec.Template.Spec, task)
+	// build pod template spec
+	kuberuntime.NewPodTemplateSpecBuilder(&resourceSpec.Template, jobID).Build(task)
+	return nil
 }
 
 func (pj *KubePaddleJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {

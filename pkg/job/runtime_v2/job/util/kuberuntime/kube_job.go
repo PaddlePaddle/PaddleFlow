@@ -330,40 +330,6 @@ func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[s
 	return Maps
 }
 
-func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
-	if podSpec == nil {
-		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
-	}
-	// fill priorityClassName and schedulerName
-	err := buildPriorityAndScheduler(podSpec, task.Priority)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	// fill volumes
-	fileSystems := task.Conf.GetAllFileSystem()
-	podSpec.Volumes = BuildVolumes(podSpec.Volumes, fileSystems)
-	// fill affinity
-	if len(fileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range fileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Affinity, err = generateAffinity(podSpec.Affinity, fsIDs)
-		if err != nil {
-			return err
-		}
-	}
-	// fill restartPolicy
-	patchRestartPolicy(podSpec, task)
-	// build containers
-	if err = buildPodContainers(podSpec, task); err != nil {
-		log.Errorf("failed to fill containers, err=%v", err)
-		return err
-	}
-	return nil
-}
-
 func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
