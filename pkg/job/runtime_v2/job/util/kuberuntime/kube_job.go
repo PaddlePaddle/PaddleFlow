@@ -920,39 +920,6 @@ func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, jobID string, task *s
 	return nil
 }
 
-// KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task *schema.Member) error {
-	if replicaSpec == nil || task == nil {
-		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
-	}
-	// set Replicas for job
-	replicas := int32(task.Replicas)
-	replicaSpec.Replicas = &replicas
-	// set RestartPolicy
-	// TODO: make RestartPolicy configurable
-	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
-	// set PodTemplate
-	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
-}
-
-// KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
-	if runPolicy == nil {
-		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
-	}
-	// TODO set cleanPolicy
-	// set SchedulingPolicy
-	if runPolicy.SchedulingPolicy == nil {
-		runPolicy.SchedulingPolicy = &kubeflowv1.SchedulingPolicy{}
-	}
-	runPolicy.SchedulingPolicy.Queue = queueName
-	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
-	if minResources != nil {
-		runPolicy.SchedulingPolicy.MinResources = minResources
-	}
-	return nil
-}
-
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
 
 // getPodGroupName get the name of pod group
