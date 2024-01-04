@@ -17,11 +17,15 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"strings"
+
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -88,6 +92,34 @@ func (p *PodSpecBuilder) PFS(fileSystems []schema.FileSystem) *PodSpecBuilder {
 	return p
 }
 
+// containerResources set resources for container
+func (p *PodSpecBuilder) containerResources(container *corev1.Container, requestFlavour, limitFlavour schema.Flavour) {
+	// fill request resources
+	if !schema.IsEmptyResource(requestFlavour.ResourceInfo) {
+		flavourResource, err := resources.NewResourceFromMap(requestFlavour.ToMap())
+		if err != nil {
+			log.Errorf("GenerateResourceRequirements by request:[%+v] error:%v", requestFlavour, err)
+			return
+		}
+		container.Resources.Requests = k8s.NewResourceList(flavourResource)
+	}
+	// fill limit resources
+	if !schema.IsEmptyResource(limitFlavour.ResourceInfo) {
+		limitFlavourResource, err := resources.NewResourceFromMap(limitFlavour.ToMap())
+		if err != nil {
+			log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", limitFlavourResource, err)
+			return
+		}
+		if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
+			container.Resources.Limits = nil
+		} else {
+			// limit set specified value
+			container.Resources.Limits = k8s.NewResourceList(limitFlavourResource)
+		}
+	}
+
+}
+
 // Containers set containers for pod
 func (p *PodSpecBuilder) Containers(task schema.Member) *PodSpecBuilder {
 	log.Debugf("fill containers for job[%s]", p.jobID)
@@ -110,11 +142,7 @@ func (p *PodSpecBuilder) Containers(task schema.Member) *PodSpecBuilder {
 			container.Args = task.Args
 		}
 		// fill container[*].Resources
-		var err error
-		p.podSpec.Containers[idx].Resources, err = GenerateResourceRequirements(task.Flavour, task.LimitFlavour)
-		if err != nil {
-			log.Errorf("generate resource requirements failed, err: %v", err)
-		}
+		p.containerResources(&p.podSpec.Containers[idx], task.Flavour, task.LimitFlavour)
 		// fill env
 		p.podSpec.Containers[idx].Env = BuildEnvVars(container.Env, task.Env)
 	}
