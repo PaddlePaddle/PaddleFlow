@@ -100,10 +100,8 @@ func (pj *KubeKFPaddleJob) builtinPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec,
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
-			return err
-		}
+		// build kubeflowReplicaSpec
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, replicaSpec).ReplicaSpec(task)
 		// calculate job minResources
 		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
 		if err != nil {
@@ -115,7 +113,9 @@ func (pj *KubeKFPaddleJob) builtinPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec,
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return kuberuntime.KubeflowRunPolicy(&jobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &jobSpec.RunPolicy, nil).
+		RunPolicy(&resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 func (pj *KubeKFPaddleJob) customPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, job *api.PFJob) error {
@@ -127,15 +127,17 @@ func (pj *KubeKFPaddleJob) customPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec, 
 	// patch metadata
 	ps, find := jobSpec.PaddleReplicaSpecs[paddlev1.PaddleJobReplicaTypeMaster]
 	if find && ps != nil {
-		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, ps).ReplicaSpec(job.GetMember(pfschema.RoleMaster))
 	}
 	worker, find := jobSpec.PaddleReplicaSpecs[paddlev1.PaddleJobReplicaTypeWorker]
 	if find && worker != nil {
-		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, worker).ReplicaSpec(job.GetMember(pfschema.RoleWorker))
 	}
 	// TODO: patch paddle job from user
 	// check RunPolicy
-	return kuberuntime.KubeflowRunPolicy(&jobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &jobSpec.RunPolicy, nil).
+		RunPolicy(nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 func (pj *KubeKFPaddleJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {

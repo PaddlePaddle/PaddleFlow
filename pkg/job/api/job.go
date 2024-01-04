@@ -134,6 +134,15 @@ func (pfj *PFJob) GetID() string {
 	return pfj.ID
 }
 
+func (pfj *PFJob) GetMember(roleName schema.MemberRole) schema.Member {
+	for _, member := range pfj.Tasks {
+		if member.Role == roleName {
+			return member
+		}
+	}
+	return schema.Member{}
+}
+
 type JobSyncInfo struct {
 	ID               string
 	Namespace        string
