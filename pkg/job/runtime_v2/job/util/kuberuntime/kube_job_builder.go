@@ -200,7 +200,7 @@ func (k *PodTemplateSpecBuilder) Build(task schema.Member) {
 		return
 	}
 	// build metadata
-	k.Metadata("", "", task.GetLabels(), task.GetAnnotations())
+	k.Metadata(task.GetName(), task.GetNamespace(), task.GetLabels(), task.GetAnnotations())
 	// set pod spec
 	NewPodSpecBuilder(&k.podTemplateSpec.Spec, k.jobID).Build(task)
 }
