@@ -18,6 +18,7 @@ package kuberuntime
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"testing"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
@@ -26,6 +27,78 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
+
+func TestBuildPodTemplateSpec(t *testing.T) {
+	schedulerName := "testSchedulerName"
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = schedulerName
+
+	testCases := []struct {
+		testName string
+		jobID    string
+		podSpec  *corev1.PodTemplateSpec
+		task     schema.Member
+		err      error
+	}{
+		{
+			testName: "pod affinity is nil",
+			podSpec:  &corev1.PodTemplateSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "wrong flavour nil",
+			podSpec:  &corev1.PodTemplateSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					Flavour:   schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "4a", Mem: "4Gi"}},
+				},
+			},
+			err: fmt.Errorf("quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+		},
+		{
+			testName: "replicaSpec is nil",
+			podSpec:  nil,
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: fmt.Errorf("podTemplateSpec or task is nil"),
+		},
+	}
+
+	driver.InitMockDB()
+	for _, tt := range testCases {
+		t.Run(tt.testName, func(t *testing.T) {
+			NewPodTemplateSpecBuilder(tt.podSpec, tt.jobID).Build(tt.task)
+			t.Logf("builder pod tempalte spec: %v", tt.podSpec)
+		})
+	}
+}
 
 func TestKubeflowReplicaSpec(t *testing.T) {
 	schedulerName := "testSchedulerName"

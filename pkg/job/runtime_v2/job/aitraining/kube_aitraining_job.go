@@ -138,7 +138,8 @@ func (pj *KubeAITrainingJob) patchReplicaSpec(rs *v1.ReplicaSpec, task pfschema.
 		rs.Replicas = &replicas
 	}
 	// patch fs
-	return kuberuntime.BuildPodTemplateSpec(&rs.Template, jobID, &task)
+	kuberuntime.NewPodTemplateSpecBuilder(&rs.Template, jobID).Build(task)
+	return nil
 }
 
 func (pj *KubeAITrainingJob) builtinAITrainingJob(pdj *v1.TrainingJobSpec, job *api.PFJob) error {

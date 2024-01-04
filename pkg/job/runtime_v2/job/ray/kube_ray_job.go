@@ -143,10 +143,7 @@ func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID str
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodTemplateSpec(&headGroupSpec.Template, jobID, &task); err != nil {
-		log.Errorf("build head pod spec failed, err:%v", err)
-		return err
-	}
+	kuberuntime.NewPodTemplateSpecBuilder(&headGroupSpec.Template, jobID).Build(task)
 	// patch queue name
 	headGroupSpec.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
 	headGroupSpec.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName
@@ -217,10 +214,7 @@ func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID s
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodTemplateSpec(&worker.Template, jobID, &task); err != nil {
-		log.Errorf("build head pod spec failed, err: %v", err)
-		return err
-	}
+	kuberuntime.NewPodTemplateSpecBuilder(&worker.Template, jobID).Build(task)
 	// patch queue name
 	worker.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
 	worker.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName

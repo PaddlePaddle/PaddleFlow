@@ -904,22 +904,6 @@ func GetKubeTime(t *metav1.Time) *time.Time {
 	return &newT.Time
 }
 
-// BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, jobID string, task *schema.Member) error {
-	if podSpec == nil || task == nil {
-		return fmt.Errorf("podTemplateSpec or task is nil")
-	}
-	// build task metadata
-	BuildTaskMetadata(&podSpec.ObjectMeta, jobID, &schema.Conf{})
-	// build pod spec
-	err := BuildPodSpec(&podSpec.Spec, *task)
-	if err != nil {
-		log.Errorf("build pod spec failed, err: %v", err)
-		return err
-	}
-	return nil
-}
-
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
 
 // getPodGroupName get the name of pod group
