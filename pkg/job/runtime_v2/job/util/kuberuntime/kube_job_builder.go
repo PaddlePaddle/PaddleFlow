@@ -113,6 +113,9 @@ func (p *PodSpecBuilder) containerResources(container *corev1.Container, request
 		}
 		if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
 			container.Resources.Limits = nil
+		} else if limitFlavourResource.CPU() == 0 || limitFlavourResource.Memory() == 0 {
+			// limit set zero, patch the same value as request
+			container.Resources.Limits = container.Resources.Requests
 		} else {
 			// limit set specified value
 			container.Resources.Limits = k8s.NewResourceList(limitFlavourResource)
