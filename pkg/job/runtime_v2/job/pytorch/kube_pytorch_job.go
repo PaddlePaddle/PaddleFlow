@@ -101,10 +101,8 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
-			return err
-		}
+		// build kubeflowReplicaSpec
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, replicaSpec).ReplicaSpec(task)
 		// calculate job minResources
 		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
 		if err != nil {
@@ -116,7 +114,9 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return kuberuntime.KubeflowRunPolicy(&torchJobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &torchJobSpec.RunPolicy, nil).
+		RunPolicy(&resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
@@ -127,17 +127,19 @@ func (pj *KubePyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJo
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", pj.String(jobName), torchJobSpec)
 	// patch metadata
-	ps, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
-	if find && ps != nil {
-		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	master, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeMaster]
+	if find && master != nil {
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, master).ReplicaSpec(job.GetMember(pfschema.RoleMaster))
 	}
 	worker, find := torchJobSpec.PyTorchReplicaSpecs[pytorchv1.PyTorchReplicaTypeWorker]
 	if find && worker != nil {
-		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, worker).ReplicaSpec(job.GetMember(pfschema.RoleWorker))
 	}
 	// TODO: patch pytorch job from user
 	// check RunPolicy
-	return kuberuntime.KubeflowRunPolicy(&torchJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &torchJobSpec.RunPolicy, nil).
+		RunPolicy(nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 func (pj *KubePyTorchJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {

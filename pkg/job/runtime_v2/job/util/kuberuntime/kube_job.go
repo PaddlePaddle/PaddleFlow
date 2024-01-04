@@ -330,40 +330,6 @@ func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[s
 	return Maps
 }
 
-func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
-	if podSpec == nil {
-		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
-	}
-	// fill priorityClassName and schedulerName
-	err := buildPriorityAndScheduler(podSpec, task.Priority)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	// fill volumes
-	fileSystems := task.Conf.GetAllFileSystem()
-	podSpec.Volumes = BuildVolumes(podSpec.Volumes, fileSystems)
-	// fill affinity
-	if len(fileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range fileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Affinity, err = generateAffinity(podSpec.Affinity, fsIDs)
-		if err != nil {
-			return err
-		}
-	}
-	// fill restartPolicy
-	patchRestartPolicy(podSpec, task)
-	// build containers
-	if err = buildPodContainers(podSpec, task); err != nil {
-		log.Errorf("failed to fill containers, err=%v", err)
-		return err
-	}
-	return nil
-}
-
 func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
@@ -902,55 +868,6 @@ func GetKubeTime(t *metav1.Time) *time.Time {
 	var newT = metav1.Time{}
 	t.DeepCopyInto(&newT)
 	return &newT.Time
-}
-
-// BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, jobID string, task *schema.Member) error {
-	if podSpec == nil || task == nil {
-		return fmt.Errorf("podTemplateSpec or task is nil")
-	}
-	// build task metadata
-	BuildTaskMetadata(&podSpec.ObjectMeta, jobID, &schema.Conf{})
-	// build pod spec
-	err := BuildPodSpec(&podSpec.Spec, *task)
-	if err != nil {
-		log.Errorf("build pod spec failed, err: %v", err)
-		return err
-	}
-	return nil
-}
-
-// KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task *schema.Member) error {
-	if replicaSpec == nil || task == nil {
-		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
-	}
-	// set Replicas for job
-	replicas := int32(task.Replicas)
-	replicaSpec.Replicas = &replicas
-	// set RestartPolicy
-	// TODO: make RestartPolicy configurable
-	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
-	// set PodTemplate
-	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
-}
-
-// KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
-	if runPolicy == nil {
-		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
-	}
-	// TODO set cleanPolicy
-	// set SchedulingPolicy
-	if runPolicy.SchedulingPolicy == nil {
-		runPolicy.SchedulingPolicy = &kubeflowv1.SchedulingPolicy{}
-	}
-	runPolicy.SchedulingPolicy.Queue = queueName
-	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
-	if minResources != nil {
-		runPolicy.SchedulingPolicy.MinResources = minResources
-	}
-	return nil
 }
 
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.

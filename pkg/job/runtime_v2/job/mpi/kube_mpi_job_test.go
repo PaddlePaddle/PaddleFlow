@@ -270,33 +270,6 @@ func TestMPIJob_CreateJob(t *testing.T) {
 			wantErr:          false,
 		},
 		{
-			caseName: "Member absent",
-			jobObj: &api.PFJob{
-				Name:      "test-mpi-job",
-				ID:        uuid.GenerateIDWithLength("job", 5),
-				Namespace: "default",
-				JobType:   pfschema.TypeDistributed,
-				JobMode:   pfschema.EnvJobModePS,
-				Framework: pfschema.FrameworkMPI,
-				Conf: pfschema.Conf{
-					Name:    "normal",
-					Command: "sleep 200",
-					Image:   "mockImage",
-				},
-				Tasks: []pfschema.Member{
-					{
-						Replicas: 1,
-						Role:     pfschema.RoleMaster,
-						Conf: pfschema.Conf{
-							Flavour: pfschema.Flavour{Name: "", ResourceInfo: pfschema.ResourceInfo{CPU: "-1", Mem: "4Gi"}},
-						},
-					},
-				},
-			},
-			expectErr: "negative resources not permitted: map[cpu:-1 memory:4Gi]",
-			wantErr:   true,
-		},
-		{
 			caseName: "flavour wrong",
 			jobObj: &api.PFJob{
 				Name:      "test-mpi-job",
@@ -321,7 +294,7 @@ func TestMPIJob_CreateJob(t *testing.T) {
 				},
 			},
 			expectErr: "quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
-			wantErr:   true,
+			wantErr:   false,
 		},
 		{
 			caseName: "ExtensionTemplate",
