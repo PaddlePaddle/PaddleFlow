@@ -317,19 +317,6 @@ func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *sche
 	// TODO: add more metadata for task
 }
 
-// appendMapsIfAbsent append Maps if absent, only support string type
-func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
-	if Maps == nil {
-		Maps = make(map[string]string)
-	}
-	for key, value := range addMaps {
-		if _, ok := Maps[key]; !ok {
-			Maps[key] = value
-		}
-	}
-	return Maps
-}
-
 func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("build scheduling policy failed, err: podSpec is nil")
@@ -502,54 +489,6 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
-}
-
-func getWorkDir(task *schema.Member, fileSystems []schema.FileSystem, envs map[string]string) string {
-	// prepare fs and envs
-	if task != nil {
-		fileSystems = task.Conf.GetAllFileSystem()
-		if len(task.Conf.GetProcessedFileSystem()) > 0 {
-			fileSystems = task.Conf.GetProcessedFileSystem()
-		}
-		envs = task.Env
-	}
-	if len(envs) == 0 {
-		envs = make(map[string]string)
-	}
-	// check workdir, which exist only if there is more than one file system and env.'EnvMountPath' is not NONE
-	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
-	if !hasWorkDir {
-		return ""
-	}
-
-	workdir := ""
-	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
-	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
-	if mountPath != "/" {
-		workdir = fileSystems[0].MountPath
-	} else {
-		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
-	}
-	envs[schema.EnvJobWorkDir] = workdir
-	return workdir
-}
-
-// generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
-func generateContainerCommand(command string, workdir string) []string {
-	command = strings.TrimPrefix(command, "bash -c")
-	command = strings.TrimPrefix(command, "sh -c")
-
-	if workdir != "" {
-		// if command is not empty
-		if command != "" {
-			command = fmt.Sprintf("cd %s; %s", workdir, command)
-		} else {
-			command = fmt.Sprintf("cd %s", workdir)
-		}
-	}
-
-	commands := []string{"sh", "-c", command}
-	return commands
 }
 
 func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
