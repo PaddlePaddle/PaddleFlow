@@ -97,11 +97,12 @@ func (p *PodSpecBuilder) containerResources(container *corev1.Container, request
 	// fill request resources
 	if !schema.IsEmptyResource(requestFlavour.ResourceInfo) {
 		flavourResource, err := resources.NewResourceFromMap(requestFlavour.ToMap())
-		if err != nil {
+		if err == nil {
+			// request set specified value
+			container.Resources.Requests = k8s.NewResourceList(flavourResource)
+		} else {
 			log.Errorf("GenerateResourceRequirements by request:[%+v] error:%v", requestFlavour, err)
-			return
 		}
-		container.Resources.Requests = k8s.NewResourceList(flavourResource)
 	}
 	// fill limit resources
 	if !schema.IsEmptyResource(limitFlavour.ResourceInfo) {
