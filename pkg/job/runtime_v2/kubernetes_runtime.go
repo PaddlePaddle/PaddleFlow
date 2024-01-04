@@ -529,9 +529,18 @@ func deletePVC(client kubernetes.Interface, namespace, name string) error {
 		}
 	}
 	// delete pvc manually. pv will be deleted automatically
+	log.Infof("begin to delete pvc %s/%s", namespace, name)
 	err = client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		err = fmt.Errorf("delete pvc[%s/%s] err: %v", namespace, name, err)
+		log.Errorf(err.Error())
+		return err
+	}
+	// delete pv in case pv not deleted
+	log.Infof("begin to delete pv %s", pvc.Spec.VolumeName)
+	err = client.CoreV1().PersistentVolumes().Delete(context.TODO(), pvc.Spec.VolumeName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		err = fmt.Errorf("delete pv[%s] err: %v", pvc.Spec.VolumeName, err)
 		log.Errorf(err.Error())
 		return err
 	}
