@@ -344,6 +344,9 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 func validateMember(ctx *logger.RequestContext, member *MemberSpec, framework schema.Framework,
 	frameworkRoles map[schema.MemberRole]int, schedulingPolicy SchedulingPolicy) error {
 	// validate member role and replicas
+	if member.Role == "pworker" {
+		member.Role = string(schema.RoleWorker)
+	}
 	memberRole := schema.MemberRole(member.Role)
 	_, find := frameworkRoles[memberRole]
 	if !find {
@@ -567,16 +570,16 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 	var jobMode string
 	switch framework {
 	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkAITJ:
-		if roles[schema.RolePServer] > 0 {
+		if roles[schema.RolePServer] > 0 || roles[schema.RoleMaster] > 0 {
 			// parameter server mode
 			jobMode = schema.EnvJobModePS
-			if roles[schema.RolePWorker] < 1 || roles[schema.RoleWorker] > 0 {
-				err = fmt.Errorf("framework %s in parameter server mode, role pwork must be set", framework)
+			if roles[schema.RoleWorker] < 1 {
+				err = fmt.Errorf("framework %s in parameter server mode, role work must be set", framework)
 			}
 		} else {
 			// collective mode
 			jobMode = schema.EnvJobModeCollective
-			if roles[schema.RoleWorker] < 2 || roles[schema.RolePWorker] > 0 {
+			if roles[schema.RoleWorker] < 2 {
 				err = fmt.Errorf("framework %s in collective mode, only setting role work", framework)
 			}
 		}
@@ -602,7 +605,7 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 	switch framework {
 	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkAITJ:
 		roles[schema.RolePServer] = 0
-		roles[schema.RolePWorker] = 0
+		roles[schema.RoleMaster] = 0
 		roles[schema.RoleWorker] = 0
 	case schema.FrameworkSpark:
 		roles[schema.RoleDriver] = 0

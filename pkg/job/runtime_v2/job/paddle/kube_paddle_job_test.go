@@ -241,7 +241,7 @@ spec:
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
-				Role:     schema.RolePWorker,
+				Role:     schema.RoleWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
@@ -253,7 +253,7 @@ spec:
 			{
 				ID:       "task-normal-0002",
 				Replicas: 3,
-				Role:     schema.RolePWorker,
+				Role:     schema.RoleWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
@@ -627,7 +627,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 					{
 						ID:       "task-normal-0002",
 						Replicas: 0,
-						Role:     schema.RolePWorker,
+						Role:     schema.RoleWorker,
 						Conf: schema.Conf{
 							Command: "sleep 200",
 							Image:   "mockImage",

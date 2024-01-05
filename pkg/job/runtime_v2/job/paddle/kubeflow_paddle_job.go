@@ -92,7 +92,7 @@ func (pj *KubeKFPaddleJob) builtinPaddleJobSpec(jobSpec *paddlev1.PaddleJobSpec,
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
 		replicaType := paddlev1.PaddleJobReplicaTypeMaster
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// paddle worker
 			replicaType = paddlev1.PaddleJobReplicaTypeWorker
 		}

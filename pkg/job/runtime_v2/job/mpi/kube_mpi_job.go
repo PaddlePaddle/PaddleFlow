@@ -87,7 +87,7 @@ func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
 		replicaType := mpiv1.MPIReplicaTypeLauncher
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// mpi worker
 			replicaType = mpiv1.MPIReplicaTypeWorker
 		}

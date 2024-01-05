@@ -95,7 +95,7 @@ func (pj *KubeTFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob)
 		// tf parameter server for distributed training
 		replicaType := tfv1.TFReplicaTypePS
 		// if role is worker, set it to tf worker
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// tf worker for distributed training
 			replicaType = tfv1.TFReplicaTypeWorker
 		}

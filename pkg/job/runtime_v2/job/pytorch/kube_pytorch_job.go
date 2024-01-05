@@ -93,7 +93,7 @@ func (pj *KubePyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJ
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
 		replicaType := pytorchv1.PyTorchReplicaTypeMaster
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// pytorch worker
 			replicaType = pytorchv1.PyTorchReplicaTypeWorker
 		}
