@@ -97,6 +97,92 @@ func TestPodSpecBuilder(t *testing.T) {
 				},
 			},
 		},
+		{
+			testName: "create job with flavour",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Command: []string{"sleep", "60"},
+					},
+				},
+			},
+			jobID: "test-job-3",
+			task: schema.Member{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					Image:     "test-image",
+					Command:   "/bin/bash",
+					Args:      []string{"-c", "sleep 3600"},
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test2",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "2",
+							Mem: "4Gi",
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			testName: "create job with limit flavour",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Command: []string{"sleep", "60"},
+					},
+				},
+			},
+			jobID: "test-job-4",
+			task: schema.Member{
+				Replicas: 1,
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					Image:     "test-image",
+					Command:   "/bin/bash",
+					Args:      []string{"-c", "sleep 3600"},
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test2",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/",
+					},
+					Flavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "2",
+							Mem: "4Gi",
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "1",
+							},
+						},
+					},
+					LimitFlavour: schema.Flavour{
+						Name: "",
+						ResourceInfo: schema.ResourceInfo{
+							CPU: "10",
+							Mem: "40Gi",
+							ScalarResources: map[schema.ResourceName]string{
+								"nvidia.com/gpu": "1",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	driver.InitMockDB()
@@ -140,6 +226,27 @@ func TestPodTemplateSpecBuilder(t *testing.T) {
 						Name:      "test",
 						Type:      "s3",
 						MountPath: "/home/work/mnt",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			testName: "pod resource limit  is none",
+			podSpec:  &corev1.PodTemplateSpec{},
+			task: schema.Member{
+				Conf: schema.Conf{
+					Name:      "test-task-1",
+					QueueName: "test-queue",
+					Priority:  "NORMAL",
+					FileSystem: schema.FileSystem{
+						ID:        "fs-root-test1",
+						Name:      "test",
+						Type:      "s3",
+						MountPath: "/home/work/mnt",
+					},
+					LimitFlavour: schema.Flavour{
+						Name: "none",
 					},
 				},
 			},
