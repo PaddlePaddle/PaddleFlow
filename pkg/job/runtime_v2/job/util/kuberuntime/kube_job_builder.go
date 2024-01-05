@@ -17,6 +17,8 @@ limitations under the License.
 package kuberuntime
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
@@ -27,7 +29,69 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 )
+
+// appendMapsIfAbsent append Maps if absent, only support string type
+func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
+	if Maps == nil {
+		Maps = make(map[string]string)
+	}
+	for key, value := range addMaps {
+		if _, ok := Maps[key]; !ok {
+			Maps[key] = value
+		}
+	}
+	return Maps
+}
+
+func getWorkDir(task *schema.Member, fileSystems []schema.FileSystem, envs map[string]string) string {
+	// prepare fs and envs
+	if task != nil {
+		fileSystems = task.Conf.GetAllFileSystem()
+		if len(task.Conf.GetProcessedFileSystem()) > 0 {
+			fileSystems = task.Conf.GetProcessedFileSystem()
+		}
+		envs = task.Env
+	}
+	if len(envs) == 0 {
+		envs = make(map[string]string)
+	}
+	// check workdir, which exist only if there is more than one file system and env.'EnvMountPath' is not NONE
+	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
+	if !hasWorkDir {
+		return ""
+	}
+
+	workdir := ""
+	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
+	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
+	if mountPath != "/" {
+		workdir = fileSystems[0].MountPath
+	} else {
+		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+	}
+	envs[schema.EnvJobWorkDir] = workdir
+	return workdir
+}
+
+// generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
+func generateContainerCommand(command string, workdir string) []string {
+	command = strings.TrimPrefix(command, "bash -c")
+	command = strings.TrimPrefix(command, "sh -c")
+
+	if workdir != "" {
+		// if command is not empty
+		if command != "" {
+			command = fmt.Sprintf("cd %s; %s", workdir, command)
+		} else {
+			command = fmt.Sprintf("cd %s", workdir)
+		}
+	}
+
+	commands := []string{"sh", "-c", command}
+	return commands
+}
 
 // PodSpecBuilder is used to build pod spec
 type PodSpecBuilder struct {
@@ -100,28 +164,24 @@ func (p *PodSpecBuilder) containerResources(container *corev1.Container, request
 		if err == nil {
 			// request set specified value
 			container.Resources.Requests = k8s.NewResourceList(flavourResource)
+			container.Resources.Limits = container.Resources.Requests
 		} else {
 			log.Errorf("GenerateResourceRequirements by request:[%+v] error:%v", requestFlavour, err)
 		}
 	}
 	// fill limit resources
-	if !schema.IsEmptyResource(limitFlavour.ResourceInfo) {
+	if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
+		// limit set to none
+		container.Resources.Limits = nil
+	} else if !schema.IsEmptyResource(limitFlavour.ResourceInfo) {
 		limitFlavourResource, err := resources.NewResourceFromMap(limitFlavour.ToMap())
 		if err != nil {
 			log.Errorf("GenerateResourceRequirements by limitFlavour:[%+v] error:%v", limitFlavourResource, err)
 			return
 		}
-		if strings.ToUpper(limitFlavour.Name) == schema.EnvJobLimitFlavourNone {
-			container.Resources.Limits = nil
-		} else if limitFlavourResource.CPU() == 0 || limitFlavourResource.Memory() == 0 {
-			// limit set zero, patch the same value as request
-			container.Resources.Limits = container.Resources.Requests
-		} else {
-			// limit set specified value
-			container.Resources.Limits = k8s.NewResourceList(limitFlavourResource)
-		}
+		// limit set specified value
+		container.Resources.Limits = k8s.NewResourceList(limitFlavourResource)
 	}
-
 }
 
 // Containers set containers for pod

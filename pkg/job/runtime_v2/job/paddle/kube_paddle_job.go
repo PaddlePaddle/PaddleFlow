@@ -184,7 +184,7 @@ func (pj *KubePaddleJob) patchPaddleJob(pdj *paddlejobv1.PaddleJob, job *api.PFJ
 		case pfschema.RolePServer:
 			// patch parameter server
 			err = taskFunc(pdj.Spec.PS, task, job.ID)
-		case pfschema.RolePWorker, pfschema.RoleWorker:
+		case pfschema.RoleWorker:
 			// patch worker
 			err = taskFunc(pdj.Spec.Worker, task, job.ID)
 		default:

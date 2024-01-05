@@ -91,7 +91,6 @@ const (
 	RoleDriver   MemberRole = "driver"
 	RoleExecutor MemberRole = "executor"
 	RolePServer  MemberRole = "pserver"
-	RolePWorker  MemberRole = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"

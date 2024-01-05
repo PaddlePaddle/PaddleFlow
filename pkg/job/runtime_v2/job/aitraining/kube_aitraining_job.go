@@ -109,7 +109,7 @@ func (pj *KubeAITrainingJob) customAITrainingJob(pdj *v1.TrainingJobSpec, job *a
 		// patch worker
 		var err error
 		switch task.Role {
-		case pfschema.RolePWorker, pfschema.RoleWorker:
+		case pfschema.RoleWorker:
 			// patch worker
 			rs := pdj.ReplicaSpecs[v1.ReplicaName("trainer")]
 			if rs == nil || rs.ReplicaType != v1.ReplicaWorker {
