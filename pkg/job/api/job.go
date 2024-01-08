@@ -51,7 +51,7 @@ type PFJob struct {
 	ClusterID    ClusterID
 	QueueID      QueueID
 	QueueName    string
-	Resource     *resources.Resource
+	Resource     resources.Resource
 	Priority     int32
 	MinAvailable int32
 	// PriorityClassName defines job info on cluster
@@ -100,7 +100,7 @@ func NewJobInfo(job *model.Job) (*PFJob, error) {
 		Conf:              *job.Config,
 		Labels:            make(map[string]string),
 		Annotations:       make(map[string]string),
-		Resource:          job.Resource,
+		Resource:          resources.Resource(job.Resource),
 		Tasks:             job.Members,
 		ExtensionTemplate: []byte(job.ExtensionTemplate),
 	}
