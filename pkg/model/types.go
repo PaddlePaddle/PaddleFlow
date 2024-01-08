@@ -28,10 +28,6 @@ import (
 type Resource resources.Resource
 
 func (r *Resource) Scan(value interface{}) error {
-	if value == "{}" {
-		*r = Resource{}
-		return nil
-	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("failed to unmarshal Resource sturct: %v", value)
