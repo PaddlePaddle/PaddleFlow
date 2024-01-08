@@ -231,6 +231,24 @@ func initMockJob(t *testing.T) {
 				Valid: true,
 			},
 		},
+		{
+			ID:       "job-00007",
+			Name:     "test-job-7",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PyTorchKindGroupVersion,
+			},
+			Framework: schema.FrameworkPytorch,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
 	}
 
 	for i := range jobs {
@@ -290,6 +308,37 @@ func initMockJob(t *testing.T) {
 			Namespace: "default",
 			NodeName:  "node-001",
 		},
+		{
+			ID:        "job-00006-task-1",
+			JobID:     "job-00006",
+			Name:      "job-10006-worker-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00006-task-2",
+			JobID:     "job-00006",
+			Name:      "job-10006-worker-1",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:    "job-00007-task-1",
+			JobID: "job-00007",
+			Name:  "job-10007-master",
+			Annotations: map[string]string{
+				"volcano.sh/task-spec": "master",
+			},
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00007-task-2",
+			JobID:     "job-00007",
+			Name:      "job-10006-worker-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
 	}
 	for i := range jobTasks {
 		err := storage.Job.UpdateTask(&jobTasks[i])
@@ -332,7 +381,7 @@ func TestListJob(t *testing.T) {
 				MaxKeys: 50,
 			},
 			err:            nil,
-			wantedJobCount: 6,
+			wantedJobCount: 7,
 		},
 		{
 			name: "list job with timestamp",
@@ -341,7 +390,7 @@ func TestListJob(t *testing.T) {
 				MaxKeys:   50,
 			},
 			err:            nil,
-			wantedJobCount: 6,
+			wantedJobCount: 7,
 		},
 		{
 			name: "list job with queue",
@@ -350,7 +399,7 @@ func TestListJob(t *testing.T) {
 				MaxKeys: 50,
 			},
 			err:            nil,
-			wantedJobCount: 6,
+			wantedJobCount: 7,
 		},
 		{
 			name: "list job with maxKeys 0",
@@ -433,6 +482,14 @@ func TestGetJob(t *testing.T) {
 				UserName: "root",
 			},
 			jobID: "job-00003",
+			err:   nil,
+		},
+		{
+			name: "get distributed pytorch job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00007",
 			err:   nil,
 		},
 		{
