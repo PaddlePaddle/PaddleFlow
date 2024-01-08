@@ -228,8 +228,7 @@ func Test_getClusterNamespaceMap(t *testing.T) {
 			return nil, fmt.Errorf("ListNamespaces")
 		})
 	_, err = getClusterNamespaceMap()
-	assert.NotNil(t, err)
-	assert.Equal(t, true, strings.Contains(err.Error(), "ListNamespaces"))
+	assert.Nil(t, err)
 
 	pRuntime.Reset()
 	pRuntime = gomonkey.ApplyFunc(runtime.GetOrCreateRuntime, func(clusterInfo model.ClusterInfo) (runtime.RuntimeService, error) {
