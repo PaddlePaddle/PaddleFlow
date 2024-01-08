@@ -224,11 +224,11 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 	// get job queue
 	queue, err := storage.Queue.GetQueueByID(job.QueueID)
 	if err != nil {
-		ctx.ErrorCode = common.ResourceNotFound
-		ctx.Logging().Errorln(err.Error())
-		return nil, common.NotFoundError(common.ResourceTypeQueue, job.QueueID)
+		// compatible with queue is deleted
+		ctx.Logging().Warnf(err.Error())
+	} else {
+		job.ClusterID = queue.ClusterId
 	}
-	job.ClusterID = queue.ClusterId
 
 	response, err := convertJobToResponse(job, true)
 	if err != nil {
