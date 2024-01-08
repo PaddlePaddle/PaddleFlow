@@ -63,6 +63,7 @@ func TestGenerateLogURL(t *testing.T) {
 	testCases := []struct {
 		name        string
 		task        model.JobTask
+		clusterID   string
 		containerID string
 		expectURL   string
 	}{
@@ -74,8 +75,9 @@ func TestGenerateLogURL(t *testing.T) {
 				LogURL:               "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
 				ExtRuntimeStatusJSON: taskStatus,
 			},
+			clusterID:   "mock-cluster-id",
 			containerID: "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
-			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d&clusterID=%s&nodeName=%s",
 		},
 		{
 			name: "generate log url success",
@@ -84,8 +86,9 @@ func TestGenerateLogURL(t *testing.T) {
 				JobID:                "test-job-id",
 				ExtRuntimeStatusJSON: taskStatus,
 			},
+			clusterID:   "mock-cluster-id",
 			containerID: "8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6",
-			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d&clusterID=%s&nodeName=%s",
 		},
 	}
 
@@ -98,10 +101,10 @@ func TestGenerateLogURL(t *testing.T) {
 			task, err := storage.Job.GetTaskByID(tc.task.ID)
 			assert.Equal(t, nil, err)
 			// generate log url
-			url := GenerateLogURL(task)
+			url := GenerateLogURL(task, tc.clusterID)
 			tokenStr, timeStamp := getLogToken(task.JobID, tc.containerID)
 			token := md5.Sum([]byte(tokenStr))
-			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp)
+			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp, tc.clusterID, task.NodeName)
 			assert.Equal(t, expectURL, url)
 			t.Logf("log url %s", expectURL)
 

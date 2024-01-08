@@ -47,6 +47,7 @@ type Job struct {
 	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
 	UserName          string           `json:"userName" gorm:"NOT NULL"`
 	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
+	ClusterID         string           `json:"-" gorm:"-"`
 	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
 	ConfigJson        string           `json:"-" gorm:"column:config;type:text"`
 	Config            *schema.Conf     `json:"config" gorm:"-"`
