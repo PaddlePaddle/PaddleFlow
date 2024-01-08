@@ -199,6 +199,7 @@ func initMockJob(t *testing.T) {
 				Time:  time1.Add(4 * time.Second),
 				Valid: true,
 			},
+			ParentJob: "job-00005",
 		},
 		{
 			ID:       "job-00005",
@@ -240,6 +241,24 @@ func initMockJob(t *testing.T) {
 			UserName: "user1",
 			Type:     string(schema.TypeDistributed),
 			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PyTorchKindGroupVersion,
+			},
+			Framework: schema.FrameworkPytorch,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00008",
+			Name:     "test-job-8",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1111",
 			Status:   schema.StatusJobRunning,
 			Config: &schema.Conf{
 				KindGroupVersion: schema.PyTorchKindGroupVersion,
@@ -384,7 +403,7 @@ func TestListJob(t *testing.T) {
 				MaxKeys: 50,
 			},
 			err:            nil,
-			wantedJobCount: 7,
+			wantedJobCount: 8,
 		},
 		{
 			name: "list job with timestamp",
@@ -393,7 +412,7 @@ func TestListJob(t *testing.T) {
 				MaxKeys:   50,
 			},
 			err:            nil,
-			wantedJobCount: 7,
+			wantedJobCount: 8,
 		},
 		{
 			name: "list job with queue",
@@ -517,6 +536,14 @@ func TestGetJob(t *testing.T) {
 				UserName: "root",
 			},
 			jobID: "job-00005",
+			err:   nil,
+		},
+		{
+			name: "get job when queue is deleted",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00008",
 			err:   nil,
 		},
 	}
