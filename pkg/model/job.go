@@ -56,7 +56,7 @@ type Job struct {
 	RuntimeStatus     interface{}      `json:"runtimeStatus" gorm:"-"`
 	Status            schema.JobStatus `json:"status" gorm:"type:varchar(32);"`
 	Message           string           `json:"message"`
-	Resource          Resource         `json:"resource" gorm:"column:resource;type:text;default:'{}'"`
+	Resource          Resource         `json:"resource" gorm:"column:resource;"`
 	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
 	MembersJson       string           `json:"-" gorm:"column:members;type:text"`
 	Members           []schema.Member  `json:"members" gorm:"-"`
