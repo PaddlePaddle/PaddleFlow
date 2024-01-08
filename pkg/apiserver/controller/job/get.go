@@ -496,7 +496,7 @@ func getPyTorchJobRoleAndIndex(name string, annotations map[string]string) (sche
 // getMPIJobRoleAndIndex returns the runtime info of mpi job
 func getMPIJobRoleAndIndex(name string, annotations map[string]string) (schema.MemberRole, int) {
 	taskRole, taskIndex := schema.RoleWorker, 0
-	if annotations["volcano.sh/task-spec"] == "master" {
+	if strings.HasSuffix(name, "launcher") {
 		taskRole = schema.RoleMaster
 	} else {
 		//  worker is named with format: xxxx-worker-0
