@@ -3,8 +3,7 @@ import traceback
 
 import click
 from paddleflow.cli.output import print_output
-from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo
-from paddleflow.statistics import StatisticsQueueInfo
+from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, StatisticsQueueInfo
 
 
 # !/usr/bin/env python3
