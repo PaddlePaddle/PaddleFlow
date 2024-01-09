@@ -115,11 +115,11 @@ class StatisticsServiceApi(object):
         return True, statistics_job_detail_info
 
     @classmethod
-    def get_cardtime_by_queue_name(cls, host, queue_names: str, start_time: str, end_time: str, header=None):
+    def get_cardtime_by_queue_name(cls, host, queue_names: list, start_time: str, end_time: str, header=None):
         """
         get statistics info, run_id is not supported yet
         @param host: host url
-        @param queue_names: queue names
+        @param queue_names: queue names list
         @param start_time: start time
         @param end_time: end time
         @param header: request header
@@ -129,7 +129,7 @@ class StatisticsServiceApi(object):
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
 
         body = {
-            "queueNames": queue_names.split(","),
+            "queueNames": queue_names,
             "startTime": start_time,
             "endTime": end_time,
         }

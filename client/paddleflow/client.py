@@ -846,9 +846,9 @@ class Client(object):
             return ret, res, False
         return ret, res, res.truncated
 
-    def get_cardtime_by_queue_name(self, queue_names: str, start_time: str, end_time: str):
+    def get_cardtime_by_queue_name(self, queue_names: list, start_time: str, end_time: str):
         """
-        get_card_time_by_queue
+        get_card_time_by_queue_name
         """
         self.pre_check()
         if queue_names is None or len(queue_names) == 0:

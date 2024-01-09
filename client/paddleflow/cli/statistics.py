@@ -134,6 +134,7 @@ def card_time(ctx, queue_names, start_time, end_time):
         click.echo("end time is required")
         sys.exit(1)
 
+    queue_names = queue_names.split(",")
     _get_cardtime_by_queue_name(client, output_format, queue_names, start_time, end_time)
 
 
