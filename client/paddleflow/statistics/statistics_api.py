@@ -115,44 +115,28 @@ class StatisticsServiceApi(object):
         return True, statistics_job_detail_info
 
     @classmethod
-    def get_statistics_by_name(cls, host, queue_name: str, start: str, end: str, run_id: str = None, header=None):
+    def get_cardtime_by_queue_name(cls, host, queue_names: str, start_time: str, end_time: str, header=None):
         """
         get statistics info, run_id is not supported yet
         @param host: host url
-        @param queue_name: queue name
-        @param start: start time
-        @param end: end time
-        @param run_id: not supported yet
+        @param queue_names: queue names
+        @param start_time: start time
+        @param end_time: end time
         @param header: request header
         @return: success: bool, resp: StatisticsQueueInfo
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
 
-        # TODO: support run_id
-        if run_id:
-            raise PaddleFlowSDKException("InvalidRequest", "run_id is not supported yet")
-
-        if len(queue_name) == 1:
-            pram = {
-                "runID": run_id,
-                "start": start,
-                "end": end,
-            }
-            resp = api_client.call_api(method="GET",
-                                       url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/cardTime/%s" % queue_name),
-                                       headers=header,
-                                       params=pram)
-        else:
-            body = {
-                "queueNames": queue_name,
-                "start": start,
-                "end": end,
-            }
-            resp = api_client.call_api(method="POST",
-                                       url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/cardTime"),
-                                       headers=header,
-                                       json=body)
+        body = {
+            "queueNames": queue_names.split(","),
+            "startTime": start_time,
+            "endTime": end_time,
+        }
+        resp = api_client.call_api(method="POST",
+                                   url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/cardTime"),
+                                   headers=header,
+                                   json=body)
         if not resp:
             raise PaddleFlowSDKException("Connection Error", "status run failed due to HTTPError")
         data = json.loads(resp.text)

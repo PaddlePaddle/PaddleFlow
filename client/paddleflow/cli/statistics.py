@@ -113,41 +113,41 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
 
 @statistics.command()
 @click.pass_context
-@click.argument('queue_name', nargs=-1)
+@click.option('-q', '--queuenames', help="queue names, split by ,", type=str)
 @click.option('-s', '--start', help="start time", type=str)
 @click.option('-e', '--end', help="end time", type=str)
-def queue(ctx, queue_name, start, end, step):
-    """ show statistics info.\n
-    JOBID: the id of job you want to show.
+def card_time(ctx, queue_names, start_time, end_time):
+    """ get card time by queue name.\n
+    queue_name: the name of queues you want to get card time.
     """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    if not queue_name:
+    if not queue_names:
         click.echo("queue name is required")
         sys.exit(1)
 
-    if not start:
+    if not start_time:
         click.echo("start time is required")
         sys.exit(1)
 
-    if not end:
+    if not end_time:
         click.echo("end time is required")
         sys.exit(1)
 
-    _get_queue_statistics(client, output_format, queue_name, start, end)
+    _get_cardtime_by_queue_name(client, output_format, queue_names, start_time, end_time)
 
 
-def _get_queue_statistics(cli, output_format, queue_name, start, end):
-    valid, response = cli.get_statistics_by_name(queue_name, start, end)
+def _get_cardtime_by_queue_name(cli, output_format, queue_names, start_time, end_time):
+    valid, response = cli.get_cardtime_by_queue_name(queue_names, start_time, end_time)
     if valid:
-        _print_queue_statistics(queue_name, response, output_format)
+        _print_card_time_info(response, output_format)
     else:
         click.echo("get queue statistics failed with message[%s]" % response)
         sys.exit(1)
 
 
-def _print_queue_statistics(queue_name, info: StatisticsQueueInfo, output_format):
-    """print job statistics info."""
+def _print_card_time_info(info: StatisticsQueueInfo, output_format):
+    """print card time info."""
     if info.metrics_info is None:
         click.echo("no data")
         return
