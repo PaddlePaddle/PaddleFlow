@@ -36,6 +36,23 @@ class StatisticsJobInfo:
         return statistics_job_info
 
 
+class StatisticsQueueInfo:
+    metrics_info: Mapping[str, any]
+
+    def __init__(self, metric_info: Mapping[str, any]):
+        self.metrics_info = metric_info
+
+    @staticmethod
+    def from_json(json_dic):
+        statistics_queue_info = StatisticsQueueInfo(
+            metric_info=None,
+        )
+        if 'metricsInfo' in json_dic:
+            metrics_info = json_dic['metricsInfo']
+            statistics_queue_info.metrics_info = metrics_info
+        return statistics_queue_info
+
+
 class TaskInfo:
     metric: str
     values: List[List[any]]

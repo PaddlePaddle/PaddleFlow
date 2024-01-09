@@ -845,3 +845,13 @@ class Client(object):
         if not ret:
             return ret, res, False
         return ret, res, res.truncated
+
+    def get_statistics_by_name(self, queue_name: str, start: str, end: str, runid: str = None):
+        """
+        get_statistics_by_name
+        """
+        self.pre_check()
+        if queue_name is None or queue_name == "":
+            raise PaddleFlowSDKException("InvalidQueueName", "queue name should not be none or empty")
+        return StatisticsServiceApi.get_statistics_by_name(self.paddleflow_server, queue_name, start, end, run_id=runid,
+                                                           header=self.header)

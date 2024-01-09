@@ -4,6 +4,7 @@ import traceback
 import click
 from paddleflow.cli.output import print_output
 from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo
+from paddleflow.statistics import StatisticsQueueInfo
 
 
 # !/usr/bin/env python3
@@ -106,5 +107,52 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
     for k, v in sorted(ts_map.items(), key=lambda x: x[0]):
         v.insert(0, k)
         data.append(v)
+
+    print_output(data, headers, output_format, table_format='grid')
+
+
+@statistics.command()
+@click.pass_context
+@click.argument('queue_name', nargs=-1)
+@click.option('-s', '--start', help="start time", type=str)
+@click.option('-e', '--end', help="end time", type=str)
+def queue(ctx, queue_name, start, end, step):
+    """ show statistics info.\n
+    JOBID: the id of job you want to show.
+    """
+    client = ctx.obj['client']
+    output_format = ctx.obj['output']
+    if not queue_name:
+        click.echo("queue name is required")
+        sys.exit(1)
+
+    if not start:
+        click.echo("start time is required")
+        sys.exit(1)
+
+    if not end:
+        click.echo("end time is required")
+        sys.exit(1)
+
+    _get_queue_statistics(client, output_format, queue_name, start, end)
+
+
+def _get_queue_statistics(cli, output_format, queue_name, start, end):
+    valid, response = cli.get_statistics_by_name(queue_name, start, end)
+    if valid:
+        _print_queue_statistics(queue_name, response, output_format)
+    else:
+        click.echo("get queue statistics failed with message[%s]" % response)
+        sys.exit(1)
+
+
+def _print_queue_statistics(queue_name, info: StatisticsQueueInfo, output_format):
+    """print job statistics info."""
+    if info.metrics_info is None:
+        click.echo("no data")
+        return
+    info = info.metrics_info
+    headers = [k.replace("_", " ") for k in info]
+    data = [[v for v in info.values()]]
 
     print_output(data, headers, output_format, table_format='grid')
