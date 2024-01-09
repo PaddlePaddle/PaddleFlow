@@ -47,7 +47,7 @@ var (
 	UpdateTime = time.Now()
 
 	defaultSaltStr = "paddleflow"
-	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d"
+	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d&clusterID=%s&nodeName=%s"
 )
 
 func init() {
@@ -221,6 +221,14 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	// get job queue
+	queue, err := storage.Queue.GetQueueByID(job.QueueID)
+	if err != nil {
+		// compatible with queue is deleted
+		ctx.Logging().Warnf(err.Error())
+	} else {
+		job.ClusterID = queue.ClusterId
+	}
 
 	response, err := convertJobToResponse(job, true)
 	if err != nil {
@@ -270,7 +278,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if runtimeFlag && job.RuntimeInfo != nil {
-			runtimes, err := getTaskRuntime(job.ID, &kindGroupVersion)
+			runtimes, err := getTaskRuntime(job.ID, job.ClusterID, &kindGroupVersion)
 			if err != nil || len(runtimes) < 1 {
 				return response, err
 			}
@@ -294,7 +302,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				log.Errorf("parse distributed job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			runtimes, err := getTaskRuntime(job.ID, &kindGroupVersion)
+			runtimes, err := getTaskRuntime(job.ID, job.ClusterID, &kindGroupVersion)
 			if err != nil {
 				return response, err
 			}
@@ -329,7 +337,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				log.Errorf("parse workflow job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			nodeRuntimes, err := getNodeRuntime(job.ID)
+			nodeRuntimes, err := getNodeRuntime(job.ID, job.ClusterID)
 			if err != nil {
 				return response, err
 			}
@@ -361,7 +369,7 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 	return k8sMeta, nil
 }
 
-func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
+func getTaskRuntime(jobID string, clusterID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
 	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
@@ -376,7 +384,7 @@ func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]Runtime
 			Status:           task.ExtRuntimeStatusJSON,
 			NodeName:         task.NodeName,
 			AcceleratorCards: task.Annotations[k8s.GPUIdxKey],
-			LogURL:           GenerateLogURL(task),
+			LogURL:           GenerateLogURL(task, clusterID),
 		}
 		// get task role
 		role, idx, find := getTaskRoleAndIndex(task, kGroupVer)
@@ -389,7 +397,7 @@ func getTaskRuntime(jobID string, kGroupVer *schema.KindGroupVersion) ([]Runtime
 	return runtimes, nil
 }
 
-func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
+func getNodeRuntime(jobID string, clusterID string) ([]DistributedRuntimeInfo, error) {
 	nodeRuntimes := make([]DistributedRuntimeInfo, 0)
 	jobFilter := storage.JobFilter{
 		ParentID: jobID,
@@ -409,7 +417,7 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 			log.Errorf("parse workflow node[%s] status failed, error:[%s]", node.ID, err.Error())
 			return nil, err
 		}
-		taskRuntime, err := getTaskRuntime(node.ID, nil)
+		taskRuntime, err := getTaskRuntime(node.ID, clusterID, nil)
 		if err != nil {
 			log.Errorf("get node[%s] task runtime failed, error:[%s]", node.ID, err.Error())
 			return nil, err
@@ -444,7 +452,7 @@ func getContainerID(task model.JobTask) string {
 	return containerID
 }
 
-func GenerateLogURL(task model.JobTask) string {
+func GenerateLogURL(task model.JobTask, clusterID string) string {
 	containerID := getContainerID(task)
 	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
@@ -452,7 +460,7 @@ func GenerateLogURL(task model.JobTask) string {
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t, clusterID, task.NodeName)
 }
 
 func getLogToken(jobID, containerID string) (string, int64) {
