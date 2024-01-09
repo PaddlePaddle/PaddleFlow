@@ -150,13 +150,11 @@ class CardTimeResult:
             format(self.queue_name, self.card_time,self.device_type,self.detail)
 
 
-class StatisticsQueueInfo:
+class CardTimeInfo:
     result: List[CardTimeResult]
-    truncated: bool
 
-    def __init__(self, result: List[CardTimeResult], truncated: bool) -> None:
+    def __init__(self, result: List[CardTimeResult]) -> None:
         self.result = result
-        self.truncated = truncated
 
     def __str__(self) -> str:
         """ str """
@@ -164,9 +162,8 @@ class StatisticsQueueInfo:
 
     @staticmethod
     def from_json(metric_info):
-        statistics_queue_info = StatisticsQueueInfo(
+        statistics_queue_info = CardTimeInfo(
             result=[],
-            truncated=metric_info['truncated'],
         )
         for result_json in metric_info['result']:
             result = CardTimeResult(

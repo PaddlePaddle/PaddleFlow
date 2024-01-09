@@ -23,7 +23,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.statistics.statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo, StatisticsQueueInfo
+from paddleflow.statistics.statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo
 
 
 class StatisticsServiceApi(object):
@@ -144,6 +144,6 @@ class StatisticsServiceApi(object):
         if 'message' in data:
             return False, data['message']
 
-        statistics_queue_info = StatisticsQueueInfo.from_json(data)
+        statistics_queue_info = CardTimeInfo.from_json(data)
 
         return True, statistics_queue_info

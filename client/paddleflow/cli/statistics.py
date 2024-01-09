@@ -3,7 +3,7 @@ import traceback
 
 import click
 from paddleflow.cli.output import print_output
-from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, StatisticsQueueInfo
+from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo
 
 
 # !/usr/bin/env python3
@@ -146,7 +146,7 @@ def _get_cardtime_by_queue_name(cli, output_format, queue_names, start_time, end
         sys.exit(1)
 
 
-def _print_card_time_info(info: StatisticsQueueInfo, output_format):
+def _print_card_time_info(info: CardTimeInfo, output_format):
     """print card time info."""
     if info.metrics_info is None:
         click.echo("no data")
