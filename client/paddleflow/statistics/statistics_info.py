@@ -112,8 +112,16 @@ class JobInfo:
         self.finish_time = finish_time
         self.device_count = device_count
 
-    def __str__(self):
-        return json.dumps(self.__dict__)
+    def to_json(self):
+        job_info = {
+            "jobId": self.job_id,
+            "cardTime": self.card_time,
+            "createTime": self.create_time,
+            "startTime": self.start_time,
+            "finishTime": self.finish_time,
+            "deviceCount": self.device_count
+        }
+        return job_info
 
 
 class Detail:
@@ -161,15 +169,15 @@ class CardTimeInfo:
 
     def __str__(self) -> str:
         """ str """
-        return "StatisticsQueueInfo: data: {}".format(self.data)
+        return "CardTimeInfo: data: {}".format(self.data)
 
     @staticmethod
-    def from_json(metric_info):
-        statistics_queue_info = CardTimeInfo(
+    def from_json(card_time_stat_info):
+        card_time_info = CardTimeInfo(
             data=[],
         )
         try:
-            for result_json in metric_info['data']:
+            for result_json in card_time_stat_info['data']:
                 result = CardTimeResult(
                     queue_name=result_json['queueName'],
                     card_time=result_json['cardTime'],
@@ -200,7 +208,7 @@ class CardTimeInfo:
                         result.detail.append(detail)
                 except:
                     pass
-                statistics_queue_info.data.append(result)
+                card_time_info.data.append(result)
         except:
             pass
-        return statistics_queue_info
+        return card_time_info

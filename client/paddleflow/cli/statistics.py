@@ -157,10 +157,15 @@ def _print_card_time_info(info: CardTimeInfo, output_format):
     for data in info.data:
         detail_res = []
         for detail in data.detail:
-            tmp_job_info = [[job_info.__str__()] for job_info in detail.job_info_list]
-            detail_res.append([detail.user_name, tmp_job_info, detail.job_count, detail.total_card_time])
+            detail = {
+                "userName": detail.user_name,
+                "jobInfo": [job_info.to_json() for job_info in detail.job_info_list],
+                "jobCount": detail.job_count,
+                "totalCardTime": detail.total_card_time,
+            }
+            detail_res.append(detail)
         data_res.append([data.queue_name, data.card_time, data.device_type, detail_res])
 
-    headers = ['queue name', 'card time', 'device type', 'detail']
+    headers = ['queueName', 'cardTime', 'deviceType', 'detail']
 
     print_output(data_res, headers, output_format, table_format='json')
