@@ -23,7 +23,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.statistics.statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo
+from paddleflow.statistics.statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo
 
 
 class StatisticsServiceApi(object):
@@ -113,3 +113,37 @@ class StatisticsServiceApi(object):
             return False, data['message']
         statistics_job_detail_info = StatisticsJobDetailInfo.from_json(data)
         return True, statistics_job_detail_info
+
+    @classmethod
+    def get_cardtime_by_queue_name(cls, host, queue_names: list, start_time: str, end_time: str, header=None):
+        """
+        get statistics info, run_id is not supported yet
+        @param host: host url
+        @param queue_names: queue names list
+        @param start_time: start time
+        @param end_time: end time
+        @param header: request header
+        @return: success: bool, resp: StatisticsQueueInfo
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+
+        body = {
+            "queueNames": queue_names,
+            "startTime": start_time,
+            "endTime": end_time,
+        }
+        resp = api_client.call_api(method="POST",
+                                   url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/cardTime"),
+                                   headers=header,
+                                   json=body)
+        if not resp:
+            raise PaddleFlowSDKException("Connection Error", "status run failed due to HTTPError")
+        data = json.loads(resp.text)
+        # return error resp, return err
+        if 'message' in data:
+            return False, data['message']
+
+        statistics_queue_info = CardTimeInfo.from_json(data)
+
+        return True, statistics_queue_info

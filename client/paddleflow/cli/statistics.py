@@ -1,9 +1,10 @@
+import json
 import sys
 import traceback
 
 import click
 from paddleflow.cli.output import print_output
-from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo
+from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo, Detail
 
 
 # !/usr/bin/env python3
@@ -108,3 +109,63 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
         data.append(v)
 
     print_output(data, headers, output_format, table_format='grid')
+
+
+@statistics.command()
+@click.pass_context
+@click.option('-q', '--queue_names', help="queue names, split by ,", type=str)
+@click.option('-s', '--start_time', help="start time", type=str)
+@click.option('-e', '--end_time', help="end time", type=str)
+def card_time(ctx, queue_names, start_time, end_time):
+    """ get card time by queue name.\n
+    queue_name: the name of queues you want to get card time.
+    """
+    client = ctx.obj['client']
+    output_format = ctx.obj['output']
+    if not queue_names:
+        click.echo("queue name is required")
+        sys.exit(1)
+
+    if not start_time:
+        click.echo("start time is required")
+        sys.exit(1)
+
+    if not end_time:
+        click.echo("end time is required")
+        sys.exit(1)
+
+    queue_names = queue_names.split(",")
+    _get_cardtime_by_queue_name(client, output_format, queue_names, start_time, end_time)
+
+
+def _get_cardtime_by_queue_name(cli, output_format, queue_names, start_time, end_time):
+    valid, response = cli.get_cardtime_by_queue_name(queue_names, start_time, end_time)
+    if valid:
+        _print_card_time_info(response, output_format)
+    else:
+        click.echo("get queue statistics failed with message[%s]" % response)
+        sys.exit(1)
+
+
+def _print_card_time_info(info: CardTimeInfo, output_format):
+    """print card time info."""
+    if len(info.data) == 0:
+        click.echo("no data")
+        return
+
+    data_res = []
+    for data in info.data:
+        detail_res = []
+        for detail in data.detail:
+            detail = {
+                "userName": detail.user_name,
+                "jobInfo": [job_info.to_json() for job_info in detail.job_info_list],
+                "jobCount": detail.job_count,
+                "totalCardTime": detail.total_card_time,
+            }
+            detail_res.append(detail)
+        data_res.append([data.queue_name, data.card_time, data.device_type, detail_res])
+
+    headers = ['queueName', 'cardTime', 'deviceType', 'detail']
+
+    print_output(data_res, headers, output_format, table_format='json')

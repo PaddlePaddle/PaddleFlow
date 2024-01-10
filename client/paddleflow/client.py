@@ -845,3 +845,12 @@ class Client(object):
         if not ret:
             return ret, res, False
         return ret, res, res.truncated
+
+    def get_cardtime_by_queue_name(self, queue_names: list, start_time: str, end_time: str):
+        """
+        get_card_time_by_queue_name
+        """
+        self.pre_check()
+        if queue_names is None or len(queue_names) == 0:
+            raise PaddleFlowSDKException("InvalidQueueName", "queue name should not be none or empty")
+        return StatisticsServiceApi.get_cardtime_by_queue_name(self.paddleflow_server, queue_names, start_time, end_time,header=self.header)
