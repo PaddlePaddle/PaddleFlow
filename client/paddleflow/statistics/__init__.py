@@ -18,4 +18,4 @@ limitations under the License.
 # -*- coding:utf8 -*-
 
 from .statistics_api import StatisticsServiceApi
-from .statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo
+from .statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo, Detail

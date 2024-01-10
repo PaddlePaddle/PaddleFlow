@@ -1,9 +1,10 @@
+import json
 import sys
 import traceback
 
 import click
 from paddleflow.cli.output import print_output
-from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo
+from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo, CardTimeInfo, Detail
 
 
 # !/usr/bin/env python3
@@ -112,9 +113,9 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
 
 @statistics.command()
 @click.pass_context
-@click.option('-q', '--queuenames', help="queue names, split by ,", type=str)
-@click.option('-s', '--start', help="start time", type=str)
-@click.option('-e', '--end', help="end time", type=str)
+@click.option('-q', '--queue_names', help="queue names, split by ,", type=str)
+@click.option('-s', '--start_time', help="start time", type=str)
+@click.option('-e', '--end_time', help="end time", type=str)
 def card_time(ctx, queue_names, start_time, end_time):
     """ get card time by queue name.\n
     queue_name: the name of queues you want to get card time.
@@ -148,11 +149,18 @@ def _get_cardtime_by_queue_name(cli, output_format, queue_names, start_time, end
 
 def _print_card_time_info(info: CardTimeInfo, output_format):
     """print card time info."""
-    if info.metrics_info is None:
+    if len(info.data) == 0:
         click.echo("no data")
         return
-    info = info.metrics_info
-    headers = [k.replace("_", " ") for k in info]
-    data = [[v for v in info.values()]]
 
-    print_output(data, headers, output_format, table_format='grid')
+    data_res = []
+    for data in info.data:
+        detail_res = []
+        for detail in data.detail:
+            tmp_job_info = [[job_info.__str__()] for job_info in detail.job_info_list]
+            detail_res.append([detail.user_name, tmp_job_info, detail.job_count, detail.total_card_time])
+        data_res.append([data.queue_name, data.card_time, data.device_type, detail_res])
+
+    headers = ['queue name', 'card time', 'device type', 'detail']
+
+    print_output(data_res, headers, output_format, table_format='json')
