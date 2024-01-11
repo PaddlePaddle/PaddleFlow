@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
+import json
 from typing import List, Mapping
 
 
@@ -92,3 +93,122 @@ class StatisticsJobDetailInfo:
                 result.task_info.append(task_info)
             statistics_job_detail_info.result.append(result)
         return statistics_job_detail_info
+
+
+class JobInfo:
+    job_id: str
+    card_time: float
+    create_time: str
+    start_time: str
+    finish_time: str
+    device_count: int
+
+    def __init__(self, job_id: str, card_time: float, create_time: str, start_time: str, finish_time: str,
+                 device_count: int) -> None:
+        self.job_id = job_id
+        self.card_time = card_time
+        self.create_time = create_time
+        self.start_time = start_time
+        self.finish_time = finish_time
+        self.device_count = device_count
+
+    def to_json(self):
+        job_info = {
+            "jobId": self.job_id,
+            "cardTime": self.card_time,
+            "createTime": self.create_time,
+            "startTime": self.start_time,
+            "finishTime": self.finish_time,
+            "deviceCount": self.device_count
+        }
+        return job_info
+
+
+class Detail:
+    user_name: str
+    job_info_list: List[JobInfo]
+    job_count: int
+    total_card_time: float
+
+    def __init__(self, user_name: str, job_info_list: List[JobInfo], job_count: int, total_card_time: float) -> None:
+        self.user_name = user_name
+        self.job_info_list = job_info_list
+        self.job_count = job_count
+        self.total_card_time = total_card_time
+
+    def __str__(self):
+        json.dumps(self.__dict__)
+
+    def to_str(self):
+        return "Detail: user name: {}, job info list: {}, job count: {}, total card time: {},". \
+            format(self.user_name, self.job_info_list, self.job_count, self.total_card_time)
+
+
+class CardTimeResult:
+    queue_name: str
+    card_time: float
+    device_type: str
+    detail: List[Detail]
+
+    def __init__(self, queue_name: str, card_time: float, device_type: str, detail: List[Detail]) -> None:
+        self.queue_name = queue_name
+        self.card_time = card_time
+        self.device_type = device_type
+        self.detail = detail
+
+    def __str__(self):
+        return "Detail: queue name: {}, card time: {}, device type: {}, detail: {},". \
+            format(self.queue_name, self.card_time, self.device_type, self.detail)
+
+
+class CardTimeInfo:
+    data: List[CardTimeResult]
+
+    def __init__(self, data: List[CardTimeResult]) -> None:
+        self.data = data
+
+    def __str__(self) -> str:
+        """ str """
+        return "CardTimeInfo: data: {}".format(self.data)
+
+    @staticmethod
+    def from_json(card_time_stat_info):
+        card_time_info = CardTimeInfo(
+            data=[],
+        )
+        try:
+            for result_json in card_time_stat_info['data']:
+                result = CardTimeResult(
+                    queue_name=result_json['queueName'],
+                    card_time=result_json['cardTime'],
+                    device_type=result_json['deviceType'],
+                    detail=[]
+                )
+                try:
+                    for detail_json in result_json['detail']:
+                        detail = Detail(
+                            user_name=detail_json['userName'],
+                            job_info_list=[],
+                            job_count=detail_json['jobCount'],
+                            total_card_time=detail_json['totalCardTime']
+                        )
+                        try:
+                            for job_info_json in detail_json['jobInfoList']:
+                                job_info = JobInfo(
+                                    job_id=job_info_json['jobId'],
+                                    card_time=job_info_json['cardTime'],
+                                    create_time=job_info_json['createTime'],
+                                    start_time=job_info_json['startTime'],
+                                    finish_time=job_info_json['finishTime'],
+                                    device_count=job_info_json['deviceCount'],
+                                )
+                                detail.job_info_list.append(job_info)
+                        except:
+                            pass
+                        result.detail.append(detail)
+                except:
+                    pass
+                card_time_info.data.append(result)
+        except:
+            pass
+        return card_time_info
