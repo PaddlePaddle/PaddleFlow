@@ -73,9 +73,205 @@ PaddleFlow通过主机网络的方式使用RDMA网络，需要root权限、挂�
 |---|---|---|
 |容器root权限| |
 |挂载设备到容器|挂载 /dev/infiniband 设备目录到容器内|
-|NCCL相关配置|使用环境变量配置：<br> NCCL_SOCKET_IFNAME=xgbe0  <br> NCCL_IB_DISABLE="0"  <br> NCCL_IB_GID_INDEX="3"  <br> NCCL_IB_HCA="mlx5_0"  </br> NCCL_DEBUG=INFO </br> | 相关参数说明：<br> NCCL_SOCKET_IFNAME，该环境变量指定IB设备名称 <br> NCCL_IB_DISABLE，该环境变量指定是否使用 IB/RDMA 网络 <br> NCCL_IB_GID_INDEX，该环境变量指定用IB设备的哪个index来跑ROCE v2 <br> NCCL_IB_HCA， 该环境变量用于获取虚机用的哪个IB设备 |
+|NCCL相关配置|使用环境变量配置：<br> NCCL_SOCKET_IFNAME=xgbe0  <br> NCCL_IB_DISABLE="0"  <br> NCCL_IB_GID_INDEX="3"  <br> NCCL_IB_HCA="mlx5_0"  </br> NCCL_DEBUG=INFO </br> NCCL_IB_TIMEOUT=22 | 相关参数说明：<br> NCCL_SOCKET_IFNAME，该环境变量指定IB设备名称 <br> NCCL_IB_DISABLE，该环境变量指定是否使用 IB/RDMA 网络 <br> NCCL_IB_GID_INDEX，该环境变量指定用IB设备的哪个index来跑ROCE v2 <br> NCCL_IB_HCA， 该环境变量用于获取虚机用的哪个IB设备 |
 
 注意：启动容器的时候，加上 --ulimit memlock=-1:-1，解决 "Couldn/t allocate MR" 报错。
 
 ## 3.2 基于device-plugin的高性能网络使用
 作业提交时，在Flavour中直接设置rdma资源名称，例如：可以是 `rdma/hca: 1`
+
+# 4、 PaddleJob用RMDA高性能网络示例
+
+## 4.1 通过PaddleFLow提交作业
+```shell
+$ paddleflow job create distributed paddle_job_with_rdma.json
+```
+作业配置paddle_job_with_rdma.json文件如下：
+```json
+{
+  "name": "llama2",
+  "labels": null,
+  "annotations": null,
+  "framework": "paddle",
+  "schedulingPolicy": {
+      "queue": "default-queue"
+  },
+  "members": [
+    {
+        "command": "cd /home/work/llama && NCCL_IB_GID_INDEX=3 && sh train_llama.sh",
+        "replicas": 2,
+        "image": "paddlepaddle/paddlenlp:2.4.0-gpu-cuda11.2-cudnn8",
+        "role": "worker",
+        "flavour": {
+            "cpu": "168",
+            "mem": "1600Gi",
+            "scalarResources": {
+                "nvidia.com/gpu": "8"
+            }
+        }
+    }
+  ],
+  "extensionTemplate": {
+    "apiVersion": "batch.paddlepaddle.org/v1",
+    "kind": "PaddleJob",
+    "metadata": {
+        "name": "paddle-job",
+        "namespace": "default"
+    },
+    "spec": {
+        "cleanPodPolicy": "Never",
+        "intranet": "PodIP",
+        "schedulingPolicy": {
+            "minAvailable": 21,
+            "priorityClass": "normal",
+        },
+        "withGloo": 1,
+        "worker": {
+            "replicas": 21,
+            "template": {
+                "metadata": {
+                    "labels": {
+                        "owner": "paddleflow"
+                    },
+                    "name": "job-05858197b74e4e5d-842",
+                    "namespace": "default"
+                },
+                "spec": {
+                    "containers": [
+                        {
+                            "command": [
+                                "sh",
+                                "-c",
+                                "cd cd /home/work/llama && NCCL_IB_GID_INDEX=3 && sh train_llama.sh"
+                            ],
+                            "env": [
+                                {
+                                    "name": "NCCL_SOCKET_IFNAME",
+                                    "value": "xgbe0"
+                                },
+                                {
+                                    "name": "NCCL_IB_GID_INDEX",
+                                    "value": "3"
+                                },
+                                {
+                                    "name": "NCCL_IB_DISABLE",
+                                    "value": "0"
+                                },
+                                 {
+                                    "name": "NCCL_IB_TIMEOUT",
+                                    "value": "22"
+                                },
+                                {
+                                    "name": "NCCL_IB_HCA",
+                                    "value": "mlx5_0,mlx5_3"
+                                }
+                            ],
+                            "name": "job-05858197b74e4e5d-842",
+                            "securityContext": {
+                                "capabilities": {
+                                    "add": [
+                                        "SYS_ADMIN",
+                                        "IPC_LOCK",
+                                        "SYS_RESOURCE"
+                                    ]
+                                },
+                                "privileged": true
+                            },
+                            "volumeMounts": [
+                                {
+                                    "mountPath": "/dev/shm",
+                                    "name": "cache-volume"
+                                },
+                                {
+                                    "mountPath": "/dev/infiniband",
+                                    "name": "ib-devices"
+                                }
+                            ]
+                        }
+                    ],
+                    "hostNetwork": true,
+                    "priorityClassName": "normal",
+                    "restartPolicy": "Never",
+                    "schedulerName": "volcano",
+                    "terminationGracePeriodSeconds": 30,
+                    "volumes": [
+                        {
+                            "emptyDir": {
+                                "medium": "Memory",
+                                "sizeLimit": "600Gi"
+                            },
+                            "name": "cache-volume"
+                        },
+                        {
+                            "hostPath": {
+                                "path": "/dev/infiniband"
+                            },
+                            "name": "ib-devices"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
+}
+
+```
+
+## 4.2 PaddleJob yaml文件
+```yaml
+apiVersion: batch.paddlepaddle.org/v1
+kind: PaddleJob
+metadata:
+  name: default-name
+spec:
+  cleanPodPolicy: OnCompletion
+  withGloo: 1
+  worker:
+    replicas: 2
+    template:
+      spec:
+        containers:
+          - name: worker-name
+            command:
+            - bash 
+            - -c 
+            - ulimit -l unlimited && ${START_CMD}
+            env:
+            - name: NCCL_DEBUG
+              value: INFO
+            - name: NCCL_DEBUG_SUBSYS
+              value: ALL/COLL
+            - name: NCCL_SOCKET_IFNAME
+              value: xgbe0
+            - name: NCCL_IB_GID_INDEX
+              value: "3"
+            - name: NCCL_IB_DISABLE
+              value: "0"
+            - name: NCCL_IB_HCA
+              value: "mlx5_0,mlx5_1,mlx5_2,mlx5_3,mlx5_4,mlx5_5,mlx5_6,mlx5_7"
+            image: paddlepaddle/paddlenlp:2.4.0-gpu-cuda11.2-cudnn8
+            securityContext:
+              priveleged: true
+              capabilities:
+                add: 
+                - "SYS_ADMIN"
+                - "SYS_RESOURCE"
+                - "IPC_LOCK"
+            volumeMounts:
+            - mountPath: /dev/shm
+              name: cache-volume
+            - mountPath: /dev/infiniband
+              name: ib-devices
+        terminationGracePeriodSeconds: 30
+        hostNetwork: true
+        restartPolicy: Never
+        volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 240Gi
+          name: cache-volume
+        - hostPath:
+            path: /dev/infiniband
+          name: ib-devices
+```
