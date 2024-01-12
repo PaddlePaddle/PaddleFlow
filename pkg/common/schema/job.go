@@ -34,16 +34,11 @@ const (
 	EnvJobUserName  = "PF_USER_NAME"
 	EnvJobMode      = "PF_JOB_MODE"
 	EnvJobFramework = "PF_JOB_FRAMEWORK"
-	// EnvJobYamlPath Additional configuration for a specific job
-	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
-	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
 	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
 	EnvJobWorkDir = "PF_WORK_DIR"
 	EnvMountPath  = "PF_MOUNT_PATH"
 
 	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
-
-	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
 
 	// EnvJobModePS env
 	EnvJobModePS = "PS"
