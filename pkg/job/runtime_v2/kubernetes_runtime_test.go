@@ -226,6 +226,38 @@ func TestKubeRuntimeJob(t *testing.T) {
 	t.SkipNow()
 }
 
+func TestKubeRuntimeSyncController(t *testing.T) {
+	driver.InitMockDB()
+	config.GlobalServerConfig = &config.ServerConfig{}
+	err := storage.Queue.CreateQueue(&model.Queue{
+		Name:   "default-queue",
+		Status: schema.StatusQueueOpen,
+	})
+	assert.Equal(t, nil, err)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	t.Run("test sync controller", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		kubeRuntime.SyncController(stopCh)
+	})
+
+	t.Run("sync controller failed", func(t *testing.T) {
+		ch := make(chan struct{})
+		defer close(ch)
+		kubeRuntime.kubeClient = nil
+		kubeRuntime.SyncController(ch)
+	})
+}
+
 func TestKubeRuntimePVAndPVC(t *testing.T) {
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()

@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +42,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -150,12 +150,18 @@ func (k3srs *K3SRuntimeService) Client() framework.RuntimeClientInterface {
 }
 
 func (k3srs *K3SRuntimeService) SyncController(stopCh <-chan struct{}) {
-	log.Infof("start job/queue controller on %s", k3srs.String())
-	var err error
-	jobQueueSync := os.Getenv(pfschema.EnvEnableJobQueueSync)
-	if jobQueueSync == "false" {
-		log.Warnf("skip job and queue syn controller on %s", k3srs.String())
-	} else {
+	// 1. init node resource controller
+	nodeResourceController := controller.NewNodeResourceSync()
+	err := nodeResourceController.Initialize(k3srs.client)
+	if err != nil {
+		log.Errorf("init node resource controller on %s failed, err: %v", k3srs.String(), err)
+		return
+	}
+	go nodeResourceController.Run(stopCh)
+
+	// 2. start job controller if the cluster has queues
+	queues := storage.Queue.ListQueuesByCluster(k3srs.cluster.ID)
+	if len(queues) > 0 {
 		jobController := controller.NewJobSync()
 		err = jobController.Initialize(k3srs.client)
 		if err != nil {
@@ -164,14 +170,6 @@ func (k3srs *K3SRuntimeService) SyncController(stopCh <-chan struct{}) {
 		}
 		go jobController.Run(stopCh)
 	}
-
-	nodeResourceController := controller.NewNodeResourceSync()
-	err = nodeResourceController.Initialize(k3srs.client)
-	if err != nil {
-		log.Errorf("init node resource controller on %s failed, err: %v", k3srs.String(), err)
-		return
-	}
-	go nodeResourceController.Run(stopCh)
 }
 
 func (k3srs *K3SRuntimeService) getNodeName() (string, error) {
