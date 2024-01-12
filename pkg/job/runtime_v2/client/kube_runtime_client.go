@@ -358,10 +358,6 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 			capacity[resourceName] = rValue.String()
 		}
 	}
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	labels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(node)
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
 		Status:   getNodeStatus(node),
@@ -389,6 +385,8 @@ func (n *NodeHandler) UpdateNode(old, new interface{}) {
 
 	oldLabels := getLabels(n.labelKeys, oldNode.Labels)
 	newLabels := getLabels(n.labelKeys, newNode.Labels)
+	oldLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(oldNode)
+	newLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(newNode)
 
 	if oldStatus == newStatus &&
 		reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) &&
