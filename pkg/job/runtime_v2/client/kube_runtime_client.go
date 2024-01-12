@@ -373,7 +373,9 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 
 func (n *NodeHandler) AddNode(obj interface{}) {
 	node := obj.(*corev1.Node)
-	n.addQueue(node, pfschema.Create, getLabels(n.labelKeys, node.GetLabels()))
+	nodeLabels := getLabels(n.labelKeys, node.GetLabels())
+	nodeLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(node)
+	n.addQueue(node, pfschema.Create, nodeLabels)
 }
 
 func (n *NodeHandler) UpdateNode(old, new interface{}) {
