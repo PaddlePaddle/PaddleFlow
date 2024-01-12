@@ -373,9 +373,7 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 
 func (n *NodeHandler) AddNode(obj interface{}) {
 	node := obj.(*corev1.Node)
-	nodeLabels := getLabels(n.labelKeys, node.GetLabels())
-	nodeLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(node)
-	n.addQueue(node, pfschema.Create, nodeLabels)
+	n.addQueue(node, pfschema.Create, n.getNodeLabels(node))
 }
 
 func (n *NodeHandler) UpdateNode(old, new interface{}) {
@@ -385,10 +383,8 @@ func (n *NodeHandler) UpdateNode(old, new interface{}) {
 	oldStatus := getNodeStatus(oldNode)
 	newStatus := getNodeStatus(newNode)
 
-	oldLabels := getLabels(n.labelKeys, oldNode.Labels)
-	newLabels := getLabels(n.labelKeys, newNode.Labels)
-	oldLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(oldNode)
-	newLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(newNode)
+	oldLabels := n.getNodeLabels(oldNode)
+	newLabels := n.getNodeLabels(newNode)
 
 	if oldStatus == newStatus &&
 		reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) &&
@@ -405,6 +401,19 @@ func (n *NodeHandler) UpdateNode(old, new interface{}) {
 func (n *NodeHandler) DeleteNode(obj interface{}) {
 	node := obj.(*corev1.Node)
 	n.addQueue(node, pfschema.Delete, nil)
+}
+
+// getNodeLabels 函数用于获取 NodeHandler 中给定 node 的标签。
+// 如果 node 为 nil，则返回 nil。
+// 参数 node 是一个 corev1.Node 指针，表示需要获取标签的节点。
+// 返回一个 map[string]string 类型的标签，表示从给定节点中获取到的标签。
+func (n *NodeHandler) getNodeLabels(node *corev1.Node) map[string]string {
+	if node == nil {
+		return nil
+	}
+	nodeLabels := getLabels(n.labelKeys, node.Labels)
+	nodeLabels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(node)
+	return nodeLabels
 }
 
 func (n *NodeHandler) getNodeCardType(node *corev1.Node) string {
