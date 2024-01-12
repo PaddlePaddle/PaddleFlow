@@ -248,8 +248,18 @@ func TestK3SRuntime_SyncController(t *testing.T) {
 		cluster: &schema.Cluster{Name: "test-cluster", Type: schema.K3SType},
 		client:  kubeClient,
 	}
-	ch := make(chan struct{})
-	kubeRuntime.SyncController(ch)
+	driver.InitMockDB()
+	err := storage.Queue.CreateQueue(&model.Queue{
+		Name:   "default-queue",
+		Status: schema.StatusQueueOpen,
+	})
+	assert.Equal(t, nil, err)
+
+	t.Run("sync controller", func(t *testing.T) {
+		ch := make(chan struct{})
+		defer close(ch)
+		kubeRuntime.SyncController(ch)
+	})
 }
 
 func TestK3SRuntime_GetLog(t *testing.T) {
