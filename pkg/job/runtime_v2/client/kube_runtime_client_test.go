@@ -19,6 +19,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
-	"net/http/httptest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -258,6 +258,19 @@ func TestNodeListener(t *testing.T) {
 	}
 
 	runtimeClient := NewFakeKubeRuntimeClient(server)
+	// create nodes
+	fakeNode := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "fake-node",
+			Annotations: map[string]string{
+				pfschema.PFNodeCardTypeAnno: "NVIDIA V100-SXM4-16GB",
+			},
+			Labels: map[string]string{
+				"node-role.kubernetes.io/master": "a",
+			},
+		},
+	}
+	runtimeClient.Client.CoreV1().Nodes().Create(context.TODO(), fakeNode, metav1.CreateOptions{})
 	// init 2k nodes
 	var nodeCount = 2000
 	err := kubeutil.CreateNodes(runtimeClient.Client, nodeCount, reqList, kubeutil.NodeCondList, labelList, annoList)
@@ -277,6 +290,9 @@ func TestNodeListener(t *testing.T) {
 		}
 	}, 0, stopCh)
 
+	// update nodes
+	fakeNode.Annotations[pfschema.PFNodeCardTypeAnno] = "NVIDIA V100-SXM4-32GB"
+	runtimeClient.Client.CoreV1().Nodes().Update(context.TODO(), fakeNode, metav1.UpdateOptions{})
 	for nodeQueue.Len() != 0 {
 		time.Sleep(10 * time.Millisecond)
 	}
