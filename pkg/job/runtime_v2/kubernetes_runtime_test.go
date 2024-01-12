@@ -249,6 +249,13 @@ func TestKubeRuntimeSyncController(t *testing.T) {
 		defer close(stopCh)
 		kubeRuntime.SyncController(stopCh)
 	})
+
+	t.Run("sync controller failed", func(t *testing.T) {
+		ch := make(chan struct{})
+		defer close(ch)
+		kubeRuntime.kubeClient = nil
+		kubeRuntime.SyncController(ch)
+	})
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {

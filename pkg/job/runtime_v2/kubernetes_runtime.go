@@ -51,6 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -678,7 +679,7 @@ func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
 	for _, event := range events {
 		// Type-Reason-Timestamp-Message
 		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
-			event.Type, event.Reason, event.CreationTimestamp.Format("2006-01-02 15:04:05"), event.Message)
+			event.Type, event.Reason, event.CreationTimestamp.Format(model.TimeFormat), event.Message)
 		formatedEvents = append(formatedEvents, str)
 	}
 	formatedEvents = logPage.SlicePaging(formatedEvents)

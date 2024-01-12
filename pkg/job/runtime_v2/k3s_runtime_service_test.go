@@ -260,6 +260,13 @@ func TestK3SRuntime_SyncController(t *testing.T) {
 		defer close(ch)
 		kubeRuntime.SyncController(ch)
 	})
+
+	t.Run("sync controller failed", func(t *testing.T) {
+		ch := make(chan struct{})
+		defer close(ch)
+		kubeRuntime.client = nil
+		kubeRuntime.SyncController(ch)
+	})
 }
 
 func TestK3SRuntime_GetLog(t *testing.T) {
