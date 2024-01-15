@@ -172,7 +172,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 	}
 	if fh.streamReader == nil {
 		log.Debugf("init reader %s flags[%d] off[%d]", fh.path, fh.flags, off)
-		resp, err := fh.ufs.Get(fh.path, fh.flags, off, fh.size)
+		resp, err := fh.ufs.Get(fh.path, fh.flags, off, fh.size-off)
 		if err != nil {
 			log.Errorf("ufs get err %v", err)
 			return 0, err
