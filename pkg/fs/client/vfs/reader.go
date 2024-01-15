@@ -116,6 +116,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 					return 0, syscall.EBADF
 				}
 				if nread == 0 {
+					log.Infof("readFromStream nread 0 bytesRead %v off %v", bytesRead, off)
 					break
 				}
 			}
@@ -126,6 +127,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 					return 0, syscall.EBADF
 				}
 				if nread == 0 {
+					log.Infof("ENOMEM readFromStream nread 0 bytesRead %v off %v", bytesRead, off)
 					break
 				}
 			}
@@ -170,8 +172,9 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 	}
 	if fh.streamReader == nil {
 		log.Debugf("init reader %s flags[%d] off[%d]", fh.path, fh.flags, off)
-		resp, err := fh.ufs.Get(fh.path, fh.flags, off, 0)
+		resp, err := fh.ufs.Get(fh.path, fh.flags, off, fh.size)
 		if err != nil {
+			log.Errorf("ufs get err %v", err)
 			return 0, err
 		}
 		fh.streamReader = resp
