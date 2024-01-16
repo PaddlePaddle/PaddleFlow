@@ -3,7 +3,6 @@ package service
 import (
 	"bufio"
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -145,23 +144,23 @@ func CmdWarmup() *cli.Command {
 }
 
 // preheatRecursive 用于递归预热目录
-func preheatRecursive(dirPath string) error {
-	fmt.Println("Recursively preheating directory:", dirPath)
-	// 递归遍历目录
-	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			fmt.Println("Error:", err)
-			return err
-		}
-		fmt.Println(path)
-		return nil
-	})
-
-	if err != nil {
-		fmt.Println("Error during WalkDir:", err)
-	}
-	return err
-}
+//func preheatRecursive(dirPath string) error {
+//	fmt.Println("Recursively preheating directory:", dirPath)
+//	// 递归遍历目录
+//	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+//		if err != nil {
+//			fmt.Println("Error:", err)
+//			return err
+//		}
+//		fmt.Println(path)
+//		return nil
+//	})
+//
+//	if err != nil {
+//		fmt.Println("Error during WalkDir:", err)
+//	}
+//	return err
+//}
 
 func concurrentRecursiveWalk(root string) error {
 	var wg sync.WaitGroup
