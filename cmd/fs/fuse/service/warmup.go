@@ -192,7 +192,7 @@ func concurrentRecursiveWalk(root string) error {
 
 func walkAndProcess(path string, wg *sync.WaitGroup, errCh chan error) error {
 	wg.Add(1)
-	pool.Submit(func() {
+	_ = pool.Submit(func() {
 		defer wg.Done()
 		dirEntries, err := os.ReadDir(path)
 		if err != nil {
@@ -203,7 +203,7 @@ func walkAndProcess(path string, wg *sync.WaitGroup, errCh chan error) error {
 		for _, entry := range dirEntries {
 			fullPath := filepath.Join(path, entry.Name())
 			entry_ := entry
-			pool.Submit(func() {
+			_ = pool.Submit(func() {
 				if entry_.IsDir() {
 					// 递归调用
 					walkAndProcess(fullPath, wg, errCh)
