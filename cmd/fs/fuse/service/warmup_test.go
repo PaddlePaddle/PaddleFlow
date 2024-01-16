@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/panjf2000/ants/v2"
 	"os"
 	"strconv"
 	"testing"
@@ -56,9 +57,10 @@ func Test_warmup_(t *testing.T) {
 			wantErr: false,
 		},
 	}
+	pool, _ = ants.NewPool(3)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := warmup_(tt.args.fname, tt.args.paths, tt.args.threads, tt.args.warmType); (err != nil) != tt.wantErr {
+			if err := warmup_(tt.args.fname, tt.args.paths, tt.args.threads, tt.args.warmType, false); (err != nil) != tt.wantErr {
 				t.Errorf("warmup_() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

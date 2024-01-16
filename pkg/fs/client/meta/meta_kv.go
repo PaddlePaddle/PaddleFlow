@@ -1460,11 +1460,17 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	var parentIno Ino
 	now := time.Now()
 	var fromCache bool
+	if inode == rootInodeID {
+		log.Infof("root readdir %v", inode)
+		attrTmp := &Attr{}
+		err := m.GetAttr(ctx, inode, attrTmp)
+		if err != 0 {
+			log.Errorf("get attr err %v", err)
+			return syscall.EBADF
+		}
+	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
-		if buf == nil {
-			return syscall.ENOENT
-		}
 		m.parseInode(buf, dirInodeItem)
 		parentIno = dirInodeItem.parentIno
 		entry := tx.Get(m.entryKey(parentIno, string(dirInodeItem.name)))
