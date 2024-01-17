@@ -268,7 +268,7 @@ func (n *NodeTaskHandler) addQueue(pod *v1.Pod, action schema.ActionType, status
 		Labels:    labels,
 		Action:    action,
 	}
-	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %v", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status)
+	log.Infof("WatchTaskSync: %s, watch %s event for task %s/%s with status %v, annotations: %v", n.cluster, action, pod.Namespace, pod.Name, nodeTaskSync.Status, pod.Annotations)
 	n.workQueue.Add(nodeTaskSync)
 }
 
