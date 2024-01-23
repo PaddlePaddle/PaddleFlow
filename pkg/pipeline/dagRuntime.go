@@ -347,7 +347,7 @@ func (drt *DagRuntime) Start() {
 	view := drt.newView("begin to run")
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to run")
 
-	// 监听子节点已经父节点传递过来的事件或者信号
+	// 监听子节点以及父节点传递过来的事件或者信号
 	go drt.Listen()
 
 	// 开始调度子节点

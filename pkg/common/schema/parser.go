@@ -711,7 +711,7 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			for annoKey, annoValue := range refValue {
 				value, ok := annoValue.(string)
 				if !ok {
-					fmt.Errorf("values in [annotations] should be string type")
+					return fmt.Errorf("values in [annotations] should be string type")
 				}
 				member.SetAnnotations(annoKey, value)
 			}
@@ -726,7 +726,7 @@ func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, i
 			for labelKey, labelValue := range refValue {
 				value, ok := labelValue.(string)
 				if !ok {
-					fmt.Errorf("values in [labels] should be string type")
+					return fmt.Errorf("values in [labels] should be string type")
 				}
 				member.SetLabels(labelKey, value)
 			}

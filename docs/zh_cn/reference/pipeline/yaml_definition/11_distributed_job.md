@@ -79,7 +79,7 @@ member自定义的labels，map类型。
 member运行的自定义环境变量，map类型。
 - 如果Member中没有定义env字段，Member的env将包含所在Step的env。
 - 如果Member中定义了环境变量，所在Step的env中不包含Member中定义的env名称，member的env将会在此基础上追加所在Step的env。
-- 如果Member中定义了环境变量，且所在Step的env中包含Member中定义的env名称，则Member实际使用的该环境变量值为Member指定的env环境变量值，即Member指定的ENV环境变量优先级高于其所在Step的env环境变量。
+- 如果Member中定义了环境变量，且所在Step的env中包含Member中定义的env名称，则Member实际使用的该环境变量值为Member指定的env环境变量值，即Member指定的非系统环境变量优先级高于其所在Step的非系统环境变量。
 
 ### 2.2.10 fs
 member运行的自定义fs，map类型。
