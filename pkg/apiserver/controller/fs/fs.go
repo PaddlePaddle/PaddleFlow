@@ -306,7 +306,7 @@ func (s *FileSystemService) checkFsMountedAllClustersAndScheduledJobs(fsID strin
 		if err != nil {
 			err := fmt.Errorf("check fs[%s] mounted in cluster[%s] err: %v", fsID, cluster.Name, err)
 			log.Errorf(err.Error())
-			return false, nil, err
+			continue
 		}
 		if mounted {
 			return true, nil, nil
@@ -378,14 +378,19 @@ func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRun
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
-				return err
+				err = fmt.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				log.Error(err.Error())
+				errorsSlice = append(errorsSlice, err.Error())
 			}
 		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
 	}
 	return nil
 }
@@ -592,25 +597,15 @@ func (s *FileSystemService) SessionToken(username, fsName string) (*GetStsRespon
 	if duration < 60 || duration > 129600 {
 		return nil, fmt.Errorf("duration must be in [60,129600]")
 	}
-	acl := properties[fsCommon.StsACL]
+	acl_ := properties[fsCommon.StsACL]
 	subpath := modelsFs.SubPath
 	subpath = formatSubpath(subpath)
 
-	if acl == "" {
-		acl = fmt.Sprintf(`
-	{
-	   "accessControlList": [
-	   {
-	       "effect": "Allow",
-	       "resource": ["%s/%s*"],
-	       "region": "%s",
-	       "service": "bce:bos",
-	       "permission": ["READ","WRITE","LIST","GetObject"]
-	   }
-	   ]
-	}`, modelsFs.PropertiesMap[fsCommon.Bucket], subpath, properties[fsCommon.Region])
+	if acl_ == "" {
+		acl_ = acl(modelsFs.PropertiesMap[fsCommon.Bucket], properties[fsCommon.Region], subpath)
 	}
-	stsResult, err := object.StsSessionToken(ak, sk, duration, acl)
+
+	stsResult, err := object.StsSessionToken(ak, sk, duration, acl_)
 	if err != nil {
 		log.Errorf("StsSessionToken: %v", err)
 		return nil, err
@@ -642,4 +637,22 @@ func formatSubpath(subpath string) string {
 		subpath = ""
 	}
 	return subpath
+}
+
+func acl(bucket, region, subpath string) string {
+	if subpath == "" {
+		return ""
+	}
+	return fmt.Sprintf(`
+	{
+	   "accessControlList": [
+	   {
+	       "effect": "Allow",
+	       "resource": ["%s/%s*"],
+	       "region": "%s",
+	       "service": "bce:bos",
+	       "permission": ["READ","WRITE","LIST","GetObject"]
+	   }
+	   ]
+	}`, bucket, subpath, region)
 }

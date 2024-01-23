@@ -40,7 +40,7 @@ type Writer interface {
 
 type Store interface {
 	NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage,
-		buffers ReadBufferMap, bufferPool *BufferPool, seqReadAmount uint64) Reader
+		buffers ReadBufferMap, bufferPool *BufferPool, seqReadAmount uint64, bufferLock *sync.RWMutex) Reader
 	NewWriter(name string, length int, ufsFh ufs.FileHandle) Writer
 	InvalidateCache(name string, length int) error
 }
@@ -53,9 +53,10 @@ type ReadCloser interface {
 
 type Config struct {
 	kv.Config
-	BlockSize    int
-	MaxReadAhead int
-	Expire       time.Duration
+	BlockSize      int
+	MaxReadAhead   int
+	FreeSpaceRatio float64
+	Expire         time.Duration
 }
 
 type store struct {
@@ -80,9 +81,9 @@ func NewCacheStore(config Config) Store {
 }
 
 func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
-	bufferPool *BufferPool, seqReadAmount uint64) Reader {
+	bufferPool *BufferPool, seqReadAmount uint64, bufferLock *sync.RWMutex) Reader {
 	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs,
-		buffers: buffers, bufferPool: bufferPool, seqReadAmount: seqReadAmount}
+		buffers: buffers, bufferPool: bufferPool, seqReadAmount: seqReadAmount, lock: bufferLock}
 }
 
 func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {

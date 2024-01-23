@@ -1,6 +1,7 @@
 package ufs
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -20,9 +21,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/baidubce/bce-sdk-go/auth"
+	"github.com/baidubce/bce-sdk-go/bce"
 	"github.com/baidubce/bce-sdk-go/services/bos"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/panjf2000/ants/v2"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
@@ -43,10 +46,10 @@ func init() {
 
 const MiB int64 = 1024 * 1024
 const GiB int64 = 1024 * 1024 * 1024
-
-var duration int
+const COPY_LIMIT = uint64(5 * 1024 * 1024 * 1024)
 
 var chunkPool = &sync.Pool{New: func() interface{} { return make([]byte, MPUChunkSize) }}
+var duration int
 
 type objectFileSystem struct {
 	subPath     string // bucket:subPath/name
@@ -54,6 +57,7 @@ type objectFileSystem struct {
 	defaultTime time.Time
 	sync.Mutex
 	chunkPool *sync.Pool
+	copyPool  *ants.Pool
 }
 
 type objectFileHandle struct {
@@ -72,10 +76,7 @@ type objectFileHandle struct {
 
 func (fh *objectFileHandle) Read(dest []byte, off uint64) (int, error) {
 	l := uint64(len(dest))
-	if off >= l {
-		return 0, nil
-	}
-	if fh.size == 0 {
+	if off >= fh.size {
 		return 0, nil
 	}
 
@@ -197,8 +198,6 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
 	}
-	var response *object.HeadObjectOutput
-	var err error
 	dirChan := make(chan *object.ListBlobsOutput, 1)
 	objectChan := make(chan *object.HeadObjectOutput, 2)
 	errDirBlobChan := make(chan error, 1)
@@ -210,13 +209,25 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 	// 1. check if key exists
 	go func() {
-		response, err = fs.storage.Head(fileKey)
-		if err != nil {
-			errObjectChan <- err
+		var response *object.HeadObjectOutput
+		var headErr error
+		for i := 0; i < 5; i++ {
+			response, headErr = fs.storage.Head(fileKey)
+			if headErr != nil && !isNotExistErr(headErr) {
+				log.Errorf("Head[%v] object err: %v", i, headErr)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if headErr != nil {
+			log.Debugf("Head object err: %v", headErr)
+			errObjectChan <- headErr
 			return
 		}
 		objectChan <- response
 	}()
+
 	// 2. check if dir exists with dir key not exist
 	go func() {
 		listInput := &object.ListInput{
@@ -224,18 +235,41 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			MaxKeys:   1,
 			Delimiter: Delimiter,
 		}
-		dirs, err := fs.storage.List(listInput)
-		if err != nil {
-			errDirChan <- err
+		var dirs *object.ListBlobsOutput
+		var errList error
+		for i := 0; i < 5; i++ {
+			dirs, errList = fs.storage.List(listInput)
+			if errList != nil && !isNotExistErr(errList) {
+				log.Errorf("List[%v] object err: %v", i, errList)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if errList != nil {
+			log.Debugf("List object err: %v", errList)
+			errDirChan <- errList
 			return
 		}
 		dirChan <- dirs
 	}()
+
 	// 3. check if dir exists with dir key exists
 	go func() {
-		resp, err := fs.storage.Head(dirKey)
-		if err != nil {
-			errDirBlobChan <- err
+		var resp *object.HeadObjectOutput
+		var headErr error
+		for i := 0; i < 5; i++ {
+			resp, headErr = fs.storage.Head(dirKey)
+			if headErr != nil && !isNotExistErr(headErr) {
+				log.Errorf("Head[%v] object err: %v", i, headErr)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if headErr != nil {
+			log.Debugf("Head object err: %v", headErr)
+			errObjectChan <- headErr
 			return
 		}
 		objectChan <- resp
@@ -251,10 +285,10 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 				fInfo.Path = fs.objectKeyName(name)
 				return fInfo, nil
 			} else {
-				aTime := fuse.UtimeToTimespec(&response.LastModified)
-				size := int64(response.Size)
+				aTime := fuse.UtimeToTimespec(&resp.LastModified)
+				size := int64(resp.Size)
 				st := fillStat(1, 0, 0, 0, size, 4096, size/512, aTime, aTime, aTime)
-				mtime := uint64((response.LastModified).Unix())
+				mtime := uint64((resp.LastModified).Unix())
 				return &base.FileInfo{
 					Name:  name,
 					Path:  fileKey,
@@ -270,13 +304,13 @@ func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 			log.Errorf("errDirChan object err: %v", resp)
 			return nil, resp
 		case resp := <-errObjectChan:
-			if !isNotExistErr(resp) {
+			if resp != nil && !isNotExistErr(resp) {
 				log.Errorf("errObjectChan object err: %v", resp)
 				return nil, resp
 			}
 			checking--
 		case resp := <-errDirBlobChan:
-			if !isNotExistErr(resp) {
+			if resp != nil && !isNotExistErr(resp) {
 				log.Errorf("errDirBlobChan object err: %v", resp)
 				return nil, resp
 			}
@@ -543,10 +577,21 @@ func (fs *objectFileSystem) StatFs(name string) *base.StatfsOut {
 func (fs *objectFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	log.Tracef("s3 get: name[%s] off[%d] limit[%d] ", name, off, limit)
 	key := fs.objectKeyName(name)
-	response, err := fs.storage.Get(key, off, limit)
-	if err != nil {
-		log.Errorf("fs.storage.Get: key[%s] off[%d] limit[%d] err[%v] ", name, off, limit, err)
-		return nil, err
+	var response io.ReadCloser
+	var err error
+	for i := 0; i < 10; i++ {
+		response, err = fs.storage.Get(key, off, limit)
+		if err != nil {
+			log.Errorf("fs.storage.Get: key[%s] off[%d] limit[%d] err[%v] [%v]", name, off, limit, err, i)
+			if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "send request failed") {
+				time.Sleep(100 * time.Duration(i+1) * time.Millisecond)
+				continue
+			} else {
+				log.Errorf("fs.storage.Get not connect error: key[%s] off[%d] limit[%d] err[%v] [%v]", name, off, limit, err, i)
+				return nil, err
+			}
+		}
+		break
 	}
 	return response, err
 }
@@ -608,22 +653,43 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 			Prefix:  path,
 			MaxKeys: 1,
 		}
-		dirs, err := fs.storage.List(listInput)
-		if err != nil {
-			errDirChan <- err
+		var dirs *object.ListBlobsOutput
+		var errList error
+		for i := 0; i < 5; i++ {
+			dirs, errList = fs.storage.List(listInput)
+			if errList != nil && !isNotExistErr(errList) {
+				log.Errorf("List object err: %v", errList)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if errList != nil {
+			log.Debugf("List object err: %v", errList)
+			errDirChan <- errList
 			return
 		}
 		dirChan <- dirs
 	}()
 	go func() {
-		resp, err := fs.storage.Head(path)
-		if err != nil {
-			errObjectChan <- err
+		var resp *object.HeadObjectOutput
+		var errHead error
+		for i := 0; i < 5; i++ {
+			resp, errHead = fs.storage.Head(path)
+			if errHead != nil && !isNotExistErr(errHead) {
+				log.Errorf("Head object err: %v", errHead)
+				time.Sleep(time.Duration(i+1) * 100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if errHead != nil {
+			log.Debugf("Head object err: %v", errHead)
+			errObjectChan <- errHead
 			return
 		}
 		objectChan <- resp
 	}()
-
 	var objectNotFound bool
 	var listDirsEmpty bool
 	for {
@@ -631,7 +697,7 @@ func (fs *objectFileSystem) isDirExist(name string) error {
 		case resp := <-errDirChan:
 			return resp
 		case resp := <-errObjectChan:
-			if !isNotExistErr(resp) {
+			if resp != nil && !isNotExistErr(resp) {
 				log.Errorf("isDirExist object err: %v", resp)
 				return resp
 			}
@@ -702,11 +768,25 @@ func (fs *objectFileSystem) isEmptyDir(name string) (isDir bool, err error) {
 
 func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 	log.Tracef("s3 renameObject: [%s]->[%s]", srcName, dstName)
-	copySource, newKey := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
-	err := fs.storage.Copy(newKey, copySource)
+	resp, err := fs.storage.Head(fs.objectKeyName(srcName))
 	if err != nil {
-		log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+		log.Errorf("fs.storage.Head： srcName[%s] err[%v]", srcName, err)
 		return err
+	}
+	copySource, copyDst := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
+
+	if resp.Size > COPY_LIMIT {
+		err = fs.copyObjectMultipart(copySource, copyDst, int64(resp.Size))
+		if err != nil {
+			log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", copySource, copyDst, err)
+			return err
+		}
+	} else {
+		err = fs.storage.Copy(copyDst, copySource)
+		if err != nil {
+			log.Errorf("fs.storage.Copy： srcName[%s] dstName[%s] err[%v]", copyDst, copySource, err)
+			return err
+		}
 	}
 	dk := []string{copySource}
 	err = fs.storage.Deletes(dk)
@@ -717,6 +797,7 @@ func (fs *objectFileSystem) renameObject(srcName, dstName string) error {
 }
 
 func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) {
+
 	log.Debugf("s3 renameChildren: [%s]->[%s]", srcName, dstName)
 	prefix, newPrefix := fs.objectKeyName(srcName), fs.objectKeyName(dstName)
 	var copied []string
@@ -737,37 +818,40 @@ func (fs *objectFileSystem) renameChildren(srcName, dstName string) (err error) 
 		if copied == nil {
 			copied = make([]string, 0, len(res.Items))
 		}
-		// after the server side copy, we want to delete all the files
-		// using multi-delete, which is capped to 1000 on aws. If we
-		// are going to make an arbitrary limit that sounds like a
-		// good one (and we want to have an arbitrary limit because we
-		// don't want to rename a million objects here)
-		total := len(copied) + len(res.Items)
-		if total > 1000 || total == 1000 && res.IsTruncated {
-			return syscall.E2BIG
-		}
-		// say dir is "/a/dir" and it has "1", "2", "3", and we are
-		// moving it to "/b/" items will be a/dir/1, a/dir/2, a/dir/3,
-		// and we will copy them to b/1, b/2, b/3 respectively
-		group := new(errgroup.Group)
-		var lock sync.Mutex
+		var errBuf bytes.Buffer
+		var copiedMutex sync.Mutex
+		var wg sync.WaitGroup
 		for _, content := range res.Items {
 			tmpContent := content
-			group.Go(func() error {
+			wg.Add(1)
+			_ = fs.copyPool.Submit(func() {
+				defer wg.Done()
 				key := (tmpContent.Key)[len(prefix):]
-				err = fs.storage.Copy(newPrefix+key, tmpContent.Key)
-				if err != nil {
-					log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
-					return err
+
+				if tmpContent.Size > COPY_LIMIT {
+					err = fs.copyObjectMultipart(tmpContent.Key, newPrefix+key, int64(tmpContent.Size))
+					if err != nil {
+						log.Errorf("fs.copyObjectMultipart： copySource[%s] copyDst[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						return
+					}
+				} else {
+					err := fs.storage.Copy(newPrefix+key, tmpContent.Key)
+					if err != nil {
+						log.Errorf("fs.storage.Copy: oldKey[%s] newKey[%s] err[%v]", tmpContent.Key, newPrefix+key, err)
+						errBuf.WriteString(err.Error() + "; ")
+						return
+					}
 				}
-				lock.Lock()
+
+				copiedMutex.Lock()
 				copied = append(copied, tmpContent.Key)
-				lock.Unlock()
-				return nil
+				copiedMutex.Unlock()
 			})
 		}
-		if err = group.Wait(); err != nil {
-			return err
+		wg.Wait()
+		if errBuf.Len() > 0 {
+			log.Errorf("fs.Storage.RenameChildren: srcName[%s] dstName[%s] err[%v]", srcName, dstName, err)
+			return fmt.Errorf(errBuf.String())
 		}
 		if !res.IsTruncated {
 			break
@@ -1007,7 +1091,7 @@ func (fh *objectFileHandle) multipartUpload(partNum int64, data []byte) error {
 	for retryNum := 0; retryNum < MPURetryTimes; retryNum++ {
 		resp, err = fh.storage.UploadPart(fh.key, *fh.mpuInfo.uploadID, partNum, data)
 		if err != nil {
-			log.Errorf("fh.storage.UploadPart: key[%s] mpuInfo[%+v] err[%v] retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
+			log.Errorf("fh.storage.UploadPart: key[%s] err[%v] retryNum[%d]", fh.key, err, retryNum)
 		} else {
 			log.Debugf("mpu upload: key[%s], mpuInfo[%+v] failed. err: %v. retryNum[%d]", fh.key, fh.mpuInfo, err, retryNum)
 			fh.mpuInfo.partsETag[partNum-1] = &resp.ETag
@@ -1042,7 +1126,7 @@ func (fh *objectFileHandle) multipartCommit() error {
 	return nil
 }
 
-func (fh *objectFileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
+func partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
 	chunkSize = MPUChunkSize // chunk size = 1 GiB
 	if fileSize <= 8*GiB {   // fileSize <= 8 GiB
 		// 8 MiB, 128 parts/chunk, total: 0 ~ 1,000 parts & chunks <= 8
@@ -1072,7 +1156,7 @@ func (fh *objectFileHandle) serialMPUTillEnd() error {
 	}
 	fileSize := fInfo.Size()
 	log.Tracef("s3 mpu: fh.name[%s], fileSize[%d]", fh.name, fileSize)
-	partSize, chunkSize, _ := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, _ := partAndChunkSize(fileSize)
 	chunkCnt := fileSize / chunkSize
 	chunkLeftover := fileSize % chunkSize
 	if chunkLeftover != 0 {
@@ -1122,7 +1206,7 @@ func (fh *objectFileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []by
 	defer func() {
 		chunkPool.Put(chunk)
 	}()
-	partSize, chunkSize, partsPerChunk := fh.partAndChunkSize(fileSize)
+	partSize, chunkSize, partsPerChunk := partAndChunkSize(fileSize)
 
 	// read from file to chunk buffer
 	_, err := fh.writeTmpfile.ReadAt(chunk, chunkNum*chunkSize)
@@ -1176,7 +1260,7 @@ func (fh *objectFileHandle) MPU() error {
 	}
 
 	if err = fh.multipartCommit(); err != nil {
-		log.Debugf("fh.multipartCommit: name[%s] err[%v]",
+		log.Errorf("fh.multipartCommit: name[%s] err[%v]",
 			fh.name, err)
 		return err
 	}
@@ -1193,26 +1277,20 @@ func (fs *objectFileSystem) getBaseName(objectPath, prefix string) string {
 func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
 	var err error
 	var ok bool
-	var storage object.ObjectStorage
 
 	endpoint, _ := properties[fsCommon.Endpoint].(string)
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
-
 	accessKey, _ := properties[fsCommon.AccessKey].(string)
 	secretKey, _ := properties[fsCommon.SecretKey].(string)
-
 	bucket, _ := properties[fsCommon.Bucket].(string)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
-
 	region, _ := properties[fsCommon.Region].(string)
 	subPath, _ := properties[fsCommon.SubPath].(string)
 	objectType, _ := properties[fsCommon.Type].(string)
-
 	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
 		region = AwsDefaultRegion
 	}
-
 	var secretKey_ string
 	if accessKey != "" && secretKey != "" {
 		secretKey_, err = common.AesDecrypt(secretKey, common.GetAESEncryptKey())
@@ -1223,153 +1301,13 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 		}
 	}
 
-	switch objectType {
-	case fsCommon.S3Type:
-		awsConfig := &aws.Config{
-			Region:           aws.String(region),
-			Endpoint:         aws.String(endpoint),
-			DisableSSL:       aws.Bool(!ssl),
-			S3ForcePathStyle: aws.Bool(false),
-		}
-
-		if properties[fsCommon.S3ForcePathStyle] == "true" {
-			awsConfig.S3ForcePathStyle = aws.Bool(true)
-		}
-		if properties[fsCommon.InsecureSkipVerify] == "true" {
-			awsConfig.HTTPClient = &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			}
-		}
-
-		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
-
-		sess, err := session.NewSession(awsConfig)
-		if err != nil {
-			log.Errorf("new session fail: %v", err)
-			return nil, fmt.Errorf("fail to create s3 session: %v", err)
-		}
-
-		storage = object.NewS3Storage(bucket, s3.New(sess))
-	case fsCommon.BosType:
-		_, ok = properties[fsCommon.StsServer].(string)
-		// use stsCredential
-		if ok {
-			log.Infof("init sts")
-
-			token := properties[fsCommon.Token].(string)
-			pfClient, err := newStsServerClient(properties[fsCommon.StsServer].(string))
-			if err != nil {
-				log.Errorf("newstsClient err[%v]", err)
-				return nil, err
-			}
-			fsName, _ := properties[fsCommon.FsName].(string)
-			username, _ := properties[fsCommon.UserName].(string)
-
-			sts, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-				FsName:   fsName,
-				Username: username,
-			}, token)
-			if err != nil {
-				log.Errorf("newstsClient GetSts err[%v]", err)
-				return nil, err
-			}
-
-			subPath = sts.SubPath
-			bucket = sts.Bucket
-			region = sts.Region
-
-			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
-			if err != nil {
-				log.Errorf("AesDecrypt: err[%v]", err)
-				return nil, err
-			}
-
-			stsCredential, err := auth.NewSessionBceCredentials(
-				sts.AccessKeyId,
-				secretKey_,
-				sts.SessionToken)
-			if err != nil {
-				log.Errorf("NewSessionBceCredentials: err[%v]", err)
-				return nil, err
-			}
-
-			clientConfig := bos.BosClientConfiguration{
-				Ak:               sts.AccessKeyId,
-				Sk:               secretKey_,
-				Endpoint:         sts.Endpoint,
-				RedirectDisabled: false,
-			}
-			// 初始化一个BosClient
-			bosClient, err := bos.NewClientWithConfig(&clientConfig)
-			if err != nil {
-				log.Errorf("NewClientWithConfigl: err[%v]", err)
-				return nil, fmt.Errorf("fail to create bos client: %v", err)
-			}
-			bosClient.Config.Credentials = stsCredential
-
-			duration = sts.Duration
-			// update sts Credentials
-			go func() {
-				for {
-					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
-
-					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
-						FsName:   fsName,
-						Username: username,
-					}, token)
-					if err != nil {
-						log.Errorf("GetSts: err[%v]", err)
-						time.Sleep(1 * time.Second)
-						continue
-					}
-					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
-					stsCredential, err = auth.NewSessionBceCredentials(
-						sts.AccessKeyId,
-						secretKey_,
-						sts.SessionToken)
-					if err != nil {
-						log.Errorf("NewSessionBceCredentials: err[%v]", err)
-						time.Sleep(2 * time.Second)
-						continue
-					}
-					bosClient.Config.Credentials = stsCredential
-				}
-			}()
-			storage = object.NewBosClient(bucket, bosClient)
-		} else {
-			log.Infof("init bos")
-			clientConfig := bos.BosClientConfiguration{
-				Ak:               accessKey,
-				Sk:               secretKey_,
-				Endpoint:         endpoint,
-				RedirectDisabled: false,
-			}
-			// 初始化一个BosClient
-			bosClient, err := bos.NewClientWithConfig(&clientConfig)
-			if err != nil {
-				log.Errorf("new bos client fail: %v", err)
-				return nil, fmt.Errorf("fail to create bos client: %v", err)
-			}
-			sessionToken, ok := properties[fsCommon.BosSessionToken].(string)
-			if ok {
-				stsCredential, err := auth.NewSessionBceCredentials(
-					accessKey,
-					secretKey_,
-					sessionToken)
-				if err != nil {
-					log.Errorf("NewSessionBceCredentials err[%v]", err)
-					return nil, err
-				}
-				bosClient.Config.Credentials = stsCredential
-			}
-			storage = object.NewBosClient(bucket, bosClient)
-		}
-	default:
-		panic("object storage not found")
+	subPathTmp, storage, err := newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket, properties, ssl)
+	if err != nil {
+		log.Errorf("newStorage err %v", err)
+		return nil, err
+	}
+	if subPathTmp != "" {
+		subPath = subPathTmp
 	}
 
 	fs := &objectFileSystem{
@@ -1380,25 +1318,44 @@ func NewObjectFileSystem(properties map[string]interface{}) (UnderFileStorage, e
 			return make([]byte, MPUChunkSize)
 		}},
 	}
-
+	p, _ := ants.NewPool(1000)
+	fs.copyPool = p
 	// create subPath if not exists
 	if subPath != "" {
 		exist, err := fs.exists("")
 		if err != nil {
-			log.Debugf("s3 exists err: %v", err)
-			return nil, err
+			log.Errorf("fs exists err %v", err)
+			_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+			fs.storage = storage2
+			exist, err = fs.exists("")
+			if err != nil {
+				log.Errorf("s3 exists err: %v", err)
+				return nil, err
+			}
 		}
 		if !exist {
 			if err = fs.createEmptyDir(Delimiter); err != nil {
-				log.Errorf("s3 create empty dir err: %v", err)
-				return nil, err
+				log.Errorf("fs createEmptyDir err %v", err)
+				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				if err = fs.createEmptyDir(Delimiter); err != nil {
+					log.Errorf("s3 create empty dir err: %v", err)
+					return nil, err
+				}
 			}
 		} else {
 			// 目录存在的时候，需要判断用户是否对这个目录有owner的权限
 			_, _, err = fs.list(Delimiter, "", 1, true)
 			if err != nil {
-				log.Errorf("s3 list err: %v", err)
-				return nil, err
+				log.Errorf("fs list err %v", err)
+				_, storage2, _ := newStorage(objectType, region, endpoint, accessKey, secretKey, bucket, properties, ssl)
+				fs.storage = storage2
+				_, _, err = fs.list(Delimiter, "", 1, true)
+				if err != nil {
+					log.Errorf("s3 list err: %v", err)
+					return nil, err
+				}
+
 			}
 		}
 	}
@@ -1433,4 +1390,150 @@ func newStsServerClient(serverAddress string) (*service.PaddleFlowClient, error)
 		return nil, err
 	}
 	return pfClient, nil
+}
+
+func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket string, properties map[string]interface{}, ssl bool) (subpath string, storage object.ObjectStorage, err error) {
+	switch objectType {
+	case fsCommon.S3Type:
+		awsConfig := &aws.Config{
+			Region:           aws.String(region),
+			Endpoint:         aws.String(endpoint),
+			DisableSSL:       aws.Bool(!ssl),
+			S3ForcePathStyle: aws.Bool(false),
+			MaxRetries:       aws.Int(5),
+		}
+		if properties[fsCommon.S3ForcePathStyle] == "true" {
+			awsConfig.S3ForcePathStyle = aws.Bool(true)
+		}
+		if properties[fsCommon.InsecureSkipVerify] == "true" {
+			awsConfig.HTTPClient = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+		}
+		awsConfig.Credentials = credentials.NewStaticCredentials(accessKey, secretKey_, "")
+		sess, err := session.NewSession(awsConfig)
+		if err != nil {
+			log.Errorf("new session fail: %v", err)
+			return "", nil, fmt.Errorf("fail to create s3 session: %v", err)
+		}
+		storage = object.NewS3Storage(bucket, s3.New(sess))
+	case fsCommon.BosType:
+		_, ok := properties[fsCommon.StsServer].(string)
+		bce.NewBackOffRetryPolicy(5, 20000, 300)
+		// use stsCredential
+		if ok {
+			log.Infof("init sts")
+			token := properties[fsCommon.Token].(string)
+			pfClient, err := newStsServerClient(properties[fsCommon.StsServer].(string))
+			if err != nil {
+				log.Errorf("newstsClient err[%v]", err)
+				return "", nil, err
+			}
+			fsName, _ := properties[fsCommon.FsName].(string)
+			username, _ := properties[fsCommon.UserName].(string)
+			sts, err := pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
+				FsName:   fsName,
+				Username: username,
+			}, token)
+			if err != nil {
+				log.Errorf("newstsClient GetSts err[%v]", err)
+				return "", nil, err
+			}
+			subpath = sts.SubPath
+
+			bucket = sts.Bucket
+			region = sts.Region
+
+			secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
+			if err != nil {
+				log.Errorf("AesDecrypt: err[%v]", err)
+				return "", nil, err
+			}
+			stsCredential, err := auth.NewSessionBceCredentials(
+				sts.AccessKeyId,
+				secretKey_,
+				sts.SessionToken)
+			if err != nil {
+				log.Errorf("NewSessionBceCredentials: err[%v]", err)
+				return "", nil, err
+			}
+			clientConfig := bos.BosClientConfiguration{
+				Ak:               sts.AccessKeyId,
+				Sk:               secretKey_,
+				Endpoint:         sts.Endpoint,
+				RedirectDisabled: false,
+			}
+			// 初始化一个BosClient
+			bosClient, err := bos.NewClientWithConfig(&clientConfig)
+			if err != nil {
+				log.Errorf("NewClientWithConfigl: err[%v]", err)
+				return "", nil, fmt.Errorf("fail to create bos client: %v", err)
+			}
+			bosClient.Config.Credentials = stsCredential
+			duration = sts.Duration
+			// update sts Credentials
+			go func() {
+				for {
+					time.Sleep(time.Duration(duration-int(float64(duration)*0.8)) * time.Second)
+					sts, err = pfClient.APIV1().FileSystem().Sts(context.TODO(), &v1.GetStsRequest{
+						FsName:   fsName,
+						Username: username,
+					}, token)
+					if err != nil {
+						log.Errorf("GetSts: err[%v]", err)
+						time.Sleep(1 * time.Second)
+						continue
+					}
+					secretKey_, err = common.AesDecrypt(sts.SecretAccessKey, common.GetAESEncryptKey())
+					stsCredential, err = auth.NewSessionBceCredentials(
+						sts.AccessKeyId,
+						secretKey_,
+						sts.SessionToken)
+					if err != nil {
+						log.Errorf("NewSessionBceCredentials: err[%v]", err)
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					bosClient.Config.Credentials = stsCredential
+				}
+			}()
+			storage = object.NewBosClient(bucket, bosClient, true)
+		} else {
+			startBySts := false
+			log.Infof("init bos")
+			clientConfig := bos.BosClientConfiguration{
+				Ak:               accessKey,
+				Sk:               secretKey_,
+				Endpoint:         endpoint,
+				RedirectDisabled: false,
+			}
+			// 初始化一个BosClient
+			bosClient, err := bos.NewClientWithConfig(&clientConfig)
+			if err != nil {
+				log.Errorf("new bos client fail: %v", err)
+				return "", nil, fmt.Errorf("fail to create bos client: %v", err)
+			}
+			sessionToken, ok := properties[fsCommon.BosSessionToken].(string)
+			if ok {
+				stsCredential, err := auth.NewSessionBceCredentials(
+					accessKey,
+					secretKey_,
+					sessionToken)
+				if err != nil {
+					log.Errorf("NewSessionBceCredentials err[%v]", err)
+					return "", nil, err
+				}
+				bosClient.Config.Credentials = stsCredential
+				startBySts = true
+			}
+			storage = object.NewBosClient(bucket, bosClient, startBySts)
+		}
+	default:
+		panic("object storage not found")
+	}
+	return
 }

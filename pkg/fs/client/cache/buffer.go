@@ -20,6 +20,7 @@ import (
 	"io"
 	"sync"
 	"syscall"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -27,17 +28,18 @@ import (
 )
 
 type ReadBuffer struct {
-	ufs      ufslib.UnderFileStorage
-	nRetries uint8
-	page     *Page
-	path     string
-	flags    uint32
-	offset   uint64
-	size     uint32
-	index    int
-	lock     sync.RWMutex
-	r        *rCache
-	Buffer   *Buffer
+	ufs          ufslib.UnderFileStorage
+	nRetries     uint8
+	page         *Page
+	path         string
+	flags        uint32
+	offset       uint64
+	size         uint32
+	index        int
+	LastUsedTime time.Time
+	lock         sync.RWMutex
+	r            *rCache
+	Buffer       *Buffer
 }
 
 type ReadBufferMap map[uint64]*ReadBuffer
@@ -46,6 +48,7 @@ func (b *ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	b.nRetries = 3
 	p := &Page{r: b.r, index: b.index}
 	b.page = p.Init(pool, uint64(b.size), false, blocksize)
+	b.LastUsedTime = time.Now()
 	if b.page == nil {
 		return nil
 	}

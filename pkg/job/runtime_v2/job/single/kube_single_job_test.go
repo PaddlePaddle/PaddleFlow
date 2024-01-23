@@ -103,6 +103,7 @@ status: {}
 		JobType:   schema.TypeSingle,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
+		QueueName: "mockQueueName",
 		Conf: schema.Conf{
 			Name:    "normal",
 			Command: "sleep 200",
@@ -176,6 +177,7 @@ func TestSingleJob_Create(t *testing.T) {
 	// mockSinglePodNilContainer
 	err = json.Unmarshal(podBytes, &mockSinglePodNilContainer)
 	assert.NoError(t, err)
+	mockQueue := "mockQueueName"
 	mockSinglePodNilContainer.ID = "mockSinglePodNilContainer"
 	mockSinglePodNilContainer.ExtensionTemplate = []byte(extensionTemplateYamlNilContainer)
 	// create kubernetes resource with dynamic client
@@ -188,7 +190,8 @@ func TestSingleJob_Create(t *testing.T) {
 		{
 			caseName: "pod_test1",
 			jobObj: &api.PFJob{
-				JobType: schema.TypeSingle,
+				JobType:   schema.TypeSingle,
+				QueueName: mockQueue,
 			},
 			wantErr: fmt.Errorf("create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil"),
 			wantMsg: "create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil",

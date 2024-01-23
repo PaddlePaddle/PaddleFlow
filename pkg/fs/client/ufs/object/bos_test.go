@@ -102,18 +102,34 @@ func TestBos_Deletes(t *testing.T) {
 			fields:  fields{},
 			wantErr: true,
 		},
+		{
+			name: "sts true",
+			args: args{
+				keys: []string{"aa", "bb"},
+			},
+			fields: fields{
+				bosClient: &bos.Client{},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := Bos{
-				bucket:    tt.fields.bucket,
-				bosClient: tt.fields.bosClient,
+				bucket:     tt.fields.bucket,
+				bosClient:  tt.fields.bosClient,
+				startBySts: true,
 			}
+			p1 := gomonkey.ApplyMethod(reflect.TypeOf(&bos.Client{}), "DeleteObject", func(_ *bos.Client, bucket, object string) error {
+				return nil
+			})
+			defer p1.Reset()
 			if err := storage.Deletes(tt.args.keys); (err != nil) != tt.wantErr {
 				t.Errorf("Deletes() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+
 }
 
 func TestBos_AbortUpload(t *testing.T) {

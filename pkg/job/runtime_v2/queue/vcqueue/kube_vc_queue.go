@@ -108,6 +108,9 @@ func (vcq *KubeVCQueue) Update(ctx context.Context, q *api.QueueInfo) error {
 	}
 	vcQueue.Spec.Capability = k8s.NewResourceList(q.MaxResources)
 	vcQueue.Status.State = v1beta1.QueueState(q.Status)
+	if vcQueue.Spec.Weight < 1 {
+		vcQueue.Spec.Weight = 1
+	}
 
 	log.Infof("begin to update %s, info: %#v", vcq.String(q.Name), vcQueue)
 	if err = vcq.runtimeClient.Update(vcQueue, vcq.resourceVersion); err != nil {
@@ -153,6 +156,10 @@ func (vcq *KubeVCQueue) AddEventListener(ctx context.Context, listenerType strin
 func (vcq *KubeVCQueue) add(obj interface{}) {
 	newObj := obj.(*unstructured.Unstructured)
 	name := newObj.GetName()
+	namespace := newObj.GetAnnotations()[pfschema.QueueNamespaceAnnotation]
+	if namespace == "" {
+		namespace = "default"
+	}
 	// convert to vc queue struct
 	vcQueue := &v1beta1.Queue{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(newObj.Object, vcQueue); err != nil {
@@ -167,7 +174,7 @@ func (vcq *KubeVCQueue) add(obj interface{}) {
 		// set vc queue status
 		Status:    getVCQueueStatus(vcQueue.Status.State),
 		QuotaType: pfschema.TypeVolcanoCapabilityQuota,
-		Namespace: "default",
+		Namespace: namespace,
 	}
 	vcq.workQueue.Add(qSyncInfo)
 	log.Infof("watch %s is added", vcq.String(name))

@@ -81,6 +81,7 @@ func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirement
 			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemRequest),
 		},
 	}
+
 	var err error
 	if cpuLimit != "" {
 		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {

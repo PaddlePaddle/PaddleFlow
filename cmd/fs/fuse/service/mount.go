@@ -156,11 +156,11 @@ func setup(c *cli.Context) error {
 	}
 
 	if c.Bool("clean-cache") {
-		if c.String("meta-cache-path") != "" {
-			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("meta-cache-path"))
+		if c.String("meta-cache-path") != "" && meta.MetaCachePath != "" && meta.MetaCachePath != "/" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, meta.MetaCachePath)
 		}
-		if c.String("data-cache-path") != "" {
-			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("data-cache-path"))
+		if c.String("data-cache-path") != "" && cache.DataCachePath != "" && meta.MetaCachePath != "/" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, cache.DataCachePath)
 		}
 		if len(cleanCacheInfo.CachePaths) > 0 {
 			cleanCacheInfo.Clean = true
@@ -228,11 +228,6 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
-	defer func() {
-		if err := recover(); err != nil {
-			log.Errorf("panic err: %v %s", err, getCurrentGoroutineStack())
-		}
-	}()
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
@@ -450,10 +445,4 @@ func signalHandle(mp string) {
 			}()
 		}
 	}()
-}
-
-func getCurrentGoroutineStack() string {
-	var buf [4096]byte
-	n := runtime.Stack(buf[:], false)
-	return string(buf[:n])
 }

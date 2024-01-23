@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -324,6 +325,7 @@ type NodeHandler struct {
 	labelKeys      []string
 	cluster        string
 	resourceFilter []string
+	cardTypeAnno   string
 }
 
 func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHandler {
@@ -342,11 +344,16 @@ func NewNodeHandler(q workqueue.RateLimitingInterface, cluster string) *NodeHand
 		filters := strings.Split(resourceFilters, ",")
 		rFilter = append(rFilter, filters...)
 	}
+	cardTypeAnno := strings.TrimSpace(os.Getenv(pfschema.EnvPFNodeCardType))
+	if cardTypeAnno == "" {
+		cardTypeAnno = "gpu.topo"
+	}
 	return &NodeHandler{
 		workQueue:      q,
 		labelKeys:      labelKeys,
 		cluster:        cluster,
 		resourceFilter: rFilter,
+		cardTypeAnno:   cardTypeAnno,
 	}
 }
 
@@ -369,6 +376,10 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 			capacity[resourceName] = rValue.String()
 		}
 	}
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[pfschema.PFNodeCardTypeAnno] = n.getNodeCardType(node)
 	nodeSync := &api.NodeSyncInfo{
 		Name:     node.Name,
 		Status:   getNodeStatus(node),
@@ -376,7 +387,8 @@ func (n *NodeHandler) addQueue(node *corev1.Node, action pfschema.ActionType, la
 		Labels:   labels,
 		Action:   action,
 	}
-	log.Infof("WatchNodeSync: %s, watch %s event for node %s with status %s", n.cluster, action, node.Name, nodeSync.Status)
+	log.Debugf("WatchNodeSync: %s, watch %s event for node %s with status %s, card %s", n.cluster, action,
+		node.Name, nodeSync.Status, labels[pfschema.PFNodeCardTypeAnno])
 	n.workQueue.Add(nodeSync)
 }
 
@@ -412,15 +424,46 @@ func (n *NodeHandler) DeleteNode(obj interface{}) {
 	n.addQueue(node, pfschema.Delete, nil)
 }
 
+func (n *NodeHandler) getNodeCardType(node *corev1.Node) string {
+	cardType := ""
+	// 1. get card type from node gpu-topo annotations
+	gpuTopoAnno := node.Annotations[n.cardTypeAnno]
+	if gpuTopoAnno != "" {
+		gpuTopo := []struct {
+			UUID                  string
+			Path                  string
+			Model                 string
+			Power                 int64
+			Memory                int64
+			CPUAffinity           int64
+			PCI                   interface{}
+			Clocks                interface{}
+			Topology              interface{}
+			CudaComputeCapability interface{}
+		}{{}}
+		err := json.Unmarshal([]byte(gpuTopoAnno), &gpuTopo)
+		if err == nil && len(gpuTopo) > 0 {
+			cardType = gpuTopo[0].Model
+		} else {
+			log.Warnf("Failed to unmarshal gpu-topo annotation, err: %v", err)
+		}
+	}
+	// 2. get card type from node PaddleFlow annotations
+	if cardType == "" {
+		cardType = node.Annotations[pfschema.PFNodeCardTypeAnno]
+	}
+	return cardType
+}
+
 func getNodeStatus(node *corev1.Node) string {
 	if node.Spec.Unschedulable {
-		return "Unschedulable"
+		return pfschema.StatusNodeUnsched
 	}
-	nodeStatus := "NotReady"
+	nodeStatus := pfschema.StatusNodeNotReady
 	condLen := len(node.Status.Conditions)
 	if condLen > 0 {
 		if node.Status.Conditions[condLen-1].Type == corev1.NodeReady {
-			nodeStatus = "Ready"
+			nodeStatus = pfschema.StatusNodeReady
 		}
 	}
 	return nodeStatus

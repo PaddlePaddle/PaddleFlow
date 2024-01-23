@@ -18,6 +18,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"math/rand"
@@ -47,9 +48,6 @@ func init() {
 			count += 1
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
-				if *page_.closed {
-					page_.bufferPool.pool.Put(page_.buffer)
-				}
 				*page_.writeCacheReady = true
 				page_ = nil
 			})
@@ -58,7 +56,7 @@ func init() {
 	go func() {
 		for {
 			freeMemory()
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 }
@@ -92,6 +90,11 @@ type Page struct {
 	r               *rCache
 	closed          *bool
 	writeCacheReady *bool
+}
+
+type TimeoutReader struct {
+	source  io.Reader
+	timeout time.Duration
 }
 
 type BufferPool struct {
@@ -204,17 +207,41 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	return
 }
 
+// 实现Read方法
+func (tr *TimeoutReader) Read(p []byte) (n int, err error) {
+	type readResult struct {
+		n   int
+		err error
+	}
+	readChan := make(chan readResult)
+
+	go func() {
+		n, err = tr.source.Read(p)
+		readChan <- readResult{n: n, err: err}
+	}()
+
+	// 设置超时
+	select {
+	case result := <-readChan:
+		return result.n, result.err
+	case <-time.After(tr.timeout):
+		log.Errorf("read operation timed out after %v", tr.timeout)
+		return 0, fmt.Errorf("read operation timed out after %v", tr.timeout)
+	}
+}
+
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	if p.writeLength >= cap(p.buffer) {
 		return 0, err
 	}
-	for i := 0; i < 3; i++ {
-		n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
-		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-			log.Errorf("WriteFrom reader read[%d] err %v", i, err)
-		} else {
-			break
-		}
+	timeOutReader := &TimeoutReader{
+		source: reader,
+		// 2 minutes超时，这里buffer最大是20m，5分钟超时防止一直读不完，程序卡死
+		timeout: 5 * time.Minute,
+	}
+	n, err = timeOutReader.Read(p.buffer[p.writeLength:cap(p.buffer)])
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		log.Errorf("WriteFrom reader read err %v", err)
 	}
 	p.lock.Lock()
 	p.writeLength += n
@@ -231,9 +258,6 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		if *p.writeCacheReady {
-			p.bufferPool.pool.Put(p.buffer)
-		}
 		p.buffer = nil
 		p.bufferPool.cond.Signal()
 	}
@@ -243,11 +267,8 @@ func (p *Page) Free() {
 func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
 	p.bufferPool = pool
 	if size != 0 {
-		p.buffer = p.bufferPool.RequestMBuf(size, block, blockSize)
+		p.buffer = make([]byte, blockSize)
 		log.Debugf("init page %v blocksize %v and len %v", size, blockSize, len(p.buffer))
-		if p.buffer == nil {
-			return nil
-		}
 		cacheWrite := false
 		closed := false
 		p.closed = &closed

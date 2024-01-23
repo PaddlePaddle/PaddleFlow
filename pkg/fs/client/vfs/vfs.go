@@ -186,10 +186,11 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 	var attr *Attr
 	inode, attr, err = v.Meta.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
+		log.Errorf("vfs lookup: parent[%x], path[%s], err[%v]", parent, name, err)
 		return nil, err
 	}
 	log.Debugf("vfs lookup inode[%v] from meta: attr[%+v] ", inode, *attr)
-	entry = &meta.Entry{Ino: inode, Attr: attr}
+	entry = &meta.Entry{Ino: inode, Attr: attr, Name: name}
 	return entry, err
 }
 
@@ -204,6 +205,7 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 	var attr = &Attr{}
 	err = v.Meta.GetAttr(ctx, ino, attr)
 	if utils.IsError(err) {
+		log.Errorf("vfs getattr: ino[%d], err[%v]", ino, err)
 		return nil, err
 	}
 	log.Debugf("vfs getattr: %+v", *attr)
@@ -296,11 +298,17 @@ func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cum
 }
 
 func (v *VFS) Unlink(ctx *meta.Context, parent Ino, name string) (err syscall.Errno) {
+	if IsSpecialName(name) {
+		return
+	}
 	err = v.Meta.Unlink(ctx, parent, name)
 	return err
 }
 
 func (v *VFS) Rmdir(ctx *meta.Context, parent Ino, name string) (err syscall.Errno) {
+	if IsSpecialName(name) || name == "/" {
+		return
+	}
 	err = v.Meta.Rmdir(ctx, parent, name)
 	return err
 }
@@ -538,10 +546,12 @@ func (v *VFS) SetLkw(ctx *meta.Context, ino Ino, fh uint64, owner uint64, start,
 func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err syscall.Errno) {
 	h := v.findHandle(ino, fh)
 	if h == nil {
+		log.Errorf("vfs.Write err: filehandler[%v] is nil", ino)
 		err = syscall.EBADF
 		return
 	}
 	if h.writer == nil {
+		log.Errorf("vfs.Write err: filehandler[%v]'s writer is nil", ino)
 		err = syscall.EACCES
 		return
 	}
@@ -549,9 +559,12 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 	defer h.lock.Unlock()
 	err = h.writer.Write(buf, off)
 	if utils.IsError(err) {
+		log.Errorf("Vfs.Write err: %v.", err.Error())
 		return err
 	}
-	err = v.Meta.Write(ctx, ino, uint32(off), len(buf))
+	if err = v.Meta.Write(ctx, ino, off, len(buf)); err != syscall.F_OK {
+		log.Errorf("vfs.Write, call metaWrite err :%v", err.Error())
+	}
 	return err
 }
 
@@ -578,6 +591,9 @@ func (v *VFS) Flush(ctx *meta.Context, ino Ino, fh uint64, lockOwner uint64) (er
 	}
 	if h.writer != nil {
 		err = h.writer.Flush()
+		if err != 0 {
+			log.Errorf("flush err %v", err)
+		}
 	}
 	return err
 }

@@ -214,9 +214,9 @@ func (js *JobStore) ListQueueInitJob(queueID string) []model.Job {
 	return jobs
 }
 
-func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job {
+func (js *JobStore) ListJobsByQueueIDsAndStatus(queueIDs []string, status []schema.JobStatus) []model.Job {
 	var jobs []model.Job
-	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
+	db := js.db.Table("job").Where("queue_id in ?", queueIDs).Where("status IN ?", status).Where("deleted_at = ''")
 	err := db.Find(&jobs).Error
 	if err != nil {
 		log.Errorf("list jobs in queues %v with status %s failed, err: %s", queueIDs, status, err.Error())
@@ -371,7 +371,7 @@ func (js *JobStore) UpdateTask(task *model.JobTask) error {
 	// TODO: change update task logic
 	tx := js.db.Table(model.JobTaskTableName).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "node_name", "deleted_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "annotations", "node_name", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
 }

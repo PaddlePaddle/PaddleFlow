@@ -916,7 +916,7 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	wg.Wait()
 }
 
-func TestMetaEntryCache(t *testing.T) {
+func TestMetaEntryCacheXXXX(t *testing.T) {
 	clean()
 	defer clean()
 	client := getTestFSClient2(t)

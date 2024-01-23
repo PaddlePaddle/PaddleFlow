@@ -102,6 +102,10 @@ const (
 	StatusTaskSucceeded TaskStatus = "succeeded"
 	StatusTaskFailed    TaskStatus = "failed"
 
+	StatusNodeReady    = "Ready"
+	StatusNodeNotReady = "NotReady"
+	StatusNodeUnsched  = "Unschedulable"
+
 	RoleMaster   MemberRole = "master"
 	RoleWorker   MemberRole = "worker"
 	RoleDriver   MemberRole = "driver"
@@ -129,9 +133,11 @@ const (
 	ListenerTypeNodeTask = "nodeTask"
 
 	EnvPFNodeLabels     = "PF_NODE_LABELS"
+	EnvPFNodeCardType   = "PF_NODE_CARD_TYPE"
 	EnvPFTaskLabels     = "PF_TASK_LABELS"
 	EnvPFResourceFilter = "PF_NODE_RESOURCES_FILTER"
 	PFNodeLabels        = "resource-isolation-type"
+	PFNodeCardTypeAnno  = "paddleflow/card-type"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -153,9 +159,12 @@ const (
 	JobTTLSeconds     = "padleflow/job-ttl-seconds"
 	JobLabelFramework = "paddleflow-job-framework"
 
-	VolcanoJobNameLabel  = "volcano.sh/job-name"
-	QueueLabelKey        = "volcano.sh/queue-name"
-	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
+	VolcanoJobNameLabel     = "volcano.sh/job-name"
+	QueueLabelKey           = "volcano.sh/queue-name"
+	SchedulingQueueLabelKey = "scheduling.volcano.sh/queue-name"
+	SparkAPPJobNameLabel    = "sparkoperator.k8s.io/app-name"
+
+	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
 
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"

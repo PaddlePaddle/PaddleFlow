@@ -186,7 +186,7 @@ type JobStoreInterface interface {
 	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
 	ListQueueJob(queueID string, status []schema.JobStatus) []model.Job
 	ListQueueInitJob(queueID string) []model.Job
-	ListJobsByQueueIDsAndStatus(queueIDs []string, status schema.JobStatus) []model.Job
+	ListJobsByQueueIDsAndStatus(queueIDs []string, status []schema.JobStatus) []model.Job
 	ListJobByStatus(status schema.JobStatus) []model.Job
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	ListJobByUpdateTime(updateTime string) ([]model.Job, error)
@@ -233,7 +233,7 @@ type NodeCacheInterface interface {
 	UpdateNode(nodeID string, nodeInfo *model.NodeInfo) error
 	DeleteNode(nodeID string) error
 	GetNode(nodeID string) (model.NodeInfo, error)
-	ListNode([]string, string, int, int) ([]model.NodeInfo, error)
+	ListNode([]string, string, int, int, map[string]string) ([]model.NodeInfo, error)
 }
 
 type PodCacheInterface interface {

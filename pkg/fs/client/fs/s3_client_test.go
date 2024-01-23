@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package fs
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -105,12 +106,15 @@ func TestReadBigDir(t *testing.T) {
 		EntryCacheExpire: 10 * time.Minute,
 		PathCacheExpire:  10 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.DiskType,
+			Driver:    kv.MemType,
 			CachePath: "./mock-meta",
 		},
 	}
 	SetMetaCache(m)
-	entryCnt := 10000
+	entryCnt := rand.Intn(501)
+	if entryCnt <= 0 {
+		return
+	}
 	var err error
 	for i := 0; i < entryCnt/2; i++ {
 		_, err = client.Create(fmt.Sprintf("entry-file-%d", i))

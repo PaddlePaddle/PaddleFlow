@@ -31,6 +31,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -44,9 +45,8 @@ var (
 	}
 	UpdateTime = time.Now()
 
-	defaultSaltStr    = "paddleflow"
-	defaultTimeFormat = "2006-01-02 15"
-	LogURLFormat      = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s"
+	defaultSaltStr = "paddleflow"
+	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d"
 )
 
 func init() {
@@ -91,12 +91,13 @@ type GetJobResponse struct {
 }
 
 type RuntimeInfo struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	ID        string `json:"id,omitempty"`
-	Status    string `json:"status,omitempty"`
-	NodeName  string `json:"nodeName"`
-	LogURL    string `json:"logURL,omitempty"`
+	Name             string `json:"name,omitempty"`
+	Namespace        string `json:"namespace,omitempty"`
+	ID               string `json:"id,omitempty"`
+	Status           string `json:"status,omitempty"`
+	NodeName         string `json:"nodeName"`
+	AcceleratorCards string `json:"acceleratorCards,omitempty"`
+	LogURL           string `json:"logURL,omitempty"`
 }
 
 type DistributedRuntimeInfo struct {
@@ -353,12 +354,13 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 	runtimes := make([]RuntimeInfo, 0)
 	for _, task := range tasks {
 		runtime := RuntimeInfo{
-			ID:        task.ID,
-			Name:      task.Name,
-			Namespace: task.Namespace,
-			Status:    task.ExtRuntimeStatusJSON,
-			NodeName:  task.NodeName,
-			LogURL:    GenerateLogURL(task),
+			ID:               task.ID,
+			Name:             task.Name,
+			Namespace:        task.Namespace,
+			Status:           task.ExtRuntimeStatusJSON,
+			NodeName:         task.NodeName,
+			AcceleratorCards: task.Annotations[k8s.GPUIdxKey],
+			LogURL:           GenerateLogURL(task),
 		}
 		runtimes = append(runtimes, runtime)
 	}
@@ -408,23 +410,20 @@ func GenerateLogURL(task model.JobTask) string {
 			containerID = items[1]
 		}
 	}
-	tokenStr := getLogToken(task.JobID, containerID)
+	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t)
 }
 
-func getLogToken(jobID, containerID string) string {
+func getLogToken(jobID, containerID string) (string, int64) {
 	saltStr := config.GlobalServerConfig.Job.Log.SaltStr
 	if saltStr == "" {
 		saltStr = defaultSaltStr
 	}
-	timeFormat := config.GlobalServerConfig.Job.Log.TimeFormat
-	if timeFormat == "" {
-		timeFormat = defaultTimeFormat
-	}
-	return fmt.Sprintf("%s/%s/%s@%s", jobID, containerID, saltStr, time.Now().Format(timeFormat))
+	timeStamp := time.Now().Unix()
+	return fmt.Sprintf("%s/%s/%s@%d", jobID, containerID, saltStr, timeStamp), timeStamp
 }

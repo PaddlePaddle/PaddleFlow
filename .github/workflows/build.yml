@@ -11,7 +11,7 @@ jobs:
         go-version: [1.18.x]
         goos: [linux]
         goarch: [amd64,arm64]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Dump GitHub context
       id: github_context_step
@@ -28,6 +28,7 @@ jobs:
         echo '${{ toJSON(github) }}'
         echo $(uname -m)
         echo $(uname -s)
+        sudo apt-get update
         sudo apt-get install -y gcc automake autoconf libtool make gcc-aarch64-linux-gnu
     - name: Run build
       run: make all

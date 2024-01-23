@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,27 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kv
+package model
 
-type Config struct {
-	FsID      string
-	Driver    string
-	CachePath string
-	Capacity  int64
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+)
+
+type Map map[string]string
+
+func (m *Map) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal Map sturct: %v", value)
+	}
+	result := map[string]string{}
+	err := json.Unmarshal(bytes, &result)
+	*m = result
+	return err
 }
 
-type KvTxn interface {
-	Get(key []byte) []byte
-	Set(key, value []byte) error
-	Dels(keys ...[]byte) error
-	ScanValues(prefix []byte) (map[string][]byte, error)
-	Exist(Prefix []byte) bool
-	Append(key []byte, value []byte) []byte
-	IncrBy(key []byte, value int64) int64
-}
-
-type KvClient interface {
-	Close() error
-	Name() string
-	Txn(f func(KvTxn) error) error
+func (m Map) Value() (driver.Value, error) {
+	return json.Marshal(map[string]string(m))
 }
