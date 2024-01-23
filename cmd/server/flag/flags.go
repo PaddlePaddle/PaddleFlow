@@ -28,12 +28,6 @@ func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 			Usage:       "token expire hour",
 			Destination: &apiConf.TokenExpirationHour,
 		},
-		&cli.BoolFlag{
-			Name:        "pprof-enable",
-			Value:       apiConf.PprofEnable,
-			Usage:       "enable pprof service",
-			Destination: &apiConf.PprofEnable,
-		},
 		&cli.IntFlag{
 			Name:        "pprof-port",
 			Value:       apiConf.PprofPort,
@@ -213,13 +207,13 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:        "mount-pod-expire",
-			Value:       7 * 24 * time.Hour,
+			Value:       24 * time.Hour,
 			Usage:       "the expiration time when the mount pod needs to be destroyed without used",
 			Destination: &fsConf.MountPodExpire,
 		},
 		&cli.DurationFlag{
 			Name:        "mount-pod-interval",
-			Value:       10 * time.Second,
+			Value:       30 * time.Second,
 			Usage:       "the interval time for mount pod update cache, and clean pod check interval is 3 times this interval",
 			Destination: &fsConf.MountPodIntervalTime,
 		},

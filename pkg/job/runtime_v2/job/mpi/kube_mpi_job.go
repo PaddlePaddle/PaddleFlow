@@ -87,15 +87,13 @@ func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 	minResources := resources.EmptyResource()
 	for _, task := range job.Tasks {
 		replicaType := mpiv1.MPIReplicaTypeLauncher
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// mpi worker
 			replicaType = mpiv1.MPIReplicaTypeWorker
 		}
 		replicaSpec := mpiJobSpec.MPIReplicaSpecs[replicaType]
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, mj.String(jobName), err)
-			return err
-		}
+		// build kubeflowReplicaSpec
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, replicaSpec).ReplicaSpec(task)
 		// calculate job minResources
 		taskResources, _ := resources.NewResourceFromMap(task.Flavour.ToMap())
 		taskResources.Multi(task.Replicas)
@@ -103,7 +101,9 @@ func (mj *KubeMPIJob) builtinMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.P
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return kuberuntime.KubeflowRunPolicy(&mpiJobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &mpiJobSpec.RunPolicy, nil).
+		RunPolicy(&resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 // customMPIJobSpec set custom MPIJob Spec
@@ -111,17 +111,19 @@ func (mj *KubeMPIJob) customMPIJobSpec(mpiJobSpec *mpiv1.MPIJobSpec, job *api.PF
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", mj.String(jobName), mpiJobSpec)
 	// patch metadata
-	ps, find := mpiJobSpec.MPIReplicaSpecs[mpiv1.MPIReplicaTypeLauncher]
-	if find && ps != nil {
-		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	master, find := mpiJobSpec.MPIReplicaSpecs[mpiv1.MPIReplicaTypeLauncher]
+	if find && master != nil {
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, master).ReplicaSpec(job.GetMember(pfschema.RoleMaster))
 	}
 	worker, find := mpiJobSpec.MPIReplicaSpecs[mpiv1.MPIReplicaTypeWorker]
 	if find && worker != nil {
-		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, worker).ReplicaSpec(job.GetMember(pfschema.RoleWorker))
 	}
 	// TODO: patch mpi job from user
 	// check RunPolicy
-	return kuberuntime.KubeflowRunPolicy(&mpiJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &mpiJobSpec.RunPolicy, nil).
+		RunPolicy(nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 func (mj *KubeMPIJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
@@ -160,6 +162,8 @@ func (mj *KubeMPIJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(jobCond.Type),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.CompletionTime),
 	}, nil
 }
 

@@ -134,7 +134,7 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 		},
 		&cli.Float64Flag{
 			Name:  "free-space-ratio",
-			Value: 0.1,
+			Value: 0.3,
 			Usage: "min free space (ratio)",
 		},
 		&cli.BoolFlag{
@@ -175,6 +175,11 @@ func MountFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 			Value:       ufs.DefaultFileMode,
 			Usage:       "Permission bits for files, only effective for S3 file system. (default: 0644)",
 			Destination: &fuseConf.FileMode,
+		},
+		&cli.BoolFlag{
+			Name:  "no-implicit-dir",
+			Value: false,
+			Usage: "Assume all directory objects (\"dir/\") exist (default: false)",
 		},
 	}
 }

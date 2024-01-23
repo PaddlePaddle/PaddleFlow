@@ -109,7 +109,7 @@ func (pj *KubeAITrainingJob) customAITrainingJob(pdj *v1.TrainingJobSpec, job *a
 		// patch worker
 		var err error
 		switch task.Role {
-		case pfschema.RolePWorker, pfschema.RoleWorker:
+		case pfschema.RoleWorker:
 			// patch worker
 			rs := pdj.ReplicaSpecs[v1.ReplicaName("trainer")]
 			if rs == nil || rs.ReplicaType != v1.ReplicaWorker {
@@ -138,7 +138,8 @@ func (pj *KubeAITrainingJob) patchReplicaSpec(rs *v1.ReplicaSpec, task pfschema.
 		rs.Replicas = &replicas
 	}
 	// patch fs
-	return kuberuntime.BuildPodTemplateSpec(&rs.Template, jobID, &task)
+	kuberuntime.NewPodTemplateSpecBuilder(&rs.Template, jobID).Build(task)
+	return nil
 }
 
 func (pj *KubeAITrainingJob) builtinAITrainingJob(pdj *v1.TrainingJobSpec, job *api.PFJob) error {
@@ -177,6 +178,8 @@ func (pj *KubeAITrainingJob) JobStatus(obj interface{}) (api.StatusInfo, error) 
 		OriginStatus: string(job.Status.Phase),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartRunningTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.EndTime),
 	}, nil
 }
 

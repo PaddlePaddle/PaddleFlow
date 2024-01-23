@@ -57,7 +57,7 @@ func PatchCacheStatsLoop(k8sClient utils.Client, podNamespace, podName, podCache
 		}
 
 		select {
-		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
+		case <-time.After(time.Duration(600+rand.Intn(10)) * time.Second):
 		}
 	}
 }

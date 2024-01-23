@@ -32,6 +32,7 @@ type KVTxn struct {
 const (
 	MemType  = "mem"
 	DiskType = "disk"
+	TmpDir   = ".tmp"
 )
 
 func NewBadgerClient(config Config) (KvClient, error) {
@@ -46,15 +47,23 @@ func NewBadgerClient(config Config) (KvClient, error) {
 		if config.CachePath == "" {
 			return nil, fmt.Errorf("meta cache config path is not allowed empty")
 		}
-		os.RemoveAll(config.CachePath)
-		db, err = badger.Open(badger.DefaultOptions(config.CachePath))
+		if config.CachePath == TmpDir {
+			Options := badger.DefaultOptions(config.CachePath)
+			Options.ValueLogFileSize = 1024 * 1024
+			Options.ValueLogMaxEntries = 1000
+			Options.BaseTableSize = 2 * 1024 * 1024
+			db, err = badger.Open(Options)
+		} else {
+			db, err = badger.Open(badger.DefaultOptions(config.CachePath))
+		}
+
 	} else {
 		return nil, fmt.Errorf("not found meta driver name %s", config.Driver)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &kvClient{db: db}, nil
+	return &kvClient{db: db, path: config.CachePath, driver: config.Driver}, nil
 }
 
 func (kv *KVTxn) Get(key []byte) []byte {
@@ -129,7 +138,9 @@ func (kv *KVTxn) IncrBy(key []byte, value int64) int64 {
 }
 
 type kvClient struct {
-	db *badger.DB
+	db     *badger.DB
+	path   string
+	driver string
 }
 
 func (c *kvClient) Name() string {
@@ -137,7 +148,14 @@ func (c *kvClient) Name() string {
 }
 
 func (c *kvClient) Close() error {
-	return c.db.Close()
+	err := c.db.Close()
+	if err != nil {
+		return err
+	}
+	if c.path != "" && c.driver == DiskType {
+		os.RemoveAll(c.path)
+	}
+	return nil
 }
 
 func (c *kvClient) Txn(f func(txn KvTxn) error) error {

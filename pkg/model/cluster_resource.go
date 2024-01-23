@@ -44,6 +44,7 @@ type NodeInfo struct {
 	Pk           int64             `gorm:"primaryKey;autoIncrement" json:"-"`
 	ID           string            `gorm:"column:id" json:"nodeID"`
 	Name         string            `gorm:"column:name" json:"nodeName"`
+	IP           string            `gorm:"column:ip" json:"nodeIP"`
 	ClusterID    string            `gorm:"column:cluster_id" json:"-"`
 	ClusterName  string            `gorm:"column:cluster_name" json:"clusterName"`
 	Status       string            `gorm:"column:status" json:"nodeStatus"`
@@ -96,14 +97,15 @@ func (node *NodeInfo) AfterFind(tx *gorm.DB) error {
 }
 
 type PodInfo struct {
-	Pk        int64             `gorm:"primaryKey;autoIncrement" json:"-"`
-	ID        string            `gorm:"column:id" json:"id"`
-	Name      string            `gorm:"column:name" json:"name"`
-	NodeID    string            `gorm:"column:node_id" json:"nodeID"`
-	NodeName  string            `gorm:"column:node_name" json:"nodeName"`
-	Status    int               `gorm:"column:status" json:"status"`
-	Labels    map[string]string `gorm:"-" json:"labels"`
-	Resources map[string]int64  `gorm:"-" json:"resources"`
+	Pk        int64    `gorm:"primaryKey;autoIncrement" json:"-"`
+	ID        string   `gorm:"column:id" json:"id"`
+	Name      string   `gorm:"column:name" json:"name"`
+	Namespace string   `gorm:"column:namespace" json:"namespace"`
+	NodeID    string   `gorm:"column:node_id" json:"nodeID"`
+	NodeName  string   `gorm:"column:node_name" json:"nodeName"`
+	Status    int      `gorm:"column:status" json:"status"`
+	Labels    Map      `gorm:"column:labels;type:text" json:"labels"`
+	Resources MapInt64 `gorm:"column:resources;type:text" json:"resources"`
 }
 
 func (PodInfo) TableName() string {

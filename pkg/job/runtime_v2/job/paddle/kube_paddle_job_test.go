@@ -241,7 +241,7 @@ spec:
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
-				Role:     schema.RolePWorker,
+				Role:     schema.RoleWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
@@ -253,7 +253,7 @@ spec:
 			{
 				ID:       "task-normal-0002",
 				Replicas: 3,
-				Role:     schema.RolePWorker,
+				Role:     schema.RoleWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
@@ -294,6 +294,28 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 			},
 			wantErr: errors.New("get default template failed, err: job template paddle-xx-job is not found"),
 			wantMsg: "namespace is empty",
+		},
+		{
+			caseName: "extensionTemplate with Collective mode",
+			jobObj: &api.PFJob{
+				ID:        "job-normal-0c272d0b",
+				Name:      "",
+				Namespace: "default",
+				JobType:   schema.TypeDistributed,
+				Framework: schema.FrameworkPaddle,
+				JobMode:   schema.EnvJobModeCollective,
+				UserName:  "root",
+				QueueID:   "mockQueueID",
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
+				},
+				Tasks:             []schema.Member{},
+				ExtensionTemplate: []byte(extensionPaddleYaml),
+			},
+			wantErr: nil,
 		},
 		{
 			caseName: "extensionTemplate NilWorker",
@@ -605,7 +627,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 					{
 						ID:       "task-normal-0002",
 						Replicas: 0,
-						Role:     schema.RolePWorker,
+						Role:     schema.RoleWorker,
 						Conf: schema.Conf{
 							Command: "sleep 200",
 							Image:   "mockImage",
@@ -632,9 +654,7 @@ func TestPaddleJob_CreateJob(t *testing.T) {
 				}
 				t.Logf("result: %v", obj)
 			} else {
-				if assert.Error(t, err) {
-					assert.Equal(t, test.wantErr.Error(), err.Error())
-				}
+				assert.Equal(t, test.wantErr, err)
 			}
 		})
 	}

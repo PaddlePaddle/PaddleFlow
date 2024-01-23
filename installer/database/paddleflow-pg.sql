@@ -102,6 +102,7 @@ CREATE TABLE job (
     parent_job varchar(60) DEFAULT NULL,
     created_at timestamptz NULL DEFAULT CURRENT_TIMESTAMP(3),
     activated_at timestamptz DEFAULT NULL,
+    finished_at timestamptz DEFAULT NULL,
     updated_at timestamptz NULL DEFAULT CURRENT_TIMESTAMP(3),
     deleted_at varchar(64) DEFAULT '',
     PRIMARY KEY (pk));

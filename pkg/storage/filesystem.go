@@ -65,6 +65,20 @@ func (fss *FilesystemStore) ListFileSystem(limit int, userName, marker, fsName s
 	return fileSystems, result.Error
 }
 
+func (fss *FilesystemStore) UpdateFileSystem(fs *model.FileSystem) error {
+	propertiesMap, err := json.Marshal(&fs.PropertiesMap)
+	if err != nil {
+		return err
+	}
+	fs.PropertiesJson = string(propertiesMap)
+
+	tx := fss.db.Model(&model.FileSystem{}).Where(&model.FileSystem{Name: fs.Name, UserName: fs.UserName}).Updates(fs)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
 // GetSimilarityAddressList find fs where have same type and serverAddress
 func (fss *FilesystemStore) GetSimilarityAddressList(fsType string, ips []string) ([]model.FileSystem, error) {
 	var fileSystems []model.FileSystem

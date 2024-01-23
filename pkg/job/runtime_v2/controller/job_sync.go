@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -99,7 +101,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		return
 	}
 
-	j.preHandleTerminatingJob()
+	j.preHandleUnfinishedJob()
 	go wait.Until(j.runJobWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 	go wait.Until(j.runJobGCWorker, 0, stopCh)
@@ -154,12 +156,11 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 
 func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do create action, job sync info: %s", jobSyncInfo.String())
-	_, err := storage.Job.GetJobByID(jobSyncInfo.ID)
-	if err == nil {
+	if jobSyncInfo.ParentJobID == "" {
+		// update job
 		return j.doUpdateAction(jobSyncInfo)
-	}
-	// only create job for subtask
-	if jobSyncInfo.ParentJobID != "" {
+	} else {
+		// only create job for subtask
 		// check weather parent job is exist or not
 		parentJob, err := storage.Job.GetJobByID(jobSyncInfo.ParentJobID)
 		if err != nil {
@@ -182,6 +183,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			RuntimeStatus: jobSyncInfo.RuntimeStatus,
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
+		if pfschema.IsImmutableJobStatus(job.Status) {
+			job.FinishedAt.Time = getWantedTime(jobSyncInfo.FinishedTime)
+			job.FinishedAt.Valid = true
+		} else if job.Status == pfschema.StatusJobRunning {
+			job.ActivatedAt.Time = getWantedTime(jobSyncInfo.StartTime)
+			job.ActivatedAt.Valid = true
+		}
 		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err
@@ -190,33 +198,77 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 	return nil
 }
 
+// doDeleteAction delete job
 func (j *JobSync) doDeleteAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, pfschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo,
-		jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
-		log.Errorf("sync job status failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
+	// 1. update job status and message
+	jobSyncInfo.Status = pfschema.StatusJobTerminated
+	jobSyncInfo.Message = "job is deleted"
+	// 2. update job
+	return j.doUpdateAction(jobSyncInfo)
+}
+
+// doUpdateAction update job status and message
+func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
+	log.Infof("do update action. jobID: %s, action: %s, status: %s, message: %s",
+		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
+	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
+	if err != nil {
+		log.Infof("do update action. get jobID: %s from database failed, err: %v", jobSyncInfo.ID, err)
+		return err
+	}
+	// 1. update job status and message
+	newStatus, message := storage.JobStatusTransition(job.ID, job.Status, jobSyncInfo.Status, jobSyncInfo.Message)
+	updatedJob := model.Job{
+		RuntimeInfo:   jobSyncInfo.RuntimeInfo,
+		RuntimeStatus: jobSyncInfo.RuntimeStatus,
+		Status:        newStatus,
+		Message:       message,
+	}
+	// 2. update activated time if it's need
+	if newStatus == pfschema.StatusJobRunning && !job.ActivatedAt.Valid {
+		// add queue id here
+		// in case panic
+		var queueName, userName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+			userName = job.Config.GetUserName()
+		}
+		startTime := getWantedTime(jobSyncInfo.StartTime)
+		metrics.Job.AddTimestamp(job.ID, metrics.T7, startTime, metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: queueName,
+			metrics.UserNameLabel:  userName,
+		})
+		// set job activated time
+		updatedJob.ActivatedAt.Time = startTime
+		updatedJob.ActivatedAt.Valid = true
+	}
+	// 3. update finished time if it's need
+	if pfschema.IsImmutableJobStatus(newStatus) && !job.FinishedAt.Valid {
+		finishTime := getWantedTime(jobSyncInfo.FinishedTime)
+		// record job finished time point
+		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, finishTime, metrics.Info{
+			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
+		})
+		// set job finished time
+		updatedJob.FinishedAt.Time = finishTime
+		updatedJob.FinishedAt.Valid = true
+	}
+	// 4. update job in storage
+	if err = storage.Job.Update(job.ID, &updatedJob); err != nil {
+		log.Errorf("update job failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}
 	return nil
 }
 
-func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("do update action. jobID: %s, action: %s, status: %s, message: %s",
-		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
-
-	// add time point
-	if pfschema.IsImmutableJobStatus(jobSyncInfo.Status) {
-		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, time.Now(), metrics.Info{
-			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
-		})
+// getWantedTime return the wanted time if it's not nil, otherwise return current time
+func getWantedTime(newTime *time.Time) time.Time {
+	if newTime != nil {
+		return *newTime
 	}
-
-	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo,
-		jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
-		log.Errorf("update job failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
-		return err
-	}
-	return nil
+	return time.Now()
 }
 
 func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
@@ -274,7 +326,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		return err
 	}
 
-	// TODO: get logURL from pod resources
+	// logURL for pod, including container ID
 	taskStatus := &model.JobTask{
 		ID:               taskSyncInfo.ID,
 		JobID:            taskSyncInfo.JobID,
@@ -285,6 +337,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		Annotations:      taskSyncInfo.Annotations,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,
+		LogURL:           getContainerIDs(taskSyncInfo.PodStatus),
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,
 	}
 	if taskSyncInfo.Action == pfschema.Delete {
@@ -300,7 +353,8 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 	return nil
 }
 
-func (j *JobSync) preHandleTerminatingJob() {
+// preHandleUnfinishedJob get unfinished job from database and check if it exists in cluster, then update job status
+func (j *JobSync) preHandleUnfinishedJob() {
 	queues := storage.Queue.ListQueuesByCluster(j.runtimeClient.ClusterID())
 	if len(queues) == 0 {
 		return
@@ -309,25 +363,33 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, q := range queues {
 		queueIDs = append(queueIDs, q.ID)
 	}
-
+	// filter unfinished job
 	jobFilter := storage.JobFilter{
 		QueueIDs: queueIDs,
-		Status:   []pfschema.JobStatus{pfschema.StatusJobTerminating},
+		Status: []pfschema.JobStatus{
+			pfschema.StatusJobTerminating,
+			pfschema.StatusJobPending,
+			pfschema.StatusJobRunning,
+		},
 	}
-	jobs, _ := storage.Job.ListJob(jobFilter)
+	jobs, err := storage.Job.ListJob(jobFilter)
+	if err != nil {
+		log.Errorf("list unfinshed job from databases failed, err: %v", err)
+		return
+	}
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
 		fwVersion := job.Config.GetKindGroupVersion(job.Framework)
 
-		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
+		log.Debugf("pre handle unfinished job, get %s job %s/%s from cluster", fwVersion, namespace, name)
 		_, err := j.runtimeClient.Get(namespace, name, fwVersion)
 		if err != nil && k8serrors.IsNotFound(err) {
 			j.jobQueue.Add(&api.JobSyncInfo{
 				ID:     job.ID,
 				Action: pfschema.Delete,
 			})
-			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", fwVersion, namespace, name)
+			log.Infof("pre handle unfinished %s job enqueue, job name %s/%s", fwVersion, namespace, name)
 		}
 	}
 }
@@ -418,4 +480,22 @@ func isCleanJob(jobStatus pfschema.JobStatus) bool {
 		return pfschema.StatusJobSucceeded == jobStatus
 	}
 	return pfschema.StatusJobSucceeded == jobStatus || pfschema.StatusJobTerminated == jobStatus || pfschema.StatusJobFailed == jobStatus
+}
+
+func getContainerIDs(status interface{}) string {
+	if status == nil {
+		return ""
+	}
+	var containerIDs []string
+	taskStatus := status.(v1.PodStatus)
+	for _, containerStatus := range taskStatus.ContainerStatuses {
+		items := strings.Split(containerStatus.ContainerID, "//")
+		if len(items) == 2 {
+			containerIDs = append(containerIDs, items[1])
+		}
+	}
+	if len(containerIDs) == 0 {
+		return ""
+	}
+	return strings.Join(containerIDs, ",")
 }

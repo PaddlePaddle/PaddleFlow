@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ var (
 	UpdateTime = time.Now()
 
 	defaultSaltStr = "paddleflow"
-	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d"
+	LogURLFormat   = "http://%s:%s/v1/containers/%s/log?jobID=%s&token=%s&t=%d&clusterID=%s&nodeName=%s"
 )
 
 func init() {
@@ -96,6 +97,8 @@ type RuntimeInfo struct {
 	ID               string `json:"id,omitempty"`
 	Status           string `json:"status,omitempty"`
 	NodeName         string `json:"nodeName"`
+	Role             string `json:"role"`
+	Index            int    `json:"index"`
 	AcceleratorCards string `json:"acceleratorCards,omitempty"`
 	LogURL           string `json:"logURL,omitempty"`
 }
@@ -116,6 +119,7 @@ type WorkflowRuntimeInfo struct {
 	Nodes     []DistributedRuntimeInfo `json:"nodes,omitempty"`
 }
 
+// ListJob list job with filter
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	ctx.Logging().Debugf("begin list job.")
 	if err := common.CheckPermission(ctx.UserName, ctx.UserName, common.ResourceTypeJob, ""); err != nil {
@@ -135,12 +139,22 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			return nil, err
 		}
 	}
-
-	timestampStr := ""
-	if request.Timestamp != 0 {
-		timestampStr = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	// filter for job
+	var maxKeys = request.MaxKeys + 1
+	filter := storage.JobFilter{
+		User:      ctx.UserName,
+		PK:        pk,
+		MaxKeys:   maxKeys,
+		StartTime: request.StartTime,
+		Labels:    request.Labels,
+		Order:     "desc",
 	}
-	queueID := ""
+	if request.Status != "" {
+		filter.Status = []schema.JobStatus{schema.JobStatus(request.Status)}
+	}
+	if request.Timestamp != 0 {
+		filter.UpdateTime = time.Unix(request.Timestamp, 0).Format(model.TimeFormat)
+	}
 	if request.Queue != "" {
 		var queue model.Queue
 		queue, err = storage.Queue.GetQueueByName(request.Queue)
@@ -149,38 +163,32 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			ctx.ErrorCode = common.QueueNameNotFound
 			return nil, err
 		}
-		queueID = queue.ID
+		filter.QueueIDs = []string{queue.ID}
 	}
-	// model list
-	filter := storage.JobFilter{
-		PK:         pk,
-		MaxKeys:    request.MaxKeys,
-		QueueIDs:   []string{queueID},
-		Status:     []schema.JobStatus{schema.JobStatus(request.Status)},
-		StartTime:  request.StartTime,
-		UpdateTime: timestampStr,
-		User:       ctx.UserName,
-		Labels:     request.Labels,
-		Order:      "desc",
-	}
+
+	ctx.Logging().Debugf("list job with filter: %#v", filter)
 	jobList, err := storage.Job.ListJob(filter)
 	if err != nil {
 		ctx.Logging().Errorf("list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
 		return nil, err
 	}
+	ctx.Logging().Debugf("list job return, job count %d", len(jobList))
 	listJobResponse := ListJobResponse{JobList: []*GetJobResponse{}}
 
-	// get next marker
+	// get next marker if total count is equal to request.MaxKeys+1
 	listJobResponse.IsTruncated = false
-	if len(jobList) > 0 {
-		job := jobList[len(jobList)-1]
-		if !isLastJobPk(ctx, job.Pk) {
+	if len(jobList) == maxKeys && maxKeys > 0 {
+		// total count is request.MaxKeys + 1, so we need to remove the last one
+		jobList = jobList[:len(jobList)-1]
+		// check if the length of jobList
+		jobListLen := len(jobList)
+		if jobListLen > 0 {
+			// get next marker
+			job := jobList[jobListLen-1]
 			nextMarker, err := common.EncryptPk(job.Pk)
 			if err != nil {
-				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]",
-					job.Pk, err.Error())
-				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]", job.Pk, err.Error())
 				return nil, err
 			}
 			listJobResponse.NextMarker = nextMarker
@@ -200,6 +208,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	return &listJobResponse, nil
 }
 
+// GetJob get job by id
 func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
@@ -212,23 +221,20 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	// get job queue
+	queue, err := storage.Queue.GetQueueByID(job.QueueID)
+	if err != nil {
+		// compatible with queue is deleted
+		ctx.Logging().Warnf(err.Error())
+	} else {
+		job.ClusterID = queue.ClusterId
+	}
 
 	response, err := convertJobToResponse(job, true)
 	if err != nil {
 		return nil, err
 	}
 	return &response, nil
-}
-
-func isLastJobPk(ctx *logger.RequestContext, pk int64) bool {
-	lastJob, err := storage.Job.GetLastJob()
-	if err != nil {
-		ctx.Logging().Errorf("get last job failed. error:[%s]", err.Error())
-	}
-	if lastJob.Pk == pk {
-		return true
-	}
-	return false
 }
 
 func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, error) {
@@ -249,23 +255,30 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 		response.StartTime = job.ActivatedAt.Time.Format(model.TimeFormat)
 	}
 	if schema.IsImmutableJobStatus(job.Status) {
-		response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+		if job.FinishedAt.Valid {
+			response.FinishTime = job.FinishedAt.Time.Format(model.TimeFormat)
+		} else {
+			// Compatible with old version data
+			response.FinishTime = job.UpdatedAt.Format(model.TimeFormat)
+		}
 	}
 	response.ID = job.ID
 	response.Name = job.Name
 	response.SchedulingPolicy = SchedulingPolicy{
 		Queue:    job.Config.GetQueueName(),
-		Priority: job.Config.Priority,
+		Priority: job.Config.GetPriority(),
 	}
+	kindGroupVersion := schema.KindGroupVersion{}
 	if job.Config != nil {
 		response.Labels = job.Config.Labels
 		response.Annotations = job.Config.Annotations
+		kindGroupVersion = job.Config.GetKindGroupVersion(job.Framework)
 	}
 	// process runtime info && member
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if runtimeFlag && job.RuntimeInfo != nil {
-			runtimes, err := getTaskRuntime(job.ID)
+			runtimes, err := getTaskRuntime(job.ID, job.ClusterID, &kindGroupVersion)
 			if err != nil || len(runtimes) < 1 {
 				return response, err
 			}
@@ -289,7 +302,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				log.Errorf("parse distributed job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			runtimes, err := getTaskRuntime(job.ID)
+			runtimes, err := getTaskRuntime(job.ID, job.ClusterID, &kindGroupVersion)
 			if err != nil {
 				return response, err
 			}
@@ -324,7 +337,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				log.Errorf("parse workflow job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			nodeRuntimes, err := getNodeRuntime(job.ID)
+			nodeRuntimes, err := getNodeRuntime(job.ID, job.ClusterID)
 			if err != nil {
 				return response, err
 			}
@@ -356,8 +369,8 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 	return k8sMeta, nil
 }
 
-func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
-	tasks, err := storage.Job.ListByJobID(jobID)
+func getTaskRuntime(jobID string, clusterID string, kGroupVer *schema.KindGroupVersion) ([]RuntimeInfo, error) {
+	tasks, err := storage.Job.ListTaskByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return nil, err
@@ -371,14 +384,20 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 			Status:           task.ExtRuntimeStatusJSON,
 			NodeName:         task.NodeName,
 			AcceleratorCards: task.Annotations[k8s.GPUIdxKey],
-			LogURL:           GenerateLogURL(task),
+			LogURL:           GenerateLogURL(task, clusterID),
+		}
+		// get task role
+		role, idx, find := getTaskRoleAndIndex(task, kGroupVer)
+		if find {
+			runtime.Role = role
+			runtime.Index = idx
 		}
 		runtimes = append(runtimes, runtime)
 	}
 	return runtimes, nil
 }
 
-func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
+func getNodeRuntime(jobID string, clusterID string) ([]DistributedRuntimeInfo, error) {
 	nodeRuntimes := make([]DistributedRuntimeInfo, 0)
 	jobFilter := storage.JobFilter{
 		ParentID: jobID,
@@ -398,7 +417,7 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 			log.Errorf("parse workflow node[%s] status failed, error:[%s]", node.ID, err.Error())
 			return nil, err
 		}
-		taskRuntime, err := getTaskRuntime(node.ID)
+		taskRuntime, err := getTaskRuntime(node.ID, clusterID, nil)
 		if err != nil {
 			log.Errorf("get node[%s] task runtime failed, error:[%s]", node.ID, err.Error())
 			return nil, err
@@ -415,7 +434,13 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 	return nodeRuntimes, nil
 }
 
-func GenerateLogURL(task model.JobTask) string {
+func getContainerID(task model.JobTask) string {
+	if task.LogURL != "" {
+		containerIDs := strings.Split(task.LogURL, ",")
+		if len(containerIDs) > 0 {
+			return containerIDs[0]
+		}
+	}
 	containerID := ""
 	taskStatus := task.ExtRuntimeStatus.(v1.PodStatus)
 	if len(taskStatus.ContainerStatuses) > 0 {
@@ -424,13 +449,18 @@ func GenerateLogURL(task model.JobTask) string {
 			containerID = items[1]
 		}
 	}
+	return containerID
+}
+
+func GenerateLogURL(task model.JobTask, clusterID string) string {
+	containerID := getContainerID(task)
 	tokenStr, t := getLogToken(task.JobID, containerID)
 	hash := md5.Sum([]byte(tokenStr))
 	token := hex.EncodeToString(hash[:])
 	log.Debugf("log url token for task %s/%s is %s", task.JobID, containerID, token)
 
 	return fmt.Sprintf(LogURLFormat, config.GlobalServerConfig.Job.Log.ServiceHost,
-		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t)
+		config.GlobalServerConfig.Job.Log.ServicePort, containerID, task.JobID, token, t, clusterID, task.NodeName)
 }
 
 func getLogToken(jobID, containerID string) (string, int64) {
@@ -440,4 +470,83 @@ func getLogToken(jobID, containerID string) (string, int64) {
 	}
 	timeStamp := time.Now().Unix()
 	return fmt.Sprintf("%s/%s/%s@%d", jobID, containerID, saltStr, timeStamp), timeStamp
+}
+
+// getPaddleJobRoleAndIndex returns the runtime info of paddle job
+func getPaddleJobRoleAndIndex(name string, annotations map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	if annotations["paddle-resource"] == "ps" {
+		taskRole = schema.RoleMaster
+	} else {
+		//  worker is named with format: xxxx-worker-0
+		items := strings.Split(name, "-")
+		if len(items) > 0 {
+			taskIndex, _ = strconv.Atoi(items[len(items)-1])
+		}
+	}
+	return taskRole, taskIndex
+}
+
+func getPyTorchJobRoleAndIndex(name string, annotations map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	if annotations["volcano.sh/task-spec"] == "master" {
+		taskRole = schema.RoleMaster
+	} else {
+		//  worker is named with format: xxxx-worker-0
+		items := strings.Split(name, "-")
+		if len(items) > 0 {
+			taskIndex, _ = strconv.Atoi(items[len(items)-1])
+		}
+	}
+	return taskRole, taskIndex
+}
+
+// getMPIJobRoleAndIndex returns the runtime info of mpi job
+func getMPIJobRoleAndIndex(name string, annotations map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	if strings.HasSuffix(name, "launcher") {
+		taskRole = schema.RoleMaster
+	} else {
+		//  worker is named with format: xxxx-worker-0
+		items := strings.Split(name, "-")
+		if len(items) > 0 {
+			taskIndex, _ = strconv.Atoi(items[len(items)-1])
+		}
+	}
+	return taskRole, taskIndex
+}
+
+// getAITrainingJobRoleAndIndex returns the runtime info of AITraining job
+func getAITrainingJobRoleAndIndex(name string, infos map[string]string) (schema.MemberRole, int) {
+	taskRole, taskIndex := schema.RoleWorker, 0
+	// TODO: get task role from task labels
+	//  worker is named with format: xxxx-trainer-1
+	items := strings.Split(name, "-")
+	if len(items) > 0 {
+		taskIndex, _ = strconv.Atoi(items[len(items)-1])
+	}
+	return taskRole, taskIndex
+}
+
+// getTaskRoleAndIndex returns the runtime info of task
+func getTaskRoleAndIndex(task model.JobTask, kgv *schema.KindGroupVersion) (string, int, bool) {
+	if kgv == nil {
+		return "", 0, false
+	}
+	taskRole, taskIndex, find := schema.RoleWorker, 0, true
+	switch kgv.String() {
+	case schema.StandaloneKindGroupVersion.String():
+		taskRole, taskIndex = schema.RoleWorker, 0
+	case schema.PaddleKindGroupVersion.String():
+		taskRole, taskIndex = getPaddleJobRoleAndIndex(task.Name, task.Annotations)
+	case schema.AITrainingKindGroupVersion.String():
+		taskRole, taskIndex = getAITrainingJobRoleAndIndex(task.Name, task.Annotations)
+	case schema.MPIKindGroupVersion.String():
+		taskRole, taskIndex = getMPIJobRoleAndIndex(task.Name, task.Annotations)
+	case schema.PyTorchKindGroupVersion.String():
+		taskRole, taskIndex = getPyTorchJobRoleAndIndex(task.Name, task.Annotations)
+	default:
+		find = false
+	}
+	return string(taskRole), taskIndex, find
 }

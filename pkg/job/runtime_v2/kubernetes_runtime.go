@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 
@@ -39,7 +38,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -53,6 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -252,28 +251,17 @@ func (kr *KubeRuntime) Queue(fwVersion pfschema.KindGroupVersion) framework.Queu
 }
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
-	log.Infof("start job/queue controller on %s", kr.String())
-	var err error
-	jobQueueSync := os.Getenv(pfschema.EnvEnableJobQueueSync)
-	if jobQueueSync == "false" {
-		log.Warnf("skip job and queue syn controller on %s", kr.String())
-	} else {
-		jobController := controller.NewJobSync()
-		err = jobController.Initialize(kr.kubeClient)
-		if err != nil {
-			log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
-			return
-		}
-		queueController := controller.NewQueueSync()
-		err = queueController.Initialize(kr.kubeClient)
-		if err != nil {
-			log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
-			return
-		}
-		go jobController.Run(stopCh)
-		go queueController.Run(stopCh)
+	// 1. start queue controller
+	queueController := controller.NewQueueSync()
+	err := queueController.Initialize(kr.kubeClient)
+	if err != nil {
+		log.Errorf("init queue controller on %s failed, err: %v", kr.String(), err)
+		return
 	}
+	go queueController.Run(stopCh)
+	log.Infof("start queue controller on %s", kr.String())
 
+	// 2. star node resource controller
 	nodeResourceController := controller.NewNodeResourceSync()
 	err = nodeResourceController.Initialize(kr.kubeClient)
 	if err != nil {
@@ -281,6 +269,20 @@ func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 		return
 	}
 	go nodeResourceController.Run(stopCh)
+	log.Infof("start nodeResources controller on %s", kr.String())
+
+	// 3. start job controller if the cluster has queues
+	queues := storage.Queue.ListQueuesByCluster(kr.cluster.ID)
+	if len(queues) > 0 {
+		jobController := controller.NewJobSync()
+		err = jobController.Initialize(kr.kubeClient)
+		if err != nil {
+			log.Errorf("init job controller on %s failed, err: %v", kr.String(), err)
+			return
+		}
+		go jobController.Run(stopCh)
+		log.Infof("start job controller on %s", kr.String())
+	}
 }
 
 func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
@@ -320,7 +322,8 @@ func getQueueUsedQuota(clusterInfo string, client kubernetes.Interface, q *api.Q
 func isAllocatedPod(pod *corev1.Pod, queueName string) bool {
 	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
 		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
-	if pod.Annotations == nil || pod.Annotations[v1alpha1.QueueNameKey] != queueName {
+	if pod.Annotations[pfschema.QueueLabelKey] != queueName &&
+		pod.Annotations[pfschema.SchedulingQueueLabelKey] != queueName {
 		return false
 	}
 	if pod.Spec.NodeName != "" {
@@ -676,7 +679,7 @@ func formatAllEventLogs(events []corev1.Event, logPage utils.LogPage) []string {
 	for _, event := range events {
 		// Type-Reason-Timestamp-Message
 		str := fmt.Sprintf("type: %s\treason: %s\teventsTime: %s \tmessage: %s",
-			event.Type, event.Reason, event.CreationTimestamp.Format("2006-01-02 15:04:05"), event.Message)
+			event.Type, event.Reason, event.CreationTimestamp.Format(model.TimeFormat), event.Message)
 		formatedEvents = append(formatedEvents, str)
 	}
 	formatedEvents = logPage.SlicePaging(formatedEvents)

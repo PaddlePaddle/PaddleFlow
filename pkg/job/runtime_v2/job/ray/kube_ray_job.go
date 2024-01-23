@@ -143,10 +143,7 @@ func (rj *KubeRayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID str
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodTemplateSpec(&headGroupSpec.Template, jobID, &task); err != nil {
-		log.Errorf("build head pod spec failed, err:%v", err)
-		return err
-	}
+	kuberuntime.NewPodTemplateSpecBuilder(&headGroupSpec.Template, jobID).Build(task)
 	// patch queue name
 	headGroupSpec.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
 	headGroupSpec.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName
@@ -217,10 +214,7 @@ func (rj *KubeRayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, jobID s
 	task.Command = ""
 	task.Args = []string{}
 	// Template
-	if err := kuberuntime.BuildPodTemplateSpec(&worker.Template, jobID, &task); err != nil {
-		log.Errorf("build head pod spec failed, err: %v", err)
-		return err
-	}
+	kuberuntime.NewPodTemplateSpecBuilder(&worker.Template, jobID).Build(task)
 	// patch queue name
 	worker.Template.Labels[pfschema.QueueLabelKey] = task.QueueName
 	worker.Template.Annotations[pfschema.QueueLabelKey] = task.QueueName
@@ -266,9 +260,11 @@ func (rj *KubeRayJob) customRayJobSpec(rayJobSpec *rayV1alpha1.RayJobSpec, job *
 	jobName := job.NamespacedName()
 	log.Debugf("patch %s spec:%#v", rj.String(jobName), rayJobSpec)
 	// patch metadata
-	kuberuntime.BuildTaskMetadata(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+	kuberuntime.NewPodTemplateSpecBuilder(&rayJobSpec.RayClusterSpec.HeadGroupSpec.Template, job.ID).
+		Build(job.GetMember(pfschema.RoleMaster))
 	for i := range rayJobSpec.RayClusterSpec.WorkerGroupSpecs {
-		kuberuntime.BuildTaskMetadata(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewPodTemplateSpecBuilder(&rayJobSpec.RayClusterSpec.WorkerGroupSpecs[i].Template, job.ID).
+			Build(job.GetMember(pfschema.RoleWorker))
 	}
 	// TODO: patch ray job from user
 	return nil
@@ -306,6 +302,8 @@ func (rj *KubeRayJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(state),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.EndTime),
 	}, nil
 }
 

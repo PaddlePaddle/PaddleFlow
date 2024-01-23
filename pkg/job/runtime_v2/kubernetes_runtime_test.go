@@ -74,7 +74,64 @@ status: {}
 	mockNS         = "default"
 	mockPodName    = "fakePod"
 	mockDeployName = "fakeDeployName"
+	mockQueueName  = "fakeQueue"
+	mockQueueName2 = "fakeQueue2"
 	nodeName       = "node1"
+)
+
+var (
+	mockPod1 = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: mockNS,
+			Annotations: map[string]string{
+				schema.QueueLabelKey: mockQueueName,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+			Containers: []corev1.Container{
+				{
+					Name: "c1",
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							"cpu":    resource.MustParse("2"),
+							"memory": resource.MustParse("2Gi"),
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
+	mockPod2 = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mockPodName,
+			Namespace: mockNS,
+			Annotations: map[string]string{
+				schema.SchedulingQueueLabelKey: mockQueueName2,
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+			Containers: []corev1.Container{
+				{
+					Name: "c1",
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							"cpu":    resource.MustParse("4"),
+							"memory": resource.MustParse("4Gi"),
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
 )
 
 // init trace logger
@@ -167,6 +224,38 @@ func TestKubeRuntimeJob(t *testing.T) {
 	err = kubeRuntime.DeleteJob(pfJob)
 	assert.NotNil(t, err)
 	t.SkipNow()
+}
+
+func TestKubeRuntimeSyncController(t *testing.T) {
+	driver.InitMockDB()
+	config.GlobalServerConfig = &config.ServerConfig{}
+	err := storage.Queue.CreateQueue(&model.Queue{
+		Name:   "default-queue",
+		Status: schema.StatusQueueOpen,
+	})
+	assert.Equal(t, nil, err)
+
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	t.Run("test sync controller", func(t *testing.T) {
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		kubeRuntime.SyncController(stopCh)
+	})
+
+	t.Run("sync controller failed", func(t *testing.T) {
+		ch := make(chan struct{})
+		defer close(ch)
+		kubeRuntime.kubeClient = nil
+		kubeRuntime.SyncController(ch)
+	})
 }
 
 func TestKubeRuntimePVAndPVC(t *testing.T) {
@@ -437,40 +526,60 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 			},
 		},
 	}
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1",
-			Namespace: namespace,
-		},
-		Spec: corev1.PodSpec{
-			NodeName: nodeName,
-			Containers: []corev1.Container{
-				{
-					Name: "c1",
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							"cpu":    resource.MustParse("2"),
-							"memory": resource.MustParse("2Gi"),
-						},
-					},
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
-		},
-	}
+
 	// create node
 	_, err := kubeRuntime.clientset().CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 	assert.Equal(t, nil, err)
 	// create pod
-	_, err = kubeRuntime.clientset().CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	_, err = kubeRuntime.clientset().CoreV1().Pods(namespace).Create(context.TODO(), mockPod1, metav1.CreateOptions{})
 	assert.Equal(t, nil, err)
 	// list node quota
 	quotaSummary, nodeQuotaInfos, err := kubeRuntime.ListNodeQuota()
 	assert.Equal(t, nil, err)
 	t.Logf("quota summary: %v", quotaSummary)
 	t.Logf("node  quota info: %v", nodeQuotaInfos)
+}
+
+func TestKubeRuntime_GetQueueUsedQuota(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	kubeClient := client.NewFakeKubeRuntimeClient(server)
+	kubeRuntime := &KubeRuntime{
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		kubeClient: kubeClient,
+	}
+
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{},
+	}
+	testCases := []struct {
+		name      string
+		pod       *corev1.Pod
+		queueName string
+		err       error
+	}{
+		{
+			name:      "pod queue with volcano.sh/queue-name",
+			pod:       mockPod1,
+			queueName: mockQueueName,
+		},
+		{
+			name:      "pod queue with scheduling.volcano.sh/queue-name",
+			pod:       mockPod2,
+			queueName: mockQueueName2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// create pod
+			_, err := kubeRuntime.clientset().CoreV1().Pods(mockNS).Create(context.TODO(), tc.pod, metav1.CreateOptions{})
+			assert.Equal(t, nil, err)
+			rs, err := kubeRuntime.GetQueueUsedQuota(&api.QueueInfo{Name: tc.queueName})
+			assert.Equal(t, tc.err, err)
+			t.Logf("resource: %v", rs)
+		})
+	}
 }
 
 func TestKubeRuntime_SyncController(t *testing.T) {

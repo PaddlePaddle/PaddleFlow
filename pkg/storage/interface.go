@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -134,6 +136,7 @@ type PipelineStoreInterface interface {
 type FileSystemStoreInterface interface {
 	// filesystem
 	CreatFileSystem(fs *model.FileSystem) error
+	UpdateFileSystem(fs *model.FileSystem) error
 	GetFileSystemWithFsID(fsID string) (model.FileSystem, error)
 	DeleteFileSystem(tx *gorm.DB, id string) error
 	ListFileSystem(limit int, userName, marker, fsName string) ([]model.FileSystem, error)
@@ -194,8 +197,8 @@ type JobFilter struct {
 	Labels     map[string]string
 	OrderBy    string
 	Order      string
-	PK         int64
-	MaxKeys    int
+	PK         int64 // offset
+	MaxKeys    int   // limit
 }
 
 var (
@@ -208,20 +211,19 @@ type JobStoreInterface interface {
 	CreateJob(job *model.Job) error
 	// GetJobByID get job
 	GetJobByID(jobID string) (model.Job, error)
-	GetLastJob() (model.Job, error)
 	// DeleteJob delete job by id
 	DeleteJob(jobID string) error
 	// UpdateJobStatus update job status
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
-	UpdateJobConfig(jobId string, conf *schema.Conf) error
-	UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error)
+	Update(jobID string, job *model.Job) error
 	// ListJob list job with filter
 	ListJob(filter JobFilter) ([]model.Job, error)
+	ListJobStat(startDate, endDate time.Time, queueID string, limit, offset int) (map[string][]*model.Job, error)
 	GetJobsByRunID(runID string, jobID string) ([]model.Job, error)
 	// GetTaskByID get job task
 	GetTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
-	ListByJobID(jobID string) ([]model.JobTask, error)
+	ListTaskByJobID(jobID string) ([]model.JobTask, error)
 }
 
 type ImageStoreInterface interface {
@@ -257,6 +259,8 @@ type NodeCacheInterface interface {
 	DeleteNode(nodeID string) error
 	GetNode(nodeID string) (model.NodeInfo, error)
 	ListNode([]string, string, int, int, map[string]string) ([]model.NodeInfo, error)
+	CountNode(clusterList []string) (int64, error)
+	ListPods(nodeIDList []string) ([]model.PodInfo, error)
 }
 
 type PodCacheInterface interface {
@@ -268,7 +272,7 @@ type PodCacheInterface interface {
 type ResourceCacheInterface interface {
 	AddResource(rInfo *model.ResourceInfo) error
 	UpdateResource(podID string, rName string, rInfo *model.ResourceInfo) error
-	ListNodeResources([]string) ([]model.ResourceInfo, error)
+	ListNodeResources(nodeIDList []string) ([]model.ResourceInfo, error)
 }
 
 type LabelCacheInterface interface {

@@ -74,6 +74,14 @@ type CreateFileSystemRequest struct {
 	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
+type UpdateFileSystemRequest struct {
+	Name                    string            `json:"name"`
+	Url                     string            `json:"url"`
+	Properties              map[string]string `json:"properties"`
+	Username                string            `json:"username"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
+}
+
 type ListFileSystemRequest struct {
 	Marker   string `json:"marker"`
 	MaxKeys  int32  `json:"maxKeys"`
@@ -107,6 +115,11 @@ type GetFileSystemResponse struct {
 }
 
 type CreateFileSystemResponse struct {
+	FsName string `json:"fsName"`
+	FsID   string `json:"fsID"`
+}
+
+type UpdateFileSystemResponse struct {
 	FsName string `json:"fsName"`
 	FsID   string `json:"fsID"`
 }
@@ -206,6 +219,29 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 	fs.ID = common.ID(req.Username, req.Name)
 
 	err := storage.Filesystem.CreatFileSystem(&fs)
+	if err != nil {
+		log.Errorf("create file system[%v] in db failed: %v", fs, err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return model.FileSystem{}, err
+	}
+	return fs, nil
+}
+
+// CreateFileSystem the function which performs the operation of creating FileSystem
+func (s *FileSystemService) UpdateFileSystem(ctx *logger.RequestContext, req *UpdateFileSystemRequest) (model.FileSystem, error) {
+	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
+	fs := model.FileSystem{
+		Name:                    req.Name,
+		PropertiesMap:           req.Properties,
+		ServerAddress:           serverAddress,
+		Type:                    fsType,
+		SubPath:                 subPath,
+		UserName:                req.Username,
+		IndependentMountProcess: req.IndependentMountProcess,
+	}
+	fs.ID = common.ID(req.Username, req.Name)
+
+	err := storage.Filesystem.UpdateFileSystem(&fs)
 	if err != nil {
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -377,14 +413,56 @@ func (s *FileSystemService) cleanFsResources(runtimePodsMap map[*runtime.KubeRun
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
-				return err
+				err = fmt.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				log.Error(err.Error())
+				errorsSlice = append(errorsSlice, err.Error())
 			}
 		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
+	}
+	return nil
+}
+
+func deletePvPvcs(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var errorsSlice []string
+	for k8sRuntime, pods := range podMap {
+		namespaces := []string{}
+		nsList, err := k8sRuntime.ListNamespaces(k8sMeta.ListOptions{})
+		if err != nil {
+			log.Errorf("ListNamespaces err %v", err)
+			continue
+		}
+		for _, ns := range nsList.Items {
+			if ns.Status.Phase == k8sCore.NamespaceActive {
+				namespaces = append(namespaces, ns.Name)
+			}
+		}
+		for _, po := range pods {
+			for _, ns := range namespaces {
+				// delete pod
+				log.Infof("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s]",
+					po.Name, ns, po.Labels[schema.LabelKeyFsID])
+				if po.Labels[schema.LabelKeyFsID] == "" {
+					continue
+				}
+				if err = patchAndDeletePvcPv(k8sRuntime, ns, po.Labels[schema.LabelKeyFsID]); err != nil && !k8sErrors.IsNotFound(err) {
+					err = fmt.Errorf("patchAndDeletePvcPv [%s] namespace[%s] fsID[%s] failed: %v",
+						po.Name, ns, po.Labels[schema.LabelKeyFsID], err)
+					log.Error(err.Error())
+					errorsSlice = append(errorsSlice, err.Error())
+				}
+			}
+		}
+	}
+	if len(errorsSlice) > 0 {
+		return errors.New(strings.Join(errorsSlice, "; "))
 	}
 	return nil
 }

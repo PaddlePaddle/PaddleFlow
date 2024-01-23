@@ -18,13 +18,18 @@ package job
 
 import (
 	"crypto/md5"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -58,18 +63,32 @@ func TestGenerateLogURL(t *testing.T) {
 	testCases := []struct {
 		name        string
 		task        model.JobTask
+		clusterID   string
 		containerID string
 		expectURL   string
 	}{
 		{
+			name: "get container id from JobTask.LogURL",
+			task: model.JobTask{
+				ID:                   "test-task-id-1",
+				JobID:                "test-job-id",
+				LogURL:               "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
+				ExtRuntimeStatusJSON: taskStatus,
+			},
+			clusterID:   "mock-cluster-id",
+			containerID: "34c608b1a2ffedab37a04481e153b9b273a31bfd4dd859b87d417b06c60723fe",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d&clusterID=%s&nodeName=%s",
+		},
+		{
 			name: "generate log url success",
 			task: model.JobTask{
-				ID:                   "test-task-id",
+				ID:                   "test-task-id-2",
 				JobID:                "test-job-id",
 				ExtRuntimeStatusJSON: taskStatus,
 			},
+			clusterID:   "mock-cluster-id",
 			containerID: "8517d2e225a5e580470d56c7e039208b538cb78b942cdabb028e235d1aee54b6",
-			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d",
+			expectURL:   "http://127.0.0.1:8080/v1/containers/%s/log?jobID=test-job-id&token=%s&t=%d&clusterID=%s&nodeName=%s",
 		},
 	}
 
@@ -82,12 +101,460 @@ func TestGenerateLogURL(t *testing.T) {
 			task, err := storage.Job.GetTaskByID(tc.task.ID)
 			assert.Equal(t, nil, err)
 			// generate log url
-			url := GenerateLogURL(task)
+			url := GenerateLogURL(task, tc.clusterID)
 			tokenStr, timeStamp := getLogToken(task.JobID, tc.containerID)
 			token := md5.Sum([]byte(tokenStr))
-			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp)
+			expectURL := fmt.Sprintf(tc.expectURL, tc.containerID, hex.EncodeToString(token[:]), timeStamp, tc.clusterID, task.NodeName)
 			assert.Equal(t, expectURL, url)
 			t.Logf("log url %s", expectURL)
+
+			// test multi update
+			tc.task.LogURL = ""
+			err = storage.Job.UpdateTask(&tc.task)
+			assert.Equal(t, nil, err)
+			task, err = storage.Job.GetTaskByID(tc.task.ID)
+			assert.Equal(t, nil, err)
+			t.Logf("after second update, task logURL: %v", task.LogURL)
+		})
+	}
+}
+
+func initMockJob(t *testing.T) {
+	time1 := time.Now()
+	testParentID := "test-parent-id"
+	jobs := []model.Job{
+		{
+			ID:          "job-00001",
+			Name:        "test-job-1",
+			UserName:    "user1",
+			Type:        string(schema.TypeSingle),
+			RuntimeInfo: corev1.PodSpec{},
+			QueueID:     "test-queue-1",
+			Status:      schema.StatusJobRunning,
+			Framework:   schema.FrameworkStandalone,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.StandaloneKindGroupVersion,
+			},
+			ParentJob: testParentID,
+			CreatedAt: time1,
+			UpdatedAt: time1.Add(2 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(2 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:          "job-00002",
+			Name:        "test-job-2",
+			UserName:    "user1",
+			Type:        string(schema.TypeDistributed),
+			RuntimeInfo: corev1.PodSpec{},
+			QueueID:     "test-queue-1",
+			Status:      schema.StatusJobRunning,
+			Framework:   schema.FrameworkPaddle,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PaddleKindGroupVersion,
+			},
+			ParentJob: testParentID,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:          "job-00003",
+			Name:        "test-job-3",
+			UserName:    "user1",
+			Type:        string(schema.TypeDistributed),
+			RuntimeInfo: corev1.PodSpec{},
+			QueueID:     "test-queue-1",
+			Status:      schema.StatusJobRunning,
+			Framework:   schema.FrameworkAITJ,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.AITrainingKindGroupVersion,
+			},
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:        "job-00004",
+			Name:      "test-job-4",
+			UserName:  "user1",
+			Type:      string(schema.TypeDistributed),
+			QueueID:   "test-queue-1",
+			Status:    schema.StatusJobRunning,
+			Framework: schema.FrameworkSpark,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.SparkKindGroupVersion,
+			},
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+			ParentJob: "job-00005",
+		},
+		{
+			ID:       "job-00005",
+			Name:     "test-job-5",
+			UserName: "user1",
+			Type:     string(schema.TypeWorkflow),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.WorkflowKindGroupVersion,
+			},
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00006",
+			Name:     "test-job-6",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.MPIKindGroupVersion,
+			},
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00007",
+			Name:     "test-job-7",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PyTorchKindGroupVersion,
+			},
+			Framework: schema.FrameworkPytorch,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+		{
+			ID:       "job-00008",
+			Name:     "test-job-8",
+			UserName: "user1",
+			Type:     string(schema.TypeDistributed),
+			QueueID:  "test-queue-1111",
+			Status:   schema.StatusJobRunning,
+			Config: &schema.Conf{
+				KindGroupVersion: schema.PyTorchKindGroupVersion,
+			},
+			Framework: schema.FrameworkPytorch,
+			CreatedAt: time1.Add(2 * time.Second),
+			UpdatedAt: time1.Add(4 * time.Second),
+			ActivatedAt: sql.NullTime{
+				Time:  time1.Add(4 * time.Second),
+				Valid: true,
+			},
+		},
+	}
+
+	for i := range jobs {
+		err := storage.Job.CreateJob(&jobs[i])
+		assert.Equal(t, nil, err)
+	}
+	// init job task
+	jobTasks := []model.JobTask{
+		{
+			ID:        "job-00001-task",
+			JobID:     "job-00001",
+			Name:      "job-123456",
+			Namespace: "default",
+			NodeName:  "node-001",
+			LogURL:    "container-123456",
+		},
+		{
+			ID:    "job-00002-task",
+			JobID: "job-00002",
+			Name:  "job-100000",
+			Annotations: map[string]string{
+				"paddle-resource": "ps",
+			},
+			Namespace: "default",
+			NodeName:  "node-001",
+			LogURL:    "container-123456,11",
+		},
+		{
+			ID:    "job-00002-worker-1",
+			JobID: "job-00002",
+			Name:  "job-100000-worker-1",
+			Annotations: map[string]string{
+				"paddle-resource": "worker",
+			},
+			Namespace: "default",
+			NodeName:  "node-001",
+			LogURL:    "container-123456,11",
+		},
+		{
+			ID:        "job-00003-task",
+			JobID:     "job-00003",
+			Name:      "job-100001-trainer-3",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00004-task",
+			JobID:     "job-00004",
+			Name:      "job-10004-driver-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00006-task",
+			JobID:     "job-00006",
+			Name:      "job-10006-launcher",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00006-task-1",
+			JobID:     "job-00006",
+			Name:      "job-10006-worker-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00006-task-2",
+			JobID:     "job-00006",
+			Name:      "job-10006-worker-1",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:    "job-00007-task-1",
+			JobID: "job-00007",
+			Name:  "job-10007-master",
+			Annotations: map[string]string{
+				"volcano.sh/task-spec": "master",
+			},
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+		{
+			ID:        "job-00007-task-2",
+			JobID:     "job-00007",
+			Name:      "job-10006-worker-0",
+			Namespace: "default",
+			NodeName:  "node-001",
+		},
+	}
+	for i := range jobTasks {
+		err := storage.Job.UpdateTask(&jobTasks[i])
+		assert.Equal(t, nil, err)
+	}
+
+	// init mock queue
+	q1 := &model.Queue{
+		Model: model.Model{
+			ID: "test-queue-1",
+		},
+		Name:      "test-queue-1-name",
+		ClusterId: "test-cluster-1",
+		Status:    schema.StatusQueueOpen,
+	}
+	err := storage.Queue.CreateQueue(q1)
+	assert.Equal(t, nil, err)
+	// init mock cluster
+	c1 := &model.ClusterInfo{
+		Model: model.Model{
+			ID: "test-cluster-1",
+		},
+	}
+	err = storage.Cluster.CreateCluster(c1)
+	assert.Equal(t, nil, err)
+}
+
+func TestListJob(t *testing.T) {
+	timeStamp := time.Now().Unix()
+	testCases := []struct {
+		name           string
+		request        ListJobRequest
+		err            error
+		wantedJobCount int
+	}{
+		{
+			name: "list job with status filter",
+			request: ListJobRequest{
+				Status:  string(schema.StatusJobRunning),
+				MaxKeys: 50,
+			},
+			err:            nil,
+			wantedJobCount: 8,
+		},
+		{
+			name: "list job with timestamp",
+			request: ListJobRequest{
+				Timestamp: timeStamp,
+				MaxKeys:   50,
+			},
+			err:            nil,
+			wantedJobCount: 8,
+		},
+		{
+			name: "list job with queue",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 50,
+			},
+			err:            nil,
+			wantedJobCount: 7,
+		},
+		{
+			name: "list job with maxKeys 0",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 0,
+			},
+			err:            nil,
+			wantedJobCount: 0,
+		},
+		{
+			name: "list job with maxKeys 1",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 1,
+			},
+			err:            nil,
+			wantedJobCount: 1,
+		},
+		{
+			name: "list job with maxKeys 2",
+			request: ListJobRequest{
+				Queue:   "test-queue-1-name",
+				MaxKeys: 2,
+			},
+			err:            nil,
+			wantedJobCount: 2,
+		},
+	}
+
+	driver.InitMockDB()
+	initMockJob(t)
+
+	ctx := &logger.RequestContext{}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			listResp, err := ListJob(ctx, tc.request)
+			assert.Equal(t, tc.err, err)
+			assert.Equal(t, tc.wantedJobCount, len(listResp.JobList))
+			t.Logf("list job: %v", listResp)
+		})
+	}
+}
+
+func TestGetJob(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{
+			Log: config.JobLogConfig{
+				ServiceHost: "127.0.0.1",
+				ServicePort: "8080",
+			},
+		},
+	}
+
+	testCases := []struct {
+		name  string
+		ctx   *logger.RequestContext
+		jobID string
+		err   error
+	}{
+		{
+			name: "get single job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00001",
+			err:   nil,
+		},
+		{
+			name: "get distributed paddle job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00002",
+			err:   nil,
+		},
+		{
+			name: "get distributed aitj job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00003",
+			err:   nil,
+		},
+		{
+			name: "get distributed pytorch job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00007",
+			err:   nil,
+		},
+		{
+			name: "get spark job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00004",
+			err:   nil,
+		},
+		{
+			name: "get mpi job",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00006",
+			err:   nil,
+		},
+		{
+			name: "get workflow",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00005",
+			err:   nil,
+		},
+		{
+			name: "get job when queue is deleted",
+			ctx: &logger.RequestContext{
+				UserName: "root",
+			},
+			jobID: "job-00008",
+			err:   nil,
+		},
+	}
+
+	driver.InitMockDB()
+	initMockJob(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			job, err := GetJob(tc.ctx, tc.jobID)
+			assert.Equal(t, tc.err, err)
+			t.Logf("job info %v", job)
 		})
 	}
 }

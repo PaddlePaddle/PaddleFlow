@@ -47,22 +47,25 @@ func cleanMountPod(expireDuration time.Duration) error {
 		runtimePtr, podsToClean, err := expiredMountedPodsSingleCluster(cluster, expireDuration)
 		if err != nil {
 			log.Errorf("expiredMountedPodsSingleCluster[%s] failed: %v", cluster.ID, err)
-			return err
+			continue
 		}
 		if len(podsToClean) > 0 {
 			podCleanMap[runtimePtr] = podsToClean
 		}
 	}
-	log.Infof("clean expired mount pods: %+v", podCleanMap)
 	if len(podCleanMap) == 0 {
 		return nil
 	}
 	if err = deleteMountPods(podCleanMap); err != nil {
-		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
+		log.Errorf("clean mount pods with err: %v", err)
+		return err
+	}
+	if err = deletePvPvcs(podCleanMap); err != nil {
+		log.Errorf("deletePvPvcs with err: %v", err)
 		return err
 	}
 	if err = cleanFSCache(podCleanMap); err != nil {
-		log.Errorf(fmt.Sprintf("clean fs cache with err: %v", err))
+		log.Errorf("clean fs cache with err: %v", err)
 		return err
 	}
 	return nil

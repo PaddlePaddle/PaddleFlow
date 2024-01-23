@@ -229,7 +229,13 @@ func TestJobUpdateFunc(t *testing.T) {
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, job); err != nil {
 					return api.StatusInfo{}, err
 				}
-				return api.StatusInfo{Status: schema.JobStatus(job.Status.Phase)}, nil
+				status := schema.StatusJobPending
+				if job.Status.Phase == v1.PodRunning {
+					status = schema.StatusJobRunning
+				}
+				return api.StatusInfo{
+					OriginStatus: string(job.Status.Phase),
+					Status:       status}, nil
 			},
 		},
 	}

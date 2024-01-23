@@ -68,6 +68,11 @@ func Test_cleanMountPod(t *testing.T) {
 			return nil
 		})
 	defer p2.Reset()
+	p3 := gomonkey.ApplyFunc(deletePvPvcs,
+		func(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+			return nil
+		})
+	defer p3.Reset()
 
 	fsCache1 := model.FSCache{
 		FsID:      fs1,

@@ -113,6 +113,7 @@ func (nr *NodeResourceSync) processNode() bool {
 	nodeInfo := &model.NodeInfo{
 		ID:          nr.generateNodeID(nodeSync.Name),
 		Name:        nodeSync.Name,
+		IP:          nodeSync.IP,
 		ClusterID:   nr.runtimeClient.ClusterID(),
 		ClusterName: nr.runtimeClient.ClusterName(),
 		Status:      nodeSync.Status,
@@ -163,6 +164,7 @@ func (nr *NodeResourceSync) processNodeTask() bool {
 	taskInfo := &model.PodInfo{
 		ID:        taskSync.ID,
 		Name:      taskSync.Name,
+		Namespace: taskSync.Namespace,
 		NodeID:    nr.generateNodeID(taskSync.NodeName),
 		NodeName:  taskSync.NodeName,
 		Status:    int(taskSync.Status),

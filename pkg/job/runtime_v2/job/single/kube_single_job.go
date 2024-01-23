@@ -19,6 +19,7 @@ package single
 import (
 	"context"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -164,18 +165,35 @@ func (sp *KubeSingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.KindGroupVersion, err.Error())
 		return api.StatusInfo{}, err
 	}
+	jobStatus := job.Status.DeepCopy()
 	// convert job status
-	state, msg, err := sp.getJobStatus(&job.Status)
+	state, msg, err := sp.getJobStatus(jobStatus)
 	if err != nil {
 		log.Errorf("get single job status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
 	log.Infof("Single job status: %s", state)
 	return api.StatusInfo{
-		OriginStatus: string(job.Status.Phase),
+		OriginStatus: string(jobStatus.Phase),
 		Status:       state,
 		Message:      msg,
+		FinishedTime: sp.getJobFinishedTime(jobStatus),
 	}, nil
+}
+
+// getJobFinishedTime get job start time and finished time
+func (sp *KubeSingleJob) getJobFinishedTime(jobStatus *v1.PodStatus) *time.Time {
+	if jobStatus.Phase == v1.PodSucceeded || jobStatus.Phase == v1.PodFailed {
+		var finishedTime *time.Time = nil
+		for _, conStatus := range jobStatus.ContainerStatuses {
+			if conStatus.State.Terminated != nil {
+				finishedTime = kuberuntime.GetKubeTime(&conStatus.State.Terminated.FinishedAt)
+				break
+			}
+		}
+		return finishedTime
+	}
+	return nil
 }
 
 func (sp *KubeSingleJob) getJobStatus(jobStatus *v1.PodStatus) (pfschema.JobStatus, string, error) {

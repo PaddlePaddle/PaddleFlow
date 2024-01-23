@@ -914,10 +914,12 @@ func (m *kvMeta) ReadLink(ctx *Context, inode Ino, path *[]byte) syscall.Errno {
 	err := m.txn(func(tx kv.KvTxn) error {
 		inodeAttr := tx.Get(m.inodeKey(inode))
 		if inodeAttr == nil {
+			log.Errorf("no inode %v", inode)
 			return syscall.ENOENT
 		}
 		linkPath := tx.Get(m.symKey(inode))
 		if linkPath == nil {
+			log.Errorf("no link %v", inode)
 			return syscall.ENOENT
 		}
 		m.parseInode(inodeAttr, attr)
@@ -926,6 +928,7 @@ func (m *kvMeta) ReadLink(ctx *Context, inode Ino, path *[]byte) syscall.Errno {
 		attr.attr.Atimensec = uint32(now.Nanosecond())
 		err := tx.Set(m.inodeKey(inode), m.marshalInode(attr))
 		if err != nil {
+			log.Errorf("tx set err %v", err)
 			return err
 		}
 		return nil
@@ -1457,11 +1460,17 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	var parentIno Ino
 	now := time.Now()
 	var fromCache bool
+	if inode == rootInodeID {
+		log.Infof("root readdir %v", inode)
+		attrTmp := &Attr{}
+		err := m.GetAttr(ctx, inode, attrTmp)
+		if err != 0 {
+			log.Errorf("get attr err %v", err)
+			return syscall.EBADF
+		}
+	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
-		if buf == nil {
-			return syscall.ENOENT
-		}
 		m.parseInode(buf, dirInodeItem)
 		parentIno = dirInodeItem.parentIno
 		entry := tx.Get(m.entryKey(parentIno, string(dirInodeItem.name)))

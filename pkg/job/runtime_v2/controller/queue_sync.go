@@ -90,7 +90,7 @@ func (qs *QueueSync) processWorkItem() bool {
 	log.Debugf("%s, queueName is %s", qs.Name(), queueSyncInfo.Name)
 	defer qs.workQueue.Done(queueSyncInfo)
 
-	if config.GlobalServerConfig.Job.SyncClusterQueue {
+	if queueSyncInfo.Labels[pfschema.QueueSyncLabel] != "" || config.GlobalServerConfig.Job.SyncClusterQueue {
 		if err := qs.syncQueueInfo(queueSyncInfo); err != nil {
 			log.Errorf("sync queue %s failed. err: %s", queueSyncInfo.Name, err)
 			if queueSyncInfo.RetryTimes < DefaultSyncRetryTimes {

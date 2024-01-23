@@ -250,7 +250,7 @@ func (fs *hdfsFileSystem) Rmdir(name string) error {
 	log.Tracef("hdfs rmdir: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
-	return fs.client.Remove(fs.GetPath(name))
+	return fs.client.RemoveAll(fs.GetPath(name))
 }
 
 func (fs *hdfsFileSystem) Unlink(name string) error {

@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	log "github.com/sirupsen/logrus"
@@ -290,6 +291,15 @@ func BuildJobMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 	}
 }
 
+func BuildTaskLabels(labels map[string]string, jobID string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[schema.JobIDLabel] = jobID
+	labels[schema.JobOwnerLabel] = schema.JobOwnerValue
+	return labels
+}
+
 func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *schema.Conf) {
 	if metadata == nil || taskConf == nil {
 		return
@@ -305,53 +315,6 @@ func BuildTaskMetadata(metadata *metav1.ObjectMeta, jobID string, taskConf *sche
 	metadata.Labels[schema.JobIDLabel] = jobID
 	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	// TODO: add more metadata for task
-}
-
-// appendMapsIfAbsent append Maps if absent, only support string type
-func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
-	if Maps == nil {
-		Maps = make(map[string]string)
-	}
-	for key, value := range addMaps {
-		if _, ok := Maps[key]; !ok {
-			Maps[key] = value
-		}
-	}
-	return Maps
-}
-
-func BuildPodSpec(podSpec *corev1.PodSpec, task schema.Member) error {
-	if podSpec == nil {
-		return fmt.Errorf("build pod spec failed, err: podSpec or task is nil")
-	}
-	// fill priorityClassName and schedulerName
-	err := buildPriorityAndScheduler(podSpec, task.Priority)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	// fill volumes
-	fileSystems := task.Conf.GetAllFileSystem()
-	podSpec.Volumes = BuildVolumes(podSpec.Volumes, fileSystems)
-	// fill affinity
-	if len(fileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range fileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Affinity, err = generateAffinity(podSpec.Affinity, fsIDs)
-		if err != nil {
-			return err
-		}
-	}
-	// fill restartPolicy
-	patchRestartPolicy(podSpec, task)
-	// build containers
-	if err = buildPodContainers(podSpec, task); err != nil {
-		log.Errorf("failed to fill containers, err=%v", err)
-		return err
-	}
-	return nil
 }
 
 func buildPriorityAndScheduler(podSpec *corev1.PodSpec, priorityName string) error {
@@ -526,54 +489,6 @@ func fillContainer(container *corev1.Container, podName string, task schema.Memb
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
-}
-
-func getWorkDir(task *schema.Member, fileSystems []schema.FileSystem, envs map[string]string) string {
-	// prepare fs and envs
-	if task != nil {
-		fileSystems = task.Conf.GetAllFileSystem()
-		if len(task.Conf.GetProcessedFileSystem()) > 0 {
-			fileSystems = task.Conf.GetProcessedFileSystem()
-		}
-		envs = task.Env
-	}
-	if len(envs) == 0 {
-		envs = make(map[string]string)
-	}
-	// check workdir, which exist only if there is more than one file system and env.'EnvMountPath' is not NONE
-	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
-	if !hasWorkDir {
-		return ""
-	}
-
-	workdir := ""
-	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
-	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
-	if mountPath != "/" {
-		workdir = fileSystems[0].MountPath
-	} else {
-		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
-	}
-	envs[schema.EnvJobWorkDir] = workdir
-	return workdir
-}
-
-// generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
-func generateContainerCommand(command string, workdir string) []string {
-	command = strings.TrimPrefix(command, "bash -c")
-	command = strings.TrimPrefix(command, "sh -c")
-
-	if workdir != "" {
-		// if command is not empty
-		if command != "" {
-			command = fmt.Sprintf("cd %s; %s", workdir, command)
-		} else {
-			command = fmt.Sprintf("cd %s", workdir)
-		}
-	}
-
-	commands := []string{"sh", "-c", command}
-	return commands
 }
 
 func GenerateResourceRequirements(request, limitFlavour schema.Flavour) (corev1.ResourceRequirements, error) {
@@ -884,53 +799,14 @@ func GetKubeflowJobStatus(jobCond kubeflowv1.JobCondition) (schema.JobStatus, st
 	return status, msg, nil
 }
 
-// BuildPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func BuildPodTemplateSpec(podSpec *corev1.PodTemplateSpec, jobID string, task *schema.Member) error {
-	if podSpec == nil || task == nil {
-		return fmt.Errorf("podTemplateSpec or task is nil")
+// GetKubeTime 函数接收一个metav1.Time类型的指针t，返回一个time.Time类型的指针
+func GetKubeTime(t *metav1.Time) *time.Time {
+	if t == nil {
+		return nil
 	}
-	// build task metadata
-	BuildTaskMetadata(&podSpec.ObjectMeta, jobID, &schema.Conf{})
-	// build pod spec
-	err := BuildPodSpec(&podSpec.Spec, *task)
-	if err != nil {
-		log.Errorf("build pod spec failed, err: %v", err)
-		return err
-	}
-	return nil
-}
-
-// KubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, jobID string, task *schema.Member) error {
-	if replicaSpec == nil || task == nil {
-		return fmt.Errorf("build kubeflow replica spec failed, err: replicaSpec or task is nil")
-	}
-	// set Replicas for job
-	replicas := int32(task.Replicas)
-	replicaSpec.Replicas = &replicas
-	// set RestartPolicy
-	// TODO: make RestartPolicy configurable
-	replicaSpec.RestartPolicy = kubeflowv1.RestartPolicyNever
-	// set PodTemplate
-	return BuildPodTemplateSpec(&replicaSpec.Template, jobID, task)
-}
-
-// KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
-func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
-	if runPolicy == nil {
-		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
-	}
-	// TODO set cleanPolicy
-	// set SchedulingPolicy
-	if runPolicy.SchedulingPolicy == nil {
-		runPolicy.SchedulingPolicy = &kubeflowv1.SchedulingPolicy{}
-	}
-	runPolicy.SchedulingPolicy.Queue = queueName
-	runPolicy.SchedulingPolicy.PriorityClass = KubePriorityClass(priority)
-	if minResources != nil {
-		runPolicy.SchedulingPolicy.MinResources = minResources
-	}
-	return nil
+	var newT = metav1.Time{}
+	t.DeepCopyInto(&newT)
+	return &newT.Time
 }
 
 // Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.

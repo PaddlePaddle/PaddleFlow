@@ -35,16 +35,11 @@ const (
 	EnvJobUserName  = "PF_USER_NAME"
 	EnvJobMode      = "PF_JOB_MODE"
 	EnvJobFramework = "PF_JOB_FRAMEWORK"
-	// EnvJobYamlPath Additional configuration for a specific job
-	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
-	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
 	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
 	EnvJobWorkDir = "PF_WORK_DIR"
 	EnvMountPath  = "PF_MOUNT_PATH"
 
 	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
-
-	EnvEnableJobQueueSync = "PF_JOB_QUEUE_SYNC"
 
 	// EnvJobModePS env
 	EnvJobModePS = "PS"
@@ -92,7 +87,6 @@ const (
 	RoleDriver   MemberRole = "driver"
 	RoleExecutor MemberRole = "executor"
 	RolePServer  MemberRole = "pserver"
-	RolePWorker  MemberRole = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
@@ -152,6 +146,7 @@ const (
 	SparkAPPJobNameLabel    = "sparkoperator.k8s.io/app-name"
 
 	QueueNamespaceAnnotation = "paddleflow/queue-namespace"
+	QueueSyncLabel           = "paddleflow/queue-sync"
 
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
@@ -482,29 +477,6 @@ func (c *Conf) GetProcessedFileSystem() []FileSystem {
 	}
 	return c.processedFS
 }
-
-/**
-// Scan for gorm
-func (s *Conf) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("Conf scan failed")
-	}
-	err := json.Unmarshal(b, s)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Value for gorm
-func (s Conf) Value() (driver.Value, error) {
-	value, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
-}*/
 
 type Member struct {
 	ID       string     `yaml:"-"  json:"id"`

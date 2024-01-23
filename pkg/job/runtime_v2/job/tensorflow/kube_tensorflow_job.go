@@ -95,7 +95,7 @@ func (pj *KubeTFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob)
 		// tf parameter server for distributed training
 		replicaType := tfv1.TFReplicaTypePS
 		// if role is worker, set it to tf worker
-		if task.Role == pfschema.RoleWorker || task.Role == pfschema.RolePWorker {
+		if task.Role == pfschema.RoleWorker {
 			// tf worker for distributed training
 			replicaType = tfv1.TFReplicaTypeWorker
 		}
@@ -103,10 +103,8 @@ func (pj *KubeTFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob)
 		if !ok {
 			return fmt.Errorf("replica type %s for %s is not supported", replicaType, pj.String(jobName))
 		}
-		if err := kuberuntime.KubeflowReplicaSpec(replicaSpec, job.ID, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, pj.String(jobName), err)
-			return err
-		}
+		// build kubeflowReplicaSpec
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, replicaSpec).ReplicaSpec(task)
 		// calculate job minResources
 		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
 		if err != nil {
@@ -118,7 +116,9 @@ func (pj *KubeTFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob)
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return kuberuntime.KubeflowRunPolicy(&tfJobSpec.RunPolicy, &resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &tfJobSpec.RunPolicy, nil).
+		RunPolicy(&resourceList, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 // customTFJobSpec set custom TFJob Spec
@@ -131,15 +131,17 @@ func (pj *KubeTFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec, job *api.PFJob) 
 	// patch metadata
 	ps, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypePS]
 	if find && ps != nil {
-		kuberuntime.BuildTaskMetadata(&ps.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, ps).ReplicaSpec(job.GetMember(pfschema.RolePServer))
 	}
 	worker, find := tfJobSpec.TFReplicaSpecs[tfv1.TFReplicaTypeWorker]
 	if find && worker != nil {
-		kuberuntime.BuildTaskMetadata(&worker.Template.ObjectMeta, job.ID, &pfschema.Conf{})
+		kuberuntime.NewKubeflowJobBuilder(job.ID, nil, worker).ReplicaSpec(job.GetMember(pfschema.RoleWorker))
 	}
 	// TODO: patch pytorch job from user
 	// check RunPolicy
-	return kuberuntime.KubeflowRunPolicy(&tfJobSpec.RunPolicy, nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	kuberuntime.NewKubeflowJobBuilder(job.ID, &tfJobSpec.RunPolicy, nil).
+		RunPolicy(nil, job.Conf.GetQueueName(), job.Conf.GetPriority())
+	return nil
 }
 
 func (pj *KubeTFJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
@@ -178,6 +180,8 @@ func (pj *KubeTFJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
 		OriginStatus: string(jobCond.Type),
 		Status:       state,
 		Message:      msg,
+		StartTime:    kuberuntime.GetKubeTime(job.Status.StartTime),
+		FinishedTime: kuberuntime.GetKubeTime(job.Status.CompletionTime),
 	}, nil
 }
 

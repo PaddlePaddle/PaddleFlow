@@ -28,6 +28,10 @@ import (
 type Resource resources.Resource
 
 func (r *Resource) Scan(value interface{}) error {
+	if value == "{}" {
+		*r = Resource{}
+		return nil
+	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("failed to unmarshal Resource sturct: %v", value)
@@ -57,4 +61,21 @@ func (m *Map) Scan(value interface{}) error {
 
 func (m Map) Value() (driver.Value, error) {
 	return json.Marshal(map[string]string(m))
+}
+
+type MapInt64 map[string]int64
+
+func (m *MapInt64) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal Map sturct: %v", value)
+	}
+	result := map[string]int64{}
+	err := json.Unmarshal(bytes, &result)
+	*m = result
+	return err
+}
+
+func (m MapInt64) Value() (driver.Value, error) {
+	return json.Marshal(map[string]int64(m))
 }
