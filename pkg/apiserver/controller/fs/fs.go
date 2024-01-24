@@ -472,7 +472,7 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 			if err != nil {
 				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces err: %v", cluster.Name, err)
 				log.Errorf(err.Error())
-				return nil, err
+				continue
 			}
 			for _, ns := range nsList.Items {
 				if ns.Status.Phase == k8sCore.NamespaceActive {
