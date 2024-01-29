@@ -237,6 +237,12 @@ func validateNamespace(new, old []string, clusterID string) error {
 	return nil
 }
 
+// CreateCluster 用于创建集群
+// ctx: 请求的上下文信息
+// request: 创建集群的请求参数
+// 返回值:
+// CreateClusterResponse: 创建集群的响应参数
+// error: 错误信息
 func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*CreateClusterResponse, error) {
 	clusterName := strings.TrimSpace(request.Name)
 
@@ -309,6 +315,17 @@ func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
+// ListCluster 返回符合条件的集群列表
+//
+// ctx: 请求上下文
+// marker: 用于分页的键，第一页传入""
+// maxKeys: 每页最多返回的集群个数，小于等于0表示返回所有
+// clusterNameList: 需要查询的集群名称列表，不传表示查询所有集群
+// clusterStatus: 集群状态，不传表示查询所有状态
+//
+// 返回值：
+// ListClusterResponse: 符合条件的集群列表
+// error: 错误信息，如果成功则为nil
 func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int,
 	clusterNameList []string, clusterStatus string) (*ListClusterResponse, error) {
 	ctx.Logging().Debug("begin list cluster.")
@@ -362,11 +379,23 @@ func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int,
 	return &response, nil
 }
 
+// GetCluster 根据集群名称获取集群信息
+// 参数：
+//
+//	ctx：请求上下文，包含用户信息等
+//	clusterName：集群名称
+//
+// 返回值：
+//
+//	GetClusterResponse：包含集群信息的结构体指针
+//	error：错误信息，如果成功则为nil
 func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResponse, error) {
-	if !common.IsRootUser(ctx.UserName) {
-		ctx.ErrorCode = common.OnlyRootAllowed
-		ctx.Logging().Errorln("get cluster failed. error: admin is needed.")
-		return nil, errors.New("get cluster failed")
+	if !common.IsRootUser(ctx.UserName) &&
+		!storage.Auth.HasAccessToResource(ctx, common.ResourceTypeCluster, clusterName) {
+		ctx.ErrorCode = common.AccessDenied
+		ctx.Logging().Errorf("check permission failed: user %s does not have permission to access cluster %s",
+			ctx.UserName, clusterName)
+		return nil, errors.New("check permission failed")
 	}
 
 	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
@@ -378,6 +407,14 @@ func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResp
 	return &GetClusterResponse{clusterInfo}, nil
 }
 
+// DeleteCluster 删除集群
+//
+// 参数：
+// ctx：请求上下文
+// clusterName：集群名称
+//
+// 返回值：
+// error：返回错误信息，如果成功则为nil
 func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
@@ -424,6 +461,14 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 	return nil
 }
 
+// UpdateCluster 用于更新集群信息
+// 参数：
+// ctx：请求上下文，包含用户信息、日志记录等
+// clusterName：待更新的集群名称
+// request：更新请求，包含更新后的集群信息
+// 返回值：
+// UpdateClusterResponse：更新后的集群信息
+// error：错误信息，如果更新成功则返回nil
 func UpdateCluster(ctx *logger.RequestContext,
 	clusterName string, request *UpdateClusterRequest) (*UpdateClusterReponse, error) {
 	if !common.IsRootUser(ctx.UserName) {
