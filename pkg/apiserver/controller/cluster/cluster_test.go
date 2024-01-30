@@ -230,14 +230,23 @@ func TestCreateCluster(t *testing.T) {
 
 func TestGetCluster(t *testing.T) {
 	TestCreateCluster(t)
-	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	// test get clusterInfo
-	resp, err := GetCluster(ctx, MockClusterName)
-	assert.Nil(t, err)
-	// expect status changes from online to offline
-	assert.Equal(t, MockClusterName, resp.Name)
-	t.Logf("resp=%v", resp)
+	t.Run("get cluster with root user", func(t *testing.T) {
+		ctx := &logger.RequestContext{UserName: MockRootUser}
+		// test get clusterInfo
+		resp, err := GetCluster(ctx, MockClusterName)
+		assert.Nil(t, err)
+		// expect status changes from online to offline
+		assert.Equal(t, MockClusterName, resp.Name)
+		t.Logf("resp=%v", resp)
+	})
+
+	t.Run("get cluster with test user", func(t *testing.T) {
+		ctx := &logger.RequestContext{UserName: "test"}
+		// test get clusterInfo
+		_, err := GetCluster(ctx, MockClusterName)
+		assert.Equal(t, errors.New("check permission failed"), err)
+	})
 }
 
 func TestUpdateCluster(t *testing.T) {
