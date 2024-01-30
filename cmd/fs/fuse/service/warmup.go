@@ -57,13 +57,12 @@ func warmup_(fname string, paths []string, threads int, warmType string, recursi
 	progress, bar := utils.NewDynProgressBar("warming up paths: ", false, int64(len(paths)))
 	for _, path := range paths {
 		path_ := path
+		if recursive && strings.HasSuffix(path_, "/") {
+			concurrentRecursiveWalk(path_)
+		}
 		_ = pool.Submit(func() {
 			if strings.HasSuffix(path_, "/") {
-				if recursive {
-					concurrentRecursiveWalk(path_)
-				} else {
-					warmupDir(path_)
-				}
+				warmupDir(path_)
 			} else {
 				if warmType == "meta" {
 					warmupMeta(path_)
@@ -143,73 +142,36 @@ func CmdWarmup() *cli.Command {
 	}
 }
 
-// preheatRecursive 用于递归预热目录
-//func preheatRecursive(dirPath string) error {
-//	fmt.Println("Recursively preheating directory:", dirPath)
-//	// 递归遍历目录
-//	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
-//		if err != nil {
-//			fmt.Println("Error:", err)
-//			return err
-//		}
-//		fmt.Println(path)
-//		return nil
-//	})
-//
-//	if err != nil {
-//		fmt.Println("Error during WalkDir:", err)
-//	}
-//	return err
-//}
-
 func concurrentRecursiveWalk(root string) error {
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
-
-	// 启动一个 goroutine 处理错误
-	go func() {
-		wg.Wait()
-		close(errCh)
-	}()
-
 	// 启动多个 goroutine 并发递归遍历和处理任务
-	err := walkAndProcess(root, &wg, errCh)
+	err := walkAndProcess(root)
 	if err != nil {
 		return err
 	}
+	return nil
 
-	// 等待所有 goroutine 完成
-	wg.Wait()
-
-	// 检查并发过程中是否出现错误
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
 }
 
-func walkAndProcess(path string, wg *sync.WaitGroup, errCh chan error) error {
-	wg.Add(1)
-	_ = pool.Submit(func() {
-		defer wg.Done()
-		dirEntries, err := os.ReadDir(path)
-		if err != nil {
-			fmt.Printf("warmup path[%s] fail with err %v \n", path, err)
-			return
+func walkAndProcess(path string) error {
+	dirEntries, err := os.ReadDir(path)
+	if err != nil {
+		fmt.Printf("warmup path[%s] fail with err %v \n", path, err)
+		return err
+	}
+	fmt.Printf("warmup path[%v] success \n", path)
+	var wg sync.WaitGroup
+	for _, entry := range dirEntries {
+		fullPath := filepath.Join(path, entry.Name())
+		entry_ := entry
+		if entry_.IsDir() {
+			wg.Add(1)
+			// 递归调用
+			go func() {
+				defer wg.Done()
+				walkAndProcess(fullPath)
+			}()
 		}
-		fmt.Printf("warmup path[%v] success \n", path)
-		for _, entry := range dirEntries {
-			fullPath := filepath.Join(path, entry.Name())
-			entry_ := entry
-			_ = pool.Submit(func() {
-				if entry_.IsDir() {
-					// 递归调用
-					walkAndProcess(fullPath, wg, errCh)
-				}
-			})
-		}
-	})
+	}
+	wg.Wait()
 	return nil
 }
