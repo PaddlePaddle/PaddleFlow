@@ -160,16 +160,17 @@ func walkAndProcess(path string) error {
 	}
 	fmt.Printf("warmup path[%v] success \n", path)
 	var wg sync.WaitGroup
+	poolDir, _ := ants.NewPool(10)
 	for _, entry := range dirEntries {
 		fullPath := filepath.Join(path, entry.Name())
 		entry_ := entry
 		if entry_.IsDir() {
 			wg.Add(1)
 			// 递归调用
-			go func() {
+			poolDir.Submit(func() {
 				defer wg.Done()
 				walkAndProcess(fullPath)
-			}()
+			})
 		}
 	}
 	wg.Wait()
