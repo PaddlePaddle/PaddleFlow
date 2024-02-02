@@ -167,7 +167,7 @@ func walkAndProcess(path string) error {
 		if entry_.IsDir() {
 			wg.Add(1)
 			// 递归调用
-			poolDir.Submit(func() {
+			_ = poolDir.Submit(func() {
 				defer wg.Done()
 				walkAndProcess(fullPath)
 			})
