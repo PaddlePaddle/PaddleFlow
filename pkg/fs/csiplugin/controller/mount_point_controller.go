@@ -405,7 +405,9 @@ func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 
 	// update pv
 	if pv.Spec.StorageClassName == "paddleflowstorage" {
+		m.pvMapLock.Lock()
 		m.pvParamsMap[pv.Name] = buildPfsPvParams(pv.Spec.CSI.VolumeAttributes)
+		m.pvMapLock.Unlock()
 	}
 }
 
