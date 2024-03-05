@@ -3,18 +3,16 @@ package service
 import (
 	"bufio"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
+	"github.com/panjf2000/ants/v2"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/panjf2000/ants/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 )
 
 var pool *ants.Pool
@@ -25,15 +23,17 @@ const minxFileCount = 5
 
 func findUniqueParentDirs(paths []string) []string {
 	var wg sync.WaitGroup
+	var rwmu sync.RWMutex
 	parentDirMap := make(map[string]map[string]struct{})
-	rwmu := sync.RWMutex{}
 
+	// 协程任务
 	processBatch := func(pathBatch []string) {
 		for _, p := range pathBatch {
+			// 忽略目录，只处理文件
 			if p[len(p)-1] == '/' {
 				continue
 			}
-
+			// 获取文件的父目录
 			dir := filepath.Dir(p)
 			if dir[len(dir)-1] != '/' {
 				dir += "/"
@@ -60,6 +60,7 @@ func findUniqueParentDirs(paths []string) []string {
 	pool, _ = ants.NewPool(poolSize)
 	log.Infof("Start to find unique parent dirs")
 
+	// 分批提交协程池处理
 	if len(paths) <= batchSize*poolSize {
 		// 总数据量低于预设
 		batchCount := (len(paths) + batchSize - 1) / batchSize
@@ -92,6 +93,7 @@ func findUniqueParentDirs(paths []string) []string {
 	wg.Wait()
 	pool.Release()
 
+	// 从 parentDirMap 中提取结果
 	uniqueParentDirs := make([]string, 0)
 	for parentPath, dirMap := range parentDirMap {
 		if len(dirMap) >= minxFileCount {

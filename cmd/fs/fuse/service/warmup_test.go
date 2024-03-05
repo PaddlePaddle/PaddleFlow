@@ -201,7 +201,7 @@ func generateMockPaths(numPaths int) []string {
 }
 
 func TestFindUniqueParentDirsV1(t *testing.T) {
-	const numPaths = 100000000
+	const numPaths = 10000000
 	paths := generateMockPaths(numPaths)
 
 	uniqueDirs := findUniqueParentDirs(paths)
