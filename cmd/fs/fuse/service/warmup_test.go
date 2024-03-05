@@ -169,7 +169,27 @@ func TestFindUniqueParentDirs(t *testing.T) {
 }
 
 func generateMockPaths(numPaths int) []string {
-	baseDirs := []string{"/home/user", "/var/log", "/etc", "/usr/bin"}
+	baseDirs := []string{
+		"/home/user", "/var/log", "/etc", "/usr/bin", "/tmp", "/var/spool", "/opt", "/usr/local/bin",
+		"/var/lib", "/usr/share", "/var/cache", "/usr/include", "/var/run", "/usr/lib", "/var/tmp",
+		"/usr/sbin", "/var/mail", "/usr/local/include", "/usr/local/lib", "/usr/local/sbin", "/var/spool/mail",
+		"/var/spool/cron", "/var/log/apache2", "/var/log/syslog", "/var/log/kern.log", "/var/log/auth.log",
+		"/var/log/user.log", "/var/log/dpkg.log", "/var/log/apt", "/var/log/exim4", "/var/log/nginx",
+		"/var/log/mysql", "/var/log/postgresql", "/var/log/redis", "/var/log/supervisor", "/var/log/cron",
+		"/var/log/maillog", "/var/log/secure", "/var/log/spooler", "/var/log/boot.log", "/var/log/messages",
+		"/var/log/daemon.log", "/var/log/debug", "/var/log/lpr.log", "/var/log/mail.log", "/var/log/news",
+		"/var/log/uucp", "/var/log/ftp", "/var/log/audit", "/var/log/btmp", "/var/log/wtmp", "/var/log/utmp",
+		"/var/log/lastlog", "/var/log/faillog", "/var/log/tallylog", "/var/log/yum.log", "/var/log/clamav",
+		"/var/log/cups", "/var/log/httpd", "/var/log/lighttpd", "/var/log/mail", "/var/log/maillog",
+		"/var/log/samba", "/var/log/squid", "/var/log/apache", "/var/log/apache2", "/var/log/dist-upgrade",
+		"/var/log/installer", "/var/log/unattended-upgrades", "/var/log/cloud-init.log", "/var/log/cloud-init-output.log",
+		"/var/log/landscape", "/var/log/alternatives.log", "/var/log/bootstrap.log", "/var/log/dmesg",
+		"/var/log/fsck", "/var/log/glusterfs", "/var/log/jenkins", "/var/log/chrony", "/var/log/ntpstats",
+		"/var/log/sysstat", "/var/log/upstart", "/var/log/speech-dispatcher", "/var/log/hp", "/var/log/nvidia-installer.log",
+		"/var/log/openvpn", "/var/log/ufw.log", "/var/log/unattended-upgrades", "/var/log/docker", "/var/log/kallithea",
+		"/var/log/gitlab", "/var/log/zabbix", "/var/log/supervisor", "/var/log/vbox-install.log", "/var/log/vbox-uninstall.log",
+		"/var/log/vbox-setup.log", "/var/log/virtualbox", "/var/log/syslog.1", "/var/log/syslog.2.gz",
+	}
 
 	paths := make([]string, numPaths)
 	for i := 0; i < numPaths; i++ {
@@ -181,7 +201,7 @@ func generateMockPaths(numPaths int) []string {
 }
 
 func TestFindUniqueParentDirsV1(t *testing.T) {
-	const numPaths = 50000000
+	const numPaths = 100000000
 	paths := generateMockPaths(numPaths)
 
 	uniqueDirs := findUniqueParentDirs(paths)
