@@ -20,50 +20,44 @@ import (
 
 var pool *ants.Pool
 
-func warmup(ctx *cli.Context) error {
-	fname := ctx.String("file")
-	paths := ctx.Args().Slice()
-	threads := int(ctx.Uint("threads"))
-	warmType := ctx.String("type")
-	recursive := ctx.Bool("recursive")
-	pool, _ = ants.NewPool(threads)
-	return warmup_(fname, paths, threads, warmType, recursive)
-}
+const batchSize = 100000
+const poolSize = 100
+const minxFileCount = 5
 
 func findUniqueParentDirs(paths []string) []string {
 	var wg sync.WaitGroup
-	parentDirMap := make(map[string]struct{})
+	parentDirMap := make(map[string]map[string]struct{})
 	rwmu := sync.RWMutex{}
-	batchSize := 100000
-	poolSize := 100
 
-	processBatch := func(pathsBatch []string) {
-		localMap := make(map[string]struct{})
-		for _, p := range pathsBatch {
+	processBatch := func(pathBatch []string) {
+		for _, p := range pathBatch {
 			dir := path.Dir(p)
 			if dir != "/" && dir[len(dir)-1] != '/' {
 				dir += "/"
 			}
-			// 先在本地map中检查，减少锁的使用
-			if _, exists := localMap[dir]; !exists {
-				rwmu.RLock()
-				_, exists := parentDirMap[dir]
-				rwmu.RUnlock()
-				if !exists {
-					rwmu.Lock()
-					parentDirMap[dir] = struct{}{}
-					rwmu.Unlock()
-					localMap[dir] = struct{}{}
-				}
+
+			rwmu.RLock()
+			dirMap, exists := parentDirMap[dir]
+			rwmu.RUnlock()
+
+			if !exists {
+				rwmu.Lock()
+				parentDirMap[dir] = make(map[string]struct{})
+				parentDirMap[dir][p] = struct{}{}
+				rwmu.Unlock()
+			} else if exists && len(dirMap) < minxFileCount {
+				rwmu.Lock()
+				parentDirMap[dir][p] = struct{}{}
+				rwmu.Unlock()
 			}
 		}
 		wg.Done()
 	}
 
-	pool, _ := ants.NewPool(poolSize)
+	pool, _ = ants.NewPool(poolSize)
 
-	if len(paths) <= 100000000 {
-		// 总数据量低于1亿，则一个协程处理10w数据
+	if len(paths) <= batchSize*poolSize {
+		// 总数据量低于预设
 		batchCount := (len(paths) + batchSize - 1) / batchSize
 		for i := 0; i < batchCount; i++ {
 			start := i * batchSize
@@ -77,10 +71,10 @@ func findUniqueParentDirs(paths []string) []string {
 			})
 		}
 	} else {
-		batchSize = (len(paths) + poolSize - 1) / poolSize
+		newBatchSize := (len(paths) + poolSize - 1) / poolSize
 		for i := 0; i < poolSize; i++ {
-			start := i * batchSize
-			end := (i + 1) * batchSize
+			start := i * newBatchSize
+			end := (i + 1) * newBatchSize
 			if end > len(paths) {
 				end = len(paths)
 			}
@@ -92,14 +86,29 @@ func findUniqueParentDirs(paths []string) []string {
 	}
 
 	wg.Wait()
-
 	pool.Release()
 
-	uniqueParentDirs := make([]string, 0, len(parentDirMap))
-	for dir := range parentDirMap {
-		uniqueParentDirs = append(uniqueParentDirs, dir)
+	uniqueParentDirs := make([]string, 0)
+	for parentPath, dirMap := range parentDirMap {
+		if len(dirMap) >= minxFileCount {
+			uniqueParentDirs = append(uniqueParentDirs, parentPath)
+		} else {
+			for filePath, _ := range dirMap {
+				uniqueParentDirs = append(uniqueParentDirs, filePath)
+			}
+		}
 	}
 	return uniqueParentDirs
+}
+
+func warmup(ctx *cli.Context) error {
+	fname := ctx.String("file")
+	paths := ctx.Args().Slice()
+	threads := int(ctx.Uint("threads"))
+	warmType := ctx.String("type")
+	recursive := ctx.Bool("recursive")
+	pool, _ = ants.NewPool(threads)
+	return warmup_(fname, paths, threads, warmType, recursive)
 }
 
 func warmup_(fname string, paths []string, threads int, warmType string, recursive bool) error {

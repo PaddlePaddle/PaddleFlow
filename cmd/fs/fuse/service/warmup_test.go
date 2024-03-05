@@ -112,20 +112,32 @@ func TestFindUniqueParentDirs(t *testing.T) {
 				"/usr/bin/someexecutable",
 			},
 			expected: []string{
-				"/home/user/docs/",
-				"/var/log/",
+				"/home/user/docs/report.txt",
+				"/home/user/docs/assignment.docx",
+				"/var/log/sys.log",
 				"/usr/bin/",
+				"/usr/bin/someexecutable",
 			},
 		},
 		{
 			name: "Paths with no duplicates",
 			paths: []string{
 				"/etc/nginx/nginx.conf",
+				"/etc/nginx/nginx.conf2",
+				"/etc/nginx/nginx.conf3",
+				"/etc/nginx/nginx.conf4",
+				"/etc/nginx/nginx.conf5",
 				"/var/www/html/index.html",
+				"/var/www/html/index.html2",
+				"/var/www/html/index.html3",
+				"/var/www/html/index.html4",
 			},
 			expected: []string{
 				"/etc/nginx/",
-				"/var/www/html/",
+				"/var/www/html/index.html",
+				"/var/www/html/index.html2",
+				"/var/www/html/index.html3",
+				"/var/www/html/index.html4",
 			},
 		},
 		{
@@ -172,7 +184,7 @@ func generateMockPaths(numPaths int) []string {
 }
 
 func TestFindUniqueParentDirsV1(t *testing.T) {
-	const numPaths = 100000000
+	const numPaths = 10000000
 	paths := generateMockPaths(numPaths)
 
 	uniqueDirs := findUniqueParentDirs(paths)
