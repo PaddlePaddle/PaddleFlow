@@ -91,7 +91,6 @@ func findUniqueParentDirs(paths []string) []string {
 	}
 
 	wg.Wait()
-	pool.Release()
 
 	// 从 parentDirMap 中提取结果
 	uniqueParentDirs := make([]string, 0)
