@@ -115,7 +115,6 @@ func TestFindUniqueParentDirs(t *testing.T) {
 				"/home/user/docs/report.txt",
 				"/home/user/docs/assignment.docx",
 				"/var/log/sys.log",
-				"/usr/bin/",
 				"/usr/bin/someexecutable",
 			},
 		},
@@ -150,9 +149,7 @@ func TestFindUniqueParentDirs(t *testing.T) {
 			paths: []string{
 				"/",
 			},
-			expected: []string{
-				"/",
-			},
+			expected: []string{},
 		},
 	}
 
@@ -184,7 +181,7 @@ func generateMockPaths(numPaths int) []string {
 }
 
 func TestFindUniqueParentDirsV1(t *testing.T) {
-	const numPaths = 10000000
+	const numPaths = 50000000
 	paths := generateMockPaths(numPaths)
 
 	uniqueDirs := findUniqueParentDirs(paths)

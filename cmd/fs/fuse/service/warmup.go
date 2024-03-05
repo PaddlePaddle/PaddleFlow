@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -31,8 +30,12 @@ func findUniqueParentDirs(paths []string) []string {
 
 	processBatch := func(pathBatch []string) {
 		for _, p := range pathBatch {
-			dir := path.Dir(p)
-			if dir != "/" && dir[len(dir)-1] != '/' {
+			if p[len(p)-1] == '/' {
+				continue
+			}
+
+			dir := filepath.Dir(p)
+			if dir[len(dir)-1] != '/' {
 				dir += "/"
 			}
 
@@ -55,6 +58,7 @@ func findUniqueParentDirs(paths []string) []string {
 	}
 
 	pool, _ = ants.NewPool(poolSize)
+	log.Infof("Start to find unique parent dirs")
 
 	if len(paths) <= batchSize*poolSize {
 		// 总数据量低于预设
@@ -98,6 +102,7 @@ func findUniqueParentDirs(paths []string) []string {
 			}
 		}
 	}
+	log.Infof("Found %d unique parent dirs", len(uniqueParentDirs))
 	return uniqueParentDirs
 }
 
