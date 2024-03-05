@@ -115,7 +115,7 @@ func (storage Bos) Deletes(keys []string) error {
 			log.Errorf("bos.Delete err: %v", err.Error())
 			return err
 		} else {
-			if res != nil { // 部分删除成功
+			if len(res.Errors) > 0 { // 部分删除成功
 				log.Errorf("bos.Delete err: %v delete failed", res.Errors)
 				return errors.New("bos.Delete failed. Failed to delete some objects")
 			}
