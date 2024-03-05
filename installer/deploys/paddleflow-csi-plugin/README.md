@@ -7,7 +7,7 @@ step1. 检查 `kubelet root-dir` 路径
 在`Kubernetes`集群中任意节点上执行以下命令：
 
 ```shell
-# 查询kubelet当前的根目录路径
+# 查询kubelet当前的根目录路径 
 ps -ef | grep kubelet | grep root-dir
 ```
 
