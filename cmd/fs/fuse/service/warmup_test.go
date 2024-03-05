@@ -1,8 +1,11 @@
 package service
 
 import (
+	"fmt"
 	"github.com/panjf2000/ants/v2"
 	"os"
+	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 )
@@ -88,3 +91,120 @@ func prepare() {
 	fw.Write([]byte("./test/notexist.txt" + "\n"))
 	fw.Close()
 }
+
+// TestFindUniqueParentDirs 测试 findUniqueParentDirs 函数
+func TestFindUniqueParentDirs(t *testing.T) {
+	// 定义测试用例
+	testCases := []struct {
+		name     string
+		paths    []string
+		expected []string
+	}{
+		{
+			name: "Standard paths",
+			paths: []string{
+				"/home/user/docs/report.txt",
+				"/home/user/docs/assignment.docx",
+				"/var/log/sys.log",
+				"/usr/bin/",
+				"/usr/bin/someexecutable",
+			},
+			expected: []string{
+				"/home/user/docs/report.txt",
+				"/home/user/docs/assignment.docx",
+				"/var/log/sys.log",
+				"/usr/bin/someexecutable",
+			},
+		},
+		{
+			name: "Paths with no duplicates",
+			paths: []string{
+				"/etc/nginx/nginx.conf",
+				"/etc/nginx/nginx.conf2",
+				"/etc/nginx/nginx.conf3",
+				"/etc/nginx/nginx.conf4",
+				"/etc/nginx/nginx.conf5",
+				"/var/www/html/index.html",
+				"/var/www/html/index.html2",
+				"/var/www/html/index.html3",
+				"/var/www/html/index.html4",
+			},
+			expected: []string{
+				"/etc/nginx/",
+				"/var/www/html/index.html",
+				"/var/www/html/index.html2",
+				"/var/www/html/index.html3",
+				"/var/www/html/index.html4",
+			},
+		},
+		{
+			name:     "Empty paths",
+			paths:    []string{},
+			expected: []string{},
+		},
+		{
+			name: "Root path",
+			paths: []string{
+				"/",
+			},
+			expected: []string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := findUniqueParentDirs(tc.paths)
+
+			sort.Strings(actual)
+			sort.Strings(tc.expected)
+			fmt.Printf("actual: %+v\n", actual)
+
+			if !reflect.DeepEqual(actual, tc.expected) {
+				t.Errorf("For paths %v, expected %v but got %v", tc.paths, tc.expected, actual)
+			}
+		})
+	}
+}
+
+//func generateMockPaths(numPaths int) []string {
+//	baseDirs := []string{
+//		"/home/user", "/var/log", "/etc", "/usr/bin", "/tmp", "/var/spool", "/opt", "/usr/local/bin",
+//		"/var/lib", "/usr/share", "/var/cache", "/usr/include", "/var/run", "/usr/lib", "/var/tmp",
+//		"/usr/sbin", "/var/mail", "/usr/local/include", "/usr/local/lib", "/usr/local/sbin", "/var/spool/mail",
+//		"/var/spool/cron", "/var/log/apache2", "/var/log/syslog", "/var/log/kern.log", "/var/log/auth.log",
+//		"/var/log/user.log", "/var/log/dpkg.log", "/var/log/apt", "/var/log/exim4", "/var/log/nginx",
+//		"/var/log/mysql", "/var/log/postgresql", "/var/log/redis", "/var/log/supervisor", "/var/log/cron",
+//		"/var/log/maillog", "/var/log/secure", "/var/log/spooler", "/var/log/boot.log", "/var/log/messages",
+//		"/var/log/daemon.log", "/var/log/debug", "/var/log/lpr.log", "/var/log/mail.log", "/var/log/news",
+//		"/var/log/uucp", "/var/log/ftp", "/var/log/audit", "/var/log/btmp", "/var/log/wtmp", "/var/log/utmp",
+//		"/var/log/lastlog", "/var/log/faillog", "/var/log/tallylog", "/var/log/yum.log", "/var/log/clamav",
+//		"/var/log/cups", "/var/log/httpd", "/var/log/lighttpd", "/var/log/mail", "/var/log/maillog",
+//		"/var/log/samba", "/var/log/squid", "/var/log/apache", "/var/log/apache2", "/var/log/dist-upgrade",
+//		"/var/log/installer", "/var/log/unattended-upgrades", "/var/log/cloud-init.log", "/var/log/cloud-init-output.log",
+//		"/var/log/landscape", "/var/log/alternatives.log", "/var/log/bootstrap.log", "/var/log/dmesg",
+//		"/var/log/fsck", "/var/log/glusterfs", "/var/log/jenkins", "/var/log/chrony", "/var/log/ntpstats",
+//		"/var/log/sysstat", "/var/log/upstart", "/var/log/speech-dispatcher", "/var/log/hp", "/var/log/nvidia-installer.log",
+//		"/var/log/openvpn", "/var/log/ufw.log", "/var/log/unattended-upgrades", "/var/log/docker", "/var/log/kallithea",
+//		"/var/log/gitlab", "/var/log/zabbix", "/var/log/supervisor", "/var/log/vbox-install.log", "/var/log/vbox-uninstall.log",
+//		"/var/log/vbox-setup.log", "/var/log/virtualbox", "/var/log/syslog.1", "/var/log/syslog.2.gz",
+//	}
+//
+//	paths := make([]string, numPaths)
+//	for i := 0; i < numPaths; i++ {
+//		baseDir := baseDirs[rand.Intn(len(baseDirs))] // 随机选择一个基础目录
+//		filename := "file" + strconv.Itoa(i) + ".txt"
+//		paths[i] = filepath.Join(baseDir, filename)
+//	}
+//	return paths
+//}
+
+//func TestFindUniqueParentDirsV1(t *testing.T) {
+//	const numPaths = 10000000
+//	paths := generateMockPaths(numPaths)
+//
+//	uniqueDirs := findUniqueParentDirs(paths)
+//
+//	if len(uniqueDirs) == 0 {
+//		t.Errorf("No unique directories found.")
+//	}
+//}
