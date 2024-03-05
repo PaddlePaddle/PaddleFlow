@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -27,6 +28,78 @@ func warmup(ctx *cli.Context) error {
 	recursive := ctx.Bool("recursive")
 	pool, _ = ants.NewPool(threads)
 	return warmup_(fname, paths, threads, warmType, recursive)
+}
+
+func findUniqueParentDirs(paths []string) []string {
+	var wg sync.WaitGroup
+	parentDirMap := make(map[string]struct{})
+	rwmu := sync.RWMutex{}
+	batchSize := 100000
+	poolSize := 100
+
+	processBatch := func(pathsBatch []string) {
+		localMap := make(map[string]struct{})
+		for _, p := range pathsBatch {
+			dir := path.Dir(p)
+			if dir != "/" && dir[len(dir)-1] != '/' {
+				dir += "/"
+			}
+			// 先在本地map中检查，减少锁的使用
+			if _, exists := localMap[dir]; !exists {
+				rwmu.RLock()
+				_, exists := parentDirMap[dir]
+				rwmu.RUnlock()
+				if !exists {
+					rwmu.Lock()
+					parentDirMap[dir] = struct{}{}
+					rwmu.Unlock()
+					localMap[dir] = struct{}{}
+				}
+			}
+		}
+		wg.Done()
+	}
+
+	pool, _ := ants.NewPool(poolSize)
+
+	if len(paths) <= 100000000 {
+		// 总数据量低于1亿，则一个协程处理10w数据
+		batchCount := (len(paths) + batchSize - 1) / batchSize
+		for i := 0; i < batchCount; i++ {
+			start := i * batchSize
+			end := (i + 1) * batchSize
+			if end > len(paths) {
+				end = len(paths)
+			}
+			wg.Add(1)
+			_ = pool.Submit(func() {
+				processBatch(paths[start:end])
+			})
+		}
+	} else {
+		batchSize = (len(paths) + poolSize - 1) / poolSize
+		for i := 0; i < poolSize; i++ {
+			start := i * batchSize
+			end := (i + 1) * batchSize
+			if end > len(paths) {
+				end = len(paths)
+			}
+			wg.Add(1)
+			_ = pool.Submit(func() {
+				processBatch(paths[start:end])
+			})
+		}
+	}
+
+	wg.Wait()
+
+	pool.Release()
+
+	uniqueParentDirs := make([]string, 0, len(parentDirMap))
+	for dir := range parentDirMap {
+		uniqueParentDirs = append(uniqueParentDirs, dir)
+	}
+	return uniqueParentDirs
 }
 
 func warmup_(fname string, paths []string, threads int, warmType string, recursive bool) error {
@@ -52,6 +125,10 @@ func warmup_(fname string, paths []string, threads int, warmType string, recursi
 	if len(paths) == 0 {
 		log.Infof("Nothing to warm up")
 		return nil
+	}
+
+	if warmType != "data" {
+		paths = findUniqueParentDirs(paths)
 	}
 
 	progress, bar := utils.NewDynProgressBar("warming up paths: ", false, int64(len(paths)))
