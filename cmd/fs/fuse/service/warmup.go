@@ -3,21 +3,108 @@ package service
 import (
 	"bufio"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/panjf2000/ants/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 )
 
 var pool *ants.Pool
+
+const batchSize = 100000
+const poolSize = 100
+const minxFileCount = 5
+
+// findUniqueParentDirs 从 paths 中找出所有的父目录，如果父目录下的文件数量小于 minxFileCount，则将其下的文件都加入到结果中
+func findUniqueParentDirs(paths []string) []string {
+	var wg sync.WaitGroup
+	var rwmu sync.RWMutex
+	parentDirMap := make(map[string]map[string]struct{})
+
+	// 协程任务
+	processBatch := func(pathBatch []string) {
+		for _, p := range pathBatch {
+			// 忽略目录，只处理文件
+			if p[len(p)-1] == '/' {
+				continue
+			}
+			// 获取文件的父目录
+			dir := filepath.Dir(p)
+			if dir[len(dir)-1] != '/' {
+				dir += "/"
+			}
+
+			rwmu.RLock()
+			dirMap, exists := parentDirMap[dir]
+			rwmu.RUnlock()
+
+			if !exists {
+				rwmu.Lock()
+				parentDirMap[dir] = make(map[string]struct{})
+				parentDirMap[dir][p] = struct{}{}
+				rwmu.Unlock()
+			} else if exists && len(dirMap) < minxFileCount {
+				rwmu.Lock()
+				parentDirMap[dir][p] = struct{}{}
+				rwmu.Unlock()
+			}
+		}
+		wg.Done()
+	}
+
+	pool, _ = ants.NewPool(poolSize)
+	log.Infof("Start to find unique parent dirs")
+
+	// 分批提交协程池处理
+	if len(paths) <= batchSize*poolSize {
+		// 总数据量低于预设
+		batchCount := (len(paths) + batchSize - 1) / batchSize
+		for i := 0; i < batchCount; i++ {
+			start := i * batchSize
+			end := (i + 1) * batchSize
+			if end > len(paths) {
+				end = len(paths)
+			}
+			wg.Add(1)
+			_ = pool.Submit(func() {
+				processBatch(paths[start:end])
+			})
+		}
+	} else {
+		newBatchSize := (len(paths) + poolSize - 1) / poolSize
+		for i := 0; i < poolSize; i++ {
+			start := i * newBatchSize
+			end := (i + 1) * newBatchSize
+			if end > len(paths) {
+				end = len(paths)
+			}
+			wg.Add(1)
+			_ = pool.Submit(func() {
+				processBatch(paths[start:end])
+			})
+		}
+	}
+
+	wg.Wait()
+
+	// 从 parentDirMap 中提取结果
+	uniqueParentDirs := make([]string, 0)
+	for parentPath, dirMap := range parentDirMap {
+		if len(dirMap) >= minxFileCount {
+			uniqueParentDirs = append(uniqueParentDirs, parentPath)
+		} else {
+			for filePath, _ := range dirMap {
+				uniqueParentDirs = append(uniqueParentDirs, filePath)
+			}
+		}
+	}
+	log.Infof("Found %d unique parent dirs", len(uniqueParentDirs))
+	return uniqueParentDirs
+}
 
 func warmup(ctx *cli.Context) error {
 	fname := ctx.String("file")
@@ -52,6 +139,10 @@ func warmup_(fname string, paths []string, threads int, warmType string, recursi
 	if len(paths) == 0 {
 		log.Infof("Nothing to warm up")
 		return nil
+	}
+
+	if warmType != "data" {
+		paths = findUniqueParentDirs(paths)
 	}
 
 	progress, bar := utils.NewDynProgressBar("warming up paths: ", false, int64(len(paths)))
