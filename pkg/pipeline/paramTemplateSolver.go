@@ -245,8 +245,7 @@ func (isv *innerSolver) resolveCommand(forCache bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("oldCommand: ", command)
-	fmt.Println("newCommand: ", newCommand.(string))
+
 	isv.Component.(*schema.WorkflowSourceStep).Command = newCommand.(string)
 
 	isv.logger.Infof("after resolve template, the command of %s[%s] is: %v",

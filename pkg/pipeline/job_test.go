@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"reflect"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func TestStopJob(t *testing.T) {

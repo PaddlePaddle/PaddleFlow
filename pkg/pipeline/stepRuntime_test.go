@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
