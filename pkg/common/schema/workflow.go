@@ -20,13 +20,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"reflect"
+	"strings"
+
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	"reflect"
-	"strings"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (
