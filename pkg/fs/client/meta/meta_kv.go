@@ -1471,6 +1471,10 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
+		if buf == nil {
+			log.Errorf("get attr dir inode %v empty", inode)
+			return syscall.ENOENT
+		}
 		m.parseInode(buf, dirInodeItem)
 		parentIno = dirInodeItem.parentIno
 		entry := tx.Get(m.entryKey(parentIno, string(dirInodeItem.name)))
