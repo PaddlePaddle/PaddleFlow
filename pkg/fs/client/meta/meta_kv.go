@@ -1471,7 +1471,7 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
-		if buf == nil || len(buf) == 0 {
+		if buf == nil {
 			log.Errorf("get attr dir inode %v empty", inode)
 			return syscall.ENOENT
 		}
