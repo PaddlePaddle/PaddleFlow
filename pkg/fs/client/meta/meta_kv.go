@@ -1471,6 +1471,10 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 	}
 	err := m.txn(func(tx kv.KvTxn) error {
 		buf := tx.Get(m.inodeKey(inode))
+		if buf == nil {
+			log.Errorf("get attr dir inode %v empty", inode)
+			return syscall.ENOENT
+		}
 		m.parseInode(buf, dirInodeItem)
 		parentIno = dirInodeItem.parentIno
 		entry := tx.Get(m.entryKey(parentIno, string(dirInodeItem.name)))
@@ -1842,7 +1846,21 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 				return err
 			}
 		} else {
-			return syscall.ENOENT
+			attrTmp := &Attr{}
+			err := m.GetAttr(ctx, inode, attrTmp)
+			if err != syscall.F_OK {
+				log.Errorf("get attr err %v", err)
+				return err
+			}
+			a = tx.Get(m.inodeKey(inode))
+			m.parseInode(a, inodeItem_)
+			if !m.inodeItemExpired(*inodeItem_) {
+				log.Debugf("open inodeItem cache %+v and attr %+v", *inodeItem_, inodeItem_.attr)
+				*attr = inodeItem_.attr
+				inodeItem_.fileHandles += 1
+				errSet := tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+				return errSet
+			}
 		}
 		info, err := ufs_.GetAttr(newPath)
 		if err != nil {
@@ -1878,6 +1896,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 		return err
 	})
 	if err != nil {
+		log.Errorf("open inode[%v] err %v", inode, err)
 		return nil, "", utils.ToSyscallErrno(err)
 	}
 	m.setPathCache(inode, inodeItem_)
