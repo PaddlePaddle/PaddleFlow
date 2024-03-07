@@ -44,8 +44,8 @@ func GetPipelineFromFile(filepath string) (p *pipeline.Pipeline) {
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "root",
-		Password: "paddleflow",
+		UserName: "",
+		Password: "",
 	})
 	if err != nil {
 		panic(err)
@@ -77,7 +77,7 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 	}
 
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "10.27.197.11",
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -156,7 +156,7 @@ func CreatePipelineByRaw(filepath string) (pplID string) {
 	}
 
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "10.27.197.11",
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -221,9 +221,9 @@ func UpdatePipelineByRaw(filepath string, pplID string) (string, string) {
 }
 
 func main() {
-	GetPipelineFromFile("")
-	CreateRunByRunYamlRaw("")
-	CreatePipelineByRaw("")
-	UpdatePipelineByRaw("", "ppl-000096")
-	CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
+	//GetPipelineFromFile("")
+	CreateRunByRunYamlRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
+	//CreatePipelineByRaw("")
+	//UpdatePipelineByRaw("", "ppl-000096")
+	//CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
 }
