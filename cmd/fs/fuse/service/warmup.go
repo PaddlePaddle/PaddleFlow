@@ -21,7 +21,7 @@ const batchSize = 100000
 const poolSize = 100
 const minxFileCount = 5
 
-// findUniqueParentDirs 从 paths 中找出所有的父目录，如果父目录下的文件数量小于 minxFileCount，则将其下的文件都加入到结果中
+// findUniqueParentDirs 从 paths 中找出所有的父目录，如果父目录下的文件数量小于 minxFileCount，则将其下的文件都加入到结果中.
 func findUniqueParentDirs(paths []string) []string {
 	var wg sync.WaitGroup
 	var rwmu sync.RWMutex
