@@ -106,6 +106,10 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				越界的情况，返回0，如off>=length||len(buf)==0
 			*/
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
+			if nread == 0 && err == nil {
+				log.Errorf("nread is zero len buf %v off %v bytesRead %v size %v", len(buf), off, bytesRead, fh.size)
+				time.Sleep(500 * time.Millisecond)
+			}
 			if err != nil && err != syscall.ENOMEM && err != io.EOF && err != io.ErrUnexpectedEOF {
 				log.Errorf("reader failed: %v", err)
 				// 重试的时候稍微等待一下
