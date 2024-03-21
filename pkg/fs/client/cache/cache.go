@@ -17,11 +17,10 @@ limitations under the License.
 package cache
 
 import (
-	"fmt"
 	"io"
-	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -241,7 +240,15 @@ func (r *rCache) key(index int) string {
 		r.store.Unlock()
 	}
 	hash := utils.KeyHash(keyID)
-	return path.Clean(fmt.Sprintf("blocks/%d/%v_%v", hash%256, keyID, index))
+
+	var sb strings.Builder
+	sb.WriteString("blocks/")
+	sb.WriteString(strconv.Itoa(int(hash % 256)))
+	sb.WriteString("/")
+	sb.WriteString(keyID)
+	sb.WriteString("_")
+	sb.WriteString(strconv.Itoa(index))
+	return sb.String()
 }
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
