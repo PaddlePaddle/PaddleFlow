@@ -191,6 +191,11 @@ func (p *Page) setCache() {
 }
 
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
+	defer func() {
+		if n == 0 && err == nil {
+			log.Infof("offset %v wrinteLength %v len p.buffer[%v] ready[%v]", offset, p.writeLength, p.buffer, p.ready)
+		}
+	}()
 	if int(offset) > cap(p.buffer) {
 		log.Errorf("offset > cap(p.buffer) with offset %d cap(p.fuffer) %d", offset, cap(p.buffer))
 		return 0, io.EOF
