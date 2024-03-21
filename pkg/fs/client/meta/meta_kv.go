@@ -1854,6 +1854,7 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 				}
 			}
 			if a == nil {
+				log.Errorf("open emtpy inode")
 				return syscall.ENOENT
 			}
 		}

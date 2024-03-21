@@ -193,7 +193,9 @@ func (p *Page) setCache() {
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	defer func() {
 		if n == 0 && err == nil {
-			log.Infof("offset %v wrinteLength %v len p.buffer[%v] ready[%v]", offset, p.writeLength, p.buffer, p.ready)
+			if time.Now().Second()%10 == 0 {
+				log.Infof("offset %v wrinteLength %v len p.buffer[%v] ready[%v]", offset, p.writeLength, len(p.buffer), p.ready)
+			}
 		}
 	}()
 	if int(offset) > cap(p.buffer) {
@@ -343,6 +345,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		}
 
 		if nread == 0 {
+			log.Infof("nread 0 writeLength[%v] len buffer[%v] index[%v]",b.page.writeLength, len(b.page.buffer), b.page.index)
 			b.page.ready = true
 			_ = b.reader.Close()
 			b.page.setCache()
