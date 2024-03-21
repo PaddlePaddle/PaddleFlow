@@ -95,6 +95,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	var err error
 	var nread int
 	bufSize := len(buf)
+	exceedFirstTime:=time.Now()
 	if fh.reader.store != nil {
 		reader := fh.reader.store.NewReader(fh.path, int(fh.length),
 			fh.flags, fh.ufs, fh.buffersCache, fh.reader.bufferPool, fh.seqReadAmount, fh.bufferMapLock)
@@ -108,6 +109,12 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
 			if nread == 0 && err == nil {
 				log.Infof("nread is zero len buf %v off %v bytesRead %v size %v path[%s]", len(buf), off, bytesRead, fh.size, fh.path)
+				if time.Now().Sub(exceedFirstTime) > 6*time.Minute {
+					log.Errorf("nread2 is zero len buf %v off %v bytesRead %v size %v path[%s]", len(buf), off, bytesRead, fh.size, fh.path)
+					return 0, syscall.EBADF
+				}
+			} else {
+				exceedFirstTime = time.Now()
 			}
 			if err != nil && err != syscall.ENOMEM && err != io.EOF && err != io.ErrUnexpectedEOF {
 				log.Errorf("reader failed: %v", err)
