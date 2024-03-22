@@ -1712,15 +1712,7 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			Endpoint:         endpoint,
 			RedirectDisabled: false,
 		}
-		// 初始化一个BosClient, 没有传server时，判断是否为bns代理模式
-		var bosClient *bos.Client
-		bns, _ := properties[fsCommon.Bns].(string)
-		if bns != "" {
-			bosClient, err = bos.NewBnsClient(clientConfig.Ak, clientConfig.Sk, bns)
-			log.Infof("init bos with bns: %s", bns)
-		} else {
-			bosClient, err = bos.NewClientWithConfig(&clientConfig)
-		}
+		bosClient, err := bos.NewClientWithConfig(&clientConfig)
 
 		if err != nil {
 			log.Errorf("new bos client fail: %v", err)
