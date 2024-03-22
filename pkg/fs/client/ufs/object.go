@@ -34,9 +34,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/thirdparty/auth"
-	"github.com/PaddlePaddle/PaddleFlow/thirdparty/bce"
-	"github.com/PaddlePaddle/PaddleFlow/thirdparty/services/bos"
+	"github.com/baidubce/bce-sdk-go/auth"
+	"github.com/baidubce/bce-sdk-go/bce"
+	"github.com/baidubce/bce-sdk-go/services/bos"
 )
 
 func init() {
