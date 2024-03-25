@@ -1918,7 +1918,6 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			}
 		}
 		return nil
-
 	})
 	return utils.ToSyscallErrno(err)
 }
