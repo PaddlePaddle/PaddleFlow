@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Parser struct {
@@ -79,7 +81,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			}
 			wfs.Cache = cache
 		case "parallelism":
-
 			value1, ok1 := value.(int64)
 			value2, ok2 := value.(float64) // 这里是为了兼容一个由json.Unmarshal得到的parallelism值
 			if ok1 {
@@ -89,7 +90,6 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			} else {
 				return fmt.Errorf("[parallelism] of workflow should be int type")
 			}
-
 		case "disabled":
 			value, ok := value.(string)
 			if !ok {
@@ -142,6 +142,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return err
 			}
 			wfs.FsOptions = fsOptions
+
 		default:
 			return fmt.Errorf("workflow has no attribute [%s]", key)
 		}
@@ -176,6 +177,7 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 }
 
 func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceStep) error {
+
 	for key, value := range params {
 		if value == nil {
 			continue
@@ -258,6 +260,41 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Artifacts = artifacts
+		case "distributed_job":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[distributed_job] in step should be map type")
+			}
+
+			distJobs := DistributedJob{}
+			// parse framework
+			if value["framework"] != nil {
+				framework, ok := value["framework"].(string)
+				if !ok {
+					return fmt.Errorf("extract framework from [distributed_job] failed")
+				}
+				distJobs.Framework = Framework(framework)
+			}
+			// parse members
+			if value["members"] != nil {
+				members, ok, err := unstructured.NestedSlice(value, "members")
+				if !ok {
+					return fmt.Errorf("extract members from [distributed_job] failed because [%v]", err)
+				}
+				distJobs.Members = make([]Member, 0)
+				for index, member := range members {
+					mem := Member{}
+					memberMap, ok := member.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("the member %v defined in [distributed_job] should be map type", index)
+					}
+					if err := p.ParseMember(memberMap, &mem, index); err != nil {
+						return fmt.Errorf("parse [member %v] in [distributed_job] failed, error: %s", index, err.Error())
+					}
+					distJobs.Members = append(distJobs.Members, mem)
+				}
+			}
+			step.DistributedJob = distJobs
 		case "env":
 			value, ok := value.(map[string]interface{})
 			if !ok {
@@ -425,6 +462,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			if err != nil {
 				return err
 			}
+
 			dagComp.EntryPoints = entryPoints
 		case "type":
 			value, ok := value.(string)
@@ -591,6 +629,139 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 	return nil
 }
 
+func (p *Parser) ParseMember(memberMap map[string]interface{}, member *Member, index int) error {
+	for memberKey, memberValue := range memberMap {
+		switch memberKey {
+		case "role":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[role] defined in member %v should be string type", index)
+			}
+			member.Role = MemberRole(refValue)
+		case "command":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[command] defined in member %v should be string type", index)
+			}
+			member.Command = refValue
+		case "replicas":
+			value1, ok1 := memberValue.(int64)
+			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的replicas值
+			if ok1 {
+				member.Replicas = int(value1)
+			} else if ok2 {
+				member.Replicas = int(value2)
+			} else {
+				return fmt.Errorf("[replicas] defined in member %v should be int type", index)
+			}
+		case "image":
+			refValue, ok := memberValue.(string)
+			if !ok {
+				return fmt.Errorf("[image] defined in member %v should be string type", index)
+			}
+			member.Image = refValue
+		case "port":
+			value1, ok1 := memberValue.(int64)
+			value2, ok2 := memberValue.(float64) // 这里是为了兼容一个由json.Unmarshal得到的port值
+			if ok1 {
+				member.Port = int(value1)
+			} else if ok2 {
+				member.Port = int(value2)
+			} else {
+				return fmt.Errorf("[port] defined in member %v should be int type", index)
+			}
+		case "flavour":
+			refValue, ok := memberValue.(map[string]interface{})
+			flavour := Flavour{}
+			if !ok {
+				return fmt.Errorf("[flavour] defined in member %v should be map type", index)
+			}
+
+			if err := ParseFlavour(refValue, &flavour); err != nil {
+				return fmt.Errorf("parse [flavour] in member %v failed, error: %s", index, err.Error())
+			}
+			member.Flavour = flavour
+		case "fs":
+			refValue, ok := memberValue.(map[string]interface{})
+			fs := FileSystem{}
+			if !ok {
+				return fmt.Errorf("[fs] defined in member %v should be map type", index)
+			}
+			if err := ParseFs(refValue, &fs); err != nil {
+				return fmt.Errorf("parse [fs] in member %v failed, error: %s", index, err.Error())
+			}
+			member.FileSystem = fs
+		case "extra_fs":
+			refValue, ok := memberValue.([]interface{})
+			if !ok {
+				return fmt.Errorf("[extra_fs] defined in member %v should be list type", index)
+			}
+			extra, err := ParseExtraFs(refValue, index)
+			if err != nil {
+				return fmt.Errorf("parse [extra_fs] in member %v failed, error: %s", index, err.Error())
+			}
+			member.ExtraFileSystem = extra
+		case "annotations":
+			if memberValue == nil {
+				continue
+			}
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[annotations] defined in member %v should be map type", index)
+			}
+			for annoKey, annoValue := range refValue {
+				value, ok := annoValue.(string)
+				if !ok {
+					return fmt.Errorf("values in [annotations] should be string type")
+				}
+				member.SetAnnotations(annoKey, value)
+			}
+		case "labels":
+			if memberValue == nil {
+				continue
+			}
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[labels] defined in member %v should be map type", index)
+			}
+			for labelKey, labelValue := range refValue {
+				value, ok := labelValue.(string)
+				if !ok {
+					return fmt.Errorf("values in [labels] should be string type")
+				}
+				member.SetLabels(labelKey, value)
+			}
+		case "env":
+			refValue, ok := memberValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[env] defined in member %v should be map type", index)
+			}
+			if member.Env == nil {
+				member.Env = map[string]string{}
+			}
+			// 设置在env里的变量优先级最高，通过其他字段设置的env变量，在这里会被覆盖值
+			for envKey, envValue := range refValue {
+				resEnv := ""
+				switch envValue := envValue.(type) {
+				case string:
+					resEnv = envValue
+				case int64:
+					resEnv = strconv.FormatInt(envValue, 10)
+				case float64:
+					resEnv = strings.TrimRight(strconv.FormatFloat(envValue, 'f', 8, 64), "0")
+				default:
+					return fmt.Errorf("values in [env] should be string type")
+				}
+				member.SetEnv(envKey, resEnv)
+			}
+		case "id":
+			// 该字段不暴露给用户
+			continue
+		}
+	}
+	return nil
+}
+
 func (p *Parser) IsDag(comp map[string]interface{}) bool {
 	if _, ok := comp["entry_points"]; ok {
 		return true
@@ -643,6 +814,12 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
+		case "distributedJob":
+			if err := p.transJsonDistributedJobs2Yaml(value); err != nil {
+				return err
+			}
+			jsonMap["distributed_job"] = value
+			delete(jsonMap, "distributedJob")
 		}
 	}
 	return nil
@@ -746,6 +923,69 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 				return err
 			}
 			delete(fsOptMap, "mainFS")
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonDistributedJobs2Yaml(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	distJobMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[distributedJob] should be map type")
+	}
+	for distKey, distValue := range distJobMap {
+		switch distKey {
+		case "framework":
+			distJobMap["framework"] = distValue
+		case "members":
+			if err := p.transJsonMembers2Yaml(distValue); err != nil {
+				return err
+			}
+			distJobMap["members"] = distValue
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonMembers2Yaml(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	memberList, ok := value.([]interface{})
+	if !ok {
+		return fmt.Errorf("[members] should be list type")
+	}
+
+	for i, member := range memberList {
+		if err := p.transJsonMember2Yaml(member); err != nil {
+			return err
+		}
+		memberList[i] = member
+	}
+	return nil
+}
+
+func (p *Parser) transJsonMember2Yaml(value interface{}) error {
+	memberMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[member] should map type")
+	}
+	for memberKey, memberValue := range memberMap {
+		switch memberKey {
+		case "id":
+			// 该字段不暴露给用户
+			continue
+		case "replicas":
+			memberMap["replicas"] = memberValue
+		case "role":
+			memberMap["role"] = memberValue
+		case "image":
+			memberMap["image"] = memberValue
+		case "command":
+			memberMap["command"] = memberValue
 		}
 	}
 	return nil

@@ -40,6 +40,8 @@ type conservativeFirstCacheKey struct {
 	OutputArtifacts map[string]string `json:",omitempty"`
 	MainFS          schema.FsMount    `json:",omitempty"`
 	ExtraFS         []schema.FsMount  `json:",omitempty"`
+	Framework       string            `json:",omitempty"`
+	Members         []schema.Member   `json:",omitempty"`
 }
 
 type PathToModTime struct {
@@ -121,6 +123,8 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		Env:             envWithoutSystmeEnv,
 		ExtraFS:         cc.extraFS,
 		MainFS:          *cc.mainFS,
+		Framework:       string(cc.job.Framework),
+		Members:         cc.job.Members,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+

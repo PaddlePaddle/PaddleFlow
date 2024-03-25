@@ -28,6 +28,7 @@ from .dsl import FailureOptions
 from .dsl import Artifact
 from .dsl import Parameter
 from .dsl import ContainerStep
+from .dsl import DistributedJob
 from .dsl import DAG
 from .dsl import Pipeline
 from .dsl import FAIL_CONTINUE

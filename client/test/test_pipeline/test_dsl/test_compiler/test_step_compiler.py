@@ -16,13 +16,15 @@ limitations under the License.
 
 """ unit test for paddleflow.pipeline.dsl.compiler.step_compiler
 """
-import pytest 
+import pytest
 
 from paddleflow.pipeline import ContainerStep
 from paddleflow.pipeline import Artifact
 from paddleflow.pipeline import Parameter
 from paddleflow.pipeline import CacheOptions
 from paddleflow.pipeline import ExtraFS
+from paddleflow.job import Member
+from paddleflow.pipeline import DistributedJob
 from paddleflow.pipeline.dsl.compiler.step_compiler import StepCompiler
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
@@ -42,21 +44,21 @@ class TestStepCompiler(object):
     def test_compile_base_info(self):
         """ test _compile_base_info()
         """
-        
+
         # 1、step 没有任何信息
         step = ContainerStep(name="haha")
-        compiler = self.compile_part_step(step, "_compile_base_info") 
+        compiler = self.compile_part_step(step, "_compile_base_info")
         assert compiler._dict == {}
 
         # 2、step 只有部分基础信息
         step = ContainerStep(name="hahaha", command="echo hahaha")
-        compiler = self.compile_part_step(step, "_compile_base_info") 
+        compiler = self.compile_part_step(step, "_compile_base_info")
 
         assert compiler._dict == {"command": "echo hahaha"}
 
         # 3、step 有全量的信息
         step = ContainerStep(name="hahaha", command="echo hahaha", env={"name": "xiaodu"}, docker_env="python:3.7")
-        compiler = self.compile_part_step(step, "_compile_base_info") 
+        compiler = self.compile_part_step(step, "_compile_base_info")
 
         assert compiler._dict == {"command": "echo hahaha", "docker_env": "python:3.7", "env": {"name": "xiaodu"}}
 
@@ -74,7 +76,7 @@ class TestStepCompiler(object):
                     "train_data": Artifact(),
                     "validate_data": Artifact(),
                 }
-        
+
         step = ContainerStep(name="step", outputs=outputs)
         compiler = self.compile_part_step(step, "_compile_artifacts")
         assert len(compiler._dict["artifacts"]["output"]) == 2 and \
@@ -88,7 +90,7 @@ class TestStepCompiler(object):
         compiler = self.compile_part_step(step2, "_compile_artifacts")
         assert compiler._dict["artifacts"]["input"] == {"data": "{{step.train_data}}"} and \
                 "output" not in compiler._dict
-       
+
         # 4. 既有输出 artifact 又有 输入artifact
         step2.outputs["model"] = Artifact()
         compiler = self.compile_part_step(step2, "_compile_artifacts")
@@ -147,7 +149,7 @@ class TestStepCompiler(object):
         compiler = self.compile_part_step(step2, "compile")
         deps = compiler._dict["deps"].split(",")
         assert len(deps) == 2 and "step" in deps and \
-                "step1" in deps 
+                "step1" in deps
 
     @pytest.mark.cache
     def test_compiler_cache_options(self):
@@ -187,7 +189,7 @@ class TestStepCompiler(object):
         assert step_dict == {
                     "docker_env": "python:3.7",
                     "command": "echo 1234",
-                    "env": env, 
+                    "env": env,
                     "artifacts": {"output": ["model"]},
                     "parameters": {"data": "/data", "epoch": {"type": "int", "default": 1}},
                     "type": "step"
@@ -223,7 +225,7 @@ class TestStepCompiler(object):
 
         step = ContainerStep(name="step1", docker_env="python:3.7", env=env, parameters=parameters,
                 outputs=outputs, command="echo 1234")
-        
+
         step2 = ContainerStep(name="step2", docker_env="python:3.7", parameters={"data": step.parameters["data"]},
                 inputs={"model": step.outputs["model"]}, command="echo 456")
 
@@ -272,4 +274,39 @@ class TestStepCompiler(object):
         assert step_dict["extra_fs"] == [
             {"name": "abc", "mount_path": "/home/work", "read_only": False},
             {"name": "abc", "mount_path": "/home/work2", "read_only": True},
+        ]
+
+    @pytest.mark.distributed_job
+    def test_compile_distributed_job(self):
+        """ unit test for _compile_distributed_job
+        """
+
+        step = ContainerStep(
+            name="train",
+            parameters={
+                "epoch": 5,
+            },
+            env={"PS_NUM": "2", "WORKER_NUM": "2"},
+            command="",
+        )
+
+        step_dict = StepCompiler(step).compile()
+        assert "distributed_job" not in step_dict
+
+        dist_job = DistributedJob(
+            framework="paddle",
+            members=[Member(role="pworker", replicas=2, image="paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+                            command="sleep 30; echo worker"),
+                     Member(role="pserver", replicas=2, image="paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+                            command="sleep 30; echo ps")]
+        )
+
+        step.distributed_job = dist_job
+        step_dict = StepCompiler(step).compile()
+        print(step_dict["distributed_job"]["members"])
+        assert step_dict["distributed_job"]["members"] == [
+            {"role": "pworker", "replicas": 2, "command": "sleep 30; echo worker",
+             "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7"},
+            {"role": "pserver", "replicas": 2, "command": "sleep 30; echo ps",
+             "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7"},
         ]

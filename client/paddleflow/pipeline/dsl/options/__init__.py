@@ -21,4 +21,5 @@ from .failure_options import FAIL_CONTINUE
 from .fs_options import FSOptions
 from .fs_options import ExtraFS
 from .fs_options import MainFS
+from .distributed_job import DistributedJob
 

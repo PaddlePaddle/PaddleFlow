@@ -19,19 +19,23 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	comErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts)
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, distributedJob *schema.DistributedJob)
 	Validate() error
 	Start() (string, error)
 	Stop() error
@@ -44,6 +48,8 @@ type Job interface {
 	Skipped() bool
 	NotEnded() bool
 	JobID() string
+	MemberInfo() []schema.Member
+	FrameworkInfo() schema.Framework
 }
 
 func NewBaseJob(name string) *BaseJob {
@@ -77,9 +83,12 @@ type PaddleFlowJob struct {
 	mainFS       *schema.FsMount
 	extraFS      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
+	Members      []schema.Member
+	Framework    schema.Framework
 }
 
-func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
+func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount,
+	extraFS []schema.FsMount, framework schema.Framework, members []schema.Member) *PaddleFlowJob {
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
@@ -87,11 +96,13 @@ func NewPaddleFlowJob(name, image, userName string, eventChannel chan<- Workflow
 		eventChannel: eventChannel,
 		mainFS:       mainFS,
 		extraFS:      extraFS,
+		Members:      members,
+		Framework:    framework,
 	}
 }
 
 func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChannel chan<- WorkflowEvent,
-	mainFS *schema.FsMount, extraFS []schema.FsMount, userName string) *PaddleFlowJob {
+	mainFS *schema.FsMount, extraFS []schema.FsMount, userName string, framework schema.Framework, members []schema.Member) *PaddleFlowJob {
 	pfj := PaddleFlowJob{
 		BaseJob: BaseJob{
 			ID:         view.JobID,
@@ -110,6 +121,8 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 		mainFS:       mainFS,
 		extraFS:      extraFS,
 		userName:     userName,
+		Framework:    framework,
+		Members:      members,
 	}
 
 	pfj.Status = common.StatusRunRunning
@@ -119,7 +132,7 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 // 发起作业接口
 func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
-	artifacts *schema.Artifacts) {
+	artifacts *schema.Artifacts, distributedJob *schema.DistributedJob) {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -132,9 +145,181 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 		pfj.Env = envs
 	}
 
+	// members和framework添加到PaddleFlowJob中
+	if distributedJob != nil {
+		pfj.Framework = distributedJob.Framework
+		pfj.Members = distributedJob.Members
+	}
+
 	if artifacts != nil {
 		pfj.Artifacts = *artifacts
 	}
+}
+
+func generateJobID(param string) string {
+	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
+}
+
+func (pfj *PaddleFlowJob) generateCreateJobInfo() *job.CreateJobInfo {
+	mainfs := schema.FileSystem{}
+	if pfj.mainFS != nil {
+		mainfs = schema.FileSystem{
+			ID:        pfj.mainFS.ID,
+			Name:      pfj.mainFS.Name,
+			SubPath:   pfj.mainFS.SubPath,
+			MountPath: pfj.mainFS.MountPath,
+			ReadOnly:  pfj.mainFS.ReadOnly,
+		}
+	}
+	efs := make([]schema.FileSystem, 0)
+	for _, fsMount := range pfj.extraFS {
+		fs := schema.FileSystem{
+			ID:        fsMount.ID,
+			Name:      fsMount.Name,
+			SubPath:   fsMount.SubPath,
+			MountPath: fsMount.MountPath,
+			ReadOnly:  fsMount.ReadOnly,
+		}
+		efs = append(efs, fs)
+	}
+
+	queueName := ""
+	if _, ok := pfj.Env[schema.EnvJobQueueName]; ok {
+		queueName = pfj.Env[schema.EnvJobQueueName]
+	}
+	priority := ""
+	if _, ok := pfj.Env[schema.EnvJobPriority]; ok {
+		priority = pfj.Env[schema.EnvJobPriority]
+	}
+
+	commonInfo := job.CommonJobInfo{
+		ID:   generateJobID(pfj.Name),
+		Name: pfj.Name,
+		SchedulingPolicy: job.SchedulingPolicy{
+			Queue:    queueName,
+			Priority: priority,
+		},
+		UserName: pfj.userName,
+	}
+	createJobInfo := &job.CreateJobInfo{
+		CommonJobInfo: commonInfo,
+	}
+
+	// 生成single或distributed job的createJobInfo信息
+	if len(pfj.Members) == 0 {
+		createJobInfo.Type = schema.TypeSingle
+		createJobInfo.Framework = schema.FrameworkStandalone
+		createJobInfo.Members = []job.MemberSpec{
+			{
+				CommonJobInfo: createJobInfo.CommonJobInfo,
+				JobSpec: job.JobSpec{
+					Flavour: schema.Flavour{
+						Name: pfj.Env[schema.EnvJobFlavour],
+					},
+					LimitFlavour: schema.Flavour{
+						Name: pfj.Env[schema.EnvJobLimitFlavour],
+					},
+					FileSystem:       mainfs,
+					ExtraFileSystems: efs,
+					Image:            pfj.Image,
+					Env:              pfj.Env,
+					Command:          pfj.Command,
+				},
+				Role:     string(schema.RoleWorker),
+				Replicas: 1,
+			},
+		}
+
+	} else {
+		createJobInfo.Type = schema.TypeDistributed
+		createJobInfo.Framework = pfj.Framework
+		members := make([]job.MemberSpec, 0)
+		for _, member := range pfj.Members {
+			mem := job.MemberSpec{
+				CommonJobInfo: createJobInfo.CommonJobInfo,
+				Role:          string(member.Role),
+				Replicas:      member.Replicas,
+			}
+
+			image := ""
+			if member.GetImage() != "" {
+				image = member.GetImage()
+			} else {
+				image = pfj.Image
+			}
+
+			annotations := make(map[string]string)
+			if member.GetAnnotations() != nil {
+				for k, v := range member.GetAnnotations() {
+					annotations[k] = v
+				}
+				mem.Annotations = annotations
+			}
+
+			labels := make(map[string]string)
+			if member.GetLabels() != nil {
+				for k, v := range member.GetLabels() {
+					labels[k] = v
+				}
+				mem.Labels = labels
+			}
+
+			var env map[string]string
+			if member.GetEnv() != nil {
+				env = pfj.Env
+				if env == nil {
+					env = make(map[string]string)
+				}
+				// 设置在member里的环境变量优先级最高
+				for k, v := range member.GetEnv() {
+					env[k] = v
+				}
+			} else {
+				env = pfj.Env
+			}
+
+			command := ""
+			if member.GetCommand() != "" {
+				command = member.GetCommand()
+			} else {
+				command = pfj.Command
+			}
+
+			flavour := schema.Flavour{}
+			if !reflect.DeepEqual(flavour, member.Flavour) {
+				flavour = member.Flavour
+			} else {
+				flavour.Name = pfj.Env[schema.EnvJobFlavour]
+			}
+
+			memberFs := schema.FileSystem{}
+			if !reflect.DeepEqual(memberFs, member.GetFileSystem()) {
+				memberFs = member.GetFileSystem()
+			} else {
+				memberFs = mainfs
+			}
+
+			if member.GetExtraFS() != nil {
+				efs = member.GetExtraFS()
+			}
+
+			jobInfo := job.JobSpec{
+				Flavour:          flavour,
+				LimitFlavour:     member.LimitFlavour,
+				FileSystem:       memberFs,
+				ExtraFileSystems: efs,
+				Env:              env,
+				Command:          command,
+				Image:            image,
+				Port:             member.Port,
+				Args:             member.GetArgs(),
+			}
+			mem.JobSpec = jobInfo
+			members = append(members, mem)
+		}
+		createJobInfo.Members = members
+	}
+	return createJobInfo
 }
 
 // 生成job 的conf 信息
@@ -192,9 +377,9 @@ func (pfj *PaddleFlowJob) Validate() error {
 	var err error
 
 	// 调用job子系统接口进行校验
-	conf := pfj.generateJobConf()
+	jobInfo := pfj.generateCreateJobInfo()
 
-	err = job.ValidatePPLJob(&conf)
+	err = job.ValidatePPLJob(jobInfo)
 	if err != nil {
 		return err
 	}
@@ -207,14 +392,19 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 	// 此函数不更新job.Status，job.startTime，统一通过watch更新
 	var err error
 
+	// 生成CreateJobInfo
+	createJobInfo := pfj.generateCreateJobInfo()
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
 	// 调用job子系统接口发起运行
-	conf := pfj.generateJobConf()
-
-	pfj.ID, err = job.CreatePPLJob(&conf)
+	jobResponse, err := job.CreatePFJob(ctx, createJobInfo)
 	if err != nil {
+		log.Errorf("create pipeline job failed. err: %s", err)
 		return "", err
 	}
 
+	pfj.ID = jobResponse.ID
 	if pfj.ID == "" {
 		err = fmt.Errorf("watch paddleflow job[%s] failed, job not started, id is empty", pfj.Job().Name)
 		return "", err
@@ -289,6 +479,10 @@ func (pfj *PaddleFlowJob) Watch() {
 			pfj.eventChannel <- *wfe
 			pfj.Status = jobInstance.Status
 			pfj.Message = jobInstance.Message
+			// 更新Members状态
+			if len(pfj.Members) > 0 {
+				pfj.Members = jobInstance.Members
+			}
 		}
 
 		if pfj.Succeeded() || pfj.Terminated() || pfj.Failed() {
@@ -333,6 +527,14 @@ func (pfj *PaddleFlowJob) Job() BaseJob {
 
 func (pfj *PaddleFlowJob) JobID() string {
 	return pfj.ID
+}
+
+func (pfj *PaddleFlowJob) MemberInfo() []schema.Member {
+	return pfj.Members
+}
+
+func (pfj *PaddleFlowJob) FrameworkInfo() schema.Framework {
+	return pfj.Framework
 }
 
 // ----------------------------------------------------------------------------

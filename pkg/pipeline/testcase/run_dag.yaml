@@ -107,7 +107,11 @@ entry_points:
   
   disStep:
     command: "echo dis"
-
+    distributed_job:
+      framework: "paddle"
+      members:
+        - { "role": "pserver", "command": "","replicas": 2, "flavour": { "name": "flavour1" }}
+        - { "role": "pworker", "command": "","replicas": 2, "flavour": { "name": "flavour1" }}
 
 components:
   process-negetive:

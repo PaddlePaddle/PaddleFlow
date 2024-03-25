@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -57,10 +57,10 @@ func getToken(pfClient *service.PaddleFlowClient) string {
 
 func createRun(pfClient *service.PaddleFlowClient, token string, request *v1.CreateRunRequest) (createResult *v1.CreateRunResponse) {
 	createResult, err := pfClient.APIV1().Run().Create(context.TODO(), request, token)
-
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Printf("create Run result %v\n", createResult)
 	return
 }
@@ -221,9 +221,9 @@ func UpdatePipelineByRaw(filepath string, pplID string) (string, string) {
 }
 
 func main() {
-	GetPipelineFromFile("")
-	CreateRunByRunYamlRaw("")
-	CreatePipelineByRaw("")
-	UpdatePipelineByRaw("", "ppl-000096")
-	CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
+	//GetPipelineFromFile("")
+	CreateRunByRunYamlRaw("/Users/wanziyu/wanziyu/PaddleFlow/example/pipeline/distributed_job_example/run.yaml")
+	//CreatePipelineByRaw("")
+	//UpdatePipelineByRaw("", "ppl-000096")
+	//CreateRunSpecifyFailureOptions("", schema.FailureStrategyFailFast)
 }

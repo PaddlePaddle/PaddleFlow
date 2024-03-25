@@ -15,6 +15,7 @@ import (
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
@@ -283,6 +284,24 @@ func TestUpdateJob(t *testing.T) {
 			expectedCommand := "python train.py -r 0.1 -d ./data/pre --output ./data/model"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
+		if stepName == "distributed-step" {
+			assert.Equal(t, 2, len(srt.job.Job().Parameters))
+			assert.Contains(t, srt.job.Job().Parameters, "epoch")
+
+			assert.Equal(t, "5", srt.job.Job().Parameters["epoch"])
+			assert.Equal(t, 5+sysNum, len(srt.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
+
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_PRIORITY")
+			assert.Contains(t, srt.job.Job().Env, "PF_JOB_FLAVOUR")
+			assert.Contains(t, srt.job.Job().Env, "PF_PS_NUM")
+			assert.Contains(t, srt.job.Job().Env, "PF_WORKER_NUM")
+
+			expectedCommand := "sleep 30; echo ps 5 100"
+			assert.Equal(t, expectedCommand, srt.getWorkFlowStep().DistributedJob.Members[0].Command)
+			expectedCommand = "sleep 30; echo worker 5 100"
+			assert.Equal(t, expectedCommand, srt.getWorkFlowStep().DistributedJob.Members[1].Command)
+		}
 		if stepName == "validate" {
 			assert.Equal(t, 4, len(srt.job.Job().Parameters))
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")
@@ -434,6 +453,8 @@ func mockToListenEvent(ec chan WorkflowEvent, ep *WorkflowEvent) {
 }
 
 func TestNewStepRuntimeWithStatus(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
@@ -474,7 +495,8 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))

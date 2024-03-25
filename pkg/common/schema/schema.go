@@ -37,27 +37,28 @@ type ComponentView interface {
 
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
-	PK          int64             `json:"-"`
-	JobID       string            `json:"jobID"`
-	Name        string            `json:"name"`
-	Type        string            `json:"type"`
-	StepName    string            `json:"stepName"`
-	ParentDagID string            `json:"parentDagID"`
-	LoopSeq     int               `json:"-"`
-	Command     string            `json:"command"`
-	Parameters  map[string]string `json:"parameters"`
-	Env         map[string]string `json:"env"`
-	ExtraFS     []FsMount         `json:"extraFS"`
-	StartTime   string            `json:"startTime"`
-	EndTime     string            `json:"endTime"`
-	Status      JobStatus         `json:"status"`
-	Deps        string            `json:"deps"`
-	DockerEnv   string            `json:"dockerEnv"`
-	Artifacts   Artifacts         `json:"artifacts"`
-	Cache       Cache             `json:"cache"`
-	JobMessage  string            `json:"jobMessage"`
-	CacheRunID  string            `json:"cacheRunID"`
-	CacheJobID  string            `json:"cacheJobID"`
+	PK             int64             `json:"-"`
+	JobID          string            `json:"jobID"`
+	Name           string            `json:"name"`
+	Type           string            `json:"type"`
+	StepName       string            `json:"stepName"`
+	ParentDagID    string            `json:"parentDagID"`
+	LoopSeq        int               `json:"-"`
+	Command        string            `json:"command"`
+	Parameters     map[string]string `json:"parameters"`
+	Env            map[string]string `json:"env"`
+	ExtraFS        []FsMount         `json:"extraFS"`
+	DistributedJob DistributedJob    `json:"distributedJob,omitempty"`
+	StartTime      string            `json:"startTime"`
+	EndTime        string            `json:"endTime"`
+	Status         JobStatus         `json:"status"`
+	Deps           string            `json:"deps"`
+	DockerEnv      string            `json:"dockerEnv"`
+	Artifacts      Artifacts         `json:"artifacts"`
+	Cache          Cache             `json:"cache"`
+	JobMessage     string            `json:"jobMessage"`
+	CacheRunID     string            `json:"cacheRunID"`
+	CacheJobID     string            `json:"cacheJobID"`
 }
 
 func (j JobView) GetComponentName() string {
