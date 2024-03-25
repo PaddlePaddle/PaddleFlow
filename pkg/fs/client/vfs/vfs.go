@@ -243,6 +243,7 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 	}
 	path, err := v.Meta.SetAttr(ctx, ino, set, attr)
 	if utils.IsError(err) {
+		log.Errorf("setAttr set[%v] attr[%v] err %v", set, attr, err)
 		return entry, err
 	}
 	if v.Store != nil {
@@ -294,6 +295,9 @@ func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cum
 	var ino Ino
 	attr := &Attr{}
 	err = v.Meta.Mkdir(ctx, parent, name, mode, cumask, &ino, attr)
+	if utils.IsError(err) {
+		log.Errorf("mkdir name[%s] err %v", name, err)
+	}
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
@@ -637,6 +641,9 @@ func (v *VFS) Fsync(ctx *meta.Context, ino Ino, datasync int, fh uint64) (err sy
 	}
 	if h.writer != nil {
 		err = h.writer.Fsync(int(fh))
+		if utils.IsError(err) {
+			log.Errorf("Fsync err %v", err)
+		}
 	}
 	return err
 }
@@ -729,7 +736,7 @@ func (v *VFS) Truncate(ctx *meta.Context, ino Ino, size, fh uint64) (err syscall
 
 	err = h.writer.Truncate(size)
 	if utils.IsError(err) {
-		log.Debugf("vfs truncate: h.writer.Truncate err")
+		log.Errorf("vfs truncate: h.writer.Truncate err %v", err)
 		return err
 	}
 	return v.Meta.Truncate(ctx, ino, size)

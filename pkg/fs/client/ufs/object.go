@@ -20,9 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/baidubce/bce-sdk-go/auth"
-	"github.com/baidubce/bce-sdk-go/bce"
-	"github.com/baidubce/bce-sdk-go/services/bos"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/panjf2000/ants/v2"
@@ -37,6 +34,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs/object"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/baidubce/bce-sdk-go/auth"
+	"github.com/baidubce/bce-sdk-go/bce"
+	"github.com/baidubce/bce-sdk-go/services/bos"
 )
 
 func init() {
@@ -213,6 +213,106 @@ func (fs *objectFileSystem) String() string {
 }
 
 func (fs *objectFileSystem) GetAttr(name string) (*base.FileInfo, error) {
+	if name == "" || name == Delimiter {
+		return fs.getRootDirAttr(), nil
+	}
+	fileKey := fs.objectKeyName(name)
+	dirKey := fs.objectKeyName(toDirPath(name))
+
+	var fileObjectResponse *object.HeadObjectOutput
+	var fileObjectHeadErr error
+	var dirObjectResponse *object.HeadObjectOutput
+	var dirObjectHeadErr error
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	// 1. check if key exists
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 5; i++ {
+			fileObjectResponse, fileObjectHeadErr = fs.storage.Head(fileKey)
+			if fileObjectHeadErr != nil && !isNotExistErr(fileObjectHeadErr) {
+				log.Errorf("Head[%v] object err: %v", i, fileObjectHeadErr)
+				time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
+				continue
+			}
+			break
+		}
+	}()
+	// 2. check if dir exists with dir key exists
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 5; i++ {
+			dirObjectResponse, dirObjectHeadErr = fs.storage.Head(dirKey)
+			if dirObjectHeadErr != nil && !isNotExistErr(dirObjectHeadErr) {
+				log.Errorf("Key[%s] Head[%v] object err: %v", dirKey, i, dirObjectHeadErr)
+				time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
+				continue
+			}
+			break
+		}
+	}()
+	wg.Wait()
+	// 是文件
+	if fileObjectHeadErr == nil && fileObjectResponse != nil {
+		aTime := fuse.UtimeToTimespec(&fileObjectResponse.LastModified)
+		size := int64(fileObjectResponse.Size)
+		st := fillStat(1, 0, 0, 0, size, 4096, size/512, aTime, aTime, aTime)
+		mtime := uint64((fileObjectResponse.LastModified).Unix())
+		return &base.FileInfo{
+			Name:  name,
+			Path:  fileKey,
+			Size:  size,
+			Mtime: mtime,
+			IsDir: false,
+			Owner: Owner,
+			Group: Group,
+			Sys:   st,
+		}, nil
+	}
+	if dirObjectHeadErr == nil && dirObjectResponse != nil && dirObjectResponse.IsDir {
+		fInfo := fs.getRootDirAttr()
+		fInfo.Name = name
+		fInfo.Path = fs.objectKeyName(name)
+		return fInfo, nil
+	}
+	if fileObjectHeadErr != nil && !isNotExistErr(fileObjectHeadErr) {
+		return nil, fileObjectHeadErr
+	}
+	if dirObjectHeadErr != nil && !isNotExistErr(dirObjectHeadErr) {
+		return nil, dirObjectHeadErr
+	}
+
+	// 兜底判断是不是目录
+	listInput := &object.ListInput{
+		Prefix:    dirKey,
+		MaxKeys:   1,
+		Delimiter: Delimiter,
+	}
+	var dirs *object.ListBlobsOutput
+	var errList error
+	for i := 0; i < 3; i++ {
+		dirs, errList = fs.storage.List(listInput)
+		if errList != nil && !isNotExistErr(errList) {
+			log.Errorf("List[%v] object err: %v", i, errList)
+			time.Sleep(time.Duration(i+1) * 200 * time.Millisecond)
+			continue
+		}
+		break
+	}
+	if len(dirs.Items) > 0 || len(dirs.Prefixes) > 0 {
+		fInfo := fs.getRootDirAttr()
+		fInfo.Name = name
+		fInfo.Path = fs.objectKeyName(name)
+		return fInfo, nil
+	}
+	if errList != nil && !isNotExistErr(errList) {
+		return nil, errList
+	}
+	return nil, syscall.ENOENT
+}
+
+func (fs *objectFileSystem) ListGetAttr(name string) (*base.FileInfo, error) {
 	if name == "" || name == Delimiter {
 		return fs.getRootDirAttr(), nil
 	}
@@ -1612,8 +1712,8 @@ func newStorage(objectType, region, endpoint, accessKey, secretKey_, bucket stri
 			Endpoint:         endpoint,
 			RedirectDisabled: false,
 		}
-		// 初始化一个BosClient
 		bosClient, err := bos.NewClientWithConfig(&clientConfig)
+
 		if err != nil {
 			log.Errorf("new bos client fail: %v", err)
 			return "", nil, fmt.Errorf("fail to create bos client: %v", err)
