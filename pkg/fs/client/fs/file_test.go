@@ -18,10 +18,12 @@ package fs
 
 import (
 	"fmt"
+	"github.com/agiledragon/gomonkey/v2"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -67,6 +69,39 @@ func newPfsTest() (*FileSystem, error) {
 		return nil, err
 	}
 	return pfs, nil
+}
+
+func TestFSOpenFail(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    2,
+		MaxReadAhead: 100,
+		Config: kv.Config{
+			Driver: kv.MemType,
+		},
+	}
+	SetDataCache(d)
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	path := "testRead"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0666
+	_, err = client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, err, nil)
+
+	patches := gomonkey.NewPatches()
+	patches.ApplyMethod(new(kv.KVTxn), "Get", func(_ *kv.KVTxn, key []byte) []byte {
+		return nil
+	})
+	_, err = client.Open(path)
+	assert.Equal(t, err, syscall.ENOENT)
+	patches.Reset()
 }
 
 func TestFSClient_readAt_BigOff(t *testing.T) {

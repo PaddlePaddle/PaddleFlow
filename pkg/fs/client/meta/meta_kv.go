@@ -1846,20 +1846,17 @@ func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib
 				return err
 			}
 		} else {
-			attrTmp := &Attr{}
-			err := m.GetAttr(ctx, inode, attrTmp)
-			if err != syscall.F_OK {
-				log.Errorf("get attr err %v", err)
-				return err
+			for i := 0; i < 3; i++ {
+				log.Errorf("open inode[%v] not exist [%v]", inode, i)
+				time.Sleep(time.Duration(i*100) * time.Millisecond)
+				a = tx.Get(m.inodeKey(inode))
+				if a != nil {
+					break
+				}
 			}
-			a = tx.Get(m.inodeKey(inode))
-			m.parseInode(a, inodeItem_)
-			if !m.inodeItemExpired(*inodeItem_) {
-				log.Debugf("open inodeItem cache %+v and attr %+v", *inodeItem_, inodeItem_.attr)
-				*attr = inodeItem_.attr
-				inodeItem_.fileHandles += 1
-				errSet := tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
-				return errSet
+			if a == nil {
+				log.Errorf("open emtpy inode")
+				return syscall.ENOENT
 			}
 		}
 		info, err := ufs_.GetAttr(newPath)
@@ -1921,7 +1918,6 @@ func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 			}
 		}
 		return nil
-
 	})
 	return utils.ToSyscallErrno(err)
 }
