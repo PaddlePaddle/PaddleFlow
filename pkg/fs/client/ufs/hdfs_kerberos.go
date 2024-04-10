@@ -123,6 +123,10 @@ func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFile
 	options := hdfs.ClientOptions{
 		Addresses: strings.Split(nameNodeAddress, ","),
 	}
+	useDatanodeHostname, ok := properties[common.UseDatanodeHostname].(bool)
+	if ok && useDatanodeHostname {
+		options.UseDatanodeHostname = true
+	}
 	krbConfig, _ := buildKerberosConf(properties)
 	if krbClient, err := NewKerberosClientWithKeyTab(krbConfig); err == nil {
 		options.KerberosClient = krbClient

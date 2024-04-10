@@ -38,10 +38,11 @@ const (
 	Type    = "type"
 
 	// HDFS properties
-	NameNodeAddress = "dfs.namenode.address"
-	UserKey         = "user"
-	BlockSizeKey    = "blockSize"
-	ReplicationKey  = "replication"
+	NameNodeAddress     = "dfs.namenode.address"
+	UseDatanodeHostname = "dfs.client.use.datanode.hostname"
+	UserKey             = "user"
+	BlockSizeKey        = "blockSize"
+	ReplicationKey      = "replication"
 
 	Sts             = "sts"
 	Token           = "token"

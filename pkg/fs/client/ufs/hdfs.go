@@ -636,6 +636,10 @@ func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, err
 	options := hdfs.ClientOptions{
 		Addresses: strings.Split(nameNodeAddress, ","),
 	}
+	useDatanodeHostname, ok := properties[common.UseDatanodeHostname].(bool)
+	if ok && useDatanodeHostname {
+		options.UseDatanodeHostname = true
+	}
 	options.User = properties[common.UserKey].(string)
 	cli, err := hdfs.NewClient(options)
 	if err != nil {
