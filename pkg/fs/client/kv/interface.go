@@ -21,6 +21,7 @@ type Config struct {
 	Driver    string
 	CachePath string
 	Capacity  int64
+	ReUse     bool
 }
 
 type KvTxn interface {

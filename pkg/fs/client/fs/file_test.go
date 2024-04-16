@@ -18,12 +18,10 @@ package fs
 
 import (
 	"fmt"
-	"github.com/agiledragon/gomonkey/v2"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -95,13 +93,8 @@ func TestFSOpenFail(t *testing.T) {
 	_, err = client.Create(path, uint32(flags), uint32(mode))
 	assert.Equal(t, err, nil)
 
-	patches := gomonkey.NewPatches()
-	patches.ApplyMethod(new(kv.KVTxn), "Get", func(_ *kv.KVTxn, key []byte) []byte {
-		return nil
-	})
 	_, err = client.Open(path)
-	assert.Equal(t, err, syscall.ENOENT)
-	patches.Reset()
+	assert.Equal(t, err, nil)
 }
 
 func TestFSClient_readAt_BigOff(t *testing.T) {

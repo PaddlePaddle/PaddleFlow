@@ -156,7 +156,7 @@ func setup(c *cli.Context) error {
 		}()
 	}
 
-	if c.Bool("clean-cache") {
+	if c.Bool("clean-cache") && !c.Bool("reuse-meta-cache") {
 		if c.String("meta-cache-path") != "" && meta.MetaCachePath != "" && meta.MetaCachePath != "/" {
 			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, meta.MetaCachePath)
 		}
@@ -409,6 +409,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			FsID:      fsMeta.ID,
 			Driver:    c.String("meta-cache-driver"),
 			CachePath: c.String("meta-cache-path"),
+			ReUse:     c.Bool("reuse-meta-cache"),
 		},
 	}
 	d := cache.Config{

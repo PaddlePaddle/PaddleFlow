@@ -3,23 +3,28 @@ package service
 import (
 	"bufio"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
-	"github.com/panjf2000/ants/v2"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/panjf2000/ants/v2"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 )
 
 var pool *ants.Pool
 
 const batchSize = 100000
 const poolSize = 100
-const minxFileCount = 5
+const minxFileCount = 10
+
+var processNum int
+var processNumLock sync.RWMutex
 
 // findUniqueParentDirs 从 paths 中找出所有的父目录，如果父目录下的文件数量小于 minxFileCount，则将其下的文件都加入到结果中
 func findUniqueParentDirs(paths []string) []string {
@@ -58,7 +63,6 @@ func findUniqueParentDirs(paths []string) []string {
 		wg.Done()
 	}
 
-	pool, _ = ants.NewPool(poolSize)
 	log.Infof("Start to find unique parent dirs")
 
 	// 分批提交协程池处理
@@ -146,6 +150,7 @@ func warmup_(fname string, paths []string, threads int, warmType string, recursi
 	if warmType != "data" {
 		paths = findUniqueParentDirs(paths)
 	}
+	log.Infof("warmup paths num: %v threads: %v warmupType: %v", len(paths), threads, warmType)
 
 	progress, bar := utils.NewDynProgressBar("warming up paths: ", false, int64(len(paths)))
 	for _, path := range paths {
@@ -165,6 +170,13 @@ func warmup_(fname string, paths []string, threads int, warmType string, recursi
 					log.Fatal("type of warmup must meta or data")
 				}
 			}
+			processNumLock.Lock()
+			processNum += 1
+			if processNum%100 == 0 {
+				log.Infof("Processing %v/%v", processNum, len(paths))
+			}
+			processNumLock.Unlock()
+
 			bar.IncrBy(1)
 		})
 	}

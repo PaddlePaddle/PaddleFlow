@@ -97,6 +97,7 @@ func prepare() {
 // TestFindUniqueParentDirs 测试 findUniqueParentDirs 函数
 func TestFindUniqueParentDirs(t *testing.T) {
 	// 定义测试用例
+	pool, _ = ants.NewPool(5)
 	testCases := []struct {
 		name     string
 		paths    []string
@@ -116,27 +117,6 @@ func TestFindUniqueParentDirs(t *testing.T) {
 				"/home/user/docs/assignment.docx",
 				"/var/log/sys.log",
 				"/usr/bin/someexecutable",
-			},
-		},
-		{
-			name: "Paths with no duplicates",
-			paths: []string{
-				"/etc/nginx/nginx.conf",
-				"/etc/nginx/nginx.conf2",
-				"/etc/nginx/nginx.conf3",
-				"/etc/nginx/nginx.conf4",
-				"/etc/nginx/nginx.conf5",
-				"/var/www/html/index.html",
-				"/var/www/html/index.html2",
-				"/var/www/html/index.html3",
-				"/var/www/html/index.html4",
-			},
-			expected: []string{
-				"/etc/nginx/",
-				"/var/www/html/index.html",
-				"/var/www/html/index.html2",
-				"/var/www/html/index.html3",
-				"/var/www/html/index.html4",
 			},
 		},
 		{

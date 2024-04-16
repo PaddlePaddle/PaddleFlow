@@ -100,6 +100,11 @@ func CacheFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 			Value: 5 * time.Second,
 			Usage: "meta cache expire",
 		},
+		&cli.BoolFlag{
+			Name:  "reuse-meta-cache",
+			Value: false,
+			Usage: "meta cache with type disk reuse",
+		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
 			Value: 1 * time.Second,

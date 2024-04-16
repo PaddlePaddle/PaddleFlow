@@ -1813,5 +1813,27 @@ func a() int {
 	ac = 1
 	ac = 1
 	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
+	ac = 1
 	return ac
 }
