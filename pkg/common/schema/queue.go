@@ -19,7 +19,6 @@ package schema
 const (
 	StatusQueueCreating    = "creating"
 	StatusQueueOpen        = "open"
-	StatusQueueUpdating    = "updating"
 	StatusQueueClosing     = "closing"
 	StatusQueueClosed      = "closed"
 	StatusQueueUnavailable = "unavailable"
