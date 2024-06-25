@@ -67,6 +67,7 @@ func NewQueueInfo(q model.Queue) *QueueInfo {
 	return &QueueInfo{
 		UID:             QueueID(q.ID),
 		Name:            q.Name,
+		Namespace:       q.Namespace,
 		ClusterID:       ClusterID(q.ClusterId),
 		Type:            q.QuotaType,
 		Status:          q.Status,

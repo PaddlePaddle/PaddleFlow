@@ -62,6 +62,9 @@ func (vcq *KubeVCQueue) Create(ctx context.Context, q *api.QueueInfo) error {
 	vcQueue := &v1beta1.Queue{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: q.Name,
+			Annotations: map[string]string{
+				pfschema.QueueNamespaceAnnotation: q.Namespace,
+			},
 		},
 		Spec: v1beta1.QueueSpec{
 			Capability: k8s.NewResourceList(q.MaxResources),
@@ -98,7 +101,7 @@ func (vcq *KubeVCQueue) Update(ctx context.Context, q *api.QueueInfo) error {
 		return err
 	}
 	vcQueue.Spec.Capability = k8s.NewResourceList(q.MaxResources)
-	vcQueue.Status.State = v1beta1.QueueState(q.Status)
+	vcQueue.Status.State = statusToVCQueueState(q.Status)
 	if vcQueue.Spec.Weight < 1 {
 		vcQueue.Spec.Weight = 1
 	}
@@ -214,6 +217,22 @@ func getVCQueueStatus(state v1beta1.QueueState) string {
 		status = pfschema.StatusQueueUnavailable
 	}
 	return status
+}
+
+// statusToVCQueueState converts vc queue status to volcano queue state
+func statusToVCQueueState(status string) v1beta1.QueueState {
+	state := v1beta1.QueueStateOpen
+	switch status {
+	case pfschema.StatusQueueOpen:
+		state = v1beta1.QueueStateOpen
+	case pfschema.StatusQueueClosing:
+		state = v1beta1.QueueStateClosing
+	case pfschema.StatusQueueClosed:
+		state = v1beta1.QueueStateClosed
+	case pfschema.StatusQueueUnavailable:
+		state = v1beta1.QueueStateUnknown
+	}
+	return state
 }
 
 func (vcq *KubeVCQueue) delete(obj interface{}) {
