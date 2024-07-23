@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -65,4 +66,41 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 	// delete vc queue
 	err = vcQueue.Delete(context.TODO(), queueInfo)
 	assert.Equal(t, nil, err)
+}
+
+// TestStatusToVcQueueStatus test statusToVCQueueState
+func TestStatusToVcQueueStatus(t *testing.T) {
+	testCases := []struct {
+		name    string
+		status  string
+		vcState v1beta1.QueueState
+	}{
+		{
+			name:    "status open",
+			status:  schema.StatusQueueOpen,
+			vcState: v1beta1.QueueStateOpen,
+		},
+		{
+			name:    "status closing",
+			status:  schema.StatusQueueClosing,
+			vcState: v1beta1.QueueStateClosing,
+		},
+		{
+			name:    "status closed",
+			status:  schema.StatusQueueClosed,
+			vcState: v1beta1.QueueStateClosed,
+		},
+		{
+			name:    "status unhkonw",
+			status:  schema.StatusQueueUnavailable,
+			vcState: v1beta1.QueueStateUnknown,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := statusToVCQueueState(tc.status)
+			assert.Equal(t, state, tc.vcState)
+		})
+	}
 }
