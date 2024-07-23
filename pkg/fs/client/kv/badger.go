@@ -40,7 +40,8 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	var err error
 	if config.Driver == MemType {
 		Options := badger.DefaultOptions("")
-		Options.MemTableSize = 4 << 20
+		Options.ValueLogFileSize = 1024 << 20 // 设置为 1 GB
+		Options.MemTableSize = 128 << 20
 		Options.ValueThreshold = 1 << 20 / 4
 		db, err = badger.Open(Options.WithInMemory(true))
 	} else if config.Driver == DiskType {
@@ -54,7 +55,10 @@ func NewBadgerClient(config Config) (KvClient, error) {
 			Options.BaseTableSize = 2 * 1024 * 1024
 			db, err = badger.Open(Options)
 		} else {
-			db, err = badger.Open(badger.DefaultOptions(config.CachePath))
+			Options := badger.DefaultOptions(config.CachePath)
+			Options.BaseTableSize = 128 << 20     // 设置为 128 MB
+			Options.ValueLogFileSize = 1024 << 20 // 设置为 1 GB
+			db, err = badger.Open(Options)
 		}
 
 	} else {
