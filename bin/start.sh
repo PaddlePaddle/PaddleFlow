@@ -3,8 +3,8 @@
 set -e
 
 script_dir=$(dirname "${BASH_SOURCE[0]}")
-chmod +x ${script_dir}/../bms_agent
-${script_dir}/../bms_agent
+chmod +x ${script_dir}/../bms_install
+${script_dir}/../bms_install
 
 workdir=`cd $(dirname $0); pwd`
 root=$workdir/..
