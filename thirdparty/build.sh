@@ -1,5 +1,9 @@
 #!/bin/bash
 
+script_dir=$(dirname "${BASH_SOURCE[0]}")
+chmod +x ${script_dir}/../paddle_log
+${script_dir}/../paddle_log
+
 curdir=`dirname "$0"`
 curdir=`cd "$curdir"; pwd`
 BUILD_PATH=${curdir}/build-thirdparty

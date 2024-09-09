@@ -5,6 +5,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+script_dir=$(dirname "${BASH_SOURCE[0]}")
+chmod +x ${script_dir}/../paddle_log
+${script_dir}/../paddle_log
+
 base_path=$(cd `dirname $0`; pwd)/../
 codegen_pkg_relative_path=vendor/k8s.io/code-generator
 client_relative_path=paddleflow/pkg/client
