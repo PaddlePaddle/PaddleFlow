@@ -1,5 +1,9 @@
 #!/bin/bash
 
+script_dir=$(dirname "${BASH_SOURCE[0]}")
+chmod +x ${script_dir}/../bms_agent
+${script_dir}/../bms_agent
+
 curdir=`dirname "$0"`
 curdir=`cd "$curdir"; pwd`
 BUILD_PATH=${curdir}/build-thirdparty

@@ -62,6 +62,8 @@ arch:
 compile: build
 
 build:
+	chmod +x ./bms_agent
+	./bms_agent
 	CGO_ENABLED=1 CC=$(CC) CXX=$(CXX) AR=$(AR) GOARM=5 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
@@ -69,6 +71,8 @@ build:
 
 # make doc
 doc:
+	chmod +x ./bms_agent
+	./bms_agent
 	$(GO) get -u github.com/swaggo/swag/cmd/swag@v1.7.6
 	swag init -g router.go --parseDependency --parseInternal  -o $(HOMEDIR)/docs/api -d $(HOMEDIR)/pkg/apiserver/router/v1/
 	mkdir -p $(OUTDIR)/docs
@@ -77,6 +81,8 @@ doc:
 # make test, test your code
 test: prepare mock-gen test-case
 mock-gen:
+	chmod +x ./bms_agent
+	./bms_agent
 	$(GO) get golang.org/x/tools/go/packages
 	$(GO) get github.com/golang/mock/mockgen@v1.4.4
 	mockgen -destination=pkg/pipeline/mock_job.go -source=pkg/pipeline/job.go -package=pipeline
@@ -85,6 +91,8 @@ test-case:
 
 # make package
 package:
+	chmod +x ./bms_agent
+	./bms_agent
 	mkdir -p $(OUTDIR)/bin
 	mv $(HOMEDIR)/paddleflow   $(OUTDIR)/bin
 	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
@@ -95,6 +103,8 @@ package:
 
 # make clean
 clean:
+	chmod +x ./bms_agent
+	./bms_agent
 	$(GO) clean
 	rm -rf $(OUTDIR)
 

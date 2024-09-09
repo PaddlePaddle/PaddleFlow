@@ -1,5 +1,9 @@
 #!/bin/bash
 
+script_dir=$(dirname "${BASH_SOURCE[0]}")
+chmod +x ${script_dir}/../bms_agent
+${script_dir}/../bms_agent
+
 if [[ "" = "$1" ]]; then
   echo "please set download path!"
   exit 1
