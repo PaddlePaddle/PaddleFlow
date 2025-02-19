@@ -961,6 +961,13 @@ func (m *kvMeta) Symlink(ctx *Context, parent Ino, name string, path string, ino
 	insertInodeItem_.name = []byte(name)
 	// link设置无限大时间，永远不过期
 	insertInodeItem_.expire = now.Add(time.Hour * 876000).Unix()
+	// 设置所有时间戳
+	insertInodeItem_.attr.Atime = now.Unix()
+	insertInodeItem_.attr.Mtime = now.Unix()
+	insertInodeItem_.attr.Ctime = now.Unix()
+	insertInodeItem_.attr.Atimensec = uint32(now.Nanosecond())
+	insertInodeItem_.attr.Mtimensec = uint32(now.Nanosecond())
+	insertInodeItem_.attr.Ctimensec = uint32(now.Nanosecond())
 
 	ino, err := m.nextInode()
 	*inode = ino
