@@ -955,7 +955,6 @@ func (m *kvMeta) Symlink(ctx *Context, parent Ino, name string, path string, ino
 	// todo:: file mode including type and unix permission, add smode to transe
 	attr.Nlink = 1
 	attr.Size = uint64(len(path))
-	insertInodeItem_.attr = *attr
 	insertInodeItem_.parentIno = parent
 	insertInodeItem_.fileHandles = 1
 	insertInodeItem_.name = []byte(name)
@@ -993,6 +992,8 @@ func (m *kvMeta) Symlink(ctx *Context, parent Ino, name string, path string, ino
 		attr.Mtimensec = uint32(now.Nanosecond())
 		attr.Ctime = now.Unix()
 		attr.Ctimensec = uint32(now.Nanosecond())
+		// 结构体中是没有指针，默认是深拷贝，等待 attr 赋值完成进行深拷贝
+		insertInodeItem_.attr = *attr
 		insertEntryItem_ := &entryItem{
 			ino:  ino,
 			mode: attr.Mode,

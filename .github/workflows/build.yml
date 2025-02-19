@@ -44,7 +44,7 @@ jobs:
     - name: Packaging
       run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
     - name: Uploading assets
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
         path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
