@@ -181,6 +181,12 @@ func MountFlags(fuseConf *meta.FuseConfig) []cli.Flag {
 			Value: false,
 			Usage: "Assume all directory objects (\"dir/\") exist (default: false)",
 		},
+		&cli.BoolFlag{
+			Name:    "background",
+			Aliases: []string{"d"},
+			Value:   false,
+			Usage:   "run in backGround",
+		},
 	}
 }
 

@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	utils2 "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	libfuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -234,6 +235,10 @@ func mount(c *cli.Context) error {
 		return err
 	}
 
+	if c.Bool("background") {
+		daemonRun()
+	}
+
 	if !c.Bool("local") {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
@@ -248,7 +253,7 @@ func mount(c *cli.Context) error {
 		}
 	}
 
-	log.Debugf("start mount service")
+	log.Infof("start mount service on %v", c.String("mount-point"))
 	server, err := fuse.Server(c.String("mount-point"), *opts)
 	if err != nil {
 		log.Fatalf("mount fail: %v", err)
@@ -279,6 +284,9 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	server := c.String("server")
 	if c.Bool("local") == true {
 		localRoot := c.String("local-root")
+		if localRoot == "" {
+			localRoot = "./mock"
+		}
 		if localRoot == "" || localRoot == "/" {
 			log.Errorf("invalid localRoot: [%s]", localRoot)
 			return fmt.Errorf("invalid localRoot: [%s]", localRoot)
@@ -420,6 +428,9 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			CachePath: c.String("data-cache-path"),
 		},
 	}
+	if fsMeta.Properties == nil {
+		fsMeta.Properties = make(map[string]string)
+	}
 	if c.Bool("no-implicit-dir") {
 		fsMeta.Properties[common.ImplicitDir] = "false"
 	} else {
@@ -459,4 +470,20 @@ func signalHandle(mp string) {
 			}()
 		}
 	}()
+}
+
+func daemonRun() {
+	err := makeDaemon()
+	if err != nil {
+		log.Fatalf("Failed to make daemon: %s", err)
+	}
+	if runtime.GOOS == "linux" {
+		log.SetOutput(os.Stderr)
+	}
+}
+
+func makeDaemon() error {
+	var attrs utils2.DaemonAttr
+	_, _, err := utils2.MakeDaemon(&attrs)
+	return err
 }
