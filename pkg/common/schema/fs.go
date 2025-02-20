@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"fmt"
 	"path"
 	"strings"
 )
@@ -77,4 +78,58 @@ func ConcatenatePVName(namespace, fsID string) string {
 
 func ConcatenatePVCName(fsID string) string {
 	return strings.Replace(PVCNameTemplate, FSIDFormat, fsID, -1)
+}
+
+func ParseFs(fsMap map[string]interface{}, fs *FileSystem) error {
+	for fsKey, fsValue := range fsMap {
+		switch fsKey {
+		case "name":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[name] defined in fs should be string type")
+			}
+			fs.Name = refValue
+		case "hostPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[hostPath] defined in fs should be string type")
+			}
+			fs.HostPath = refValue
+		case "mountPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[mountPath] defined in fs should be string type")
+			}
+			fs.MountPath = refValue
+		case "subPath":
+			refValue, ok := fsValue.(string)
+			if !ok {
+				return fmt.Errorf("[subPath] defined in fs should be string type")
+			}
+			fs.SubPath = refValue
+		case "readOnly":
+			refValue, ok := fsValue.(bool)
+			if !ok {
+				return fmt.Errorf("[readOnly] defined in fs should be bool type")
+			}
+			fs.ReadOnly = refValue
+		}
+	}
+	return nil
+}
+
+func ParseExtraFs(values []interface{}, index int) ([]FileSystem, error) {
+	extraFsList := make([]FileSystem, 0)
+	for i, value := range values {
+		extraMap, ok := value.(map[string]interface{})
+		extra := FileSystem{}
+		if !ok {
+			return []FileSystem{}, fmt.Errorf("[extra_fs %v] defined in member %v should be map type", i, index)
+		}
+		if err := ParseFs(extraMap, &extra); err != nil {
+			return []FileSystem{}, fmt.Errorf("parse [extra_fs %v] in member %v failed, error: %s", i, index, err.Error())
+		}
+		extraFsList = append(extraFsList, extra)
+	}
+	return extraFsList, nil
 }

@@ -40,6 +40,25 @@ entry_points:
       output:
         - train_model
 
+  distributed-step:
+    deps: main
+    parameters:
+      epoch: 5
+      iteration: 100
+    env:
+      PF_JOB_QUEUE: v100-16G
+      PF_JOB_PRIORITY: high
+      PF_JOB_FLAVOUR: v100-10
+      PF_PS_NUM: "1"
+      PF_WORKER_NUM: "4"
+    distributed_job:
+      framework: "paddle"
+      members:
+        - { "role": "pserver", "port": 8080, "command": "sleep 30; echo ps {{epoch}} {{iteration}}","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas": 2,
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": { "nvidia.com/gpu": "1" } },"env": { "role": "ps" } }
+        - { "role": "pworker", "port": 8080, "command": "sleep 30; echo worker {{epoch}} {{iteration}}","image": paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7,"replicas": 2,
+            "flavour": { "name": "flavour1", "cpu": "1", "mem": "1G", "scalar_resources": { "nvidia.com/gpu": "1" } },"env": { "role": "worker" } }
+
   validate:
     deps: main,data-preprocess
     parameters:

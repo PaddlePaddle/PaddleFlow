@@ -45,16 +45,16 @@ import (
 var wfMap = sync.Map{}
 
 const (
-	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
-	JsonUserName    = "username"
-	JsonDescription = "description"
-	JsonFlavour     = "flavour"
-	JsonQueue       = "queue"
-	JsonJobType     = "jobType"
-	JsonEnv         = "env"
-
-	FinalRunStatus = "FINAL_RUN_STATUS"
-	FinalRunMsg    = "FINAL_RUN_MSG"
+	JsonFsOptions      = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
+	JsonUserName       = "username"
+	JsonDescription    = "description"
+	JsonFlavour        = "flavour"
+	JsonQueue          = "queue"
+	JsonJobType        = "jobType"
+	JsonEnv            = "env"
+	JsonDistributedJob = "distributed_job"
+	FinalRunStatus     = "FINAL_RUN_STATUS"
+	FinalRunMsg        = "FINAL_RUN_MSG"
 )
 
 type CreateRunRequest struct {
@@ -237,6 +237,7 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
 	}
+
 	return wfs, source, runYaml, nil
 }
 
@@ -649,6 +650,7 @@ func CreateRunByJson(ctx *logger.RequestContext, bodyMap map[string]interface{})
 		}
 		reqFsName = fsOptions.MainFS.Name
 	}
+
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
 	}
@@ -787,7 +789,6 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run *models.Run, userName s
 
 	// 在ValidateAndCreateRun已经校验过requestId非空
 	requestId := ctx.RequestID
-
 	// update trace logger key
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")

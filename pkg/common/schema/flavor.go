@@ -58,6 +58,51 @@ func (r ResourceInfo) ToMap() map[string]string {
 	return res
 }
 
+func ParseFlavour(flavourMap map[string]interface{}, flavour *Flavour) error {
+	for flavourKey, flavourValue := range flavourMap {
+		switch flavourKey {
+		case "name":
+			refValue, ok := flavourValue.(string)
+			if !ok {
+				return fmt.Errorf("[name] defined in flavour should be string type")
+			}
+			flavour.Name = refValue
+		case "cpu":
+			refValue, ok := flavourValue.(string)
+			if !ok {
+				return fmt.Errorf("[cpu] defined in flavour should be string type")
+			}
+			flavour.CPU = refValue
+		case "mem":
+			refValue, ok := flavourValue.(string)
+			if !ok {
+				return fmt.Errorf("[memory] defined in flavour should be string type")
+			}
+			flavour.Mem = refValue
+		case "scalarResources":
+			refValue, ok := flavourValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[scalarResources] defined in flavour should be map type")
+			}
+
+			res := make(map[ResourceName]string)
+			for scalarKey, scalaValue := range refValue {
+				value, ok := scalaValue.(string)
+				if !ok {
+					return fmt.Errorf("scalarResources [%v] defined in flavour should be string type", scalarKey)
+				}
+				res[ResourceName(scalarKey)] = value
+			}
+			if err := ValidateScalarResourceInfo(res, []string{}); err != nil {
+				return fmt.Errorf("validate scalar resource failed, error: %s", err.Error())
+			}
+			flavour.ScalarResources = res
+		}
+
+	}
+	return nil
+}
+
 func isValidScalarResource(r string, scalarResourcesType []string) bool {
 	// TODO: get scalarResourcesType from cluster
 	if len(scalarResourcesType) == 0 {

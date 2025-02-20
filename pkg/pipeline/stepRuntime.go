@@ -59,12 +59,12 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
 	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.userName, srt.receiveEventChildren,
-		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
+		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, step.DistributedJob.Framework, step.DistributedJob.Members)
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], "+
-		"extraFS[%v]", srt.getName(), srt.runID, step.Parameters, step.Env, step.Command,
-		step.Artifacts, step.Deps, step.ExtraFS)
+		"extraFS[%v], distributedJob[%v]", srt.getName(), srt.runID, step.Parameters, step.Env, step.Command,
+		step.Artifacts, step.Deps, step.ExtraFS, step.DistributedJob)
 
 	return srt
 }
@@ -160,7 +160,6 @@ func (srt *StepRuntime) Start() {
 	// TODO: 此时是否需要同步至数据库？
 	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())
-
 	err := srt.setSysParams()
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -228,8 +227,9 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	defer srt.catchPanic()
 
+	distributedJobs := srt.getWorkFlowStep().DistributedJob
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS, srt.userName, distributedJobs.Framework, distributedJobs.Members)
 
 	srt.pk = view.PK
 	err := srt.updateStatus(view.Status)
@@ -320,6 +320,12 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
+	// 替换DistributedJob Member的command
+	if err := srt.innerSolver.resolveDistributedJobCommand(forCacheFingerprint); err != nil {
+		return err
+	}
+	distributedJobs := srt.getWorkFlowStep().DistributedJob
+
 	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
 	for atfName, atfValue := range srt.GetArtifacts().Input {
 		artifacts.Input[atfName] = atfValue
@@ -352,7 +358,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, &distributedJobs)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
 		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().ExtraFS)
 	return nil
@@ -598,6 +604,7 @@ func (srt *StepRuntime) startJob() (err error) {
 
 	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	srt.logger.Debugf("begin to launch job for step [%s]", srt.name)
+
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
@@ -832,27 +839,33 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	art := srt.getWorkFlowStep().GetArtifacts()
 	newArt := (&art).DeepCopy()
 
+	distJob := schema.DistributedJob{
+		Framework: srt.job.FrameworkInfo(),
+		Members:   srt.job.MemberInfo(),
+	}
+
 	view := schema.JobView{
-		JobID:       job.ID,
-		Name:        job.Name,
-		Command:     job.Command,
-		Parameters:  params,
-		Env:         job.Env,
-		StartTime:   job.StartTime,
-		EndTime:     job.EndTime,
-		Status:      srt.status,
-		Deps:        step.Deps,
-		DockerEnv:   step.DockerEnv,
-		JobMessage:  msg,
-		ParentDagID: srt.parentDagID,
-		CacheRunID:  srt.CacheRunID,
-		CacheJobID:  srt.CacheJobID,
-		StepName:    srt.getComponent().GetName(),
-		Cache:       srt.getWorkFlowStep().Cache,
-		PK:          srt.pk,
-		LoopSeq:     srt.loopSeq,
-		Artifacts:   *newArt,
-		ExtraFS:     srt.getWorkFlowStep().ExtraFS,
+		JobID:          job.ID,
+		Name:           job.Name,
+		Command:        job.Command,
+		Parameters:     params,
+		Env:            job.Env,
+		StartTime:      job.StartTime,
+		EndTime:        job.EndTime,
+		Status:         srt.status,
+		Deps:           step.Deps,
+		DockerEnv:      step.DockerEnv,
+		DistributedJob: distJob,
+		JobMessage:     msg,
+		ParentDagID:    srt.parentDagID,
+		CacheRunID:     srt.CacheRunID,
+		CacheJobID:     srt.CacheJobID,
+		StepName:       srt.getComponent().GetName(),
+		Cache:          srt.getWorkFlowStep().Cache,
+		PK:             srt.pk,
+		LoopSeq:        srt.loopSeq,
+		Artifacts:      *newArt,
+		ExtraFS:        srt.getWorkFlowStep().ExtraFS,
 	}
 
 	return view

@@ -1,0 +1,30 @@
+name: distributed_pipeline
+
+entry_points:
+  preprocess:
+    command: bash distributed_job_example/shells/data.sh {{data_path}}
+    docker_env: centos:centos7
+    env:
+      USER_ABC: 123_{{PF_USER_NAME}}
+    parameters:
+      data_path: ./distributed_job_example/data/{{PF_RUN_ID}}
+
+  train:
+    deps: preprocess
+    env:
+      PS_NUM: "2"
+      WORKER_NUM: "2"
+    parameters:
+      epoch: 15
+      model_path: ./output/{{PF_RUN_ID}}
+      train_data: '{{preprocess.data_path}}'
+    distributed_job:
+      framework: "paddle"
+      members:
+        - {"role": "pserver", "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", "command": "sleep 30; echo ps {{epoch}} {{train_data}} {{model_path}}", "replicas": 2, "flavour": { "name": "flavour1" }}
+        - {"role": "pworker", "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", "command": "sleep 30; echo worker {{epoch}} {{train_data}} {{model_path}}", "replicas": 2, "flavour": { "name": "flavour1" }}
+
+parallelism: 1
+
+fs_options:
+  main_fs: {name: "ppl"}

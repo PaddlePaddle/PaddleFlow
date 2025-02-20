@@ -30,7 +30,7 @@ class ExtraFS(object):
             mount_path: str=None,
             read_only: bool=False 
             ):
-        """ create an new instance for ExtraFS
+        """ create a new instance for ExtraFS
 
         Args:
             name (str): the name of paddleflow filesystem

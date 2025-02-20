@@ -25,6 +25,7 @@ from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.io_types import EnvDict
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.options import ExtraFS
+from paddleflow.pipeline.dsl.options import DistributedJob
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import COMPONENT_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
@@ -49,6 +50,7 @@ class ContainerStep(Step):
             cache_options: CacheOptions=None,
             condition: str=None,
             loop_argument: Union[List, Parameter, Artifact, str]=None,
+            distributed_job: DistributedJob=None,
             extra_fs: List[ExtraFS] = None
             ):
         """ create a new instance of ContainerStep
@@ -62,7 +64,7 @@ class ContainerStep(Step):
             parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's Parameter
             env (Dict[str, str]): enviroment varible for Step runtime
             cache_options (CacheOptions): the cache options of step
-
+            distributed_job (DistributedJob): the distributed jobs defined in step
         Raises:
             PaddleFlowSDKException: if some args is illegal
         """
@@ -72,6 +74,7 @@ class ContainerStep(Step):
                 outputs=outputs,
                 parameters=parameters,
                 cache_options=cache_options,
+                distributed_job=distributed_job,
                 condition=condition,
                 loop_argument=loop_argument,
                 extra_fs=extra_fs

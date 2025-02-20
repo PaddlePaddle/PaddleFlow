@@ -30,6 +30,7 @@ type MemberRole string
 const (
 	EnvJobType      = "PF_JOB_TYPE"
 	EnvJobQueueName = "PF_JOB_QUEUE_NAME"
+	EnvJobPriority  = "PF_JOB_PRIORITY"
 	EnvJobNamespace = "PF_JOB_NAMESPACE"
 	EnvJobUserName  = "PF_USER_NAME"
 	EnvJobMode      = "PF_JOB_MODE"
@@ -208,6 +209,7 @@ type PFJobConf interface {
 	GetEnv() map[string]string
 	GetEnvValue(key string) string
 	GetEnvSubset(prefix string) map[string]string
+
 	GetCommand() string
 	GetImage() string
 
@@ -477,8 +479,13 @@ func (c *Conf) GetProcessedFileSystem() []FileSystem {
 }
 
 type Member struct {
-	ID       string     `json:"id"`
-	Replicas int        `json:"replicas"`
-	Role     MemberRole `json:"role"`
-	Conf     `json:",inline"`
+	ID       string     `yaml:"-"  json:"id"`
+	Replicas int        `yaml:"replicas" json:"replicas"`
+	Role     MemberRole `yaml:"role" json:"role"`
+	Conf     `yaml:",inline" json:",inline"`
+}
+
+type DistributedJob struct {
+	Members   []Member  `yaml:"members"   json:"members,omitempty"`
+	Framework Framework `yaml:"framework" json:"framework,omitempty"`
 }

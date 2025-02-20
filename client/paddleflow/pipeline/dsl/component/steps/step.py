@@ -16,8 +16,8 @@ limitations under the License.
 import copy
 from pathlib import Path
 from typing import Dict
-from typing import Any 
-from typing import List 
+from typing import Any
+from typing import List
 from typing import Union
 
 from paddleflow.pipeline.dsl.component import Component
@@ -25,24 +25,28 @@ from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.options import ExtraFS
+from paddleflow.pipeline.dsl.options import DistributedJob
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
+from paddleflow.job import Member
 
 
 class Step(Component):
     """ Step is the basic scheduling unit in pipeline
     """
+
     def __init__(
-            self, 
-            name: str, 
-            inputs: Dict[str, Artifact]=None,
-            outputs: Dict[str, Artifact]=None,
-            parameters: Dict[str, Any]=None,
-            cache_options: CacheOptions=None,
-            condition: str=None,
-            loop_argument: Union[List, Parameter, Artifact, str]=None,
-            extra_fs: List[ExtraFS] = None
-            ):
+            self,
+            name: str,
+            inputs: Dict[str, Artifact] = None,
+            outputs: Dict[str, Artifact] = None,
+            parameters: Dict[str, Any] = None,
+            cache_options: CacheOptions = None,
+            condition: str = None,
+            loop_argument: Union[List, Parameter, Artifact, str] = None,
+            extra_fs: List[ExtraFS] = None,
+            distributed_job: DistributedJob = None,
+    ):
         """ create a new instance of Step
 
         Args:
@@ -54,6 +58,7 @@ class Step(Component):
             condition (str): the condition. when schedule component, would be calculate condition, if the result of it is False, then the status of this component would be set "skipped"
             loop_argument (Union[List, Parameter, Artifact, str]): the loop arugment, when schedule this component, would be be traversed, and the runtime will be created once for each item in it
             extra_fs (List[ExtraFS]): the paddleflow filesystem used by Step
+            distributed_job (DistributedJob): the distributed jobs of step
         Raises:
             PaddleFlowSDKException: if some args is illegal
         """
@@ -61,18 +66,21 @@ class Step(Component):
         self._type = "step"
 
         self.cache_options = cache_options
-
+        self.distributed_job = distributed_job
 
         if extra_fs and not isinstance(extra_fs, list):
             extra_fs = [extra_fs]
-        
+
         if isinstance(extra_fs, list):
             self.extra_fs = []
             for extra in extra_fs:
                 if not isinstance(extra, ExtraFS):
-                    raise PaddleFlowSDKException(PipelineDSLError, 
-                        self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
+                    raise PaddleFlowSDKException(PipelineDSLError,
+                                                 self._generate_error_msg(
+                                                     "Step's extra_fs attribute should be a list of ExtraFS instance"))
 
                 self.extra_fs.append(extra)
         else:
             self.extra_fs = []
+
+

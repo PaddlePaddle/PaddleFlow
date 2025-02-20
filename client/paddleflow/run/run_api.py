@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 import json
@@ -34,7 +34,8 @@ class RunServiceApi(object):
 
     @classmethod
     def add_run(self, host, fs_name=None, name=None, desc=None,
-                param=None, username=None, run_yaml_path=None, run_yaml_raw_b64=None, pipeline_id=None, pipeline_version_id=None,
+                param=None, username=None, run_yaml_path=None, run_yaml_raw_b64=None, pipeline_id=None,
+                pipeline_version_id=None,
                 header=None, disabled=None, docker_env=None, failure_options=None):
         """ add run 
         """
@@ -48,14 +49,14 @@ class RunServiceApi(object):
         if desc:
             body['desc'] = desc
         if run_yaml_path:
-            body['runYamlPath']=run_yaml_path
+            body['runYamlPath'] = run_yaml_path
         if run_yaml_raw_b64:
             if isinstance(run_yaml_raw_b64, bytes):
-                body['runYamlRaw']=base64.b64encode(run_yaml_raw_b64).decode()
+                body['runYamlRaw'] = base64.b64encode(run_yaml_raw_b64).decode()
             else:
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
         if pipeline_id:
-            body['pipelineID']= pipeline_id
+            body['pipelineID'] = pipeline_id
         if pipeline_version_id:
             body['pipelineVersionID'] = pipeline_version_id
         if param:
@@ -68,7 +69,7 @@ class RunServiceApi(object):
             body["dockerEnv"] = docker_env
         if failure_options:
             body['failureOptions'] = failure_options
-            
+
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
@@ -113,9 +114,9 @@ class RunServiceApi(object):
         if len(data['runList']):
             for run in data['runList']:
                 run_info = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
-                                  run['description'], None, None, None, None, None, run['updateTime'],
-                                  run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
-                                  None, None, None, None, run['createTime'], run['activateTime'])
+                                   run['description'], None, None, None, None, None, run['updateTime'],
+                                   run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
+                                   None, None, None, None, run['createTime'], run['activateTime'])
                 run_list.append(run_info)
 
         return True, {'runList': run_list, 'nextMarker': data.get('nextMarker', None)}
@@ -142,16 +143,20 @@ class RunServiceApi(object):
                 for comp in comp_list:
                     if 'entryPoints' in comp.keys():
                         new_comp = DagInfo(comp['id'], comp['name'], comp['type'], comp['dagName'],
-                                          comp['parentDagID'], comp['deps'], comp['parameters'],
-                                          comp['artifacts'], comp['startTime'], comp['endTime'],
-                                          comp['status'], comp['message'], trans_dict_to_comp_info(comp['entryPoints']))
+                                           comp['parentDagID'], comp['deps'], comp['parameters'],
+                                           comp['artifacts'], comp['startTime'], comp['endTime'],
+                                           comp['status'], comp['message'], trans_dict_to_comp_info(comp['entryPoints']))
                     else:
+                        distributed_job = None
+                        if 'distributedJob' in comp:
+                            distributed_job = comp['distributedJob']
                         new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
-                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
-                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
-                                        comp['type'], comp['stepName'], comp['parentDagID'],
-                                        comp['extraFS'], comp['artifacts'], comp['cache'],
-                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                                           comp['command'], comp['env'], comp['status'],
+                                           distributed_job, comp['startTime'], comp['endTime'],
+                                           comp['dockerEnv'], comp['jobID'], comp['type'],
+                                           comp['stepName'], comp['parentDagID'], comp['extraFS'],
+                                           comp['artifacts'], comp['cache'], comp['jobMessage'],
+                                           comp['cacheRunID'], comp['cacheJobID'])
                     new_comp_list.append(new_comp)
                 new_comp_dict[key] = new_comp_list
             return new_comp_dict
@@ -167,20 +172,21 @@ class RunServiceApi(object):
             for key in post.keys():
                 comp = post[key]
                 new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
-                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
-                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
-                                        comp['type'], comp['stepName'], comp['parentDagID'],
-                                        comp['extraFS'], comp['artifacts'], comp['cache'],
-                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                                   comp['command'], comp['env'], comp['status'], comp['startTime'],
+                                   comp['endTime'], comp['dockerEnv'], comp['jobID'],
+                                   comp['type'], comp['stepName'], comp['parentDagID'],
+                                   comp['extraFS'], comp['artifacts'], comp['cache'],
+                                   comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
                 new_post_dict[key] = new_comp
 
         run_info = RunInfo(data['runID'], data['fsName'], data['username'], data['status'], data['name'],
-                            data['description'], data['parameters'], data['runYaml'],
-                            runtime_info, new_post_dict,
-                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'], None,
-                            data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
-                            data['createTime'], data['activateTime'])
-        
+                           data['description'], data['parameters'], data['runYaml'],
+                           runtime_info, new_post_dict,
+                           data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'], data['scheduleID'],
+                           None,
+                           data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
+                           data['createTime'], data['activateTime'])
+
         return True, run_info
 
     @classmethod
@@ -193,10 +199,10 @@ class RunServiceApi(object):
         params = {
             "action": "stop"
         }
-        
+
         body = {"stopForce": force}
 
-        response = api_client.call_api(method = "PUT", url =url, params=params, headers=header, json=body)
+        response = api_client.call_api(method="PUT", url=url, params=params, headers=header, json=body)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "stop run failed due to HTTPError")
         if not response.text:
@@ -234,17 +240,17 @@ class RunServiceApi(object):
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         params = {}
         if user_filter:
-            params['userFilter']=user_filter
+            params['userFilter'] = user_filter
         if fs_filter:
-            params['fsFilter']=fs_filter
+            params['fsFilter'] = fs_filter
         if run_filter:
-            params['runFilter']=run_filter
+            params['runFilter'] = run_filter
         if max_keys:
-            params['maxKeys']=max_keys
+            params['maxKeys'] = max_keys
         if marker:
-            params['marker']=marker
+            params['marker'] = marker
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUNCACHE),
-                                        params=params, headers=header)
+                                       params=params, headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "runcache list failed due to HTTPError")
         if not response.text:
@@ -256,11 +262,11 @@ class RunServiceApi(object):
         if len(data['runCacheList']):
             for cache in data['runCacheList']:
                 cache_info = RunCacheInfo(cache['cacheID'], cache['firstFp'],
-                              cache['secondFp'], cache['runID'], cache['source'], 
-                              cache['jobID'], cache['fsname'], cache['username'],
-                              cache['expiredTime'], cache['strategy'],
-                              cache['custom'], cache['createTime'],
-                              cache.get('updateTime', ' '))
+                                          cache['secondFp'], cache['runID'], cache['source'],
+                                          cache['jobID'], cache['fsname'], cache['username'],
+                                          cache['expiredTime'], cache['strategy'],
+                                          cache['custom'], cache['createTime'],
+                                          cache.get('updateTime', ' '))
                 cache_list.append(cache_info)
         return True, {'runCacheList': cache_list, 'nextMarker': data.get('nextMarker', None)}
 
@@ -279,8 +285,8 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
         ri = RunCacheInfo(data['cacheID'], data['firstFp'], data['secondFp'], data['runID'],
-                data['source'], data['jobID'], data['fsname'], data['username'], data['expiredTime'],
-                data['strategy'], data['custom'], data['createTime'], data['updateTime'])
+                          data['source'], data['jobID'], data['fsname'], data['username'], data['expiredTime'],
+                          data['strategy'], data['custom'], data['createTime'], data['updateTime'])
         return True, ri
 
     @classmethod
@@ -307,7 +313,7 @@ class RunServiceApi(object):
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        params={'action':'retry'}
+        params = {'action': 'retry'}
         response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
                                        params=params, headers=header)
         if not response:
@@ -328,7 +334,7 @@ class RunServiceApi(object):
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        params={}
+        params = {}
         if user_filter:
             params['userFilter'] = user_filter
         if fs_filter:
@@ -344,17 +350,17 @@ class RunServiceApi(object):
         if marker:
             params['marker'] = marker
         response = api_client.call_api(method="GET",
-                                        url=parse.urljoin(host, api.PADDLE_FLOW_ARTIFACT),
-                                        params=params, headers=header)
+                                       url=parse.urljoin(host, api.PADDLE_FLOW_ARTIFACT),
+                                       params=params, headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "artifact failed due to HTTPError")
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        actiface_list=[]
+        actiface_list = []
         for i in data['artifactEventList']:
             actifact = ArtifactInfo(i['runID'], i['fsname'], i['username'], i['artifactPath'],
-                    i['step'], i['type'], i['artifactName'], i['meta'],
-                    i['createTime'], i['updateTime'])
+                                    i['step'], i['type'], i['artifactName'], i['meta'],
+                                    i['createTime'], i['updateTime'])
             actiface_list.append(actifact)
         return True, {'artifactList': actiface_list, 'nextMarker': data.get('nextMarker', None)}

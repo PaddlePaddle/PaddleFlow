@@ -23,11 +23,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (
@@ -47,9 +48,10 @@ const (
 
 	FsPrefix = "fs-"
 
-	CompTypeComponents  = "components"
-	CompTypeEntryPoints = "entryPoints"
-	CompTypePostProcess = "postProcess"
+	CompTypeDistributedJob = "distributed_job"
+	CompTypeComponents     = "components"
+	CompTypeEntryPoints    = "entryPoints"
+	CompTypePostProcess    = "postProcess"
 )
 
 func ID(userName, fsName string) string {
@@ -134,18 +136,19 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name         string                 `yaml:"-"                 json:"name"`
-	LoopArgument interface{}            `yaml:"loop_argument"     json:"loopArgument"`
-	Condition    string                 `yaml:"condition"         json:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"        json:"parameters"`
-	Command      string                 `yaml:"command"           json:"command"`
-	Deps         string                 `yaml:"deps"              json:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"         json:"artifacts"`
-	Env          map[string]string      `yaml:"env"               json:"env"`
-	DockerEnv    string                 `yaml:"docker_env"        json:"dockerEnv"`
-	Cache        Cache                  `yaml:"cache"             json:"cache"`
-	Reference    Reference              `yaml:"reference"         json:"reference"`
-	ExtraFS      []FsMount              `yaml:"extra_fs"          json:"extraFS"`
+	Name           string                 `yaml:"-"                 json:"name"`
+	LoopArgument   interface{}            `yaml:"loop_argument"     json:"loopArgument"`
+	Condition      string                 `yaml:"condition"         json:"condition"`
+	Parameters     map[string]interface{} `yaml:"parameters"        json:"parameters"`
+	Command        string                 `yaml:"command"           json:"command"`
+	Deps           string                 `yaml:"deps"              json:"deps"`
+	Artifacts      Artifacts              `yaml:"artifacts"         json:"artifacts"`
+	Env            map[string]string      `yaml:"env"               json:"env"`
+	DockerEnv      string                 `yaml:"docker_env"        json:"dockerEnv"`
+	Cache          Cache                  `yaml:"cache"             json:"cache"`
+	Reference      Reference              `yaml:"reference"         json:"reference"`
+	ExtraFS        []FsMount              `yaml:"extra_fs"          json:"extraFS"`
+	DistributedJob DistributedJob         `yaml:"distributed_job"  json:"distributedJob"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -171,6 +174,10 @@ func (s *WorkflowSourceStep) GetArtifacts() Artifacts {
 
 func (s *WorkflowSourceStep) GetParameters() map[string]interface{} {
 	return s.Parameters
+}
+
+func (s *WorkflowSourceStep) GetDistributedJob() DistributedJob {
+	return s.DistributedJob
 }
 
 func (s *WorkflowSourceStep) GetCondition() string {
@@ -280,18 +287,19 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 	fsMount := append(s.ExtraFS, []FsMount{}...)
 
 	ns := &WorkflowSourceStep{
-		Name:         s.Name,
-		LoopArgument: s.LoopArgument,
-		Condition:    s.Condition,
-		Parameters:   params,
-		Command:      s.Command,
-		Deps:         s.Deps,
-		Env:          env,
-		Artifacts:    *s.Artifacts.DeepCopy(),
-		DockerEnv:    s.DockerEnv,
-		Cache:        s.Cache,
-		Reference:    s.Reference,
-		ExtraFS:      fsMount,
+		Name:           s.Name,
+		LoopArgument:   s.LoopArgument,
+		Condition:      s.Condition,
+		Parameters:     params,
+		Command:        s.Command,
+		Deps:           s.Deps,
+		Env:            env,
+		Artifacts:      *s.Artifacts.DeepCopy(),
+		DockerEnv:      s.DockerEnv,
+		Cache:          s.Cache,
+		Reference:      s.Reference,
+		ExtraFS:        fsMount,
+		DistributedJob: s.DistributedJob,
 	}
 
 	return ns
@@ -521,7 +529,6 @@ func (wfs *WorkflowSource) UnmarshalJSON(data []byte) error {
 	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
 		return err
 	}
-
 	if err := p.ParseWorkflowSource(bodyMap, wfs); err != nil {
 		return err
 	}
@@ -697,10 +704,10 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
-
 			// Reference节点不用替换
 			if step.Reference.Component == "" {
 				// DockerEnv字段替换检查
+
 				if step.DockerEnv == "" {
 					step.DockerEnv = wfs.DockerEnv
 				}

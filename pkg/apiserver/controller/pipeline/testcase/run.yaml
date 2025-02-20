@@ -24,6 +24,14 @@ entry_points:
       PF_JOB_MODE: Pod
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_PRIORITY: HIGH
+  distStep:
+    parameters:
+      epoch: 15
+    distributed_job:
+      framework: "paddle"
+      members:
+        - { "role": "pserver", "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", "command": "echo ps {{epoch}}", "replicas": 2 }
+        - { "role": "pworker", "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7", "command": "echo worker {{epoch}}", "replicas": 2}
 post_process:
   post:
     parameters:

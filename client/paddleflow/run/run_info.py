@@ -49,7 +49,7 @@ class RunInfo(object):
 class JobInfo(object):
     """ the class of job info"""
 
-    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, docker_env, job_id,
+    def __init__(self, name, deps, parameters, command, env, status, distributed_job, start_time, end_time, docker_env, job_id,
                  comp_type, step_name, parent_dag_id, extra_fs, artifacts, cache, job_message, cache_run_id, cache_job_id):
         self.artifacts = artifacts
         self.cache = cache
@@ -60,6 +60,7 @@ class JobInfo(object):
         self.job_id = job_id
         self.name = name
         self.deps = deps
+        self.distributed_job = distributed_job
         self.parameters = parameters
         self.command = command
         self.env = env
@@ -86,6 +87,7 @@ class JobInfo(object):
             'command': self.command,
             'env': self.env,
             'status': self.status,
+            'distributedJob': self.distributed_job,
             'startTime': self.start_time,
             'endTime': self.end_time,
             'dockerEnv': self.docker_env,

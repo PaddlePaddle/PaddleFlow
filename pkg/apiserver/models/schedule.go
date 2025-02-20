@@ -139,7 +139,7 @@ func NewScheduleOptions(logEntry *log.Entry, catchup bool, expireInterval int, c
 		return so, fmt.Errorf(errMsg)
 	}
 
-	// 校验 currencyPolicy
+	// 校验 currencyPolicy, 默认值为suspend
 	if concurrencyPolicy == "" {
 		concurrencyPolicy = ConcurrencyPolicySuspend
 	}
