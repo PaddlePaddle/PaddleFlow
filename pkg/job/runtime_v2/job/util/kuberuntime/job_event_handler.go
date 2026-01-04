@@ -18,11 +18,12 @@ package kuberuntime
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -89,7 +90,11 @@ func getJobStatus(statusInfo api.StatusInfo, annotations map[string]string) api.
 }
 
 func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncInfo, error) {
-	jobObj := obj.(*unstructured.Unstructured)
+	jobObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		err := fmt.Errorf("interface {} is %v, not Unstructured", reflect.TypeOf(obj))
+		return nil, err
+	}
 	gvk := jobObj.GroupVersionKind()
 
 	log.Infof("begin add %s job. jobName: %s, namespace: %s", gvk.String(), jobObj.GetName(), jobObj.GetNamespace())
@@ -180,7 +185,12 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 }
 
 func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncInfo, error) {
-	jobObj := obj.(*unstructured.Unstructured)
+	jobObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		err := fmt.Errorf("interface {} is %v, not Unstructured", reflect.TypeOf(obj))
+		log.Errorf("convert unstructured object failed. err: %v", err)
+		return nil, err
+	}
 	// get job id and GroupVersionKind
 	gvk := jobObj.GroupVersionKind()
 	labels := jobObj.GetLabels()
@@ -325,7 +335,10 @@ func handlePendingPod(podStatus *v1.PodStatus, jobName, podName, namespace strin
 }
 
 func TaskUpdateFunc(obj interface{}, action schema.ActionType, taskQueue workqueue.RateLimitingInterface) {
-	podObj := obj.(*unstructured.Unstructured)
+	podObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return
+	}
 	uid := podObj.GetUID()
 	name := podObj.GetName()
 	namespace := podObj.GetNamespace()

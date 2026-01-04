@@ -19,6 +19,7 @@ package single
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -142,7 +143,10 @@ func (sp *KubeSingleJob) AddEventListener(ctx context.Context, listenerType stri
 }
 
 func filterFunc(obj interface{}) bool {
-	job := obj.(*unstructured.Unstructured)
+	job, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return false
+	}
 	labels := job.GetLabels()
 	jobName := job.GetLabels()
 	if labels != nil && labels[pfschema.JobOwnerLabel] == pfschema.JobOwnerValue {
@@ -158,7 +162,12 @@ func filterFunc(obj interface{}) bool {
 
 // JobStatus get single job status, message from interface{}, and covert to JobStatus
 func (sp *KubeSingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
-	unObj := obj.(*unstructured.Unstructured)
+	unObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		err := fmt.Errorf("interface {} is %v, not Unstructured", reflect.TypeOf(obj))
+		log.Errorf("convert unstructured object failed. err: %v", err)
+		return api.StatusInfo{}, err
+	}
 	// convert to Pod struct
 	job := &v1.Pod{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {

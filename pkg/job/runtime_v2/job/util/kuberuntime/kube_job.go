@@ -165,7 +165,11 @@ func (kj *KubeBaseJob) delete(obj interface{}) {
 
 // ResponsibleForJob filter job belong to PaddleFlow
 func ResponsibleForJob(obj interface{}) bool {
-	job := obj.(*unstructured.Unstructured)
+	job, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		log.Errorf("interface {} is %v, not Unstructured", reflect.TypeOf(obj))
+		return false
+	}
 	labels := job.GetLabels()
 	if labels != nil && labels[schema.JobOwnerLabel] == schema.JobOwnerValue {
 		log.Debugf("responsible for handle job. jobName:[%s]", job.GetName())
@@ -864,7 +868,12 @@ func updateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeCl
 		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
 		return err
 	}
-	unObj := obj.(*unstructured.Unstructured)
+	unObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		err := fmt.Errorf("interface {} is %v, not Unstructured", reflect.TypeOf(obj))
+		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
+		return err
+	}
 	oldPG := &schedulingv1beta1.PodGroup{}
 	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, oldPG); err != nil {
 		log.Errorf("convert unstructured object [%v] to pod group failed. err: %v", obj, err)
