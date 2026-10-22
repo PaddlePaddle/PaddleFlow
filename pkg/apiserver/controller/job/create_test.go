@@ -41,6 +41,247 @@ var clusterInfo = model.ClusterInfo{
 	Setting:     "Setting",
 }
 
+func TestBuildJobWithBatchKindGroupVersion(t *testing.T) {
+	// a single job cannot select the native batch Job
+	singleRequest := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{
+			Name: "test-single-job",
+			Annotations: map[string]string{
+				schema.JobKindGroupVersionAnnotation: "Job.batch/v1",
+			},
+		},
+		Type:      schema.TypeSingle,
+		Framework: schema.FrameworkStandalone,
+		Members: []MemberSpec{
+			{
+				Role:     string(schema.RoleWorker),
+				Replicas: 1,
+				JobSpec: JobSpec{
+					Image:   "nginx",
+					Flavour: schema.Flavour{Name: MockFlavour0},
+				},
+			},
+		},
+	}
+	_, err := buildJob(singleRequest)
+	assert.EqualError(t, err, fmt.Sprintf("job type %s does not support KindGroupVersion %s",
+		schema.TypeSingle, schema.BatchJobKindGroupVersion))
+
+	// a batch job uses the kubernetes native Job by default
+	batchRequest := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{Name: "test-batch-job-default"},
+		Type:          schema.TypeBatch,
+		Framework:     schema.FrameworkK8SBatch,
+		ExtensionTemplate: map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+		},
+	}
+	jobInfo, err := buildJob(batchRequest)
+	assert.NoError(t, err)
+	assert.Equal(t, string(schema.TypeBatch), jobInfo.Type)
+	assert.Equal(t, schema.FrameworkK8SBatch, jobInfo.Framework)
+	assert.Equal(t, schema.BatchJobKindGroupVersion, jobInfo.Config.KindGroupVersion)
+	assert.NotEmpty(t, jobInfo.ExtensionTemplate)
+
+	// a batch job cannot select a non-batch KindGroupVersion
+	batchRequest.Annotations = map[string]string{
+		schema.JobKindGroupVersionAnnotation: "Pod./v1",
+	}
+	_, err = buildJob(batchRequest)
+	assert.EqualError(t, err, fmt.Sprintf("job type %s only supports KindGroupVersion %s, but got %s",
+		schema.TypeBatch, schema.BatchJobKindGroupVersion,
+		schema.KindGroupVersion{Kind: "Pod", Group: "", APIVersion: "v1"}))
+	batchRequest.Annotations = nil
+
+	// a distributed job cannot use the native batch Job
+	distributedRequest := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{
+			Name: "test-distributed-job",
+			Annotations: map[string]string{
+				schema.JobKindGroupVersionAnnotation: "Job.batch/v1",
+			},
+		},
+		Type:      schema.TypeDistributed,
+		Framework: schema.FrameworkPaddle,
+		Members: []MemberSpec{
+			{Role: string(schema.RoleWorker), Replicas: 1, JobSpec: JobSpec{Image: "nginx"}},
+		},
+	}
+	_, err = buildJob(distributedRequest)
+	assert.EqualError(t, err, fmt.Sprintf("job type %s does not support KindGroupVersion %s",
+		schema.TypeDistributed, schema.BatchJobKindGroupVersion))
+}
+
+func TestCreateBatchJobRequestToJobInfo(t *testing.T) {
+	request := CreateBatchJobRequest{
+		CommonJobInfo: CommonJobInfo{Name: "test-batch-job"},
+		ExtensionTemplate: map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+		},
+	}
+	jobInfo := request.ToJobInfo()
+	assert.Equal(t, schema.TypeBatch, jobInfo.Type)
+	assert.Equal(t, schema.FrameworkK8SBatch, jobInfo.Framework)
+	assert.Empty(t, jobInfo.Members)
+	assert.Equal(t, request.ExtensionTemplate, jobInfo.ExtensionTemplate)
+}
+
+func TestValidateBatchJob(t *testing.T) {
+	ctx := &logger.RequestContext{UserName: mockRootUser}
+	validTemplate := map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"spec": map[string]interface{}{
+			"completions":    float64(2),
+			"completionMode": "Indexed",
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"restartPolicy": "Never",
+					"containers": []interface{}{
+						map[string]interface{}{"name": "main", "image": "busybox"},
+					},
+				},
+			},
+		},
+	}
+
+	request := &CreateJobInfo{Type: schema.TypeBatch, ExtensionTemplate: validTemplate}
+	assert.NoError(t, validateBatchJob(ctx, request))
+
+	// members are not supported
+	request.Members = []MemberSpec{{Role: string(schema.RoleWorker), Replicas: 1}}
+	assert.EqualError(t, validateBatchJob(ctx, request),
+		"batch job only supports extensionTemplate, members are not supported")
+
+	// extensionTemplate is required
+	request.Members = nil
+	request.ExtensionTemplate = nil
+	assert.EqualError(t, validateBatchJob(ctx, request), "extensionTemplate for batch job is needed")
+
+	// invalid apiVersion
+	request.ExtensionTemplate = map[string]interface{}{"apiVersion": "v1", "kind": "Pod"}
+	assert.Error(t, validateBatchJob(ctx, request))
+
+	// indexed completion mode requires completions
+	request.ExtensionTemplate = map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"spec": map[string]interface{}{
+			"completionMode": "Indexed",
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{map[string]interface{}{"name": "main"}},
+				},
+			},
+		},
+	}
+	assert.EqualError(t, validateBatchJob(ctx, request),
+		"spec.completions must be set when spec.completionMode is Indexed")
+
+	// containers are required
+	request.ExtensionTemplate = map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{"containers": []interface{}{}},
+			},
+		},
+	}
+	assert.EqualError(t, validateBatchJob(ctx, request),
+		"spec.template.spec.containers of batch job extensionTemplate is needed")
+
+	// restartPolicy must be Never or OnFailure
+	request.ExtensionTemplate = map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"restartPolicy": "Always",
+					"containers":    []interface{}{map[string]interface{}{"name": "main"}},
+				},
+			},
+		},
+	}
+	assert.Error(t, validateBatchJob(ctx, request))
+}
+
+func TestCreateBatchPFJob(t *testing.T) {
+	initTestData(t)
+	ctx := &logger.RequestContext{UserName: mockRootUser}
+	batchTemplate := func() map[string]interface{} {
+		return map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+			"spec": map[string]interface{}{
+				"completions":    float64(2),
+				"parallelism":    float64(2),
+				"completionMode": "Indexed",
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"restartPolicy": "Never",
+						"containers": []interface{}{
+							map[string]interface{}{"name": "main", "image": "busybox"},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	request := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{
+			Name:             "test-batch-job",
+			SchedulingPolicy: SchedulingPolicy{Queue: MockQueueName},
+		},
+		Type:              schema.TypeBatch,
+		Framework:         schema.FrameworkK8SBatch,
+		ExtensionTemplate: batchTemplate(),
+	}
+	response, err := CreatePFJob(ctx, request)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, response.ID)
+
+	jobInfo, err := storage.Job.GetJobByID(response.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, string(schema.TypeBatch), jobInfo.Type)
+	assert.Equal(t, schema.FrameworkK8SBatch, jobInfo.Framework)
+	assert.Equal(t, MockQueueID, jobInfo.QueueID)
+	assert.NotEmpty(t, jobInfo.ExtensionTemplate)
+	assert.Equal(t, schema.BatchJobKindGroupVersion, jobInfo.Config.KindGroupVersion)
+
+	// members are not supported by batch jobs
+	membersRequest := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{
+			Name:             "test-batch-job-members",
+			SchedulingPolicy: SchedulingPolicy{Queue: MockQueueName},
+		},
+		Type:      schema.TypeBatch,
+		Framework: schema.FrameworkK8SBatch,
+		Members: []MemberSpec{
+			{Role: string(schema.RoleWorker), Replicas: 1, JobSpec: JobSpec{Image: "busybox"}},
+		},
+		ExtensionTemplate: batchTemplate(),
+	}
+	_, err = CreatePFJob(ctx, membersRequest)
+	assert.EqualError(t, err, "batch job only supports extensionTemplate, members are not supported")
+
+	// extensionTemplate is required
+	emptyTemplateRequest := &CreateJobInfo{
+		CommonJobInfo: CommonJobInfo{
+			Name:             "test-batch-job-empty-template",
+			SchedulingPolicy: SchedulingPolicy{Queue: MockQueueName},
+		},
+		Type:      schema.TypeBatch,
+		Framework: schema.FrameworkK8SBatch,
+	}
+	_, err = CreatePFJob(ctx, emptyTemplateRequest)
+	assert.EqualError(t, err, "extensionTemplate for batch job is needed")
+}
+
 func TestCreatePFJob(t *testing.T) {
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}

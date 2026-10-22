@@ -273,7 +273,7 @@ func (k3srs *K3SRuntimeService) GetLog(jobLogRequest pfschema.JobLogRequest, mix
 		log.Errorf("must set job id, skip get log for job log request[%v]", jobLogRequest)
 		return pfschema.JobLogInfo{}, errors.New(" Must use a right job info.")
 	}
-	if jobLogRequest.JobType != string(pfschema.TypeSingle) {
+	if jobLogRequest.JobType != string(pfschema.TypeSingle) && jobLogRequest.JobType != string(pfschema.TypeBatch) {
 		log.Errorf("Unsupport job type, skip get log for job log request[%v].", jobLogRequest)
 		return pfschema.JobLogInfo{}, fmt.Errorf(" Unsupport job type %v", jobLogRequest.JobType)
 	}

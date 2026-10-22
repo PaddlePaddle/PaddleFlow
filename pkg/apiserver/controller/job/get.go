@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/ghodss/yaml"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -290,6 +293,51 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 			return response, err
 		}
 		response.CreateSingleJobRequest.JobSpec = jobSpec
+	case string(schema.TypeBatch):
+		// a batch job is a kubernetes native batch/v1 Job, its tasks are the pods of the job
+		if runtimeFlag && job.RuntimeInfo != nil {
+			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
+			if err != nil {
+				log.Errorf("parse batch job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			statusByte, err := json.Marshal(job.RuntimeStatus)
+			if err != nil {
+				log.Errorf("parse batch job[%s] status failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			runtimes, err := getTaskRuntime(job.ID, job.ClusterID, &kindGroupVersion)
+			if err != nil {
+				return response, err
+			}
+			response.DistributedRuntime = &DistributedRuntimeInfo{
+				ID:        string(k8sMeta.UID),
+				Name:      k8sMeta.Name,
+				Namespace: k8sMeta.Namespace,
+				Status:    string(statusByte),
+				Runtimes:  runtimes,
+			}
+		}
+		response.DistributedJobSpec = DistributedJobSpec{
+			Framework: job.Framework,
+			Members:   make([]schema.Member, 0),
+		}
+		// keep the top-level job spec readable for clients, batch jobs have no members
+		var jobSpec JobSpec
+		if err := json.Unmarshal([]byte(job.ConfigJson), &jobSpec); err != nil {
+			log.Errorf("parse job[%s] config failed, error:[%s]", job.ID, err.Error())
+			return response, err
+		}
+		// only return the template when getting job details, to keep the list response small
+		if runtimeFlag && job.ExtensionTemplate != "" {
+			extensionTemplate := make(map[string]interface{})
+			if err := yaml.Unmarshal([]byte(job.ExtensionTemplate), &extensionTemplate); err != nil {
+				log.Errorf("parse job[%s] extension template failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			jobSpec.ExtensionTemplate = extensionTemplate
+		}
+		response.CreateSingleJobRequest.JobSpec = jobSpec
 	case string(schema.TypeDistributed):
 		if runtimeFlag && job.RuntimeInfo != nil {
 			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
@@ -393,6 +441,12 @@ func getTaskRuntime(jobID string, clusterID string, kGroupVer *schema.KindGroupV
 			runtime.Index = idx
 		}
 		runtimes = append(runtimes, runtime)
+	}
+	// keep the tasks of a batch job in completion index order
+	if kGroupVer != nil && *kGroupVer == schema.BatchJobKindGroupVersion {
+		sort.SliceStable(runtimes, func(i, j int) bool {
+			return runtimes[i].Index < runtimes[j].Index
+		})
 	}
 	return runtimes, nil
 }
@@ -537,6 +591,14 @@ func getTaskRoleAndIndex(task model.JobTask, kgv *schema.KindGroupVersion) (stri
 	switch kgv.String() {
 	case schema.StandaloneKindGroupVersion.String():
 		taskRole, taskIndex = schema.RoleWorker, 0
+	case schema.BatchJobKindGroupVersion.String():
+		taskRole = schema.RoleWorker
+		// the index of the pod is set by kubernetes for an indexed batch/v1 Job
+		if indexStr, ok := task.Annotations[schema.JobCompletionIndexAnnotation]; ok {
+			if idx, err := strconv.Atoi(indexStr); err == nil {
+				taskIndex = idx
+			}
+		}
 	case schema.PaddleKindGroupVersion.String():
 		taskRole, taskIndex = getPaddleJobRoleAndIndex(task.Name, task.Annotations)
 	case schema.AITrainingKindGroupVersion.String():

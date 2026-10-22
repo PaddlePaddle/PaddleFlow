@@ -21,6 +21,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/aitraining"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/argoworkflow"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/batchjob"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/mpi"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/paddle"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/job/pytorch"
@@ -33,6 +34,7 @@ import (
 func init() {
 	// Plugins for Jobs
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.StandaloneKindGroupVersion, single.New)
+	framework.RegisterJobPlugin(schema.KubernetesType, schema.BatchJobKindGroupVersion, batchjob.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.PaddleKindGroupVersion, paddle.New)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.KFPaddleKindGroupVersion, paddle.KFNew)
 	framework.RegisterJobPlugin(schema.KubernetesType, schema.MPIKindGroupVersion, mpi.New)

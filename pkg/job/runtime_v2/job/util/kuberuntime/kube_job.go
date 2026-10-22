@@ -189,7 +189,10 @@ func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobM
 	//  kubeflow paddle job -> PaddleJob-kubeflow.org/v1-collective
 	//  tensorflow with ps mode -> tensorflow-ps-job
 	//  pytorch with ps mode -> pytorch-ps-job
+	//  kubernetes native batch Job -> batch-job
 	switch jobType {
+	case schema.TypeBatch:
+		jobTemplateName = "batch-job"
 	case schema.TypeSingle, schema.TypeWorkflow:
 		jobTemplateName = fmt.Sprintf("%s-job", jobType)
 	case schema.TypeDistributed:
@@ -217,6 +220,34 @@ func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVe
 		return fmt.Errorf("job is nil")
 	}
 	log.Debugf("createJobFromYaml jobEntity[%+v] %v", jobEntity, reflect.TypeOf(jobEntity))
+	unstructuredObj, err := decodeKubeJobFromYaml(kindVersion, job)
+	if err != nil {
+		return err
+	}
+
+	// convert unstructuredObj.Object into entity
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, jobEntity); err != nil {
+		log.Errorf("convert map struct object[%+v] to acutal job type failed: %v", unstructuredObj.Object, err)
+		return err
+	}
+
+	log.Debugf("get jobEntity[%+v] from yamlContent[%s]job", jobEntity, job.ExtensionTemplate)
+	return nil
+}
+
+// CreateKubeUnstructuredFromYaml decodes the job template into an unstructured object without
+// converting it to a typed object, so all fields of the template are preserved even if the
+// client dependencies do not know them.
+func CreateKubeUnstructuredFromYaml(kindVersion schema.KindGroupVersion, job *api.PFJob) (*unstructured.Unstructured, error) {
+	if job == nil {
+		return nil, fmt.Errorf("job is nil")
+	}
+	return decodeKubeJobFromYaml(kindVersion, job)
+}
+
+// decodeKubeJobFromYaml gets the job template, decodes it into an unstructured object and
+// checks its GroupVersionKind.
+func decodeKubeJobFromYaml(kindVersion schema.KindGroupVersion, job *api.PFJob) (*unstructured.Unstructured, error) {
 	// get extensionTemplate
 	if len(job.ExtensionTemplate) == 0 {
 		// get builtin template
@@ -224,7 +255,7 @@ func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVe
 		job.IsCustomYaml = false
 		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode, kindVersion)
 		if err != nil {
-			return fmt.Errorf("get default template failed, err: %v", err)
+			return nil, fmt.Errorf("get default template failed, err: %v", err)
 		}
 	} else {
 		// get template from user
@@ -237,7 +268,7 @@ func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVe
 
 	if _, _, err := dec.Decode(job.ExtensionTemplate, nil, unstructuredObj); err != nil {
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(job.ExtensionTemplate), err)
-		return err
+		return nil, err
 	}
 	parsedGVK := unstructuredObj.GroupVersionKind()
 	log.Debugf("unstructuredObj=%v, GroupVersionKind=[%v]", unstructuredObj, parsedGVK)
@@ -246,17 +277,9 @@ func CreateKubeJobFromYaml(jobEntity interface{}, kindVersion schema.KindGroupVe
 	if parsedGVK.String() != kindGroupVersion.String() {
 		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", kindGroupVersion.String(), parsedGVK.String())
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(job.ExtensionTemplate), err)
-		return err
+		return nil, err
 	}
-
-	// convert unstructuredObj.Object into entity
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, jobEntity); err != nil {
-		log.Errorf("convert map struct object[%+v] to acutal job type failed: %v", unstructuredObj.Object, err)
-		return err
-	}
-
-	log.Debugf("get jobEntity[%+v] from yamlContent[%s]job", jobEntity, job.ExtensionTemplate)
-	return nil
+	return unstructuredObj, nil
 }
 
 func ValidatePodResources(spec *corev1.PodSpec) error {
@@ -829,8 +852,12 @@ func getPodGroupName(jobID string) string {
 		pgName = jobID
 	case schema.FrameworkSpark:
 		pgName = fmt.Sprintf("spark-%s-pg", jobID)
-	case schema.FrameworkStandalone, "":
-		runtimeInfo := job.RuntimeInfo.(map[string]interface{})
+	case schema.FrameworkStandalone, schema.FrameworkK8SBatch, "":
+		runtimeInfo, ok := job.RuntimeInfo.(map[string]interface{})
+		if !ok || runtimeInfo == nil {
+			log.Warningf("runtime info of job %s is invalid, fallback to job id as pod group name", jobID)
+			return jobID
+		}
 		jobObj := &unstructured.Unstructured{}
 		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
 			log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)

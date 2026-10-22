@@ -95,7 +95,7 @@ def _print_job(job_info, out_format):
     if job_info.member_list:
         headers.extend(['framework', 'members'])
         data[0].extend([job_info.framework, job_info.member_list])
-    if job_info.extension_template is dict:
+    if isinstance(job_info.extension_template, dict):
         headers.append('extensionTemplate')
         data[0].append(job_info.extension_template)
     # print job runtime info
@@ -180,15 +180,19 @@ def _print_job_list(jobs, out_format, fieldlist):
 @click.pass_context
 def create(ctx, jobtype, jsonpath):
     """ create job.\n
-    JOBTYPE: single, distributed or workflow.
+    JOBTYPE: single, distributed, workflow or batch.
     JSONPATH: relative path of json file under storage volume.
     """
     client = ctx.obj['client']
     if not jobtype or not jsonpath:
         click.echo('job create must provide jobtype and jsonpath.', err=True)
         sys.exit(1)
-    with open(jsonpath, 'r', encoding='utf8') as read_content:
-        job_request_dict = json.load(read_content)
+    try:
+        with open(jsonpath, 'r', encoding='utf8') as read_content:
+            job_request_dict = json.load(read_content)
+    except (OSError, ValueError) as e:
+        click.echo("job create failed with message[invalid job config file %s: %s]" % (jsonpath, e))
+        sys.exit(1)
 
     valid, response = client.create_job(jobtype, job_request_dict)
     if valid:

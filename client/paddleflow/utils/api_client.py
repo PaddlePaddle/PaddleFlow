@@ -71,8 +71,7 @@ def call_api(**kwargs):
             done = True
             break
         except requests.exceptions.HTTPError as errh:
-            data = json.loads(resp.text)
-            raise PaddleFlowSDKException(data[CODE], data[MESSAGE], data[REQUESRID])
+            raise_http_error(resp)
         except requests.exceptions.ConnectionError as errc:
             done = False
             time.sleep(3)
@@ -80,10 +79,30 @@ def call_api(**kwargs):
             done = False
             time.sleep(3)
         except requests.exceptions.RequestException as errr:
-            data = json.loads(resp.text)
-            raise PaddleFlowSDKException(data[CODE], data[MESSAGE], data[REQUESRID])
+            raise_http_error(resp)
 
     if not done:
         return None
 
     return resp
+
+
+def raise_http_error(resp):
+    """ raise PaddleFlowSDKException with the response content
+
+    The response may not be a json body, for example, it may come from a gateway
+    or a proxy. In that case, raise the status code and the raw response so that
+    the caller can see the real error instead of a json decode error.
+    """
+    if resp is None:
+        raise PaddleFlowSDKException("HTTPError", "request failed with no response")
+    try:
+        data = json.loads(resp.text)
+        code = data[CODE]
+        message = data[MESSAGE]
+        request_id = data[REQUESRID]
+    except (ValueError, KeyError, TypeError):
+        raise PaddleFlowSDKException(
+            "HTTPError",
+            "request failed with status code %s, response: %s" % (resp.status_code, resp.text))
+    raise PaddleFlowSDKException(code, message, request_id)

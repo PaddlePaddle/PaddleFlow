@@ -88,14 +88,16 @@ func parseKindGroupVersion(kindGVStr string) (KindGroupVersion, error) {
 var (
 	// StandaloneKindGroupVersion kind group version for single job
 	StandaloneKindGroupVersion = KindGroupVersion{Kind: "Pod", Group: "", APIVersion: "v1"}
-	PaddleKindGroupVersion     = KindGroupVersion{Kind: "PaddleJob", Group: "batch.paddlepaddle.org", APIVersion: "v1"}
-	KFPaddleKindGroupVersion   = KindGroupVersion{Kind: "PaddleJob", Group: "kubeflow.org", APIVersion: "v1"}
-	PyTorchKindGroupVersion    = KindGroupVersion{Kind: "PyTorchJob", Group: "kubeflow.org", APIVersion: "v1"}
-	TFKindGroupVersion         = KindGroupVersion{Kind: "TFJob", Group: "kubeflow.org", APIVersion: "v1"}
-	MPIKindGroupVersion        = KindGroupVersion{Kind: "MPIJob", Group: "kubeflow.org", APIVersion: "v1"}
-	MXNetKindGroupVersion      = KindGroupVersion{Kind: "MXJob", Group: "kubeflow.org", APIVersion: "v1"}
-	SparkKindGroupVersion      = KindGroupVersion{Kind: "SparkApplication", Group: "sparkoperator.k8s.io", APIVersion: "v1beta2"}
-	RayKindGroupVersion        = KindGroupVersion{Kind: "RayJob", Group: "ray.io", APIVersion: "v1alpha1"}
+	// BatchJobKindGroupVersion kind group version for kubernetes native batch/v1 Job
+	BatchJobKindGroupVersion = KindGroupVersion{Kind: "Job", Group: "batch", APIVersion: "v1"}
+	PaddleKindGroupVersion   = KindGroupVersion{Kind: "PaddleJob", Group: "batch.paddlepaddle.org", APIVersion: "v1"}
+	KFPaddleKindGroupVersion = KindGroupVersion{Kind: "PaddleJob", Group: "kubeflow.org", APIVersion: "v1"}
+	PyTorchKindGroupVersion  = KindGroupVersion{Kind: "PyTorchJob", Group: "kubeflow.org", APIVersion: "v1"}
+	TFKindGroupVersion       = KindGroupVersion{Kind: "TFJob", Group: "kubeflow.org", APIVersion: "v1"}
+	MPIKindGroupVersion      = KindGroupVersion{Kind: "MPIJob", Group: "kubeflow.org", APIVersion: "v1"}
+	MXNetKindGroupVersion    = KindGroupVersion{Kind: "MXJob", Group: "kubeflow.org", APIVersion: "v1"}
+	SparkKindGroupVersion    = KindGroupVersion{Kind: "SparkApplication", Group: "sparkoperator.k8s.io", APIVersion: "v1beta2"}
+	RayKindGroupVersion      = KindGroupVersion{Kind: "RayJob", Group: "ray.io", APIVersion: "v1alpha1"}
 	// AITrainingKindGroupVersion kind group version for single job
 	AITrainingKindGroupVersion = KindGroupVersion{Kind: "AITrainingJob", Group: "kongming.cce.baiudbce.com", APIVersion: "v1"}
 	// WorkflowKindGroupVersion kind group version for argo workflow job
@@ -103,6 +105,7 @@ var (
 
 	frameworkKindGroupVersionMap = map[Framework]KindGroupVersion{
 		FrameworkStandalone: StandaloneKindGroupVersion,
+		FrameworkK8SBatch:   BatchJobKindGroupVersion,
 		FrameworkPaddle:     PaddleKindGroupVersion,
 		FrameworkPytorch:    PyTorchKindGroupVersion,
 		FrameworkTF:         TFKindGroupVersion,
@@ -114,6 +117,7 @@ var (
 	}
 	JobKindGroupVersionMap = map[KindGroupVersion]bool{
 		StandaloneKindGroupVersion: true,
+		BatchJobKindGroupVersion:   true,
 		SparkKindGroupVersion:      true,
 		PaddleKindGroupVersion:     true,
 		KFPaddleKindGroupVersion:   true,
@@ -135,6 +139,8 @@ func GetJobType(kindVersion KindGroupVersion) JobType {
 	switch kindVersion {
 	case StandaloneKindGroupVersion:
 		return TypeSingle
+	case BatchJobKindGroupVersion:
+		return TypeBatch
 	case WorkflowKindGroupVersion:
 		return TypeWorkflow
 	default:
@@ -146,6 +152,8 @@ func GetJobFramework(gvk KindGroupVersion) Framework {
 	switch gvk {
 	case StandaloneKindGroupVersion:
 		return FrameworkStandalone
+	case BatchJobKindGroupVersion:
+		return FrameworkK8SBatch
 	case WorkflowKindGroupVersion:
 		return ""
 	default:

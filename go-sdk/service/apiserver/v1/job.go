@@ -19,6 +19,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -33,6 +34,7 @@ const (
 	TypeSingle      = "single"
 	TypeDistributed = "distributed"
 	TypeWorkflow    = "workflow"
+	TypeBatch       = "batch" // runs as a kubernetes native batch/v1 Job
 	KeyAction       = "action"
 	KeyStatus       = "status"
 	KeyTimestamp    = "timestamp"
@@ -64,6 +66,14 @@ type CreateWfJobRequest struct {
 	CommonJobInfo     `json:",inline"`
 	Framework         schema.Framework       `json:"framework"`
 	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
+}
+
+// CreateBatchJobRequest convey request for create batch job.
+// A batch job is described by a complete kubernetes native batch/v1 Job template,
+// so it has no members and no flavour.
+type CreateBatchJobRequest struct {
+	CommonJobInfo     `json:",inline"`
 	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
@@ -204,6 +214,24 @@ func (j *job) Create(ctx context.Context, single *CreateSingleJobRequest, distri
 	return
 }
 
+// CreateBatch creates a batch job, which is described by a complete kubernetes
+// native batch/v1 Job template in ExtensionTemplate.
+func (j *job) CreateBatch(ctx context.Context, batch *CreateBatchJobRequest,
+	token string) (result *CreateJobResponse, err error) {
+	if batch == nil {
+		return nil, fmt.Errorf("request of batch job is nil")
+	}
+	result = &CreateJobResponse{}
+	err = core.NewRequestBuilder(j.client).
+		WithHeader(common.HeaderKeyAuthorization, token).
+		WithURL(JobApi + "/" + TypeBatch).
+		WithMethod(http.POST).
+		WithBody(batch).
+		WithResult(result).
+		Do()
+	return
+}
+
 func (j *job) Get(ctx context.Context, jobID,
 	token string) (result *GetJobResponse, err error) {
 	result = &GetJobResponse{}
@@ -285,6 +313,7 @@ type JobGetter interface {
 type JobInterface interface {
 	Create(ctx context.Context, single *CreateSingleJobRequest, distributed *CreateDisJobRequest,
 		wf *CreateWfJobRequest, token string) (*CreateJobResponse, error)
+	CreateBatch(ctx context.Context, batch *CreateBatchJobRequest, token string) (*CreateJobResponse, error)
 	Get(ctx context.Context, jobID string, token string) (*GetJobResponse, error)
 	List(ctx context.Context, request *ListJobRequest, token string) (*ListJobResponse, error)
 	Update(ctx context.Context, jobID string, request *UpdateJobRequest, token string) error

@@ -24,6 +24,7 @@ import (
 
 var (
 	PodGVK       = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	BatchJobGVK  = schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}
 	PodGroupGVK  = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "PodGroup"}
 	VCQueueGVK   = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "Queue"}
 	EQuotaGVK    = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
@@ -40,6 +41,7 @@ var (
 
 	// PodGVR TODO:// add gvr to process and get rid of all gvks in future
 	PodGVR          = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	BatchJobGVR     = schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
 	SparkAppGVR     = schema.GroupVersionResource{Group: "sparkoperator.k8s.io", Version: "v1beta2", Resource: "sparkapplications"}
 	PaddleJobGVR    = schema.GroupVersionResource{Group: "batch.paddlepaddle.org", Version: "v1", Resource: "paddlejobs"}
 	PyTorchJobGVR   = schema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "pytorchjobs"}
@@ -55,6 +57,8 @@ func GetJobGVR(kindGroupVersion commomschema.KindGroupVersion) schema.GroupVersi
 	switch kindGroupVersion {
 	case commomschema.StandaloneKindGroupVersion:
 		return PodGVR
+	case commomschema.BatchJobKindGroupVersion:
+		return BatchJobGVR
 		// TODO://reopen
 		// case commomschema.FrameworkTF:
 		// 	return TFJobGVR

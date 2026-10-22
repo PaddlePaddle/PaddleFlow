@@ -158,4 +158,43 @@ func main() {
 		panic(err)
 	}
 	fmt.Println("delete job ok")
+
+	// Create batch job, whose spec is a complete kubernetes native batch/v1 Job
+	createResult, err = pfClient.APIV1().Job().CreateBatch(context.TODO(), &v1.CreateBatchJobRequest{
+		CommonJobInfo: v1.CommonJobInfo{
+			Name: "test-batch-job",
+			Labels: map[string]string{
+				"job-type": "batch",
+			},
+			SchedulingPolicy: v1.SchedulingPolicy{
+				Queue: queueName,
+			},
+		},
+		ExtensionTemplate: map[string]interface{}{
+			"apiVersion": "batch/v1",
+			"kind":       "Job",
+			"spec": map[string]interface{}{
+				"backoffLimit":   0,
+				"completions":    2,
+				"parallelism":    2,
+				"completionMode": "Indexed",
+				"template": map[string]interface{}{
+					"spec": map[string]interface{}{
+						"restartPolicy": "Never",
+						"containers": []interface{}{
+							map[string]interface{}{
+								"name":    "main",
+								"image":   "busybox",
+								"command": []interface{}{"sh", "-c", "echo index=$JOB_COMPLETION_INDEX"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, token)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("create batch job result %v\n", createResult)
 }

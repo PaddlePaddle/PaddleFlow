@@ -60,6 +60,7 @@ func (jr *JobRouter) AddRouter(r chi.Router) {
 	r.Post("/job/single", jr.CreateSingleJob)
 	r.Post("/job/distributed", jr.CreateDistributedJob)
 	r.Post("/job/workflow", jr.CreateWorkflowJob)
+	r.Post("/job/batch", jr.CreateBatchJob)
 
 	r.Delete("/job/{jobID}", jr.DeleteJob)
 	r.Put("/job/{jobID}", func(w http.ResponseWriter, r *http.Request) {
@@ -172,6 +173,41 @@ func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("create workflow job request:%+v", request)
 
 	response, err := job.CreateWorkflowJob(&ctx, &request)
+	if err != nil {
+		ctx.ErrorCode = common.JobCreateFailed
+		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("CreateJob job:%v", string(config.PrettyFormat(response)))
+	common.Render(w, http.StatusOK, response)
+}
+
+// CreateBatchJob create batch job
+// @Summary 创建Batch类型作业
+// @Description 创建Batch类型作业，作业由extensionTemplate中的完整batch/v1 Job定义
+// @Id createBatchJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Success 200 {object} job.CreateJobResponse "创建Batch类型作业的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /job/batch [POST]
+func (jr *JobRouter) CreateBatchJob(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	var request job.CreateBatchJobRequest
+	if err := common.BindJSON(r, &request); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	log.Debugf("create batch job request:%+v", request)
+
+	request.CommonJobInfo.UserName = ctx.UserName
+
+	response, err := job.CreatePFJob(&ctx, request.ToJobInfo())
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())

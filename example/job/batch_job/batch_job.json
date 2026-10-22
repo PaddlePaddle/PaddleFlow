@@ -1,0 +1,41 @@
+{
+  "id": "",
+  "name": "batch-demo",
+  "labels": {},
+  "annotations": {},
+  "schedulingPolicy": {
+    "queue": "63a9f0ea7bb98050796b649e85481845"
+  },
+  "extensionTemplate": {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "spec": {
+      "backoffLimit": 0,
+      "completions": 4,
+      "parallelism": 4,
+      "completionMode": "Indexed",
+      "template": {
+        "spec": {
+          "restartPolicy": "Never",
+          "containers": [
+            {
+              "name": "main",
+              "image": "busybox",
+              "command": [
+                "sh",
+                "-c",
+                "echo index=$JOB_COMPLETION_INDEX; sleep 30"
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
