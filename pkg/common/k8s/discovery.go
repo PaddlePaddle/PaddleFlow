@@ -73,6 +73,13 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "rayjobs", Namespaced: true, Kind: "RayJob"},
 			},
 		}
+	case "/apis/batch/v1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "batch/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "jobs", Namespaced: true, Kind: "Job"},
+			},
+		}
 	case "/api/v1":
 		obj = &metav1.APIResourceList{
 			GroupVersion: "v1",
@@ -91,6 +98,12 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 	case "/apis":
 		obj = &metav1.APIGroupList{
 			Groups: []metav1.APIGroup{
+				{
+					Name: "batch",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "batch/v1", Version: "v1"},
+					},
+				},
 				{
 					Name: "batch.volcano.sh",
 					Versions: []metav1.GroupVersionForDiscovery{

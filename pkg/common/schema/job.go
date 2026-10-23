@@ -90,6 +90,8 @@ const (
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
 	TypeWorkflow    JobType = "workflow"
+	// TypeBatch is a template-driven job that runs as a kubernetes native batch/v1 Job
+	TypeBatch JobType = "batch"
 
 	FrameworkSpark      Framework = "spark"
 	FrameworkMPI        Framework = "mpi"
@@ -99,6 +101,7 @@ const (
 	FrameworkMXNet      Framework = "mxnet"
 	FrameworkRay        Framework = "ray"
 	FrameworkStandalone Framework = "standalone"
+	FrameworkK8SBatch   Framework = "k8sbatch"
 	FrameworkAITJ       Framework = "aitj"
 
 	ListenerTypeJob      = "job"
@@ -136,8 +139,10 @@ const (
 	JobLabelFramework = "paddleflow-job-framework"
 	// JobKindGroupVersionAnnotation KindGroupVersion for job, format: {kind}.{group}/{version}
 	JobKindGroupVersionAnnotation = "paddleflow/job-kind-group-version"
-	JobAnnotationsStatusKey       = "jobStatus"
-	JobAnnotationsMessageKey      = "paddleflow/job-status-message"
+	// JobCompletionIndexAnnotation is set by kubernetes on pods of an indexed batch/v1 Job
+	JobCompletionIndexAnnotation = "batch.kubernetes.io/job-completion-index"
+	JobAnnotationsStatusKey      = "jobStatus"
+	JobAnnotationsMessageKey     = "paddleflow/job-status-message"
 
 	VolcanoJobNameLabel     = "volcano.sh/job-name"
 	QueueLabelKey           = "volcano.sh/queue-name"

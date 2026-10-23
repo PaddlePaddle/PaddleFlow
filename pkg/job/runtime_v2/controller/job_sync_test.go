@@ -56,6 +56,7 @@ var (
 	XGBoostJobGVR   = k8sschema.GroupVersionResource{Group: "kubeflow.org", Version: "v1", Resource: "xgboostjobs"}
 	RayJobGVR       = k8sschema.GroupVersionResource{Group: "ray.io", Version: "v1alpha1", Resource: "rayjobs"}
 	ArgoWorkflowGVR = k8sschema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}
+	BatchJobGVR     = k8sschema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "jobs"}
 
 	kindResourceMap = map[k8sschema.GroupVersionKind]k8sschema.GroupVersionResource{
 		k8s.PodGVK:          PodGVR,
@@ -67,6 +68,7 @@ var (
 		k8s.MXNetJobGVK:     MXNetJobGVR,
 		k8s.MPIJobGVK:       MPIJobGVR,
 		k8s.RayJobGVK:       RayJobGVR,
+		k8s.BatchJobGVK:     BatchJobGVR,
 	}
 )
 

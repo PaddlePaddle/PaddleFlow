@@ -37,8 +37,8 @@ type GetMixedLogResponse struct {
 func GetPFJobLogs(ctx *logger.RequestContext, request GetMixedLogRequest) (schema.JobLogInfo, error) {
 	ctx.Logging().Debugf("Get k8s logs by request: %v", request)
 	switch schema.Framework(request.Framework) {
-	case schema.FrameworkStandalone, schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-		schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
+	case schema.FrameworkStandalone, schema.FrameworkK8SBatch, schema.FrameworkSpark, schema.FrameworkPaddle,
+		schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
 		// todo call runtimeSvc.GetJobLog()
 		ctx.Logging().Warnf("todo")
 	default:

@@ -72,6 +72,25 @@ func (ds CreateDisJobRequest) ToJobInfo() *CreateJobInfo {
 	}
 }
 
+// CreateBatchJobRequest convey request for create batch job.
+// A batch job is described by a complete kubernetes native batch/v1 Job template,
+// members are only kept here so that old requests can be rejected explicitly.
+type CreateBatchJobRequest struct {
+	CommonJobInfo     `json:",inline"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
+}
+
+func (bj CreateBatchJobRequest) ToJobInfo() *CreateJobInfo {
+	return &CreateJobInfo{
+		CommonJobInfo:     bj.CommonJobInfo,
+		Framework:         schema.FrameworkK8SBatch,
+		Type:              schema.TypeBatch,
+		Members:           bj.Members,
+		ExtensionTemplate: bj.ExtensionTemplate,
+	}
+}
+
 // CreateWfJobRequest convey request for create workflow job
 type CreateWfJobRequest struct {
 	CommonJobInfo     `json:",inline"`

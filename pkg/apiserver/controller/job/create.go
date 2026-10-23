@@ -27,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
@@ -114,6 +115,15 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		return err
 	}
 
+	// batch job is described by a complete kubernetes native batch/v1 Job template
+	if request.Type == schema.TypeBatch {
+		if err := validateBatchJob(ctx, request); err != nil {
+			ctx.Logging().Errorf("validate batch job failed, err: %v", err)
+			return err
+		}
+		return nil
+	}
+
 	if len(request.ExtensionTemplate) != 0 {
 		// validate extension template from user
 		if len(request.Members) == 0 {
@@ -146,6 +156,84 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		if err := validateJobMembers(ctx, request); err != nil {
 			ctx.Logging().Errorf("validate members failed, err: %v", err)
 			return err
+		}
+	}
+	return nil
+}
+
+// validateBatchJob validates the request of a batch job, which only supports a
+// complete kubernetes native batch/v1 Job through extensionTemplate.
+func validateBatchJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
+	if len(request.Members) != 0 {
+		err := fmt.Errorf("batch job only supports extensionTemplate, members are not supported")
+		ctx.ErrorCode = common.JobInvalidField
+		ctx.Logging().Error(err)
+		return err
+	}
+	if len(request.ExtensionTemplate) == 0 {
+		err := fmt.Errorf("extensionTemplate for batch job is needed")
+		ctx.ErrorCode = common.JobInvalidField
+		ctx.Logging().Error(err)
+		return err
+	}
+	if err := validateBatchExtensionTemplate(request.ExtensionTemplate); err != nil {
+		ctx.ErrorCode = common.JobInvalidField
+		ctx.Logging().Errorf("validate batch extensionTemplate failed, err: %v", err)
+		return err
+	}
+	return nil
+}
+
+// validateBatchExtensionTemplate validates that the template is a batch/v1 Job.
+func validateBatchExtensionTemplate(template map[string]interface{}) error {
+	apiVersion, _ := template["apiVersion"].(string)
+	if expected := schema.BatchJobKindGroupVersion.GroupVersion(); apiVersion != expected {
+		return fmt.Errorf("apiVersion of batch job extensionTemplate must be %s, but got %s", expected, apiVersion)
+	}
+	kind, _ := template["kind"].(string)
+	if kind != schema.BatchJobKindGroupVersion.Kind {
+		return fmt.Errorf("kind of batch job extensionTemplate must be %s, but got %s",
+			schema.BatchJobKindGroupVersion.Kind, kind)
+	}
+
+	spec, ok := template["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("spec of batch job extensionTemplate must be an object")
+	}
+	if completionMode, ok := spec["completionMode"]; ok {
+		mode, isString := completionMode.(string)
+		if !isString {
+			return fmt.Errorf("spec.completionMode of batch job extensionTemplate must be a string")
+		}
+		switch mode {
+		case "Indexed":
+			if _, ok := spec["completions"]; !ok {
+				return fmt.Errorf("spec.completions must be set when spec.completionMode is Indexed")
+			}
+		case "NonIndexed":
+		default:
+			return fmt.Errorf("spec.completionMode of batch job extensionTemplate must be Indexed or NonIndexed, but got %s", mode)
+		}
+	}
+
+	podTemplate, ok := spec["template"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("spec.template of batch job extensionTemplate must be an object")
+	}
+	podSpec, ok := podTemplate["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("spec.template.spec of batch job extensionTemplate must be an object")
+	}
+	containers, ok := podSpec["containers"].([]interface{})
+	if !ok || len(containers) == 0 {
+		return fmt.Errorf("spec.template.spec.containers of batch job extensionTemplate is needed")
+	}
+	if restartPolicy, ok := podSpec["restartPolicy"]; ok {
+		policy, isString := restartPolicy.(string)
+		if !isString ||
+			(policy != string(corev1.RestartPolicyNever) && policy != string(corev1.RestartPolicyOnFailure)) {
+			return fmt.Errorf("spec.template.spec.restartPolicy of batch job extensionTemplate must be %s or %s, but got %v",
+				corev1.RestartPolicyNever, corev1.RestartPolicyOnFailure, restartPolicy)
 		}
 	}
 	return nil
@@ -545,6 +633,10 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 		if framework != schema.FrameworkStandalone {
 			err = fmt.Errorf("framework for single job must be standalone")
 		}
+	case schema.TypeBatch:
+		if framework != schema.FrameworkK8SBatch {
+			err = fmt.Errorf("framework for batch job must be %s", schema.FrameworkK8SBatch)
+		}
 	case schema.TypeDistributed:
 		switch framework {
 		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkMPI,
@@ -662,8 +754,9 @@ func buildMainConf(request *CreateJobInfo) (*schema.Conf, error) {
 	var conf = &schema.Conf{
 		Name: request.Name,
 	}
+	// batch job no longer carries members, its full spec is described by extensionTemplate
 	if request.Type == schema.TypeSingle && len(request.Members) == 1 {
-		// build conf for single job
+		// build conf for single task job
 		conf = &schema.Conf{
 			Name:            request.Name,
 			FileSystem:      request.Members[0].FileSystem,
@@ -683,13 +776,30 @@ func buildMainConf(request *CreateJobInfo) (*schema.Conf, error) {
 		conf.Priority = request.SchedulingPolicy.Priority
 	}
 	// set job KindGroupVersion
-	if request.Type == schema.TypeWorkflow {
+	switch request.Type {
+	case schema.TypeWorkflow:
 		conf.KindGroupVersion = schema.WorkflowKindGroupVersion
-	} else {
+	case schema.TypeBatch:
+		// batch job only supports kubernetes native batch/v1 Job
+		kv, err := schema.ToKindGroupVersion("", request.Framework, conf.Annotations)
+		if err != nil {
+			return nil, err
+		}
+		if kv != schema.BatchJobKindGroupVersion {
+			return nil, fmt.Errorf("job type %s only supports KindGroupVersion %s, but got %s",
+				request.Type, schema.BatchJobKindGroupVersion, kv)
+		}
+		conf.KindGroupVersion = schema.BatchJobKindGroupVersion
+	default:
 		var err error
 		conf.KindGroupVersion, err = schema.ToKindGroupVersion("", request.Framework, conf.Annotations)
 		if err != nil {
 			return nil, err
+		}
+		// only batch job can be submitted with the kubernetes native batch Job kind
+		if conf.KindGroupVersion == schema.BatchJobKindGroupVersion {
+			return nil, fmt.Errorf("job type %s does not support KindGroupVersion %s",
+				request.Type, schema.BatchJobKindGroupVersion)
 		}
 	}
 

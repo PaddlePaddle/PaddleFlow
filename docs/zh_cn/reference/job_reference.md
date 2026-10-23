@@ -2,7 +2,7 @@
 
 为方便用户使用PaddleFlow调度功能，不过多依赖其他模块，现PaddleFlow调度模块提供作业接口，方便用户快速使用PaddleFlow的功能。
 
-目前作业接口中支持用户创建单机作业，分布式作业（包括Paddle，Spark作业），工作流作业（目前只针对argo workflow）
+目前作业接口中支持用户创建单机作业，分布式作业（包括Paddle，Spark作业），工作流作业（目前只针对argo workflow），以及以Kubernetes原生Job运行的批处理作业（batch）
 
 # 2、 PaddleFlow job 命令参考
 
@@ -33,7 +33,7 @@ Commands:
 paddleflow job list -s(--status) status -t(--timestamp) timestamp  -st(--starttime) starttime -q(--queue) queue -l(--labels) k=v -m(--maxkeys) maxkeys -mk(--marker) marker -fl(--fieldlist) f1,f2 //列出所有的作业 （通过status 列出指定状态的作业;通过timestamp 列出该时间戳后有更新的作业；通过starttime 列出该启动时间后的作业；通过queue 列出该队列下的作业；通过labels 列出具有该标签的作业；通过maxkeys列出指定数量的作业；从marker列出作业；通过fieldlist 列出作业的指定列信息）
 paddleflow job show jobid -fl(--fieldlist) f1,f2 // 展示一个作业的详细信息(通过fieldlist 列出作业的指定列信息)
 paddleflow job delete jobid  //删除一个作业
-paddleflow job create jobtype:required（必须）作业类型(single, distributed, workflow) jsonpath:required(必须) 提交作业的配置文件 // 创建作业
+paddleflow job create jobtype:required（必须）作业类型(single, distributed, workflow, batch) jsonpath:required(必须) 提交作业的配置文件 // 创建作业
 paddleflow job stop jobid  // 停止一个作业
 paddleflow job update jobid --prority high --labels label1=value1,label2=value2
 ```
@@ -54,7 +54,7 @@ fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作
 
 创建作业（create方法）
 ```bash
-jobtype参数指创建作业的类型，目前支持single（单机作业），distributed（分布式作业），workflow（工作流作业）
+jobtype参数指创建作业的类型，目前支持single（单机作业），distributed（分布式作业），workflow（工作流作业），batch（以Kubernetes原生batch/v1 Job运行的批处理作业）
 jsonpath参数指定作业json配置文件的路径，其中配置文件中各参数说明如下JobSpec各字段所示
 
 ```
@@ -75,7 +75,7 @@ JobSpec
 |command| string(optional)|作业启动命令
 |args| List<string>(optional)|作业启动参数
 |port| int(optional)|作业启动端口
-|extensionTemplate| Map[string]string(optional)|作业使用的k8s对象模版完整的JSON对象
+|extensionTemplate| Map[string]string(optional)|作业使用的k8s对象模版完整的JSON对象；batch 作业必填，且必须是完整的 batch/v1 Job，不支持 members
 |framework| string(optional)|作业框架（分布式作业填写）
 |members| List <MemberSpec>(optional)|分布式作业成员信息
 
@@ -115,7 +115,58 @@ FileSystem
 |readOnly| bool (optional)|挂载之后的存储权限
 
 
-### 2.3 示例
+### 2.3 batch 作业说明
+
+batch 作业通过 `extensionTemplate` 提交一份完整的 Kubernetes 原生 `batch/v1 Job`，不支持 `members` 和 `replicas`。作业的副本数、并发度等由模板中的 `completions`、`parallelism`、`completionMode` 等字段直接描述。
+
+示例：
+
+```json
+{
+  "name": "batch-demo",
+  "schedulingPolicy": {
+    "queue": "default-queue",
+    "priority": "NORMAL"
+  },
+  "extensionTemplate": {
+    "apiVersion": "batch/v1",
+    "kind": "Job",
+    "spec": {
+      "backoffLimit": 0,
+      "completions": 4,
+      "parallelism": 4,
+      "completionMode": "Indexed",
+      "template": {
+        "spec": {
+          "restartPolicy": "Never",
+          "containers": [
+            {
+              "name": "main",
+              "image": "busybox",
+              "command": ["sh", "-c", "echo index=$JOB_COMPLETION_INDEX; sleep 30"],
+              "resources": {
+                "requests": {"cpu": "1", "memory": "1Gi"}
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+说明：
+
+- `extensionTemplate` 必须是一个完整的 `batch/v1 Job`，且 `spec.template.spec.containers` 不能为空。
+- `spec.template.spec.restartPolicy` 只能为 `Never` 或 `OnFailure`，不填时默认为 `Never`。
+- `completionMode` 可选 `Indexed` 或 `NonIndexed`。使用 `Indexed` 时必须设置 `completions`，Pod 内可通过环境变量 `JOB_COMPLETION_INDEX` 获取序号；`Indexed` 需要 Kubernetes 1.21+（1.22+ 默认开启）。
+- PaddleFlow 会向模板注入作业名称、命名空间、`owner`/`paddleflow-job-id` 标签、队列注解以及 priorityClass/schedulerName，模板中的其他字段会原样提交给集群。
+- batch 作业不会根据 `flavour`/队列配额对模板中的资源做校验，请在模板的 `resources` 中直接声明资源。
+- K3S runtime 不支持 batch 作业。
+
+
+### 2.4 示例
 
 #### 作业任务创建
 用户输入```paddleflow job create jobtype jsonpath```，界面上显示
@@ -219,7 +270,7 @@ ret, response = client.create_job()
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|job_type| string (required)|作业类型分为：single(单机)，distributed(分布式), workflow(工作流)
+|job_type| string (required)|作业类型分为：single(单机)，distributed(分布式), workflow(工作流), batch(批处理，以Kubernetes原生batch/v1 Job运行)
 |job_request| JobRequest (required)|作业所需请求参数
 
 入参中具体JobRequest结构如下：

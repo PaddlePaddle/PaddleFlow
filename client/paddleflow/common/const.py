@@ -19,3 +19,10 @@ limitations under the License.
 
 RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
 RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']
+
+JOB_TYPE_SINGLE = 'single'
+JOB_TYPE_DISTRIBUTED = 'distributed'
+JOB_TYPE_WORKFLOW = 'workflow'
+# batch job runs as a kubernetes native batch/v1 Job, described by extensionTemplate
+JOB_TYPE_BATCH = 'batch'
+JOB_TYPES = (JOB_TYPE_SINGLE, JOB_TYPE_DISTRIBUTED, JOB_TYPE_WORKFLOW, JOB_TYPE_BATCH)

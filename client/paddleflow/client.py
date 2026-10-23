@@ -19,6 +19,7 @@ limitations under the License.
 import json
 from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
+from paddleflow.common.const import JOB_TYPES
 from paddleflow.common import api
 from paddleflow.job import JobServiceApi,JobRequest
 from paddleflow.log import LogServiceApi
@@ -746,9 +747,10 @@ class Client(object):
         if queueName is None or queueName == '':
             raise PaddleFlowSDKException("InvalidJobRequest",
                                          "job_request {} queue should not be none or empty".format(job_request))
-        if job_type is None or (job_type != 'single' and job_type != 'distributed' and job_type != 'workflow'):
+        if job_type is None or job_type not in JOB_TYPES:
             raise PaddleFlowSDKException("InvalidJobType",
-                                         "job_type should not be none and should be single, distributed or workflow")
+                                         "job_type should not be none and should be one of {}".format(
+                                             ", ".join(JOB_TYPES)))
 
         job_request_obj = JobRequest(
             job_request.get('schedulingPolicy', {}).get('queue', None),

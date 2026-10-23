@@ -19,6 +19,7 @@ import json
 from urllib import parse
 
 from paddleflow.common import api
+from paddleflow.common.const import JOB_TYPE_BATCH
 from paddleflow.common.exception import PaddleFlowSDKException
 from paddleflow.job.job_info import JobInfo, Member
 from paddleflow.utils import api_client
@@ -49,9 +50,19 @@ class JobServiceApi(object):
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         body = {}
         cls.convert_to_job_spec_body(body, job_request)
+        if job_type == JOB_TYPE_BATCH:
+            # a batch job is described by a complete kubernetes native batch/v1 Job template
+            if job_request.member_list:
+                raise PaddleFlowSDKException(
+                    "InvalidJobRequest",
+                    "batch job only supports extensionTemplate, members are not supported")
+            if not isinstance(job_request.extension_template, dict) or not job_request.extension_template:
+                raise PaddleFlowSDKException(
+                    "InvalidJobRequest",
+                    "extensionTemplate of batch job is needed")
         if job_request.framework:
             body['framework'] = job_request.framework
-        if job_request.member_list:
+        if job_request.member_list and job_type != JOB_TYPE_BATCH:
             body['members'] = list()
             for member in job_request.member_list:
                 member_dict = dict()
@@ -75,7 +86,11 @@ class JobServiceApi(object):
                                        json=body)
         if not response:
             raise PaddleFlowSDKException("Create job error", response.text)
-        data = json.loads(response.text)
+        try:
+            data = json.loads(response.text)
+        except ValueError:
+            raise PaddleFlowSDKException("Create job error",
+                                         "invalid response body: %s" % response.text)
         if 'message' in data:
             return False, data['message']
         return True, data['id']
@@ -130,6 +145,10 @@ class JobServiceApi(object):
                     fs_dict['readOnly'] = fs['readOnly']
                 body['extraFS'].append(fs_dict)
         if job_request.env:
+            if not isinstance(job_request.env, dict):
+                raise PaddleFlowSDKException(
+                    "InvalidJobRequest",
+                    "env should be a map[string]string, but got %s" % type(job_request.env).__name__)
             body['env'] = job_request.env
         if job_request.command:
             body['command'] = job_request.command

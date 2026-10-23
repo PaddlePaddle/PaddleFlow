@@ -147,6 +147,83 @@ func TestCreateJob(t *testing.T) {
 	}
 }
 
+func TestCreateBatchJob(t *testing.T) {
+	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
+	initCluster(t)
+	initQueue(t, MockRootUser)
+	batchTemplate := map[string]interface{}{
+		"apiVersion": "batch/v1",
+		"kind":       "Job",
+		"spec": map[string]interface{}{
+			"completions": 2,
+			"parallelism": 2,
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"restartPolicy": "Never",
+					"containers": []interface{}{
+						map[string]interface{}{"name": "main", "image": "busybox"},
+					},
+				},
+			},
+		},
+	}
+	tests := []struct {
+		name         string
+		req          *job.CreateBatchJobRequest
+		responseCode int
+	}{
+		{
+			name: "create batch job",
+			req: &job.CreateBatchJobRequest{
+				CommonJobInfo: job.CommonJobInfo{
+					Name: "test-batch-job",
+					SchedulingPolicy: job.SchedulingPolicy{
+						Queue: MockQueueName,
+					},
+				},
+				ExtensionTemplate: batchTemplate,
+			},
+			responseCode: 200,
+		},
+		{
+			name: "empty extension template",
+			req: &job.CreateBatchJobRequest{
+				CommonJobInfo: job.CommonJobInfo{
+					Name: "test-batch-job-empty",
+					SchedulingPolicy: job.SchedulingPolicy{
+						Queue: MockQueueName,
+					},
+				},
+			},
+			responseCode: 400,
+		},
+		{
+			name: "batch job with members",
+			req: &job.CreateBatchJobRequest{
+				CommonJobInfo: job.CommonJobInfo{
+					Name: "test-batch-job-members",
+					SchedulingPolicy: job.SchedulingPolicy{
+						Queue: MockQueueName,
+					},
+				},
+				Members: []job.MemberSpec{
+					{Role: string(schema.RoleWorker), Replicas: 1},
+				},
+				ExtensionTemplate: batchTemplate,
+			},
+			responseCode: 400,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := PerformPostRequest(router, baseURL+"/job/batch", tt.req)
+			assert.NoError(t, err)
+			t.Logf("case[%s] create batch job, response=%+v", tt.name, res)
+			assert.Equal(t, tt.responseCode, res.Code)
+		})
+	}
+}
+
 func MockCreateJobByRoot(t *testing.T) {
 	initCluster(t)
 	initQueue(t, MockRootUser)

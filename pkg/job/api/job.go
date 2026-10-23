@@ -40,7 +40,7 @@ type PFJob struct {
 	Name      string
 	Namespace string
 	UserName  string
-	// JobType of job, such as TypeSingle, TypeDistributed, and TypeWorkflow
+	// JobType of job, such as TypeSingle, TypeBatch, TypeDistributed, and TypeWorkflow
 	JobType   schema.JobType
 	Framework schema.Framework
 	// TODO: use Framework and Tasks.Role instead of JobMode
