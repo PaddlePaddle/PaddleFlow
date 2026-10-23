@@ -20,7 +20,7 @@ require (
 	github.com/go-chi/chi v1.5.4
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/hanwen/go-fuse/v2 v2.2.0
+	github.com/hanwen/go-fuse/v2 v2.5.1
 	github.com/jcmturner/gokrb5/v8 v8.4.4
 	github.com/jinzhu/copier v0.3.2
 	github.com/johannesboyne/gofakes3 v0.0.0-20220627085814-c3ac35da23b2
@@ -147,7 +147,7 @@ require (
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
