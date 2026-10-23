@@ -59,6 +59,20 @@ func TestBuildKubeMetadata(t *testing.T) {
 	assert.Equal(t, len(pfjob.Labels)+3, len(metadata.Labels))
 }
 
+func TestGetDefaultTemplateForBatchJob(t *testing.T) {
+	err := config.InitJobTemplate("../../../../../../config/server/default/job/job_template.yaml")
+	assert.NoError(t, err)
+
+	batchTemplate, err := getDefaultTemplate(schema.FrameworkK8SBatch, schema.TypeBatch, "", schema.BatchJobKindGroupVersion)
+	assert.NoError(t, err)
+	assert.Contains(t, string(batchTemplate), "kind: Job")
+	assert.Contains(t, string(batchTemplate), "batch/v1")
+
+	podTemplate, err := getDefaultTemplate(schema.FrameworkStandalone, schema.TypeSingle, "", schema.StandaloneKindGroupVersion)
+	assert.NoError(t, err)
+	assert.Contains(t, string(podTemplate), "kind: Pod")
+}
+
 func TestBuildSchedulingPolicy(t *testing.T) {
 	schedulerName := "testSchedulerName"
 	config.GlobalServerConfig = &config.ServerConfig{}

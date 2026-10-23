@@ -39,6 +39,21 @@ func TestToKindGroupVersion(t *testing.T) {
 			wantRes:     PaddleKindGroupVersion,
 		},
 		{
+			name:        "default single job kind group version",
+			clusterType: KubernetesType,
+			framework:   FrameworkStandalone,
+			wantRes:     StandaloneKindGroupVersion,
+		},
+		{
+			name:        "custom batch job kind group version",
+			clusterType: KubernetesType,
+			framework:   FrameworkStandalone,
+			annotations: map[string]string{
+				JobKindGroupVersionAnnotation: "Job.batch/v1",
+			},
+			wantRes: BatchJobKindGroupVersion,
+		},
+		{
 			name:        "custom paddle job kind group version",
 			clusterType: KubernetesType,
 			framework:   FrameworkPaddle,
@@ -108,6 +123,11 @@ func TestGetJobType(t *testing.T) {
 			jobType:          TypeSingle,
 		},
 		{
+			name:             "batch job",
+			kindGroupVersion: BatchJobKindGroupVersion,
+			jobType:          TypeBatch,
+		},
+		{
 			name:             "distributed job",
 			kindGroupVersion: PaddleKindGroupVersion,
 			jobType:          TypeDistributed,
@@ -137,6 +157,11 @@ func TestGetJobFramework(t *testing.T) {
 			name:        "single job framework",
 			kindVersion: StandaloneKindGroupVersion,
 			framework:   FrameworkStandalone,
+		},
+		{
+			name:        "batch job framework",
+			kindVersion: BatchJobKindGroupVersion,
+			framework:   FrameworkK8SBatch,
 		},
 		{
 			name:        "workflow job framework",

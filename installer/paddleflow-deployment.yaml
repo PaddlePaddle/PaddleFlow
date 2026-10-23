@@ -530,6 +530,34 @@ data:
                           memory: 4Gi
         # mpi-job
         ---
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: default-name
+          namespace: default
+        spec:
+          backoffLimit: 0
+          completions: 1
+          parallelism: 1
+          template:
+            spec:
+              containers:
+                - image: nginx
+                  imagePullPolicy: IfNotPresent
+                  name: job-default-name
+                  terminationMessagePath: /dev/termination-log
+                  terminationMessagePolicy: File
+              dnsPolicy: ClusterFirst
+              enableServiceLinks: true
+              priorityClassName: normal
+              restartPolicy: Never
+              schedulerName: volcano
+              securityContext: {}
+              serviceAccount: default
+              serviceAccountName: default
+              terminationGracePeriodSeconds: 30
+        # batch-job
+        ---
     paddleserver.yaml: |
         database:
           driver: sqlite
@@ -769,6 +797,7 @@ rules:
 - apiGroups:
   - sparkoperator.k8s.io
   - batch.paddlepaddle.org
+  - batch
   - scheduling.incubator.k8s.io
   - scheduling.volcano.sh
   - bus.volcano.sh

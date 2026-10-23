@@ -558,3 +558,76 @@ func TestGetJob(t *testing.T) {
 		})
 	}
 }
+
+func TestGetBatchJob(t *testing.T) {
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{
+			Log: config.JobLogConfig{
+				ServiceHost: "127.0.0.1",
+				ServicePort: "8080",
+			},
+		},
+	}
+	driver.InitMockDB()
+	now := time.Now()
+	batchJob := model.Job{
+		ID:        "job-batch-00001",
+		Name:      "test-batch-job",
+		UserName:  "root",
+		Type:      string(schema.TypeBatch),
+		QueueID:   "test-queue-batch",
+		Status:    schema.StatusJobRunning,
+		Framework: schema.FrameworkK8SBatch,
+		RuntimeInfo: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "job-batch-00001",
+				"namespace": "default",
+				"uid":       "batch-job-uid",
+			},
+		},
+		RuntimeStatus: map[string]interface{}{"active": 2},
+		Config: &schema.Conf{
+			Name:             "test-batch-job",
+			KindGroupVersion: schema.BatchJobKindGroupVersion,
+		},
+		ExtensionTemplate: "apiVersion: batch/v1\nkind: Job\nspec:\n  completions: 2\n",
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	assert.NoError(t, storage.Job.CreateJob(&batchJob))
+	for i, index := range []string{"1", "0"} {
+		task := &model.JobTask{
+			ID:        fmt.Sprintf("job-batch-task-%d", i),
+			JobID:     batchJob.ID,
+			Name:      fmt.Sprintf("job-batch-00001-%s", index),
+			Namespace: "default",
+			NodeName:  "node-001",
+			LogURL:    "container-123456",
+			Annotations: map[string]string{
+				schema.JobCompletionIndexAnnotation: index,
+			},
+		}
+		assert.NoError(t, storage.Job.UpdateTask(task))
+	}
+
+	ctx := &logger.RequestContext{UserName: "root"}
+	response, err := GetJob(ctx, batchJob.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, schema.FrameworkK8SBatch, response.Framework)
+	assert.Empty(t, response.Members)
+	assert.NotNil(t, response.DistributedRuntime)
+	assert.Nil(t, response.Runtime)
+	assert.Len(t, response.DistributedRuntime.Runtimes, 2)
+	assert.Equal(t, 0, response.DistributedRuntime.Runtimes[0].Index)
+	assert.Equal(t, 1, response.DistributedRuntime.Runtimes[1].Index)
+	assert.Equal(t, string(schema.RoleWorker), response.DistributedRuntime.Runtimes[0].Role)
+	// the original template is returned when getting job details
+	assert.Equal(t, "batch/v1", response.ExtensionTemplate["apiVersion"])
+	assert.Equal(t, "Job", response.ExtensionTemplate["kind"])
+
+	// the template is not returned in the list response
+	listResponse, err := convertJobToResponse(batchJob, false)
+	assert.NoError(t, err)
+	assert.Nil(t, listResponse.DistributedRuntime)
+	assert.Empty(t, listResponse.ExtensionTemplate)
+}

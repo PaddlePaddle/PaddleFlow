@@ -512,7 +512,7 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 	}
 	labelSelector := metav1.LabelSelector{}
 	switch pfschema.JobType(jobLogRequest.JobType) {
-	case pfschema.TypeSingle, pfschema.TypeDistributed, pfschema.TypeWorkflow:
+	case pfschema.TypeSingle, pfschema.TypeBatch, pfschema.TypeDistributed, pfschema.TypeWorkflow:
 		labelSelector.MatchLabels = map[string]string{
 			pfschema.JobIDLabel: jobLogRequest.JobID,
 		}
@@ -533,6 +533,20 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 		log.Errorf("job[%s] get pod list failed", jobLogRequest.JobID)
 		return pfschema.JobLogInfo{}, err
 	}
+	// keep the logs of a batch job in completion index order
+	if pfschema.JobType(jobLogRequest.JobType) == pfschema.TypeBatch {
+		sort.SliceStable(podList.Items, func(i, j int) bool {
+			indexI, okI := podCompletionIndex(&podList.Items[i])
+			indexJ, okJ := podCompletionIndex(&podList.Items[j])
+			if okI && okJ {
+				return indexI < indexJ
+			}
+			if okI != okJ {
+				return okI
+			}
+			return podList.Items[i].Name < podList.Items[j].Name
+		})
+	}
 	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
 	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
 	for _, pod := range podList.Items {
@@ -546,6 +560,22 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema
 	}
 	jobLogInfo.TaskList = taskLogInfoList
 	return jobLogInfo, nil
+}
+
+// podCompletionIndex returns the completion index of a batch job pod.
+func podCompletionIndex(pod *corev1.Pod) (int, bool) {
+	if pod == nil {
+		return 0, false
+	}
+	indexStr, ok := pod.Annotations[pfschema.JobCompletionIndexAnnotation]
+	if !ok {
+		return 0, false
+	}
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return 0, false
+	}
+	return index, true
 }
 
 // GetEvents get events by name and namespace
